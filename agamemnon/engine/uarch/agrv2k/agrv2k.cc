@@ -539,6 +539,72 @@ static bool shared_control_cell_admitted(Context *ctx, const CellInfo *cell,
     return false;
 }
 
+// Mixed sequential use of the experimental CLKEn0 tile failed its silicon
+// contract. Until separate-line isolation is qualified, exclude other FF
+// groups; this is an admission boundary, not a hardware capacity claim. Keep
+// this check in native BEL validity, where both tentative and fixed bindings
+// are visible, rather than relying on the cluster shape alone.
+static bool native_clock_enable_tile_compatible(Context *ctx, const CellInfo *candidate,
+                                                BelId bel, bool explain_invalid)
+{
+    if (!shared_control_enable_admitted())
+        return true;
+
+    const Loc loc = ctx->getBelLocation(bel);
+    const bool candidate_control = candidate->type == ctx->id("AGRV2K_TILE_CONTROL") &&
+                                   loc.z == 16; // CLKEn0 only; line 1 is unadmitted.
+    const bool candidate_ff = candidate->type == ctx->id("GENERIC_SLICE") &&
+                              int_or_default(candidate->params, ctx->id("FF_USED"), 0) != 0;
+    if (!candidate_control && !candidate_ff)
+        return true; // combinational slices do not consume a native clock-enable line.
+
+    auto enable_group = [&](const CellInfo *cell) -> std::string {
+        auto it = cell->attrs.find(clock_enable_net_attr(ctx));
+        return it == cell->attrs.end() ? std::string() : it->second.as_string();
+    };
+    auto reject = [&](const char *reason, const CellInfo *other) {
+        if (explain_invalid)
+            log_info("agrv2k validity: native CLKEn0 tile isolation rejects %s '%s' at %s with FF '%s'\n",
+                     reason, ctx->nameOf(candidate), ctx->nameOfBel(bel), ctx->nameOf(other));
+        return false;
+    };
+
+    BelId root_bel = ctx->getBelByLocation(Loc(loc.x, loc.y, 16));
+    CellInfo *root = root_bel == BelId() ? nullptr : ctx->getBoundBelCell(root_bel);
+    const std::string root_group = root != nullptr && root->type == ctx->id("AGRV2K_TILE_CONTROL")
+                                           ? enable_group(root)
+                                           : std::string();
+    const std::string candidate_group = enable_group(candidate);
+
+    // A control root itself must reject pre-existing ordinary or differently
+    // enabled FFs.  Conversely, a new FF compares against the root if present
+    // and against each placed FF even while the root remains unbound.
+    if (candidate_control && candidate_group.empty()) {
+        if (explain_invalid)
+            log_info("agrv2k validity: native CLKEn0 tile control '%s' at %s has no enable group\n",
+                     ctx->nameOf(candidate), ctx->nameOfBel(bel));
+        return false;
+    }
+    if (candidate_ff && root != nullptr && root->type == ctx->id("AGRV2K_TILE_CONTROL")) {
+        if (root_group.empty())
+            return reject("control root has no enable group", root);
+        if (candidate_group != root_group)
+            return reject("control-group mismatch", root);
+    }
+
+    for (int z = 0; z < 16; ++z) {
+        BelId occupant_bel = ctx->getBelByLocation(Loc(loc.x, loc.y, z));
+        CellInfo *occupant = occupant_bel == BelId() ? nullptr : ctx->getBoundBelCell(occupant_bel);
+        if (occupant == nullptr || occupant == candidate ||
+            occupant->type != ctx->id("GENERIC_SLICE") ||
+            int_or_default(occupant->params, ctx->id("FF_USED"), 0) == 0)
+            continue;
+        if (enable_group(occupant) != candidate_group)
+            return reject("control-group mismatch", occupant);
+    }
+    return true;
+}
+
 static void reject_unsupported_shared_control_ingress(Context *ctx)
 {
     for (auto &entry : ctx->cells) {
@@ -15666,6 +15732,8 @@ struct AgrvImpl : ViaductAPI
         const char *trace = getenv("AGRV2K_PLACE_TRACE_CELL");
         if (trace != nullptr && std::string(ctx->nameOf(ci)).find(trace) != std::string::npos)
             explain_invalid = true;
+        if (ci->type == ctx->id("AGRV2K_TILE_CONTROL"))
+            return native_clock_enable_tile_compatible(ctx, ci, bel, explain_invalid);
         if (ci->type == ctx->id("ALTA_BRAM9K")) {
             std::vector<NetInfo *> clocks;
             for (const char *port : {"Clk0", "Clk1"}) {
@@ -15701,6 +15769,8 @@ struct AgrvImpl : ViaductAPI
         if (!global_clock_cell_compatible(ci, explain_invalid))
             return false;
         if (!shared_control_cell_admitted(ctx, ci, bel, explain_invalid))
+            return false;
+        if (!native_clock_enable_tile_compatible(ctx, ci, bel, explain_invalid))
             return false;
         if (!register_input_bel_valid(ctx, ci, bel, explain_invalid))
             return false;

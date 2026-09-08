@@ -80,15 +80,39 @@ established ordinary-register exemption, and its earlier semantic claim is
 withdrawn.
 
 The current experimental emitter clears BYPASSEN for native identity-LUT FFs.
-A trial rule separating ordinary and native FFs into different tiles made the
-original fixture fail placement on all28 attempts. That trial was withdrawn.
-Two further fixed-image diagnostics selected the unused enable line for the
-ordinary neighbours, with each BYPASSEN value. Neither changed their failures;
-native update/hold/resume still passed. These results do not establish tile
-interference or qualify mixed tiles. The scratch data and feedback routes remain
-under investigation. A disjoint-input source fixture separates scratch and
-native MCU data lanes to qualify enable behavior without claiming the earlier
-scratch defect repaired.
+Selecting the unused line for the ordinary neighbours, with either BYPASSEN
+value, did not repair scratch. An explicit constant-source intervention also
+failed. The physical meaning of these combined modes remains unresolved.
+
+A fresh source fixture separates native and scratch input lanes within the
+existing 16-bit input footprint. Its unrestricted placement put the ordinary
+write-pending register beside the native bank; that image delivered no writes.
+This does not establish a hardware prohibition on mixed tiles. The experimental
+path now conservatively excludes ordinary and differently controlled FFs from
+a native-enable tile, in both placement and emission checks. Combinational LUTs
+remain allowed. This is an admission restriction pending qualification of mixed
+sequential modes.
+
+The same source builds with that restriction: native data occupies X17Y10
+slices 0 through 7, with all ordinary FFs outside the tile. Image
+`a91f125a9e091dddbee995c6b82e309d227b2a968eac25db7967f4fe536d9710`
+passed its composition and MCU read-lane audits, then passed the full silicon
+contract three times. Both bracketing controls and the retained reference passed;
+an independent audit re-parsed the raw readbacks and accepted the result. Final
+reset completed and custody was released, with zero flash or option writes.
+This witnesses the bounded isolated-tile composition, including native
+update/hold/resume and ordinary scratch updates and LFSR activity elsewhere.
+It does not qualify arbitrary mixed tiles or promote native enable to normal
+release settings. Negative fences remain **74 before, 74 after**.
+
+The first three routing attempts exceeded their explicit 20-second budgets;
+seed 4 completed. `build --uarch --attempt-timeout SECONDS` optionally bounds
+each place-and-route subprocess so the existing retry ladder can continue.
+A timeout is incomplete work and cannot be accepted as a routed image. The
+default remains unlimited. With `AGAMEMNON_ATTEMPT_TRACE_DIR` set, native logs
+are written during each attempt, including attempts terminated by the budget.
+This controls execution time; it does not repair routing congestion or qualify
+the reported timing model.
 
 Vendor comparison artifacts and board orchestration remain in the private
 evidence repository.

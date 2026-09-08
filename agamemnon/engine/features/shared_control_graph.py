@@ -327,6 +327,15 @@ class SharedControlGraphFeature:
                 continue
             enable = cell.get("attributes", {}).get("AGRV2K_CLOCK_ENABLE_NET")
             if not enable:
+                ff_used = cell.get("parameters", {}).get("FF_USED", 0)
+                if (int(ff_used, 2) if isinstance(ff_used, str) else int(ff_used)):
+                    ordinary_bel = cell.get("attributes", {}).get("NEXTPNR_BEL", "")
+                    ordinary_site = re.fullmatch(r"X(\d+)Y(\d+)_SLICE(\d+)", ordinary_bel)
+                    if ordinary_site and tuple(map(int, ordinary_site.groups()[:2])) in control_sites:
+                        raise SharedControlEmitError(
+                            "ordinary register %r shares an enabled tile at %s; "
+                            "mixed sequential control requires separate qualification" %
+                            (name, ordinary_bel))
                 continue
             bel = cell.get("attributes", {}).get("NEXTPNR_BEL", "")
             match = re.fullmatch(r"X(\d+)Y(\d+)_SLICE(\d+)", bel)

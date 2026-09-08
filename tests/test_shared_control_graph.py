@@ -386,7 +386,7 @@ def test_native_enable_clears_the_erroneous_bypass_setting():
     assert image[byte] == (255 & ~mask)
 
 
-def test_ordinary_neighbour_is_not_mistaken_for_a_native_enable_member():
+def test_experimental_enable_requires_separate_tiles_for_ordinary_registers():
     controller = dict(type=shared_control.TILE_CONTROL_BEL,
                       attributes=dict(NEXTPNR_BEL="X14Y8_CLKEN0", AGRV2K_CLOCK_ENABLE_NET="enable"))
     active = dict(type="GENERIC_SLICE", parameters=dict(FF_USED="1"),
@@ -394,7 +394,8 @@ def test_ordinary_neighbour_is_not_mistaken_for_a_native_enable_member():
     ordinary = dict(type="GENERIC_SLICE", parameters=dict(FF_USED="1"),
                     attributes=dict(NEXTPNR_BEL="X14Y8_SLICE4"))
     module = dict(cells=dict(control=controller, active=active, ordinary=ordinary))
-    assert shared_control.FEATURE.slice_lines_from_module(module) == {(14, 8, 3): 0}
+    with pytest.raises(shared_control.SharedControlEmitError, match="mixed sequential control"):
+        shared_control.FEATURE.slice_lines_from_module(module)
     ordinary["parameters"]["FF_USED"] = "0"
     assert shared_control.FEATURE.slice_lines_from_module(module) == {(14, 8, 3): 0}
     ordinary["parameters"]["FF_USED"] = "1"

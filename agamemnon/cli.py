@@ -41,6 +41,7 @@ extension; see docs/PROGRAMMING.md.
     agamemnon go 0x80010000 --transport usb
 """
 import os, sys, argparse, subprocess, tempfile, json, hashlib, shutil, time, re, csv
+import math
 
 from .tool_shim import stage_windows_directory, stage_windows_executable
 
@@ -588,6 +589,7 @@ def _run_child(command, **kwargs):
             job = None
 
     popen_kwargs = dict(kwargs)
+    timeout = popen_kwargs.pop("timeout", None)
     capture = popen_kwargs.pop("capture_output", False)
     if capture:
         if popen_kwargs.get("stdout") is not None or popen_kwargs.get("stderr") is not None:
@@ -599,7 +601,7 @@ def _run_child(command, **kwargs):
         kernel32.CloseHandle(job)
         job = None
     try:
-        stdout, stderr = proc.communicate()
+        stdout, stderr = proc.communicate(timeout=timeout)
     except BaseException:
         proc.kill()
         proc.wait()
@@ -1810,6 +1812,10 @@ def cmd_build(a):
     entirely from the self-contained package (engine/ + chipdb/ + synth/). No vendor binary. yosys and
     nextpnr-generic come from $AGAMEMNON_OSS/bin (or PATH). $AGAMEMNON_DATA overrides the shipped chip
     DB and $AGAMEMNON_ENGINE overrides the engine dir, but both default to the packaged copies."""
+    attempt_timeout = getattr(a, "attempt_timeout", None)
+    if attempt_timeout is not None and (not math.isfinite(attempt_timeout) or attempt_timeout <= 0):
+        print("error: --attempt-timeout must be a finite positive number of seconds")
+        sys.exit(2)
     from .engine import special_routes
     _suppress_windows_crash_dialogs()
     freq = getattr(a, "freq", None)
@@ -2086,13 +2092,20 @@ def cmd_build(a):
         print("error: %s" % exc)
         sys.exit(2)
 
-    def run(step, cmd, check=True, child_env=None):
+    def run(step, cmd, check=True, child_env=None, timeout=None):
         child_env = child_env or env
         exe = shutil.which(cmd[0], path=child_env.get("PATH")) or cmd[0]   # Windows: find via child PATH
         cmd = [exe] + cmd[1:]
         print("[build] %s: %s" % (step, " ".join(os.path.basename(c) if os.sep in c else c for c in cmd)))
         try:
-            r = _run_child(cmd, env=child_env, capture_output=True, text=True)
+            limits = {"timeout": timeout} if timeout is not None else {}
+            r = _run_child(cmd, env=child_env, capture_output=True, text=True, **limits)
+        except subprocess.TimeoutExpired as exc:
+            def decoded(value):
+                return value.decode(errors="replace") if isinstance(value, bytes) else (value or "")
+            message = "AGaMEMnon place&route time limit exceeded (%g seconds); attempt is incomplete" % timeout
+            print("[build] " + message)
+            r = subprocess.CompletedProcess(cmd, 124, decoded(exc.stdout), decoded(exc.stderr) + "\n" + message + "\n")
         except OSError as exc:
             # Fail closed with an actionable message instead of a raw
             # FileNotFoundError traceback (the nextpnr path has its own preflight;
@@ -2589,6 +2602,9 @@ def cmd_build(a):
                     os.makedirs(trace_dir, exist_ok=True)
                     trace_stem = "attempt_%02d_cap%d_seed%s_fo%d" % (
                         attempt_no + 1, cap, seed, fo)
+                    # Preserve live native diagnostics even when the caller
+                    # times out before run() can return captured output.
+                    attempt_npr.extend(["--log", os.path.join(trace_dir, trace_stem + ".log")])
                     shutil.copyfile(synth_json, os.path.join(trace_dir, trace_stem + ".json"))
                     with open(os.path.join(trace_dir, trace_stem + ".meta.json"), "w",
                               encoding="utf-8") as trace_meta:
@@ -2602,6 +2618,7 @@ def cmd_build(a):
                 rlog = run("place&route (%s, fanout %s)" %
                            (placement_label, "off" if fo == 0 else "maxfo=%d" % fo),
                            attempt_npr, check=False,
+                           timeout=attempt_timeout,
                            child_env=_build_tool_env(env, oss=oss, runtime=npr_runtime))
                 attempt_no += 1
                 # Classify this attempt's outcome ONCE and reuse it for both disk logging and the
@@ -3114,6 +3131,9 @@ def main(argv=None):
     b.add_argument("--maxfo", type=int, default=2,
                    help="[--uarch] tightest fanout floor for the route-driven escalation (tries unsplit "
                         "first across the cap sweep, then splits progressively down to this if routing fails)")
+    b.add_argument("--attempt-timeout", type=float, metavar="SECONDS",
+                   help="[--uarch] stop an incomplete place-and-route attempt after this time "
+                        "and continue the existing retry ladder (default: no time limit)")
     b.add_argument("--compact-maxd", type=int, metavar="TILES",
                    help="[--uarch, experimental] restrict regional placement to this Manhattan "
                         "radius around its root; no default until corpus A/B validation")
