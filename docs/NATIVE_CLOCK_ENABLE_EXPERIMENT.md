@@ -128,6 +128,28 @@ evidence repository.
 
 ## Remaining boundaries
 
+### Resource measurements after default promotion
+
+A paired ordinary-source check at main `25ac0b2` compared the default with
+`--no-native-clock-enable`, using the same binary and deterministic seed ladder.
+It found no slice-count saving in the four sampled workloads:
+
+| Workload | Slices, data logic → native | Result |
+| --- | --- | --- |
+| regbank16 | 68 → 69 packed | Data logic builds; native placement fails with two enabled read-word registers |
+| addsub16 | 162 → 162 packed | Both bounded runs time out; neither uses native FFs |
+| util20 | 442 → 442 placed | Both build across102 tiles; neither uses native FFs |
+| enable qualification control | 69 → 69 placed | Both build; native uses16 tiles versus18 |
+
+The enable control's reported Fmax changed from113.68 to111.12MHz. These are
+model estimates, not measured silicon speed. The two-tile placement reduction
+does not establish a general capacity increase. The regbank16 failure is a
+known default-path limitation: use `--no-native-clock-enable` for that source
+until selective mapping or automatic fallback is implemented. No workload was
+modified to produce a favorable comparison.
+
+### Qualification limits
+
 Line 1, synchronous shared controls, asynchronous control admission, arbitrary
 coordinates, combined modes, timing closure and general placement capacity are
 not qualified by this fixture. The unexplained vendor BYPASSEN comparison stays
