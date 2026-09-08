@@ -431,13 +431,19 @@ class SharedControlGraphFeature:
             if line not in (0, 1):
                 raise SharedControlEmitError(
                     "slice X%dY%d_SLICE%d asks for line %r" % (x, y, z, line))
+            # WITHOUT THIS BIT THE ENABLE DOES NOTHING. CFG_BYPASSEN<z> clear
+            # -- the baseline -- means the slice is clocked unconditionally, so
+            # a design can route a control net to a tile line, emit every
+            # selector correctly, and still have its register advance every
+            # cycle. Measured, after emitting exactly that image once.
+            state.sets.append(control_encode.slice_enable_bit(x, y, z))
             if line == 1:
                 # Clear means line 0, which the cleared baseline already gives.
                 state.sets.append(control_encode.slice_line_bit(x, y, z, family))
 
-        print("shared control: %d tile-line selections, %d CtrlMUX sources, "
-              "%d slice line bits -> %d config bits"
-              % (state.routes, state.sources,
+        print("shared control: %d tile-line selection(s), %d CtrlMUX source(s), "
+              "%d gated slice(s) (%d on line 1) -> %d config bits"
+              % (state.routes, state.sources, len(state.slice_lines),
                  sum(1 for line in state.slice_lines.values() if line == 1),
                  len(state.sets)))
         return state

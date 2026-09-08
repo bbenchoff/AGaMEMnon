@@ -239,15 +239,21 @@ def test_a_ctrlmux_source_with_no_selector_bit_at_that_tile_is_refused():
         shared_control.FEATURE.prepare(["X14Y8_OMUX01.X14Y8_CtrlMUX00"], {})
 
 
-def test_only_slices_taking_line_one_get_a_selector_bit():
-    """Clear means line 0, which the cleared baseline already gives."""
+def test_only_slices_taking_line_one_get_a_LINE_selector_bit():
+    """The LINE selector is what line 0 does not need -- the cleared baseline
+    already selects line 0. The per-slice enable bit is needed either way, so
+    it is present in both cases; this test used to assert `off.sets == []` and
+    was encoding the bug that made a routed enable gate nothing."""
     from agamemnon.engine import control_encode
 
     on = shared_control.FEATURE.prepare([], {}, slice_lines={(14, 8, 3): 1})
     off = shared_control.FEATURE.prepare([], {}, slice_lines={(14, 8, 3): 0})
 
-    assert on.sets == [control_encode.slice_line_bit(14, 8, 3, "clock_enable")]
-    assert off.sets == []
+    line_bit = control_encode.slice_line_bit(14, 8, 3, "clock_enable")
+    assert line_bit in on.sets
+    assert line_bit not in off.sets
+    assert control_encode.slice_enable_bit(14, 8, 3) in on.sets
+    assert control_encode.slice_enable_bit(14, 8, 3) in off.sets
 
 
 def test_a_slice_asking_for_a_line_that_does_not_exist_is_refused():
@@ -365,3 +371,24 @@ def test_the_flag_being_unset_adds_no_bel_at_all():
     os.environ.pop(shared_control.SHARED_CONTROL_GRAPH_OPTION, None)
     assert shared_control.FEATURE.add_architecture(context) == 0
     assert context.ctx.bels == []
+
+
+def test_every_gated_slice_gets_its_enable_bit_whatever_the_line():
+    """Without CFG_BYPASSEN<z> the slice is clocked unconditionally and the
+    routed enable does nothing at all."""
+    from agamemnon.engine import control_encode
+
+    on = shared_control.FEATURE.prepare([], {}, slice_lines={(14, 8, 3): 0})
+    assert on.sets == [control_encode.slice_enable_bit(14, 8, 3)]
+
+    line1 = shared_control.FEATURE.prepare([], {}, slice_lines={(14, 8, 3): 1})
+    assert set(line1.sets) == {control_encode.slice_enable_bit(14, 8, 3),
+                               control_encode.slice_line_bit(14, 8, 3, "clock_enable")}
+
+
+def test_an_ungated_slice_in_the_same_tile_gets_no_bit():
+    """A mixed tile is safe by construction: the ordinary register's BYPASSEN
+    stays clear, so the driven tile line does not gate it."""
+    state = shared_control.FEATURE.prepare([], {}, slice_lines={(14, 8, 3): 0})
+    from agamemnon.engine import control_encode
+    assert control_encode.slice_enable_bit(14, 8, 4) not in state.sets
