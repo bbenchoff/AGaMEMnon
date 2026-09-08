@@ -18,6 +18,9 @@ def build(ctx, Loc, environ=None):
     from agamemnon.engine.features.clocks import FEATURE as CLOCK_FEATURE
     from agamemnon.engine.features.physical_io import FEATURE as PHYSICAL_IO_FEATURE
     from agamemnon.engine.features.routing import FEATURE as ROUTING_FEATURE
+    from agamemnon.engine.features.shared_control_graph import (
+        FEATURE as SHARED_CONTROL_GRAPH_FEATURE,
+    )
     from agamemnon.engine.features.bram import FEATURE as BRAM_FEATURE
     from agamemnon.engine.features.mcu_ahb import FEATURE as MCU_AHB_FEATURE
     from agamemnon.engine.features.mcu_gpio import FEATURE as MCU_GPIO_FEATURE
@@ -96,6 +99,11 @@ def build(ctx, Loc, environ=None):
 
     # ---- 4. feature-owned general routing architecture ----
     ROUTING_FEATURE.add_architecture(_architecture_context)
+
+    # ---- 4b. feature-owned shared-control routing (opt-in) ----
+    # Adds nothing unless AGRV2K_SHARED_CONTROL_GRAPH is set, so the default
+    # graph -- and therefore every retained image -- is unchanged.
+    SHARED_CONTROL_GRAPH_FEATURE.add_architecture(_architecture_context)
 
     # ---- 5. feature-owned MCU/hard-boundary architecture ----
     _architecture_context.shared["mcu_gpio_feature"] = MCU_GPIO_FEATURE
