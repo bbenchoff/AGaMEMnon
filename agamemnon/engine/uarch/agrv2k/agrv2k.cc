@@ -1938,14 +1938,56 @@ static void pack_shared_control(Context *ctx)
             control->attrs[shared_control_mode_attr(ctx)] = std::string("CLOCK_ENABLE_POS");
             control->attrs[clock_enable_net_attr(ctx)] = group.first;
 
-            std::vector<std::pair<CellInfo *, Loc>> shape;
-            shape.push_back({control.get(), Loc(0, 0, 16)});
-            for (size_t index = 0; index < count; ++index)
-                shape.push_back({members.at(base + index), Loc(0, 0, int(index))});
-            make_relative_cluster(ctx, shape, true);
+            // A member that already carries an explicit BEL is placement the
+            // caller has decided; clustering it would fight that. If every
+            // member of the chunk is pinned, pin the control cell to the same
+            // tile's line-0 sink and add no cluster at all. This is what an
+            // encoding fixture wants -- placement held fixed so the question
+            // under test is what the enable DOES, not where it lands.
+            const IdString bel_attr = ctx->id("BEL");
+            int pinned = 0, tile_x = -1, tile_y = -1;
+            for (size_t index = 0; index < count; ++index) {
+                auto it = members.at(base + index)->attrs.find(bel_attr);
+                if (it == members.at(base + index)->attrs.end())
+                    continue;
+                BelId bel = ctx->getBelByNameStr(it->second.as_string());
+                if (bel == BelId())
+                    log_error("agrv2k: clock-enabled slice '%s' names BEL '%s', "
+                              "which this device does not have\n",
+                              ctx->nameOf(members.at(base + index)),
+                              it->second.as_string().c_str());
+                const Loc loc = ctx->getBelLocation(bel);
+                if (pinned && (loc.x != tile_x || loc.y != tile_y))
+                    log_error("agrv2k: clock-enable set '%s' is pinned across "
+                              "tiles X%dY%d and X%dY%d; one control set is one "
+                              "tile\n", group.first.c_str(), tile_x, tile_y,
+                              loc.x, loc.y);
+                tile_x = loc.x; tile_y = loc.y; ++pinned;
+            }
+            if (pinned && size_t(pinned) != count)
+                log_error("agrv2k: clock-enable set '%s' has %d of %d slice(s) "
+                          "pinned; pin all of them or none\n",
+                          group.first.c_str(), pinned, int(count));
 
-            log_info("  clock enable '%s': tile cluster of %d register(s) on line 0\n",
-                     group.first.c_str(), int(count));
+            if (pinned) {
+                const std::string sink = "X" + std::to_string(tile_x) + "Y" +
+                                         std::to_string(tile_y) + "_CLKEN0";
+                if (ctx->getBelByNameStr(sink) == BelId())
+                    log_error("agrv2k: pinned tile X%dY%d has no clock-enable "
+                              "sink bel '%s'\n", tile_x, tile_y, sink.c_str());
+                control->attrs[bel_attr] = Property(sink);
+                log_info("  clock enable '%s': %d pinned register(s) in X%dY%d, "
+                         "control pinned to %s\n", group.first.c_str(),
+                         int(count), tile_x, tile_y, sink.c_str());
+            } else {
+                std::vector<std::pair<CellInfo *, Loc>> shape;
+                shape.push_back({control.get(), Loc(0, 0, 16)});
+                for (size_t index = 0; index < count; ++index)
+                    shape.push_back({members.at(base + index), Loc(0, 0, int(index))});
+                make_relative_cluster(ctx, shape, true);
+                log_info("  clock enable '%s': tile cluster of %d register(s) on line 0\n",
+                         group.first.c_str(), int(count));
+            }
             new_cells.push_back(std::move(control));
             ++controls;
         }
