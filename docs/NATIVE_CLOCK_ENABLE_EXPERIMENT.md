@@ -56,10 +56,21 @@ the two ordinary neighbours. A separate LFSR supplies phase-independent
 liveness observations. Always-enabled, never-enabled and collateral scratch-
 gating simulation mutations are rejected.
 
-The rebuilt native regression passes 270 tests without skips. Silicon and
-retained-image terminal results are recorded separately before any supported
-capability claim. Vendor comparison artifacts and board orchestration remain
-in the private evidence repository.
+The rebuilt native regression passes 270 tests without skips. All 58 retained
+images remain byte-identical (59 checks including manifest coverage); the
+additional CRLF pack/tamper test and 103 focused tests also pass.
+
+The first control-bracketed silicon session failed: both controls and the
+reference passed, but every candidate AHB read returned the correct canary
+A632, including addresses that should select scratch or gated data. The
+read-word selection path therefore did not expose the intended registers.
+This result does not establish their internal values or qualify native enable.
+Final reset succeeded; custody was released; no flash writes occurred and
+negative fences remain 74. The next diagnostic separates the native-enabled
+read-word observer from the native-enabled data bank.
+
+Vendor comparison artifacts and board orchestration remain in the private
+evidence repository.
 
 ## Remaining boundaries
 
