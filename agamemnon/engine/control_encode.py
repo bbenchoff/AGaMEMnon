@@ -36,11 +36,10 @@ index outside the four, and a design that ties both controls off leaves all 132
 tiles at zero.  The constant-tie position rests on a weaker 545-of-567
 correspondence and is flagged accordingly by :func:`source_confidence`.
 
-Out of scope: this emits which *position* a line selects, not the twelve
-``CFG_CTRLMUX`` bits per ``CtrlMUX`` instance that choose which fabric wire
-reaches it.  Those are laid out (four instances of twelve, indices 0-23 on the
-line-1 rows and 24-47 on line-0) but their encoding is not decoded, so a complete
-control route still needs that half.
+The other half of the path -- which fabric wire reaches a ``CtrlMUX`` -- is
+:func:`ctrlmux_source_sels` further down, so :func:`control_route_bits` covers a
+complete route.  Which of a tile's two lines an individual slice consumes is
+:func:`slice_line_bit`.
 """
 
 from __future__ import annotations
@@ -70,8 +69,17 @@ class ControlEncodeError(Exception):
     """A control assignment cannot be represented."""
 
 
+#: Columns left of the BRAM column at x=13 sit 18 bytes later in the image.
+#: :mod:`agamemnon.engine.physmap` carries the same correction for LUT init,
+#: byte-verified against the vendor oracle. Omitting it puts every selector of
+#: every x<13 tile 18 bytes early -- on a real, unrelated field.
+BRAM_COLUMN_X = 13
+LEFT_COLUMN_BIT_SHIFT = 18 * 8
+
+
 def tile_bit_base(x, y):
-    return 779736 - y * 63104 - x * 36
+    base = 779736 - y * 63104 - x * 36
+    return base + LEFT_COLUMN_BIT_SHIFT if int(x) < BRAM_COLUMN_X else base
 
 
 def bit_position(x, y, row, column):
@@ -175,6 +183,48 @@ def decode_tile(raw, x, y, family):
     for line, sources in found.items():
         result[line] = sources[0] if len(sources) == 1 else tuple(sorted(sources))
     return result
+
+
+# --------------------------------------------------------------------------
+# Which of the tile's two lines a slice consumes.
+# --------------------------------------------------------------------------
+
+#: Per-slice line selector rows, straight out of
+#: ``logictile_config_template.csv``: ``CFG_CLKMUX<z>`` sits at W(4*zblock+1)/B32
+#: and ``CFG_ASYNCMUX<z>`` at W(4*zblock+0)/B32, for all sixteen z.
+SLICE_SELECTOR_ROW_OFFSET = {"clock_enable": 1, "sync": 0}
+SLICE_SELECTOR_COLUMN = 32
+
+
+def zblock(z):
+    """Slice z to its config block. Block 8 is a gap, as in the LUT-init map."""
+    return z if z < 8 else z + 1
+
+
+def slice_line_bit(x, y, z, family):
+    """Return the ``(byte, mask)`` selecting which shared line slice ``z`` takes.
+
+    Set means line 1, clear means line 0.  For ``clock_enable`` this is
+    ``CFG_CLKMUX<z>``, correlated against the line actually carrying each
+    register's ``ena`` over 416 registers in eight seeds of two designs: 99 on
+    line 0 with the bit clear, 317 on line 1 with it set, no off-diagonal case.
+
+    ``sync`` maps to ``CFG_ASYNCMUX<z>`` by the row pairing, and that is
+    **untested, not established**: every one of 424 sync observations in the
+    designs with placement coverage uses line 0, so nothing in the available
+    data discriminates.  Callers that emit sync must say so explicitly.
+    """
+    if family not in SLICE_SELECTOR_ROW_OFFSET:
+        raise ControlEncodeError("unknown control family %r" % (family,))
+    if not 0 <= int(z) < 16:
+        raise ControlEncodeError("slice z=%r is outside 0..15" % (z,))
+    row = 4 * zblock(int(z)) + SLICE_SELECTOR_ROW_OFFSET[family]
+    return bit_position(x, y, row, SLICE_SELECTOR_COLUMN)
+
+
+def slice_line_confidence(family):
+    """``exact`` for clock enable, ``undetermined`` for sync. See above."""
+    return "exact" if family == "clock_enable" else "undetermined"
 
 
 # --------------------------------------------------------------------------

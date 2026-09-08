@@ -179,3 +179,107 @@ def test_control_route_bits_refuses_a_source_that_reaches_neither_instance():
 def test_control_route_bits_refuses_a_tile_missing_the_pip_entry():
     with pytest.raises(ce.ControlEncodeError, match="no CFG_CTRLMUX bit"):
         ce.control_route_bits(14, 8, "clock_enable", 1, "OMUX01", {})
+
+
+# ---------------------------------------------------------------------------
+# The whole-array pin.
+#
+# Every test above uses x=14, 15 or 16, and every harvested control arc in the
+# retained route corpus lands on a tile with x >= 13. So nothing here, and
+# nothing in the 1,758-observation corpus validation, ever exercised a tile left
+# of the BRAM column -- which is exactly where tile_bit_base was wrong by 18
+# bytes. slice_cfg.csv is independent of both: a different derivation, and all
+# 132 LogicTiles.
+# ---------------------------------------------------------------------------
+
+import csv
+from pathlib import Path
+
+CHIPDB = Path(__file__).resolve().parent.parent / "agamemnon" / "chipdb"
+
+
+def _template_positions():
+    """``CFG_NAME<i>`` -> ``(W row, B column)`` from the decoded tile template."""
+    positions = {}
+    with (CHIPDB / "logictile_config_template.csv").open(
+            newline="", encoding="utf-8") as stream:
+        reader = csv.reader(stream)
+        columns = [c for c in next(reader) if c.startswith("B")]
+        for row in reader:
+            if not row or not row[0].startswith("W"):
+                continue
+            w = int(row[0][1:])
+            for index, column in enumerate(columns):
+                name = row[1 + index]
+                if name and name != "XXXX":
+                    positions[name] = (w, int(column[1:]))
+    return positions
+
+
+def _exact_slice_bits():
+    with (CHIPDB / "slice_cfg.csv").open(newline="", encoding="utf-8") as stream:
+        for row in csv.DictReader(stream):
+            yield (int(row["x"]), int(row["y"]), row["feature"],
+                   int(row["byte"]), int(row["mask"]))
+
+
+def test_bit_position_reproduces_every_exact_per_slice_bit_that_ships():
+    positions = _template_positions()
+    checked = 0
+    for x, y, feature, byte, mask in _exact_slice_bits():
+        w, b = positions[feature.replace("[", "<").replace("]", ">")]
+        assert ce.bit_position(x, y, w, b) == (byte, mask), (
+            "X%dY%d %s" % (x, y, feature))
+        checked += 1
+    assert checked == 8448
+
+
+def test_tiles_left_of_the_bram_column_are_shifted_eighteen_bytes():
+    """The correction physmap.py has carried for LUT init, applied here too."""
+    positions = _template_positions()
+    w, b = positions["CFG_LUTCMUX<1>"]
+
+    left = [(x, y, byte, mask) for x, y, feature, byte, mask
+            in _exact_slice_bits()
+            if feature == "CFG_LUTCMUX[1]" and x < ce.BRAM_COLUMN_X]
+    assert left, "no x<13 tile in slice_cfg.csv"
+
+    for x, y, byte, mask in left:
+        assert ce.bit_position(x, y, w, b) == (byte, mask)
+        # And the uncorrected formula would have missed, by exactly 18 bytes.
+        naive = 779736 - y * 63104 - x * 36 + w * 928 - (b - 31)
+        assert byte - naive // 8 == 18
+
+
+def test_slice_line_selector_matches_the_template_for_every_slice_and_tile():
+    """CFG_CLKMUX<z> / CFG_ASYNCMUX<z>, all 132 tiles x 16 slices x 2 families."""
+    positions = _template_positions()
+    checked = 0
+    for family, prefix in (("clock_enable", "CFG_CLKMUX"),
+                           ("sync", "CFG_ASYNCMUX")):
+        for z in range(16):
+            w, b = positions["%s<%d>" % (prefix, z)]
+            assert b == ce.SLICE_SELECTOR_COLUMN
+            assert w == 4 * ce.zblock(z) + ce.SLICE_SELECTOR_ROW_OFFSET[family]
+            for x, y in _logic_tiles():
+                assert ce.slice_line_bit(x, y, z, family) == \
+                    ce.bit_position(x, y, w, b)
+                checked += 1
+    assert checked == 132 * 16 * 2
+
+
+def test_slice_line_bit_refuses_a_slice_outside_the_tile():
+    for z in (-1, 16, 99):
+        with pytest.raises(ce.ControlEncodeError, match="outside 0..15"):
+            ce.slice_line_bit(14, 8, z, "clock_enable")
+
+
+def test_sync_line_selection_is_flagged_undetermined():
+    """It maps by row pairing only; 424 of 424 observations use line 0."""
+    assert ce.slice_line_confidence("clock_enable") == "exact"
+    assert ce.slice_line_confidence("sync") == "undetermined"
+
+
+def _logic_tiles():
+    with (CHIPDB / "slice_cfg.csv").open(newline="", encoding="utf-8") as stream:
+        return sorted({(int(r["x"]), int(r["y"])) for r in csv.DictReader(stream)})
