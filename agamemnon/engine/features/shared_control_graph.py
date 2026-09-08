@@ -52,9 +52,11 @@ no-op while the flag is unset, so nothing is claimed.
 graph gains no edge, so no route can use one, so ``prepare`` sees an empty pip
 list and emits nothing: the routing graph, every emitted image and the retained
 byte gate are untouched. Enabling it exposes edges whose *encoding* is validated but
-whose *silicon behaviour through the open flow* is not, and
-:mod:`shared_control` still refuses controlled flip-flop forms, so a design
-cannot use them end to end yet.
+whose *silicon behaviour through the open flow* needs separate qualification.
+The companion ``AGRV2K_SHARED_CONTROL_ENABLE`` option preserves positive
+clock-enable registers through synthesis and packing; both options are needed
+for the experimental end-to-end path. Other physical control forms remain
+refused. See ``docs/NATIVE_CLOCK_ENABLE_EXPERIMENT.md`` for current scope.
 """
 
 from __future__ import annotations
