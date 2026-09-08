@@ -1807,6 +1807,25 @@ def _default_carry_fallback_allowed(a):
             not getattr(a, "qualified_bram_write", None))
 
 
+def _native_enable_fallback_allowed(native_enable, document, records):
+    """Retry an exhausted placement ladder only when native enables are present.
+
+    Unknown failures, timeouts, routing, timing and policy failures are not
+    evidence of native placement exhaustion and must retain their own verdict.
+    """
+    if not native_enable or not any(
+            cell.get("type") == "DFFE"
+            for module in document.get("modules", {}).values()
+            for cell in module.get("cells", {}).values()):
+        return False
+    if any("AGaMEMnon place&route time limit exceeded" in record.log for record in records):
+        return False
+    summary = _attempt_ladder.summarize_ladder(records)
+    return bool(summary and not summary.succeeded and summary.signature_counts and
+                all(record.outcome == _attempt_ladder.NOT_ROUTED for record in records) and
+                all(sig.kind == "PLACEMENT" for sig, _ in summary.signature_counts))
+
+
 def cmd_build(a):
     """Single-command open build: Verilog -> yosys synth -> nextpnr place&route -> our bitgen -> .bin,
     entirely from the self-contained package (engine/ + chipdb/ + synth/). No vendor binary. yosys and
@@ -2336,6 +2355,12 @@ def cmd_build(a):
         if env.get("AGAMEMNON_DIRECT_D_X14Y11_S8_EXPERIMENT"):
             default_devdb += "_x14y11s8exp"
         custom_devdb = os.environ.get("AGAMEMNON_DEVDB")
+        if native_enable:
+            default_devdb += "_native_enable"
+        if custom_devdb and "data_logic_enable" in getattr(a, "_fallback_stages", ()):
+            # A caller-owned native graph is not a data-logic graph. Never
+            # overwrite it or silently reuse it for the recursive build.
+            custom_devdb = custom_devdb + "_data_logic_enable"
         devdb = custom_devdb or os.path.join(udir, default_devdb)
         uarch_devdb = devdb
         emitter = os.path.join(engine, "emit_uarch_db.py")
@@ -2404,6 +2429,7 @@ def cmd_build(a):
         emit_context = emit_env + ["%s=%s" % item for item in env.items()
                                    if item[0].startswith("AGAMEMNON_")
                                    and item[0] not in ignored_cache_env]
+        emit_context.append("AGRV2K_SHARED_CONTROL_GRAPH=%d" % int(native_enable))
         # Runtime-only path tables are consumed directly by the C++ packer and
         # do not appear in dev_*.csv. Their content must still invalidate the
         # cached device database; otherwise a newly qualified path can leave a
@@ -2612,6 +2638,10 @@ def cmd_build(a):
                 # This is evidence-only and does not alter the command or env.
                 trace_dir = env.get("AGAMEMNON_ATTEMPT_TRACE_DIR")
                 if trace_dir:
+                    # Recursive synthesis fallbacks restart attempt numbering.
+                    # Keep their evidence separate from the original ladder.
+                    for stage in getattr(a, "_fallback_stages", ()):
+                        trace_dir = os.path.join(trace_dir, stage)
                     os.makedirs(trace_dir, exist_ok=True)
                     trace_stem = "attempt_%02d_cap%d_seed%s_fo%d" % (
                         attempt_no + 1, cap, seed, fo)
@@ -2700,6 +2730,15 @@ def cmd_build(a):
                 print("[build]   did not route; escalating")
         os.remove(pristine)
         if log is None:
+            if _native_enable_fallback_allowed(native_enable, pre_clock_document, attempt_records):
+                print(_attempt_ladder.format_ladder_summary(
+                    _attempt_ladder.summarize_ladder(attempt_records), attempts_dir=attempts_dir))
+                print("[build] native clock-enable placement ladder exhausted; "
+                      "resynthesizing once with register data-logic enables")
+                print("[build] native clock-enable diagnostics retained at %s" % tmp)
+                a.no_native_clock_enable = True
+                a._fallback_stages = (*getattr(a, "_fallback_stages", ()), "data_logic_enable")
+                return cmd_build(a)
             # Dedicated carry is an optimization, not a reason for a default
             # build to lose breadth.  A physically qualified chain can still
             # strand its terminal fanout on the strict graph (large lowered
@@ -2716,6 +2755,7 @@ def cmd_build(a):
                 # them here erased the evidence behind the first failure.
                 print("[build] dedicated-carry diagnostics retained at %s" % tmp)
                 a.no_hard_carry = True
+                a._fallback_stages = (*getattr(a, "_fallback_stages", ()), "lut_carry")
                 return cmd_build(a)
             # G10 -- report across every attempt, not just the last: which failure signature
             # recurred (a far stronger signal than whichever rung the ladder ended on), and run

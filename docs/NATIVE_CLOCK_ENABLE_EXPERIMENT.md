@@ -11,8 +11,12 @@ cluster-placement hook patch. Existing v0.4.0 release binaries are unchanged.
 The supported composition uses line 0 and isolates native-enabled FFs from
 ordinary or differently controlled FFs. Synchronous reset remains lowered to
 data logic; combined asynchronous controls and line 1 remain outside this scope.
-Placement can still fail under these restrictions; the explicit data-logic
-option provides the previous implementation without weakening legality.
+If native registers are present and every attempt in the placement ladder
+fails before routing, the default flow resynthesizes once with data-logic
+enables. It preserves the native attempt logs and keeps both routing databases
+separate. The explicit option skips the native attempt entirely. Timeouts,
+unknown failures, safety refusals and timing failures do not trigger this retry.
+The data-logic build still has to pass ordinary routing and emission checks.
 
 ## Placement repair
 
@@ -143,10 +147,17 @@ It found no slice-count saving in the four sampled workloads:
 
 The enable control's reported Fmax changed from113.68 to111.12MHz. These are
 model estimates, not measured silicon speed. The two-tile placement reduction
-does not establish a general capacity increase. The regbank16 failure is a
-known default-path limitation: use `--no-native-clock-enable` for that source
-until selective mapping or automatic fallback is implemented. No workload was
-modified to produce a favorable comparison.
+does not establish a general capacity increase. This measurement predates the
+automatic placement fallback described above. `--no-native-clock-enable` still
+avoids spending the native placement ladder on this regbank16 source. No
+workload was modified to produce a favorable comparison.
+
+The subsequent fallback regression recovers regbank16 after its 28 native
+placement failures, with no carry fallback: 68 slices in 16 tiles and image
+`710927189259f78b0d10806d54b2af7b3b7750e97ebaa0496caec2e4876a9bfb`,
+byte-identical to the explicit data-logic build and retained passing reference.
+The eight-register native control still reproduces its qualified `a91f125a…`
+image. This restores build compatibility; it is not an area or speed improvement.
 
 ### Qualification limits
 
