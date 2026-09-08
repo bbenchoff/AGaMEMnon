@@ -2310,6 +2310,11 @@ class RoutingFeature:
             "outside_bram_corridor": _outside_bram_corridor,
             "bram_final_destinations": _BRAM_FINAL_DST,
             "bram_final_edges": _BRAM_FINAL_OK,
+            # Every pip name this feature has claimed. A later feature adding to
+            # the same graph has to collapse against it: nextpnr takes the name
+            # as the pip's identity, and a second addPip with a name already
+            # used fails devdb emission with "duplicate/empty PIP identity".
+            "seen_pip": seen_pip,
         })
         return n_pip
 

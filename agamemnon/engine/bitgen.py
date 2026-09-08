@@ -33,6 +33,9 @@ from agamemnon.engine.features.route_through import (
     RouteThroughPolicyError,
 )
 from agamemnon.engine.features.routing import FEATURE as ROUTING_FEATURE, omux_output_sources
+from agamemnon.engine.features.shared_control_graph import (
+    FEATURE as SHARED_CONTROL_GRAPH_FEATURE,
+)
 from agamemnon.engine.registry import CONSTANTS, options_from
 from agamemnon.engine.selector_injectivity import enforce as enforce_selector_injectivity
 from agamemnon.engine.silicon_negatives import (
@@ -107,6 +110,7 @@ class PreparedDesign:
     mcu_gpio: object
     clocks: object
     route_through: object
+    shared_control: object
 
 
 @dataclass
@@ -242,6 +246,16 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT, document=None,
         ROUTE_THROUGH_FEATURE.writable_bits(route_through_state),
     )
 
+    # Routing hands over the control pips it deliberately did not resolve. With
+    # AGRV2K_SHARED_CONTROL_GRAPH unset there are none, because the graph never
+    # offered a control edge for a route to take.
+    shared_control_state = SHARED_CONTROL_GRAPH_FEATURE.prepare(
+        routing_state.shared_control_pips,
+        cell_map,
+        slice_lines=SHARED_CONTROL_GRAPH_FEATURE.slice_lines_from_module(module),
+        options=options,
+    )
+
     return PreparedDesign(
         module=module,
         cell_map=cell_map,
@@ -254,6 +268,7 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT, document=None,
         mcu_gpio=mcu_gpio_state,
         clocks=clock_state,
         route_through=route_through_state,
+        shared_control=shared_control_state,
     )
 
 
@@ -314,6 +329,10 @@ def assemble_canvas(plan, options, chipdb_root=CHIPDB_ROOT):
         "route_through": ownership.bind(
             "route_through",
             ROUTE_THROUGH_FEATURE.writable_bits(plan.route_through),
+        ),
+        "shared_control": ownership.bind(
+            "shared_control",
+            SHARED_CONTROL_GRAPH_FEATURE.writable_bits(plan.shared_control),
         ),
     }
     contexts = {
@@ -381,6 +400,12 @@ def emit_feature_phases(assembly):
 
     # ROUTING, including exact hard-boundary route fields.
     ROUTING_FEATURE.emit_bitstream(contexts["routing"])
+
+    # Tile shared-control selectors. Emitted right after routing because they
+    # ARE routing bits: routing.prepare hands its control pips over rather than
+    # resolving them, so without this call a routed enable would config-accept
+    # with no selector set and the register would clock unconditionally.
+    SHARED_CONTROL_GRAPH_FEATURE.emit_bitstream(contexts["shared_control"])
 
     # MCU_EDGES.
     MCU_GPIO_FEATURE.emit_bitstream(contexts["mcu_gpio"])

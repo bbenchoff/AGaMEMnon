@@ -4,6 +4,10 @@ N4.1 preserves one exact frontend oracle, active-high asynchronous clear to
 zero, but does not claim a physical control graph or configuration codeword.
 The strict emitter validates the complete routed shape and then rejects every
 active control before any feature bit can be claimed.
+
+``CLOCK_ENABLE_POS`` is the one admitted physical control, behind
+``AGRV2K_SHARED_CONTROL_ENABLE``. It is validated here in the same fail-closed
+way but is NOT "active": see :attr:`SharedControlRequirement.active`.
 """
 
 from __future__ import annotations
@@ -13,9 +17,11 @@ from dataclasses import dataclass
 
 
 SHARED_CONTROL_MODE_ATTRIBUTE = "AGRV2K_SHARED_CONTROL_MODE"
+CLOCK_ENABLE_NET_ATTRIBUTE = "AGRV2K_CLOCK_ENABLE_NET"
 SHARED_CONTROL_MODE_TOKENS = (
     "NONE",
     "ASYNC_CLEAR_POS_ZERO",
+    "CLOCK_ENABLE_POS",
     "UNKNOWN",
     "MALFORMED",
 )
@@ -37,9 +43,19 @@ class SharedControlRequirement:
     control_bit: int | None
     legacy_derived: bool
 
+    #: Name of the enable net for CLOCK_ENABLE_POS, else ``None``.
+    enable_net: str | None = None
+
     @property
     def active(self):
-        return self.mode != "NONE"
+        """A physical shared control this flow REFUSES.
+
+        ``CLOCK_ENABLE_POS`` is deliberately excluded. It is admitted, and the
+        refusal in ``core_logic`` reads this property to decide what to reject,
+        so folding the enable in here would refuse the very thing the feature
+        exists to emit.
+        """
+        return self.mode == "ASYNC_CLEAR_POS_ZERO"
 
 
 def _all_connection_bits(module):
@@ -88,6 +104,26 @@ def requirement_for_cell(cell_name, cell, live_bits):
         _reject(cell_name, "UNKNOWN", "unknown protocol token %r" % mode)
     if mode in ("UNKNOWN", "MALFORMED"):
         _reject(cell_name, mode, "explicit fail-closed protocol state")
+
+    if mode == "CLOCK_ENABLE_POS":
+        # A packed slice has NO enable port: the packer lifted EN onto a tile
+        # control cell, because the tile line is where the enable physically
+        # terminates. What survives on the slice is the net's name.
+        present = [name for name in SHARED_CONTROL_PORT_TOKENS if name in connections]
+        if present:
+            _reject(cell_name, mode,
+                    "a packed clock-enable slice must carry no control port, "
+                    "found: %s" % ", ".join(present))
+        if _ff_used(cell) != 1:
+            _reject(cell_name, mode, "requires FF_USED=1")
+        enable_net = attrs.get(CLOCK_ENABLE_NET_ATTRIBUTE)
+        if not enable_net:
+            _reject(cell_name, mode,
+                    "requires a %s attribute naming the enable net"
+                    % CLOCK_ENABLE_NET_ATTRIBUTE)
+        return SharedControlRequirement(
+            "CLOCK_ENABLE_POS", "POSITIVE", None, None, legacy, str(enable_net),
+        )
 
     extra_ports = [name for name in UNSUPPORTED_CONTROL_PORTS if name in connections]
     if extra_ports:

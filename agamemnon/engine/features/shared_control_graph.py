@@ -13,8 +13,10 @@ synchronous control -- reached through a tile ``CtrlMUX``::
 The destination is a **sink**: in the retained routes nothing leaves a tile
 control line. Slices consume it internally, selecting which of the two lines
 they take with ``CFG_CLKMUX<z>`` -- the same per-slice mux that already carries
-the ``CLK`` bel pin. There is therefore no per-slice control pin to add, and this
-feature adds none.
+the ``CLK`` bel pin. So there is **no per-slice control pin to add and this
+feature adds none**; a ``CE`` pin on ``GENERIC_SLICE`` would model a wire the
+hardware does not have. What it does add is an ``AGRV2K_TILE_CONTROL`` bel per
+tile line, because a routed net still has to terminate on a bel pin somewhere.
 
 Every wire involved already exists, because ``archgen`` loads all of
 ``wires.csv`` and that carries 264 ``TileClkEnMUX``, 264 ``TileSyncMUX`` and 528
@@ -34,12 +36,17 @@ and runs with the enable stuck at the baseline value. It does not emit a
 per-slice ``sync`` selection: that mapping rests on row pairing alone and every
 sync observation in the corpus uses line 0, so nothing discriminates it.
 
-Deliberately **not** in ``features.FEATURES``. Registering it there puts it on
-the claim-policy emission surface, which requires an explicit approval record --
-``approval_state``, ``approved_by``, a review date and a claim scope. That is a
-human sign-off, not something this module can assert for itself, so the feature
-stays out of the registry until it is granted. ``archgen`` calls it directly and
-it is a no-op while the flag is unset, so nothing is claimed in the meantime.
+Deliberately **not** in ``features.FEATURES``. That registry is the *release*
+surface: ``claim_policy`` claims every registered feature on every build, whether
+or not its option is set, and refuses anything below ``maturity="release"`` with
+``evidence_tier`` in {statistically_silicon_validated, individually_qualified}.
+Owner approval is checked only after those two, so a sign-off cannot substitute
+for the evidence. This feature is ``experimental`` at
+``differentially_validated`` -- its codewords are checked against retained
+images, but nothing about it has been on silicon -- so registering it would fail
+every default build. Registration becomes available when a control-path image is
+qualified on the board. ``archgen`` calls it directly meanwhile, and it is a
+no-op while the flag is unset, so nothing is claimed.
 
 **Off unless ``AGRV2K_SHARED_CONTROL_GRAPH`` is set.** With the flag unset the
 graph gains no edge, so no route can use one, so ``prepare`` sees an empty pip
@@ -191,8 +198,17 @@ class SharedControlGraphFeature:
         wires = context.shared["wires"]
         delay = ctx.getDelayFromNS(0.05)
 
+        # A pip's NAME is its identity to nextpnr, and routing has already added
+        # most of the wire -> CtrlMUX half from rrg_edges_full.csv (1,228 CtrlMUX
+        # rows, topology present with an empty cfg). Adding them again fails
+        # devdb emission outright with "duplicate/empty PIP identity". What is
+        # genuinely missing is the CtrlMUX -> tile-line half, of which the
+        # existing graph has none.
+        seen = context.shared.get("seen_pip") or set()
+
         added = 0
         skipped_missing = 0
+        skipped_present = 0
         for row in load_control_edges():
             source = _wire(row["src_x"], row["src_y"], row["src_res"])
             destination = _wire(row["dst_x"], row["dst_y"], row["dst_res"])
@@ -201,17 +217,22 @@ class SharedControlGraphFeature:
             if source not in wires or destination not in wires:
                 skipped_missing += 1
                 continue
+            if "%s.%s" % (source, destination) in seen:
+                skipped_present += 1
+                continue
             ctx.addPip(
                 name="%s.%s" % (source, destination), type="SHARED_CONTROL",
                 srcWire=source, dstWire=destination, delay=delay,
                 loc=Loc(int(row["dst_x"]), int(row["dst_y"]), 0),
             )
+            seen.add("%s.%s" % (source, destination))
             added += 1
 
         context.shared["shared_control_pips"] = added
         self._add_control_sinks(context)
-        print("AGRV2K arch: added %d shared-control pips (%d skipped, wire absent)"
-              % (added, skipped_missing))
+        print("AGRV2K arch: added %d shared-control pips "
+              "(%d already in the graph, %d skipped, wire absent)"
+              % (added, skipped_present, skipped_missing))
         # The pip count, as every other feature reports. Sink bels are counted
         # separately on the shared context.
         return added
@@ -253,6 +274,76 @@ class SharedControlGraphFeature:
         return bels
 
     # ---------------------------------------------------------------- emit
+
+    def slice_lines_from_module(self, module):
+        """Check the routed control composition and return ``{(x,y,z): line}``.
+
+        Three things have to agree or the image is quietly wrong:
+
+        * every slice carrying an enable is in a tile that has a control cell
+          for *that* enable -- otherwise its register is clocked unconditionally
+          while the design believes it is gated;
+        * no two enables share a tile line;
+        * the line is 0, which is all the emission path supports today. Line 1
+          additionally needs ``CFG_CLKMUX<z>`` set on each consuming slice, and
+          that selector has never been on silicon.
+        """
+        cells = module.get("cells", {})
+        control_sites = {}
+        for name, cell in cells.items():
+            if cell.get("type") != TILE_CONTROL_BEL:
+                continue
+            bel = cell.get("attributes", {}).get("NEXTPNR_BEL")
+            if not bel:
+                raise SharedControlEmitError(
+                    "tile control cell %r is unplaced" % (name,))
+            match = re.fullmatch(r"X(\d+)Y(\d+)_CLKEN(\d+)", bel)
+            if not match:
+                raise SharedControlEmitError(
+                    "tile control cell %r is bound to %r, which is not a tile "
+                    "clock-enable bel" % (name, bel))
+            x, y, line = (int(match.group(1)), int(match.group(2)),
+                          int(match.group(3)))
+            if line != 0:
+                raise SharedControlEmitError(
+                    "tile control cell %r took line %d at X%dY%d; only line 0 is "
+                    "emittable, because line 1 needs a per-slice CFG_CLKMUX bit "
+                    "that has never been on silicon" % (name, line, x, y))
+            enable = cell.get("attributes", {}).get("AGRV2K_CLOCK_ENABLE_NET")
+            if not enable:
+                raise SharedControlEmitError(
+                    "tile control cell %r names no enable net" % (name,))
+            if (x, y) in control_sites and control_sites[(x, y)][0] != enable:
+                raise SharedControlEmitError(
+                    "tile X%dY%d hosts two different enables" % (x, y))
+            control_sites[(x, y)] = (enable, line)
+
+        slice_lines = {}
+        for name, cell in cells.items():
+            if cell.get("type") != "GENERIC_SLICE":
+                continue
+            enable = cell.get("attributes", {}).get("AGRV2K_CLOCK_ENABLE_NET")
+            if not enable:
+                continue
+            bel = cell.get("attributes", {}).get("NEXTPNR_BEL", "")
+            match = re.fullmatch(r"X(\d+)Y(\d+)_SLICE(\d+)", bel)
+            if not match:
+                raise SharedControlEmitError(
+                    "clock-enabled slice %r is bound to %r" % (name, bel))
+            x, y, z = (int(match.group(1)), int(match.group(2)),
+                       int(match.group(3)))
+            site = control_sites.get((x, y))
+            if site is None:
+                raise SharedControlEmitError(
+                    "clock-enabled slice %r at X%dY%d has no tile control cell; "
+                    "its register would be clocked unconditionally" % (name, x, y))
+            if site[0] != enable:
+                raise SharedControlEmitError(
+                    "clock-enabled slice %r at X%dY%d takes a line driven by a "
+                    "different enable" % (name, x, y))
+            slice_lines[(x, y, z)] = site[1]
+        return slice_lines
+
 
     def prepare(self, pips, selector_cells, slice_lines=None, options=None):
         """Resolve routed control edges to selector bits.

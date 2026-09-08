@@ -313,6 +313,7 @@ enum class SharedControlMode
 {
     NONE,
     ASYNC_CLEAR_POS_ZERO,
+    CLOCK_ENABLE_POS,
     UNKNOWN,
     MALFORMED,
 };
@@ -320,9 +321,28 @@ enum class SharedControlMode
 static constexpr const char *SHARED_CONTROL_MODE_TOKENS[] = {
         "NONE",
         "ASYNC_CLEAR_POS_ZERO",
+        "CLOCK_ENABLE_POS",
         "UNKNOWN",
         "MALFORMED",
 };
+
+// AGRV2K_SHARED_CONTROL_ENABLE admits one physical shared control: a
+// positive-edge register with an active-high clock enable.  Everything else
+// stays refused.  Read once; the flow sets it per process.
+static bool shared_control_enable_admitted()
+{
+    static const bool admitted = getenv("AGRV2K_SHARED_CONTROL_ENABLE") != nullptr;
+    return admitted;
+}
+
+// Attribute carrying the enable net from the frontend DFFE onto the packed
+// slice.  The slice itself has no CE pin -- the enable terminates on a tile
+// control line -- so the net has to travel as a name until pack_shared_control
+// creates the cell that owns that line.
+static const IdString clock_enable_net_attr(Context *ctx)
+{
+    return ctx->id("AGRV2K_CLOCK_ENABLE_NET");
+}
 
 static constexpr const char *SHARED_CONTROL_PORT_TOKENS[] = {
         "ARST", "R", "ASET", "SET", "CE", "EN", "SRST", "SCLR",
@@ -343,7 +363,11 @@ struct SharedControlRequirement
     NetInfo *control = nullptr;
     std::string error;
 
+    // "active" means a physical shared control that this flow REFUSES.  An
+    // admitted clock enable is deliberately not active, so the five refusal
+    // sites keep rejecting exactly what they rejected before.
     bool active() const { return mode == SharedControlMode::ASYNC_CLEAR_POS_ZERO; }
+    bool clock_enable() const { return mode == SharedControlMode::CLOCK_ENABLE_POS; }
     bool malformed() const { return !error.empty(); }
 };
 
@@ -371,7 +395,9 @@ static SharedControlRequirement shared_control_requirement(Context *ctx,
     const std::string cell_type = cell->type.str(ctx);
     const bool generic_slice = cell->type == ctx->id("GENERIC_SLICE");
     const bool raw_async_clear = cell_type == "$_DFF_PP0_";
-    const bool frontend_register = raw_async_clear || cell->type == ctx->id("DFF");
+    const bool enable_register = cell->type == ctx->id("DFFE");
+    const bool frontend_register =
+            raw_async_clear || enable_register || cell->type == ctx->id("DFF");
     if (!generic_slice && !frontend_register)
         return result;
 
@@ -391,6 +417,54 @@ static SharedControlRequirement shared_control_requirement(Context *ctx,
 
     const char *expected_port = raw_async_clear ? "R" : "ARST";
     auto reject = [&](const std::string &reason) { result.error = reason; };
+
+    if (result.mode == SharedControlMode::CLOCK_ENABLE_POS) {
+        // Admitted only behind the flag.  Without it a CLOCK_ENABLE_POS cell is
+        // malformed rather than merely refused, so it cannot reach placement by
+        // any path -- including a hand-edited JSON that carries the attribute.
+        if (!shared_control_enable_admitted()) {
+            reject("CLOCK_ENABLE_POS requires AGRV2K_SHARED_CONTROL_ENABLE");
+            return result;
+        }
+        if (!enable_register && !generic_slice) {
+            reject("CLOCK_ENABLE_POS requires a DFFE frontend cell or a packed "
+                   "GENERIC_SLICE, not '" + cell_type + "'");
+            return result;
+        }
+        for (const char *port : SHARED_CONTROL_PORT_TOKENS)
+            if (std::string(port) != "EN" && cell->ports.count(ctx->id(port)) != 0) {
+                reject(std::string("unsupported or combined control port ") + port);
+                return result;
+            }
+        if (generic_slice) {
+            // Post-pack.  EN is gone: pack_lut_lutffs lifted it onto the tile
+            // control cell and left the net's NAME behind, because the slice
+            // has no CE pin to hold it.
+            auto ff_it = cell->params.find(ctx->id("FF_USED"));
+            if (ff_it == cell->params.end() || int(ff_it->second.as_int64()) != 1) {
+                reject("CLOCK_ENABLE_POS requires FF_USED=1");
+                return result;
+            }
+            if (cell->attrs.count(clock_enable_net_attr(ctx)) == 0) {
+                reject("CLOCK_ENABLE_POS slice has no recorded enable net");
+                return result;
+            }
+            result.polarity = SharedControlPolarity::POSITIVE;
+            return result;
+        }
+        auto enable_it = cell->ports.find(ctx->id("EN"));
+        if (enable_it == cell->ports.end()) {
+            reject("CLOCK_ENABLE_POS requires an EN control port");
+            return result;
+        }
+        if (enable_it->second.net == nullptr) {
+            reject("EN control port has no bound net");
+            return result;
+        }
+        result.polarity = SharedControlPolarity::POSITIVE;
+        result.control = enable_it->second.net;
+        return result;
+    }
 
     if (result.mode == SharedControlMode::NONE) {
         for (const char *port : SHARED_CONTROL_PORT_TOKENS)
@@ -477,7 +551,11 @@ static void reject_unsupported_shared_control_ingress(Context *ctx)
             log_error("agrv2k: shared-control ingress rejects unsupported frontend "
                       "register type '%s' on '%s'; expected mapped DFF or exact $_DFF_PP0_\n",
                       type.c_str(), ctx->nameOf(cell));
-        if (type != "$_DFF_PP0_" && cell->type != ctx->id("DFF"))
+        // DFFE is examined here too, so a malformed clock enable is caught at
+        // ingress rather than surviving to placement. It is admitted, not
+        // refused, so it must still be looked at.
+        if (type != "$_DFF_PP0_" && cell->type != ctx->id("DFF") &&
+            cell->type != ctx->id("DFFE"))
             continue;
         const SharedControlRequirement requirement =
                 shared_control_requirement(ctx, cell);
@@ -1476,6 +1554,38 @@ static void make_relative_cluster(Context *ctx,
 // Helpers (create_generic_cell/lut_to_lc/dff_to_lc/nxio_to_iob/is_lut/is_ff/is_lc/net_only_drives) are
 // the generic arch's own (cells.h / design_utils.h) and link in since we compile into nextpnr-generic.
 
+// A register this flow can pack: the ordinary DFF, or -- behind the flag -- the
+// clock-enable DFFE.  Upstream's is_ff() only knows DFF and is not ours to
+// patch, so the widened predicate lives here.
+static bool is_packable_ff(const BaseCtx *ctx, const CellInfo *cell)
+{
+    if (is_ff(ctx, cell))
+        return true;
+    return shared_control_enable_admitted() && cell->type == ctx->id("DFFE");
+}
+
+// Move the enable off the register and onto the packed slice as a NAME.
+//
+// It cannot stay a port: a GENERIC_SLICE has no CE bel pin, because the enable
+// does not reach a slice at all.  It terminates on one of the tile's two shared
+// clock-enable lines, and CFG_CLKMUX<z> -- a config bit, not an edge -- selects
+// which line the slice consumes.  pack_shared_control later creates the cell
+// that owns that line and reconnects the net to it.
+static void lift_clock_enable(Context *ctx, CellInfo *dff, CellInfo *lc)
+{
+    if (dff->type != ctx->id("DFFE"))
+        return;
+    if (!shared_control_enable_admitted())
+        log_error("agrv2k: DFFE '%s' reached packing without "
+                  "AGRV2K_SHARED_CONTROL_ENABLE\n", ctx->nameOf(dff));
+    NetInfo *enable = dff->getPort(ctx->id("EN"));
+    if (enable == nullptr)
+        log_error("agrv2k: DFFE '%s' has no enable net\n", ctx->nameOf(dff));
+    lc->attrs[clock_enable_net_attr(ctx)] = enable->name.str(ctx);
+    lc->attrs[shared_control_mode_attr(ctx)] = std::string("CLOCK_ENABLE_POS");
+    dff->disconnectPort(ctx->id("EN"));
+}
+
 static void pack_lut_lutffs(Context *ctx)
 {
     log_info("Packing LUT-FFs..\n");
@@ -1497,7 +1607,7 @@ static void pack_lut_lutffs(Context *ctx)
             // See if we can pack into a DFF
             // TODO: LUT cascade
             NetInfo *o = ci->ports.at(ctx->id("Q")).net;
-            CellInfo *dff = net_only_drives(ctx, o, is_ff, ctx->id("D"), true);
+            CellInfo *dff = net_only_drives(ctx, o, is_packable_ff, ctx->id("D"), true);
             bool preserve_f = false;
             // Qin's direct-D composition exposes the LUT result as F while
             // keeping registered Q local to I[3]. Ordinary fanout on F must
@@ -1508,7 +1618,7 @@ static void pack_lut_lutffs(Context *ctx)
                 CellInfo *candidate = nullptr;
                 int dff_users = 0;
                 for (const PortRef &user : o->users) {
-                    if (user.cell != nullptr && is_ff(ctx, user.cell) && user.port == ctx->id("D")) {
+                    if (user.cell != nullptr && is_packable_ff(ctx, user.cell) && user.port == ctx->id("D")) {
                         candidate = user.cell;
                         ++dff_users;
                     }
@@ -1532,6 +1642,7 @@ static void pack_lut_lutffs(Context *ctx)
                 } else {
                     lut_to_lc(ctx, ci, packed.get(), false);
                     dff_to_lc(ctx, dff, packed.get(), false);
+                    lift_clock_enable(ctx, dff, packed.get());
                     const bool registered_pad =
                             packed->attrs.count(ctx->id("agamemnon_registered_pad_input")) != 0;
                     const bool direct_d =
@@ -1587,7 +1698,7 @@ static void pack_nonlut_ffs(Context *ctx)
 
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
-        if (is_ff(ctx, ci)) {
+        if (is_packable_ff(ctx, ci)) {
             std::unique_ptr<CellInfo> packed =
                     create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), ci->name.str(ctx) + "_DFFLC");
             for (auto &attr : ci->attrs)
@@ -1596,6 +1707,7 @@ static void pack_nonlut_ffs(Context *ctx)
                 log_info("packed cell %s into %s\n", ci->name.c_str(ctx), packed->name.c_str(ctx));
             packed_cells.insert(ci->name);
             dff_to_lc(ctx, ci, packed.get(), true);
+            lift_clock_enable(ctx, ci, packed.get());
             // The generic helper implements a physical LUT identity path:
             // INIT=0xAAAA, D on I[0], CLK/Q connected, and F unused.
             set_register_input_mode(ctx, packed.get(), RegisterInputMode::LUT_FEEDTHROUGH_I0);
@@ -1754,6 +1866,94 @@ static void replicate_local_constants(Context *ctx, IdString net_name, IdString 
         ctx->nets[n->name] = std::move(n);
     log_info("agrv2k: AGRV2K_LOCAL_CONSTANTS replicated %d local drivers off %s\n",
              int(new_cells.size()), cell_name.c_str(ctx));
+}
+
+// Give every lifted clock enable a cell that owns a tile control line, and tie
+// the registers that share it into one tile.
+//
+// Shape, and why:
+//   * One AGRV2K_TILE_CONTROL cell per (enable net, tile).  Its single input is
+//     the enable, and its bel is a tile clock-enable line -- a pure sink.
+//   * The registers sharing that enable are clustered with it at absolute z, the
+//     control at z=16 and the slices at z=0..15.  A cluster is what makes "the
+//     enable's sink is in the same tile as the registers that use it" a
+//     structural fact instead of something the placer might happen to do.
+//   * A control set wider than sixteen registers is split across tiles, one
+//     control cell each; the enable net simply gains another sink.
+//
+// LINE 0 ONLY, deliberately.  Each tile has two clock-enable lines and this uses
+// one, so a tile hosts at most one control set.  Line 1 needs CFG_CLKMUX<z> set
+// per slice, and while that selector is decoded (416 registers, no off-diagonal
+// case) it has never been on silicon.  Line 0 is the cleared-baseline default,
+// so a first image exercises the routed path without also depending on the
+// per-slice selector.  Widening to both lines is a placement question, not a
+// decode one.
+static void pack_shared_control(Context *ctx)
+{
+    if (!shared_control_enable_admitted())
+        return;
+
+    // Deterministic order: cluster shapes must not depend on hash iteration.
+    std::map<std::string, std::vector<CellInfo *>> by_enable;
+    for (auto &entry : ctx->cells) {
+        CellInfo *cell = entry.second.get();
+        if (cell->type != ctx->id("GENERIC_SLICE"))
+            continue;
+        auto it = cell->attrs.find(clock_enable_net_attr(ctx));
+        if (it == cell->attrs.end())
+            continue;
+        by_enable[it->second.as_string()].push_back(cell);
+    }
+    if (by_enable.empty())
+        return;
+
+    log_info("Packing shared controls..\n");
+    std::vector<std::unique_ptr<CellInfo>> new_cells;
+    int controls = 0;
+    for (auto &group : by_enable) {
+        std::vector<CellInfo *> members = group.second;
+        std::sort(members.begin(), members.end(),
+                  [](const CellInfo *a, const CellInfo *b) { return a->name < b->name; });
+
+        NetInfo *enable = nullptr;
+        auto net_it = ctx->nets.find(ctx->id(group.first));
+        if (net_it != ctx->nets.end())
+            enable = net_it->second.get();
+        if (enable == nullptr)
+            log_error("agrv2k: clock-enable net '%s' named by %d slice(s) does not "
+                      "exist\n", group.first.c_str(), int(members.size()));
+
+        for (size_t base = 0; base < members.size(); base += 16) {
+            const size_t count = std::min<size_t>(16, members.size() - base);
+            // Built directly rather than through create_generic_cell: that
+            // helper only knows GENERIC_SLICE and GENERIC_IOB and log_errors on
+            // anything else, and it is upstream code this overlay does not
+            // patch. A tile control cell is one input and nothing else.
+            const std::string control_name =
+                    "$agrv2k_clken$" + group.first + "$" + std::to_string(base / 16);
+            auto control = std::make_unique<CellInfo>(
+                    ctx, ctx->id(control_name), ctx->id("AGRV2K_TILE_CONTROL"));
+            control->addInput(ctx->id("I"));
+            control->connectPort(ctx->id("I"), enable);
+            control->attrs[shared_control_mode_attr(ctx)] = std::string("CLOCK_ENABLE_POS");
+            control->attrs[clock_enable_net_attr(ctx)] = group.first;
+
+            std::vector<std::pair<CellInfo *, Loc>> shape;
+            shape.push_back({control.get(), Loc(0, 0, 16)});
+            for (size_t index = 0; index < count; ++index)
+                shape.push_back({members.at(base + index), Loc(0, 0, int(index))});
+            make_relative_cluster(ctx, shape, true);
+
+            log_info("  clock enable '%s': tile cluster of %d register(s) on line 0\n",
+                     group.first.c_str(), int(count));
+            new_cells.push_back(std::move(control));
+            ++controls;
+        }
+    }
+    for (auto &cell : new_cells)
+        ctx->cells[cell->name] = std::move(cell);
+    log_info("  %d tile control cell(s) for %d enable net(s)\n",
+             controls, int(by_enable.size()));
 }
 
 static void pack_constants(Context *ctx)
@@ -14443,6 +14643,9 @@ struct AgrvImpl : ViaductAPI
         pack_carries(ctx);   // dedicated HW carry: fuse AG32_FA(+DFF) -> GENERIC_SLICE keeping CIN/COUT
         pack_lut_lutffs(ctx);
         pack_nonlut_ffs(ctx);
+        // After both FF paths, so every lifted enable is visible at once and a
+        // control set is clustered as a whole rather than in two halves.
+        pack_shared_control(ctx);
         pack_inactive_constant_slice_clocks(ctx);
         validate_native_direct_d_pool(ctx, false);
         pack_mcu_edge(ctx);  // bind MCU_DOUT exit cells AFTER fusion (binding before corrupts a readout net
