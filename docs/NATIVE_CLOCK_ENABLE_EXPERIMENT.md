@@ -159,7 +159,36 @@ byte-identical to the explicit data-logic build and retained passing reference.
 The eight-register native control still reproduces its qualified `a91f125a…`
 image. This restores build compatibility; it is not an area or speed improvement.
 
-### Qualification limits
+### Computed data LUTs: measured packing benefit
+
+The [XOR3 example](../examples/native-clock-enable-xor3/README.md) exercises
+eight reset-free enabled registers whose data depends on three inputs per bit.
+Both ordinary-source versions route and emit. Data logic uses 77 slices;
+native enable uses 69, saving eight slices (10.4%) with 44 registers in either
+version. All eight native registers use `LUT_COMPUTE_TO_FF`: their three-input
+data LUT and FF share a slice, with no external hold-feedback LUT. Named
+feedback-buffer count is zero in both versions; this saving is hold-logic
+removal and LUT/FF packing, not removal of the direct-D workaround.
+Occupied tiles increased from 17 to 19 (4.53 to 3.63 slices per occupied tile),
+so tile isolation and placement remain separate capacity limitations.
+
+The native image
+`dc082c5bce1c7062ed5322de67b483595a3406bc939f8af2fd872077960f1234`
+passed three control-first silicon runs. Each checks every input byte with an
+enabled update and disabled hold (512 checks), then the eight update/resume,
+scratch and liveness check groups. Always-enabled, never-enabled, scratch-
+blocked, identity-data and missing-input mutants are rejected in simulation.
+Both bracketing controls and the retained reference passed; an independent
+auditor accepted the raw logs. Final reset and custody release completed with
+zero flash or option writes. Fences remain 74.
+
+This extends the witnessed input composition from identity LUTs to computed
+three-input XOR LUTs at X17Y10 slices 0–7, still isolated and using line 0 with
+BYPASSEN clear. Reported model Fmax changed from 109.49 to 115.43 MHz; the
+silicon runs used 10 MHz and do not qualify a speed increase. Other enable
+populations may have different packing and placement outcomes.
+
+### Remaining qualification limits
 
 Line 1, synchronous shared controls, asynchronous control admission, arbitrary
 coordinates, combined modes, timing closure and general placement capacity are

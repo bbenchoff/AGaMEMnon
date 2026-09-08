@@ -1,0 +1,41 @@
+`include "clken_fixture_core.v"
+module top;
+ wire bus_clock,reset_async,hready,htrans1,hwrite;wire[3:0]haddr;wire[1:0]hsize;
+ wire[15:0]hwdata;wire[31:0]hrdata;
+ (*keep*)MCU_BUS_CLOCK mcu_bus_clock(.CLK(bus_clock));
+ (*keep,BEL="X10Y5_MCU0"*)MCU mcu_reset(.DIN(reset_async),.DOUT());
+ assign hready=1'b1;
+ (*keep*)MCU_DIN mcu_htrans1(.DIN(htrans1));(*keep*)MCU_DIN mcu_hwrite(.DIN(hwrite));
+ (*keep*)MCU_DIN mcu_haddr0(.DIN(haddr[0]));(*keep*)MCU_DIN mcu_haddr1(.DIN(haddr[1]));
+ (*keep*)MCU_DIN mcu_haddr2(.DIN(haddr[2]));(*keep*)MCU_DIN mcu_haddr3(.DIN(haddr[3]));
+ (*keep*)MCU_AHB_HSIZE0 mcu_hsize0(.DIN(hsize[0]));
+ (*keep*)MCU_AHB_HSIZE1 mcu_hsize1(.DIN(hsize[1]));
+ (*keep*)MCU_DIN mcu_hwdata0(.DIN(hwdata[0]));(*keep*)MCU_DIN mcu_hwdata1(.DIN(hwdata[1]));
+ (*keep*)MCU_DIN mcu_hwdata2(.DIN(hwdata[2]));(*keep*)MCU_DIN mcu_hwdata3(.DIN(hwdata[3]));
+ (*keep*)MCU_DIN mcu_hwdata4(.DIN(hwdata[4]));(*keep*)MCU_DIN mcu_hwdata5(.DIN(hwdata[5]));
+ (*keep*)MCU_DIN mcu_hwdata6(.DIN(hwdata[6]));(*keep*)MCU_DIN mcu_hwdata7(.DIN(hwdata[7]));
+ (*keep*)MCU_DIN mcu_hwdata8(.DIN(hwdata[8]));(*keep*)MCU_DIN mcu_hwdata9(.DIN(hwdata[9]));
+ (*keep*)MCU_DIN mcu_hwdata10(.DIN(hwdata[10]));(*keep*)MCU_DIN mcu_hwdata11(.DIN(hwdata[11]));
+ (*keep*)MCU_DIN mcu_hwdata12(.DIN(hwdata[12]));(*keep*)MCU_DIN mcu_hwdata13(.DIN(hwdata[13]));
+ (*keep*)MCU_DIN mcu_hwdata14(.DIN(hwdata[14]));(*keep*)MCU_DIN mcu_hwdata15(.DIN(hwdata[15]));
+ (*keep*)MCU_AHB_HREADYOUT mcu_hreadyout(.DOUT(1'b1));
+ (*keep*)MCU_AHB_HRESP mcu_hresp(.DOUT(1'b0));
+ (*keep*)MCU_DOUT mcu_h0(.DOUT(hrdata[0]));(*keep*)MCU_DOUT mcu_h1(.DOUT(hrdata[1]));
+ (*keep*)MCU_DOUT mcu_h2(.DOUT(hrdata[2]));(*keep*)MCU_DOUT mcu_h3(.DOUT(hrdata[3]));
+ (*keep*)MCU_DOUT mcu_h4(.DOUT(hrdata[4]));(*keep*)MCU_DOUT mcu_h5(.DOUT(hrdata[5]));
+ (*keep*)MCU_DOUT mcu_h6(.DOUT(hrdata[6]));(*keep*)MCU_DOUT mcu_h7(.DOUT(hrdata[7]));
+ (*keep*)MCU_DOUT mcu_h8(.DOUT(hrdata[8]));(*keep*)MCU_DOUT mcu_h9(.DOUT(hrdata[9]));
+ (*keep*)MCU_DOUT mcu_h10(.DOUT(hrdata[10]));(*keep*)MCU_DOUT mcu_h11(.DOUT(hrdata[11]));
+ (*keep*)MCU_DOUT mcu_h12(.DOUT(hrdata[12]));(*keep*)MCU_DOUT mcu_h13(.DOUT(hrdata[13]));
+ (*keep*)MCU_DOUT mcu_h14(.DOUT(hrdata[14]));(*keep*)MCU_DOUT mcu_h15(.DOUT(hrdata[15]));
+ (*keep*)MCU_DOUT mcu_h16(.DOUT(hrdata[16]));(*keep*)MCU_DOUT mcu_h17(.DOUT(hrdata[17]));
+ (*keep*)MCU_DOUT mcu_h18(.DOUT(hrdata[18]));(*keep*)MCU_DOUT mcu_h19(.DOUT(hrdata[19]));
+ (*keep*)MCU_DOUT mcu_h20(.DOUT(hrdata[20]));(*keep*)MCU_DOUT mcu_h21(.DOUT(hrdata[21]));
+ (*keep*)MCU_DOUT mcu_h22(.DOUT(hrdata[22]));(*keep*)MCU_DOUT mcu_h23(.DOUT(hrdata[23]));
+ (*keep*)MCU_DOUT mcu_h24(.DOUT(hrdata[24]));(*keep*)MCU_DOUT mcu_h25(.DOUT(hrdata[25]));
+ (*keep*)MCU_DOUT mcu_h26(.DOUT(hrdata[26]));(*keep*)MCU_DOUT mcu_h27(.DOUT(hrdata[27]));
+ (*keep*)MCU_DOUT mcu_h28(.DOUT(hrdata[28]));(*keep*)MCU_DOUT mcu_h29(.DOUT(hrdata[29]));
+ (*keep*)MCU_DOUT mcu_h30(.DOUT(hrdata[30]));(*keep*)MCU_DOUT mcu_h31(.DOUT(hrdata[31]));
+ area_x_clken_fixture_core core_i(.clock(bus_clock),.reset_async(reset_async),.hready(hready),
+  .htrans1(htrans1),.hwrite(hwrite),.haddr(haddr),.hsize(hsize),.hwdata(hwdata),.hrdata(hrdata));
+endmodule
