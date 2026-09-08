@@ -20,8 +20,8 @@ tile line, because a routed net still has to terminate on a bel pin somewhere.
 
 Every wire involved already exists, because ``archgen`` loads all of
 ``wires.csv`` and that carries 264 ``TileClkEnMUX``, 264 ``TileSyncMUX`` and 528
-``CtrlMUX`` LogicTile wires. What was missing is the edges: ``rrg_edges_full.csv``
-holds no ``TileClkEnMUX`` edge at all, and its ``CtrlMUX`` rows carry an empty
+``CtrlMUX`` LogicTile wires. What was missing is the LogicTile edges:
+``rrg_edges_full.csv`` holds no usable ``TileClkEnMUX`` edge at all, and its ``CtrlMUX`` rows carry an empty
 ``cfg`` at ``group_only`` tier, so nothing could be emitted for them.
 
 ``tile_control_edges.csv`` supplies those edges with real codewords, harvested

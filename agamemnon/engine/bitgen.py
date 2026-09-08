@@ -137,17 +137,22 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT, document=None,
     except special_routes.SpecialRouteError as exc:
         raise SystemExit(str(exc))
     if clock_validation is None:
-        if routed_sha256 is None:
+        # Clock registries use canonical-LF identity; routed_sha256 remains
+        # the raw-byte custody hash used by replay and output binding.
+        clock_routed_sha256 = routed_sha256
+        if clock_routed_sha256 is None:
             try:
-                routed_sha256 = hashlib.sha256(Path(routed_path).read_bytes()).hexdigest()
+                clock_routed_sha256 = special_routes._canonical_routed_sha256(
+                    Path(routed_path).read_bytes()
+                )
             except OSError:
-                routed_sha256 = None
+                pass
         try:
             clock_validation = validate_routed_clock(
                 module,
                 chipdb_root,
                 options,
-                routed_sha256=routed_sha256,
+                routed_sha256=clock_routed_sha256,
             )
         except ClockValidationError as exc:
             raise SystemExit(str(exc))
@@ -558,7 +563,7 @@ def build(routed_path, output_path, environ=None):
             snapshot.document,
             chipdb_root,
             options,
-            routed_sha256=snapshot.sha256,
+            routed_sha256=special_routes._canonical_routed_sha256(snapshot.raw),
         )
     except ClockValidationError as exc:
         raise SystemExit(str(exc))

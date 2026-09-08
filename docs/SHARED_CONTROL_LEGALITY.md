@@ -1,5 +1,10 @@
 # Shared register-control legality
 
+The following describes the released default boundary. A separate
+[native clock-enable experiment](NATIVE_CLOCK_ENABLE_EXPERIMENT.md) adds
+opt-in `CLOCK_ENABLE_POS` synthesis, packing, routing and emission on this
+branch; it does not change the default asynchronous-control boundary.
+
 AGaMEMnon normalizes slice-shared register control semantics with the routed
 attribute `AGRV2K_SHARED_CONTROL_MODE`.  The N4.1 desk-only protocol contains
 exactly these active states:

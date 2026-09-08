@@ -1701,7 +1701,7 @@ def cmd_pack(a):
             "direct-pack",
             env.get("AGAMEMNON_DATA", CHIPDB),
             engine_options_from(env),
-            snapshot.sha256,
+            special_routes._canonical_routed_sha256(snapshot.raw),
         )
     except ClockValidationError as exc:
         print("error: typed clock direct-pack validation failed: %s" % exc)
@@ -2648,7 +2648,7 @@ def cmd_build(a):
                             "post-nextpnr",
                             data,
                             engine_options_from(env),
-                            post_snapshot.sha256,
+                            special_routes._canonical_routed_sha256(post_snapshot.raw),
                         )
                     except ClockValidationError as exc:
                         print("error: typed clock post-nextpnr validation failed: %s" % exc)
@@ -2808,7 +2808,7 @@ def cmd_build(a):
                 "post-nextpnr",
                 data,
                 engine_options_from(env),
-                post_snapshot.sha256,
+                special_routes._canonical_routed_sha256(post_snapshot.raw),
             )
         except ClockValidationError as exc:
             print("error: typed clock post-nextpnr validation failed: %s" % exc)
@@ -2858,7 +2858,7 @@ def cmd_build(a):
             "pre-emission",
             data,
             engine_options_from(env),
-            final_snapshot.sha256,
+            special_routes._canonical_routed_sha256(final_snapshot.raw),
         )
     except ClockValidationError as exc:
         print("error: typed clock pre-emission validation failed: %s" % exc)

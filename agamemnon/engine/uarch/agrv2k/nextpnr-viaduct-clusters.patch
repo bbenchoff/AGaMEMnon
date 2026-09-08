@@ -1,0 +1,34 @@
+--- a/generic/arch.h
++++ b/generic/arch.h
+@@ -390,6 +390,14 @@
+     }
+     bool isBelLocationValid(BelId bel, bool explain_invalid = false) const override;
+ 
++    bool getClusterPlacement(ClusterId cluster, BelId root_bel,
++                             std::vector<std::pair<CellInfo *, BelId>> &placement) const override
++    {
++        if (uarch && uarch->handlesClusterPlacement(cluster))
++            return uarch->getClusterPlacement(cluster, root_bel, placement);
++        return BaseArch<ArchRanges>::getClusterPlacement(cluster, root_bel, placement);
++    }
++
+     static const std::string defaultPlacer;
+     static const std::vector<std::string> availablePlacers;
+     static const std::string defaultRouter;
+--- a/generic/viaduct_api.h
++++ b/generic/viaduct_api.h
+@@ -70,6 +70,14 @@
+     virtual bool isValidBelForCellType(IdString cell_type, BelId bel) const;
+     virtual bool isBelLocationValid(BelId bel, bool explain_invalid = false) const { return true; }
+ 
++    // Opt-in cluster placement. Other clusters retain the generic behavior.
++    virtual bool handlesClusterPlacement(ClusterId /*cluster*/) const { return false; }
++    virtual bool getClusterPlacement(ClusterId /*cluster*/, BelId /*root_bel*/,
++                                     std::vector<std::pair<CellInfo *, BelId>> & /*placement*/) const
++    {
++        return false;
++    }
++
+     // --- Wire and pip functions ---
+     // Called when a wire/pip is placed/unplaced (with net=nullptr for a unbind)
+     virtual void notifyWireChange(WireId wire, NetInfo *net) {}

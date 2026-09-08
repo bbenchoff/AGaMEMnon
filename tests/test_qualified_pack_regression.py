@@ -97,3 +97,28 @@ def test_qualified_pack_is_byte_identical(
     assert result.returncode == 0, result.stdout + result.stderr
     assert output.stat().st_size == 99_944
     assert _sha256(output) == artifact["bitstream_sha256"]
+
+
+def test_legacy_clock_pack_accepts_crlf_but_not_changed_identity(
+        tmp_path, retained_physical_devdb):
+    artifact = next(item for item in ARTIFACTS
+                    if Path(item["routed"]).name == "mcu_ahb_posted_capture16_routed.json")
+    checkout = tmp_path / "crlf_routed.json"
+    checkout.write_bytes(_canonical_lf((ROOT / artifact["routed"]).read_bytes())
+                         .replace(b"\n", b"\r\n"))
+    # Exercise actual CLI validation and emission, not just the hash helper.
+    test_qualified_pack_is_byte_identical(
+        dict(artifact, routed=str(checkout)), tmp_path, retained_physical_devdb)
+    env = {key: value for key, value in os.environ.items()
+           if not key.startswith(("AGAMEMNON_", "AGRV2K_"))}
+    env.update(artifact["environment"])
+    # Still valid JSON, but a different canonical identity. EOL normalization
+    # must not turn arbitrary input into an authenticated legacy clock record.
+    checkout.write_bytes(checkout.read_bytes() + b" ")
+    output = tmp_path / "tampered.bin"
+    result = subprocess.run(
+        [sys.executable, "-m", "agamemnon.cli", "pack", str(checkout), str(output)],
+        cwd=ROOT, env=env, capture_output=True, text=True)
+    assert result.returncode != 0
+    assert not output.exists()
+    assert "clock" in (result.stdout + result.stderr).lower()

@@ -6,6 +6,7 @@ synthetic ``AttemptRecord``s (or writes them via ``write_attempt_log``) built di
 hand-written log strings that mimic real nextpnr/router2 output.
 """
 import os
+import pytest
 
 from agamemnon.engine import attempt_ladder as A
 
@@ -258,10 +259,15 @@ def test_garbage_log_with_no_recognisable_marker_falls_back_to_other_and_never_r
     assert A.format_ladder_summary(summary) is not None
 
 
-def test_placement_failure_does_not_become_a_routing_diagnosis():
+@pytest.mark.parametrize("failure", [
+    "Placing design failed.",
+    "Unable to find legal placement for cell 'enable' of type 'AGRV2K_TILE_CONTROL' after 10001 attempts",
+    "agrv2k: clock-enable cluster 'enable' has no legal same-tile slot assignment",
+])
+def test_placement_failure_does_not_become_a_routing_diagnosis(failure):
     log = (
         "Info: agrv2k validity: consumer cannot conduct fixed input net 'hsize[1]'\n"
-        "ERROR: Placing design failed.\n"
+        "ERROR: " + failure + "\n"
     )
     records = [_rec(i, 4, str(i), 0, A.NOT_ROUTED, log) for i in (1, 2)]
     summary = A.summarize_ladder(records)

@@ -2350,6 +2350,11 @@ class RoutingFeature:
     ):
         state = RoutingState()
         output_modes = {} if output_modes is None else output_modes
+        # The shared-control graph describes LogicTile control lines only.
+        # BRAM columns reuse the wire-family names but have independent
+        # ownership and must remain on the ordinary routing path.
+        from .shared_control_graph import logic_tiles
+        logic_tile_coords = logic_tiles()
         state.admission_binding = tables.admission_binding
         general = collections.defaultdict(list)
         debug = bool(os.environ.get("AGAMEMNON_DEBUG"))
@@ -2400,13 +2405,15 @@ class RoutingFeature:
             # Tile shared-control resources are owned by shared_control_graph,
             # which resolves them with control_encode's selector map. They are
             # skipped HERE rather than left to fall through the resolvers: this
-            # loop's tables have no CtrlMUX/TileXxxMUX entry, so a control pip
-            # reaching them would be dropped without a word -- the exact
-            # silent-lookup-miss shape that has cost this project three
-            # campaigns. Only reachable when AGRV2K_SHARED_CONTROL_GRAPH put
-            # the edges in the graph in the first place.
-            if (sf in SHARED_CONTROL_RESOURCES or
-                    df in SHARED_CONTROL_RESOURCES):
+            # loop's tables have no LogicTile CtrlMUX/TileXxxMUX entry, so a
+            # LogicTile control pip reaching them would be dropped without a
+            # word. BRAM columns reuse these names but have separate encoders;
+            # their pips stay on the ordinary path.
+            if (os.environ.get("AGRV2K_SHARED_CONTROL_GRAPH") and
+                    (sf in SHARED_CONTROL_RESOURCES or
+                     df in SHARED_CONTROL_RESOURCES) and
+                    (sx, sy) == (dx, dy) and
+                    (sx, sy) in logic_tile_coords):
                 state.shared_control_pips.append(pip)
                 continue
             # Pad activation belongs to the physical source, independently of

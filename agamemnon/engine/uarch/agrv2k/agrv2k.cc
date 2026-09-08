@@ -1874,8 +1874,10 @@ static void replicate_local_constants(Context *ctx, IdString net_name, IdString 
 // Shape, and why:
 //   * One AGRV2K_TILE_CONTROL cell per (enable net, tile).  Its single input is
 //     the enable, and its bel is a tile clock-enable line -- a pure sink.
-//   * The registers sharing that enable are clustered with it at absolute z, the
-//     control at z=16 and the slices at z=0..15.  A cluster is what makes "the
+//   * The registers sharing that enable are clustered with the control at z=16.
+//     prePlace computes legal same-tile slot matchings after endpoint binding;
+//     the Viaduct cluster hook serves those immutable assignments to the placer.
+//     The initial z=0..15 shape is retained where legal. A cluster makes "the
 //     enable's sink is in the same tile as the registers that use it" a
 //     structural fact instead of something the placer might happen to do.
 //   * A control set wider than sixteen registers is split across tiles, one
@@ -14929,6 +14931,7 @@ struct AgrvImpl : ViaductAPI
                 continue;
             int roots_admitting_shape = 0, root_ok_member_clash = 0;
             int rej_no_bel = 0, rej_taken = 0, rej_invalid = 0;
+            int explained = 0;
             for (BelId root : all) {
                 if (ctx->getBelType(root) != cell->type) continue;
                 if (!ctx->checkBelAvail(root)) continue;
@@ -14957,6 +14960,12 @@ struct AgrvImpl : ViaductAPI
                 if (shape_ok)
                     for (BelId b : bound)
                         if (!ctx->isBelLocationValid(b)) {
+                            if (getenv("AGRV2K_PLACE_DIAG_EXPLAIN") != nullptr && explained++ < 8) {
+                                log_info("place-diag root %s member %s at %s rejected:\n",
+                                         ctx->nameOfBel(root), ctx->nameOf(ctx->getBoundBelCell(b)),
+                                         ctx->nameOfBel(b));
+                                ctx->isBelLocationValid(b, true);
+                            }
                             shape_ok = false; ++rej_invalid; break;
                         }
                 for (auto it = bound.rbegin(); it != bound.rend(); ++it)
@@ -14969,6 +14978,188 @@ struct AgrvImpl : ViaductAPI
                      "invalid there\n",
                      int(cell->constr_children.size()), roots_admitting_shape,
                      root_ok_member_clash, rej_no_bel, rej_taken, rej_invalid);
+        }
+    }
+
+    // Immutable after prePlace: placement callbacks may run in parallel. Never
+    // temporarily bind cells from getClusterPlacement itself.
+    using ControlPlacement = std::vector<std::pair<CellInfo *, BelId>>;
+    std::map<ClusterId, std::map<int, ControlPlacement>> control_placements;
+
+    bool handlesClusterPlacement(ClusterId cluster) const override
+    {
+        return control_placements.count(cluster) != 0;
+    }
+
+    bool getClusterPlacement(ClusterId cluster, BelId root,
+                             ControlPlacement &placement) const override
+    {
+        placement.clear();
+        auto group = control_placements.find(cluster);
+        if (group == control_placements.end() || root == BelId())
+            return false;
+        auto candidate = group->second.find(root.index);
+        if (candidate == group->second.end())
+            return false;
+        placement = candidate->second;
+        return true;
+    }
+
+    void prepare_control_placements()
+    {
+        control_placements.clear();
+        if (!shared_control_enable_admitted())
+            return;
+        for (auto &entry : ctx->cells) {
+            CellInfo *root = entry.second.get();
+            if (root->type != ctx->id("AGRV2K_TILE_CONTROL") ||
+                root->cluster != root->name || root->constr_children.empty())
+                continue;
+            auto &candidates = control_placements[root->cluster];
+            const auto &members = root->constr_children;
+            NetInfo *enable = root->getPort(ctx->id("I"));
+            CellInfo *driver = enable ? enable->driver.cell : nullptr;
+            std::vector<BelId> driver_sites;
+            if (driver && driver->type == ctx->id("GENERIC_SLICE") && driver->bel == BelId()) {
+                for (BelId bel : ctx->getBels()) {
+                    if (ctx->getBelType(bel) != driver->type || !ctx->checkBelAvail(bel)) continue;
+                    if (driver->region && driver->region->constr_bels &&
+                        !driver->region->bels.count(bel)) continue;
+                    auto explicit_bel = driver->attrs.find(ctx->id("BEL"));
+                    if (explicit_bel != driver->attrs.end() &&
+                        ctx->getBelByNameStr(explicit_bel->second.as_string()) != bel) continue;
+                    ctx->bindBel(bel, driver, STRENGTH_WEAK);
+                    bool valid = ctx->isBelLocationValid(bel);
+                    ctx->unbindBel(bel);
+                    if (valid) driver_sites.push_back(bel);
+                }
+            }
+            int rejected_enable_source = 0;
+            for (BelId sink : ctx->getBels()) {
+                if (ctx->getBelType(sink) != root->type ||
+                    ctx->getBelLocation(sink).z != 16 || !ctx->checkBelAvail(sink))
+                    continue;
+                if (root->region && root->region->constr_bels &&
+                    !root->region->bels.count(sink))
+                    continue;
+                const Loc loc = ctx->getBelLocation(sink);
+                std::vector<std::vector<int>> slots(members.size());
+                std::vector<BelId> bels(16);
+                for (int z = 0; z < 16; ++z)
+                    bels[z] = ctx->getBelByLocation(Loc(loc.x, loc.y, z));
+                for (size_t i = 0; i < members.size(); ++i) {
+                    CellInfo *member = members[i];
+                    // Endpoint passes may bind a member after the cluster was
+                    // packed. Preserve that binding as its sole candidate.
+                    if (member->bel != BelId()) {
+                        Loc fixed = ctx->getBelLocation(member->bel);
+                        if (fixed.x == loc.x && fixed.y == loc.y &&
+                            fixed.z >= 0 && fixed.z < 16 &&
+                            (!member->region || !member->region->constr_bels ||
+                             member->region->bels.count(member->bel)) &&
+                            ctx->isBelLocationValid(member->bel))
+                            slots[i].push_back(fixed.z);
+                        continue;
+                    }
+                    for (int z = 0; z < 16; ++z) {
+                        BelId bel = bels[z];
+                        if (bel == BelId() || ctx->getBelType(bel) != member->type ||
+                            !ctx->checkBelAvail(bel))
+                            continue;
+                        if (member->region && member->region->constr_bels &&
+                            !member->region->bels.count(bel))
+                            continue;
+                        auto explicit_bel = member->attrs.find(ctx->id("BEL"));
+                        if (explicit_bel != member->attrs.end() &&
+                            ctx->getBelByNameStr(explicit_bel->second.as_string()) != bel)
+                            continue;
+                        ctx->bindBel(bel, member, STRENGTH_WEAK);
+                        bool valid = ctx->isBelLocationValid(bel);
+                        ctx->unbindBel(bel);
+                        if (valid)
+                            slots[i].push_back(z);
+                    }
+                }
+                // Find distinct legal slots, not merely enough existing BELs.
+                // Try the legacy assignment first to preserve it wherever valid.
+                std::vector<int> selected(members.size(), -1), owner(16, -1);
+                bool legacy = true;
+                for (size_t i = 0; i < members.size(); ++i) {
+                    int z = members[i]->constr_z;
+                    if (z < 0 || z >= 16 || owner[z] != -1 ||
+                        std::find(slots[i].begin(), slots[i].end(), z) == slots[i].end()) {
+                        legacy = false;
+                        break;
+                    }
+                    selected[i] = z;
+                    owner[z] = int(i);
+                }
+                if (!legacy) {
+                    std::fill(owner.begin(), owner.end(), -1);
+                    std::fill(selected.begin(), selected.end(), -1);
+                    std::function<bool(int, std::vector<bool> &)> augment =
+                        [&](int i, std::vector<bool> &seen) {
+                            for (int z : slots[i]) {
+                                if (seen[z]) continue;
+                                seen[z] = true;
+                                if (owner[z] == -1 || augment(owner[z], seen)) {
+                                    owner[z] = i;
+                                    selected[i] = z;
+                                    return true;
+                                }
+                            }
+                            return false;
+                        };
+                    bool matched = true;
+                    for (size_t i = 0; i < members.size(); ++i) {
+                        std::vector<bool> seen(16, false);
+                        if (!augment(int(i), seen)) { matched = false; break; }
+                    }
+                    if (!matched) continue;
+                }
+                ControlPlacement candidate{{root, sink}};
+                for (size_t i = 0; i < members.size(); ++i)
+                    candidate.emplace_back(members[i], bels[selected[i]]);
+                std::vector<BelId> temporary;
+                for (auto &item : candidate) {
+                    if (item.first->bel != BelId()) continue;
+                    ctx->bindBel(item.second, item.first, STRENGTH_WEAK);
+                    temporary.push_back(item.second);
+                }
+                bool valid = true;
+                for (auto &item : candidate)
+                    valid &= ctx->isBelLocationValid(item.second);
+                // A tile control is a routing endpoint. Its placement must
+                // leave at least one legal site for the LUT driving its enable,
+                // including that LUT's own fixed MCU/IO input restrictions.
+                // Otherwise the root places, then its driver has no legal BEL.
+                if (valid && driver && driver->type == ctx->id("GENERIC_SLICE")) {
+                    bool source_valid = false;
+                    if (driver->bel != BelId()) {
+                        source_valid = ctx->isBelLocationValid(driver->bel);
+                    } else {
+                        for (BelId bel : driver_sites) {
+                            if (!ctx->checkBelAvail(bel)) continue;
+                            ctx->bindBel(bel, driver, STRENGTH_WEAK);
+                            source_valid = ctx->isBelLocationValid(bel);
+                            ctx->unbindBel(bel);
+                            if (source_valid) break;
+                        }
+                    }
+                    if (!source_valid) { valid = false; ++rejected_enable_source; }
+                }
+                for (auto it = temporary.rbegin(); it != temporary.rend(); ++it)
+                    ctx->unbindBel(*it);
+                if (valid)
+                    candidates.emplace(sink.index, std::move(candidate));
+            }
+            log_info("agrv2k: flexible enable cluster '%s': %d register(s), %d legal tile assignment(s)\n",
+                     ctx->nameOf(root), int(members.size()), int(candidates.size()));
+            log_info("agrv2k:   %d tile assignment(s) excluded by enable-driver reachability\n",
+                     rejected_enable_source);
+            if (candidates.empty())
+                log_error("agrv2k: clock-enable cluster '%s' has no legal same-tile slot assignment\n",
+                          ctx->nameOf(root));
         }
     }
 
@@ -14989,6 +15180,7 @@ struct AgrvImpl : ViaductAPI
         refresh_global_clock_owner("pre-place", false);
         refresh_mcu_endpoint_owner("pre-place", false);
         prepare_shared_ingress_checks();
+        prepare_control_placements();
     }
 
     void postPlace() override
@@ -15471,6 +15663,9 @@ struct AgrvImpl : ViaductAPI
         CellInfo *ci = ctx->getBoundBelCell(bel);
         if (ci == nullptr)
             return true;
+        const char *trace = getenv("AGRV2K_PLACE_TRACE_CELL");
+        if (trace != nullptr && std::string(ctx->nameOf(ci)).find(trace) != std::string::npos)
+            explain_invalid = true;
         if (ci->type == ctx->id("ALTA_BRAM9K")) {
             std::vector<NetInfo *> clocks;
             for (const char *port : {"Clk0", "Clk1"}) {

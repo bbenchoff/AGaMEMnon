@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -10,6 +11,7 @@ from agamemnon.engine.route_through import (
 )
 from agamemnon.engine.features.core_logic import CoreLogicFeature
 from agamemnon.engine.features.routing import RoutingFeature, RoutingState
+from agamemnon.engine.features.physical_io import PhysicalIoState
 from agamemnon.engine.registry import CONSTANTS, options_from
 
 
@@ -148,6 +150,29 @@ def test_route_through_mask_takes_selector_ownership_from_routing():
     removed = RoutingFeature().delegate_bits(state, {(66084, 0x03)})
     assert removed == 1
     assert state.sets == [(66084, 0x04), (9, 0x08)]
+
+
+def test_shared_control_delegation_is_opt_in_and_logic_tile_only(monkeypatch):
+    """Exercise the routing prepare path for BRAM and LogicTile control names."""
+    common = dict(
+        cell={},
+        tables=SimpleNamespace(chipdb_root=ROOT / "agamemnon" / "chipdb",
+                               admission_binding=None, admitted_edge={}),
+        physical_io_state=PhysicalIoState(), exact_mcu_pips={}, mcu_cells={},
+        mcu_exit_pairs={},
+        bram_feature=SimpleNamespace(resolve_route=lambda *args, **kwargs: True),
+        bram_state=SimpleNamespace(), slice_config={}, left_vendor_slices=set(),
+    )
+    options = options_from({"AGAMEMNON_ALLOW_UNMAPPED": "1"})
+    for enabled, pip, expected in (
+        ("0", "X13Y4_CtrlMUX02.X13Y4_TileClkEnMUX00", []),
+        ("1", "X13Y4_CtrlMUX02.X13Y4_TileClkEnMUX00", []),
+        ("1", "X14Y4_CtrlMUX02.X14Y4_TileClkEnMUX00",
+         ["X14Y4_CtrlMUX02.X14Y4_TileClkEnMUX00"]),
+    ):
+        monkeypatch.setenv("AGRV2K_SHARED_CONTROL_GRAPH", enabled)
+        state = RoutingFeature().prepare(pips=[pip], options=options, **common)
+        assert state.shared_control_pips == expected
 
 
 def test_working_x9_haddr11_split_route_through_is_exact():
