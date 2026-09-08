@@ -130,3 +130,145 @@ def test_descriptor_is_experimental_and_owns_no_chipdb_file():
     assert descriptor.evidence_tier == "differentially_validated"
     assert descriptor.chipdb_files == ()
     assert descriptor.options == (shared_control.SHARED_CONTROL_GRAPH_OPTION,)
+
+
+# ---------------------------------------------------------------------------
+# Emission
+# ---------------------------------------------------------------------------
+
+import csv
+from pathlib import Path
+
+CHIPDB = Path(__file__).resolve().parent.parent / "agamemnon" / "chipdb"
+
+
+def ctrlmux_cells():
+    """The shipped CFG_CTRLMUX selector bits, keyed as prepare() expects."""
+    cells = {}
+    with (CHIPDB / "pips_full.csv").open(newline="", encoding="utf-8") as stream:
+        for row in csv.DictReader(stream):
+            if "CTRLMUX" in row["mux"]:
+                cells[(int(row["x"]), int(row["y"]), row["mux"],
+                       int(row["sel"]))] = (int(row["byte"]), int(row["mask"]))
+    return cells
+
+
+def harvested_pips():
+    with shared_control.EDGE_TABLE.open(newline="", encoding="utf-8") as stream:
+        for row in csv.DictReader(stream):
+            yield row, "X%sY%s_%s.X%sY%s_%s" % (
+                row["src_x"], row["src_y"], row["src_res"],
+                row["dst_x"], row["dst_y"], row["dst_res"])
+
+
+def test_every_harvested_edge_either_resolves_or_refuses_by_name():
+    """No harvested control edge may resolve to nothing in silence."""
+    cells = ctrlmux_cells()
+    resolved = refused_bram = 0
+    for row, pip in harvested_pips():
+        try:
+            state = shared_control.FEATURE.prepare([pip], cells)
+        except shared_control.SharedControlEmitError as error:
+            assert "not a LogicTile" in str(error)
+            assert row["dst_tile"] == "BramTILE"
+            refused_bram += 1
+            continue
+        assert state.sets, pip
+        resolved += 1
+    assert resolved == 1068
+    assert refused_bram == 6
+
+
+def test_a_bram_tile_control_line_is_refused_not_guessed():
+    """x=13 is not a LogicTile; the selector formula does not cover it."""
+    with pytest.raises(shared_control.SharedControlEmitError,
+                       match="not a LogicTile"):
+        shared_control.FEATURE.prepare(
+            ["X13Y2_CtrlMUX02.X13Y2_TileClkEnMUX00"], {})
+
+
+def test_logic_tiles_are_the_hundred_and_thirty_two():
+    tiles = shared_control.logic_tiles()
+    assert len(tiles) == 132
+    assert not [t for t in tiles if t[0] == 13]
+
+
+def test_a_line_driven_by_the_wrong_ctrlmux_instance_is_refused():
+    # CtrlMUX0 drives line 1; naming line 0 is a contradiction, not a choice.
+    with pytest.raises(shared_control.SharedControlEmitError, match="drives line"):
+        shared_control.FEATURE.prepare(
+            ["X14Y8_CtrlMUX00.X14Y8_TileClkEnMUX00"], {})
+
+
+def test_a_control_line_driven_by_something_other_than_a_ctrlmux_is_refused():
+    with pytest.raises(shared_control.SharedControlEmitError, match="takes only"):
+        shared_control.FEATURE.prepare(
+            ["X14Y8_RMUX89.X14Y8_TileClkEnMUX01"], {})
+
+
+def test_a_destination_that_is_not_a_control_resource_is_refused():
+    with pytest.raises(shared_control.SharedControlEmitError,
+                       match="not a control destination"):
+        shared_control.FEATURE.prepare(["X14Y8_RMUX89.X14Y8_IMUX04"], {})
+
+
+def test_an_unparseable_wire_is_refused():
+    with pytest.raises(shared_control.SharedControlEmitError, match="unparseable"):
+        shared_control.FEATURE.prepare(["GCLK0.X14Y8_TileClkEnMUX01"], {})
+
+
+def test_two_sources_on_one_line_are_refused():
+    with pytest.raises(shared_control.SharedControlEmitError,
+                       match="driven twice"):
+        shared_control.FEATURE.prepare(
+            ["X14Y8_CtrlMUX02.X14Y8_TileClkEnMUX00",
+             "X14Y8_CtrlMUX03.X14Y8_TileClkEnMUX00"], {})
+
+
+def test_a_ctrlmux_source_with_no_selector_bit_at_that_tile_is_refused():
+    with pytest.raises(shared_control.SharedControlEmitError,
+                       match="no CFG_CTRLMUX bit"):
+        shared_control.FEATURE.prepare(["X14Y8_OMUX01.X14Y8_CtrlMUX00"], {})
+
+
+def test_only_slices_taking_line_one_get_a_selector_bit():
+    """Clear means line 0, which the cleared baseline already gives."""
+    from agamemnon.engine import control_encode
+
+    on = shared_control.FEATURE.prepare([], {}, slice_lines={(14, 8, 3): 1})
+    off = shared_control.FEATURE.prepare([], {}, slice_lines={(14, 8, 3): 0})
+
+    assert on.sets == [control_encode.slice_line_bit(14, 8, 3, "clock_enable")]
+    assert off.sets == []
+
+
+def test_a_slice_asking_for_a_line_that_does_not_exist_is_refused():
+    with pytest.raises(shared_control.SharedControlEmitError, match="asks for line"):
+        shared_control.FEATURE.prepare([], {}, slice_lines={(14, 8, 3): 2})
+
+
+def test_emit_writes_the_prepared_bits_and_nothing_else():
+    state = shared_control.FEATURE.prepare(
+        ["X14Y8_CtrlMUX02.X14Y8_TileClkEnMUX00"], {})
+    (byte, mask), = state.sets
+
+    image = bytearray(byte + 1)
+    context = type("Ctx", (), {"image": image, "state": state,
+                               "ownership": None})()
+    assert shared_control.FEATURE.emit_bitstream(context) == 1
+    assert image[byte] == mask
+    assert sum(image) == mask          # exactly one bit set in the whole image
+
+
+def test_emit_skips_a_bit_past_the_end_of_the_image():
+    state = shared_control.FEATURE.prepare(
+        ["X14Y8_CtrlMUX02.X14Y8_TileClkEnMUX00"], {})
+    context = type("Ctx", (), {"image": bytearray(4), "state": state,
+                               "ownership": None})()
+    assert shared_control.FEATURE.emit_bitstream(context) == 0
+
+
+def test_emit_with_no_prepared_state_writes_nothing():
+    context = type("Ctx", (), {"image": bytearray(16), "state": None,
+                               "ownership": None})()
+    assert shared_control.FEATURE.emit_bitstream(context) == 0

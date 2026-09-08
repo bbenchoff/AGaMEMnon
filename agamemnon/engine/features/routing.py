@@ -523,6 +523,17 @@ class RoutingState:
     predicted: int = 0
     admission_binding: dict | None = None
     provenance_counts: dict = field(default_factory=dict)
+    #: Control pips this loop deliberately did not resolve, handed to
+    #: shared_control_graph. Recorded rather than discarded so a build can be
+    #: asked whether any control edge went unclaimed.
+    shared_control_pips: list = field(default_factory=list)
+
+
+#: Tile shared-control resource families. Owned by
+#: ``features.shared_control_graph``; see the skip in ``prepare`` below.
+SHARED_CONTROL_RESOURCES = frozenset({
+    "CtrlMUX", "TileClkEnMUX", "TileSyncMUX", "TileAsyncMUX", "TileClkMUX",
+})
 
 
 def _mcu_entry_pair(destination_index):
@@ -2380,6 +2391,18 @@ class RoutingFeature:
             dx, dy, df, di = destination
             edge = source + destination
             if sf.startswith("CARRY") or df.startswith("CARRY"):
+                continue
+            # Tile shared-control resources are owned by shared_control_graph,
+            # which resolves them with control_encode's selector map. They are
+            # skipped HERE rather than left to fall through the resolvers: this
+            # loop's tables have no CtrlMUX/TileXxxMUX entry, so a control pip
+            # reaching them would be dropped without a word -- the exact
+            # silent-lookup-miss shape that has cost this project three
+            # campaigns. Only reachable when AGRV2K_SHARED_CONTROL_GRAPH put
+            # the edges in the graph in the first place.
+            if (sf in SHARED_CONTROL_RESOURCES or
+                    df in SHARED_CONTROL_RESOURCES):
+                state.shared_control_pips.append(pip)
                 continue
             # Pad activation belongs to the physical source, independently of
             # which resolver supplies the destination selector. Exact MCU/SPI
