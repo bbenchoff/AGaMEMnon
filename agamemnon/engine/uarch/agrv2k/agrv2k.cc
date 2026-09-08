@@ -1979,6 +1979,17 @@ static void pack_shared_control(Context *ctx)
                 log_info("  clock enable '%s': %d pinned register(s) in X%dY%d, "
                          "control pinned to %s\n", group.first.c_str(),
                          int(count), tile_x, tile_y, sink.c_str());
+            } else if (getenv("AGRV2K_SHARED_CONTROL_NOCLUSTER") != nullptr) {
+                // DIAGNOSTIC ONLY. Skips the cluster so the control cell and its
+                // registers place independently. The emitted image is WRONG --
+                // nothing then guarantees the sink shares a tile with the
+                // registers it gates -- so this exists purely to separate "the
+                // control cell has no legal site" from "legal sites exist but
+                // the cluster shape excludes them". Never set it for an image
+                // anyone intends to load.
+                log_info("  clock enable '%s': %d register(s), CLUSTER SKIPPED "
+                         "(AGRV2K_SHARED_CONTROL_NOCLUSTER; diagnostic, image invalid)\n",
+                         group.first.c_str(), int(count));
             } else {
                 std::vector<std::pair<CellInfo *, Loc>> shape;
                 shape.push_back({control.get(), Loc(0, 0, 16)});
@@ -14855,8 +14866,115 @@ struct AgrvImpl : ViaductAPI
         return true;
     }
 
+    // Placement feasibility diagnostic, env-gated, read-only.
+    //
+    // "Unable to find legal placement ... after 10001 attempts" does not say
+    // WHICH of four things happened, and the distinction decides what to fix:
+    //
+    //   1 no legal site exists for the cell at all;
+    //   2 legal sites exist but the cluster shape excludes them;
+    //   3 members are individually placeable but cannot fit together;
+    //   4 a legal assignment exists and the placer failed to find it.
+    //
+    // Set AGRV2K_PLACE_DIAG to a substring of a cell name. For each match this
+    // counts, over every bel of that cell's type: how many are already taken,
+    // how many its region excludes, and how many are individually valid --
+    // binding the cell alone and ignoring its cluster, which is what separates
+    // 1 from 2 and 3. For a cluster root it then counts how many root positions
+    // admit the WHOLE shape, which separates 2 from 3. If nothing is
+    // individually valid it prints one explained rejection.
+    void diagnose_placement_feasibility()
+    {
+        const char *want = getenv("AGRV2K_PLACE_DIAG");
+        if (want == nullptr)
+            return;
+        const std::string needle(want);
+        std::vector<BelId> all;
+        for (BelId bel : ctx->getBels())
+            all.push_back(bel);
+        for (auto &entry : ctx->cells) {
+            CellInfo *cell = entry.second.get();
+            const std::string name = ctx->nameOf(cell);
+            if (name.find(needle) == std::string::npos)
+                continue;
+            if (cell->bel != BelId())
+                continue;
+            int of_type = 0, taken = 0, outside_region = 0, valid = 0, invalid = 0;
+            BelId first_invalid;
+            for (BelId bel : all) {
+                if (ctx->getBelType(bel) != cell->type)
+                    continue;
+                ++of_type;
+                if (!ctx->checkBelAvail(bel)) { ++taken; continue; }
+                if (cell->region != nullptr && cell->region->constr_bels &&
+                    !cell->region->bels.count(bel)) { ++outside_region; continue; }
+                ctx->bindBel(bel, cell, STRENGTH_WEAK);
+                const bool ok = ctx->isBelLocationValid(bel);
+                ctx->unbindBel(bel);
+                if (ok) ++valid;
+                else { ++invalid; if (first_invalid == BelId()) first_invalid = bel; }
+            }
+            log_info("place-diag '%s' type %s: %d bel(s) of type, %d taken, "
+                     "%d outside region, %d INDIVIDUALLY VALID, %d invalid\n",
+                     name.c_str(), cell->type.c_str(ctx), of_type, taken,
+                     outside_region, valid, invalid);
+            if (valid == 0 && first_invalid != BelId()) {
+                log_info("place-diag   explained rejection at %s:\n",
+                         ctx->nameOfBel(first_invalid));
+                ctx->bindBel(first_invalid, cell, STRENGTH_WEAK);
+                ctx->isBelLocationValid(first_invalid, true);
+                ctx->unbindBel(first_invalid);
+            }
+            if (cell->cluster == ClusterId() || cell->constr_children.empty())
+                continue;
+            int roots_admitting_shape = 0, root_ok_member_clash = 0;
+            int rej_no_bel = 0, rej_taken = 0, rej_invalid = 0;
+            for (BelId root : all) {
+                if (ctx->getBelType(root) != cell->type) continue;
+                if (!ctx->checkBelAvail(root)) continue;
+                const Loc rl = ctx->getBelLocation(root);
+                // Bind the whole shape, not just check availability: a member
+                // can be free and still illegal at that site. Reversible --
+                // everything bound here is unbound again before returning.
+                std::vector<BelId> bound;
+                bool shape_ok = true;
+                ctx->bindBel(root, cell, STRENGTH_WEAK);
+                bound.push_back(root);
+                for (CellInfo *child : cell->constr_children) {
+                    Loc want_loc(rl.x + child->constr_x, rl.y + child->constr_y,
+                                 child->constr_abs_z ? child->constr_z
+                                                     : rl.z + child->constr_z);
+                    BelId cb = ctx->getBelByLocation(want_loc);
+                    if (cb == BelId() || ctx->getBelType(cb) != child->type) {
+                        shape_ok = false; ++rej_no_bel; break;
+                    }
+                    if (!ctx->checkBelAvail(cb)) {
+                        shape_ok = false; ++rej_taken; break;
+                    }
+                    ctx->bindBel(cb, child, STRENGTH_WEAK);
+                    bound.push_back(cb);
+                }
+                if (shape_ok)
+                    for (BelId b : bound)
+                        if (!ctx->isBelLocationValid(b)) {
+                            shape_ok = false; ++rej_invalid; break;
+                        }
+                for (auto it = bound.rbegin(); it != bound.rend(); ++it)
+                    ctx->unbindBel(*it);
+                if (shape_ok) ++roots_admitting_shape; else ++root_ok_member_clash;
+            }
+            log_info("place-diag   cluster of %d child(ren) at absolute z: %d root "
+                     "position(s) admit the whole shape, %d rejected -- %d no bel "
+                     "at the required offset, %d bel already bound, %d bel "
+                     "invalid there\n",
+                     int(cell->constr_children.size()), roots_admitting_shape,
+                     root_ok_member_clash, rej_no_bel, rej_taken, rej_invalid);
+        }
+    }
+
     void prePlace() override
     {
+        diagnose_placement_feasibility();
         if (source_typed_xbar_enabled()) {
             for (auto &item : ctx->cells) {
                 CellInfo *cell = item.second.get();
