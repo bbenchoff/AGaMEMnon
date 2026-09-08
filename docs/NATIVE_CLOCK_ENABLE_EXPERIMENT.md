@@ -41,13 +41,14 @@ accepting arbitrary changed inputs or updating any image pins.
 
 ## Bounded test composition
 
-The complete ordinary-source release-strict build places and routes on attempt
+The initial complete ordinary-source release-strict build placed and routed on attempt
 1 and reproduces raw image
 `4959005cdc15d60483e425c66e8040054793740cc075cd004feee41248340771`.
 Eight gated data bits use X16Y10 slices 0–7 on line 0. Their LUTs are identity
 functions of write data, with no data-feedback hold mux; observing hold/resume
 therefore tests the native enable path. Two read-word registers use line 0 at
-X16Y12. Ordinary scratch bits at X16Y10 slices 8 and 10 bypass the enable.
+X16Y12. Ordinary scratch bits occupy X16Y10 slices 8 and 10; the initial claim
+that BYPASSEN safely exempts those neighbours was falsified on silicon.
 
 The preregistered experiment updates gated data to A3, attempts complementary
 5C and further 39/7E writes while disabled, then resumes with 5C. During the
@@ -56,7 +57,8 @@ the two ordinary neighbours. A separate LFSR supplies phase-independent
 liveness observations. Always-enabled, never-enabled and collateral scratch-
 gating simulation mutations are rejected.
 
-The rebuilt native regression passes 270 tests without skips. All 58 retained
+Before the subsequent tile-isolation experiment, the native regression passed
+270 tests without skips. All 58 retained
 images remain byte-identical (59 checks including manifest coverage); the
 additional CRLF pack/tamper test and 103 focused tests also pass.
 
@@ -66,8 +68,27 @@ A632, including addresses that should select scratch or gated data. The
 read-word selection path therefore did not expose the intended registers.
 This result does not establish their internal values or qualify native enable.
 Final reset succeeded; custody was released; no flash writes occurred and
-negative fences remain 74. The next diagnostic separates the native-enabled
-read-word observer from the native-enabled data bank.
+negative fences remain 74.
+
+A second source build used explicit ordinary DFF read-word observers. The
+observer and remote LFSR then worked, while native data read zero and the two
+same-tile scratch bits failed. A diagnostic reversal of ten BYPASSEN bits
+restored native update A3, all holds A3 and resume5C, but the scratch bits still
+failed. Every session passed both controls and its retained reference; none
+passed the full candidate contract. BYPASSEN alone is therefore not an
+established ordinary-register exemption, and its earlier semantic claim is
+withdrawn.
+
+The current experimental emitter clears BYPASSEN for native identity-LUT FFs.
+A trial rule separating ordinary and native FFs into different tiles made the
+original fixture fail placement on all28 attempts. That trial was withdrawn.
+Two further fixed-image diagnostics selected the unused enable line for the
+ordinary neighbours, with each BYPASSEN value. Neither changed their failures;
+native update/hold/resume still passed. These results do not establish tile
+interference or qualify mixed tiles. The scratch data and feedback routes remain
+under investigation. A disjoint-input source fixture separates scratch and
+native MCU data lanes to qualify enable behavior without claiming the earlier
+scratch defect repaired.
 
 Vendor comparison artifacts and board orchestration remain in the private
 evidence repository.

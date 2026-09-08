@@ -114,6 +114,7 @@ class SharedControlEmitError(Exception):
 @dataclass
 class SharedControlState:
     sets: list = field(default_factory=list)
+    clears: list = field(default_factory=list)
     tile_lines: dict = field(default_factory=dict)
     slice_lines: dict = field(default_factory=dict)
     routes: int = 0
@@ -433,12 +434,11 @@ class SharedControlGraphFeature:
             if line not in (0, 1):
                 raise SharedControlEmitError(
                     "slice X%dY%d_SLICE%d asks for line %r" % (x, y, z, line))
-            # WITHOUT THIS BIT THE ENABLE DOES NOTHING. CFG_BYPASSEN<z> clear
-            # -- the baseline -- means the slice is clocked unconditionally, so
-            # a design can route a control net to a tile line, emit every
-            # selector correctly, and still have its register advance every
-            # cycle. Measured, after emitting exactly that image once.
-            state.sets.append(control_encode.slice_enable_bit(x, y, z))
+            # The prior BYPASSEN-as-enable interpretation was falsified by a
+            # fixed-image silicon intervention. Clearing this bit restored
+            # update/hold/resume for identity-LUT native registers. It did not
+            # establish BYPASSEN semantics for other register input modes.
+            state.clears.append(control_encode.slice_bypass_bit(x, y, z))
             if line == 1:
                 # Clear means line 0, which the cleared baseline already gives.
                 state.sets.append(control_encode.slice_line_bit(x, y, z, family))
@@ -447,19 +447,14 @@ class SharedControlGraphFeature:
               "%d gated slice(s) (%d on line 1) -> %d config bits"
               % (state.routes, state.sources, len(state.slice_lines),
                  sum(1 for line in state.slice_lines.values() if line == 1),
-                 len(state.sets)))
+                 len(state.sets) + len(state.clears)))
         return state
 
     def writable_bits(self, state):
-        return set(state.sets)
+        return set(state.sets) | set(state.clears)
 
     def clear_bitstream(self, context):
-        """Nothing to clear.
-
-        Every bit this feature writes is a selector whose cleared state is the
-        meaningful default -- line 0, no source -- and the baseline clear has
-        already put the tile there. There is no owned region to wipe.
-        """
+        """No bulk region clear; explicit per-slice clears occur during emission."""
         return 0
 
     def emit_bitstream(self, context):
@@ -467,6 +462,13 @@ class SharedControlGraphFeature:
         if state is None:
             return 0
         count = 0
+        for byte, mask in state.clears:
+            if byte >= len(context.image):
+                raise SharedControlEmitError("slice bypass bit is outside the image")
+            context.image[byte] &= ~mask
+            if context.ownership is not None:
+                context.ownership.touch(byte, mask, "shared_control")
+            count += 1
         for byte, mask in state.sets:
             if byte < len(context.image):
                 context.image[byte] |= mask

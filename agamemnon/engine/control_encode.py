@@ -222,48 +222,18 @@ def slice_line_bit(x, y, z, family):
     return bit_position(x, y, row, SLICE_SELECTOR_COLUMN)
 
 
-#: Per-slice row selecting whether the slice consumes the tile clock enable at
-#: all. Same four-row per-slice block as the two above: ``CFG_ASYNCMUX<z>`` at
-#: +0, ``CFG_CLKMUX<z>`` at +1, ``CFG_BYPASSEN<z>`` at +3.
+#: Physical CFG_BYPASSEN position. Its earlier interpretation as a per-slice
+#: clock-enable admission bit was withdrawn after the 2026-09-08 silicon test.
 SLICE_ENABLE_ROW_OFFSET = 3
 
 
-def slice_enable_bit(x, y, z):
-    """Return the ``(byte, mask)`` making slice ``z`` consume the tile enable.
+def slice_bypass_bit(x, y, z):
+    """Return CFG_BYPASSEN's physical bit, without assigning enable semantics.
 
-    **Set means the slice is gated by the tile clock-enable line; clear means it
-    is clocked unconditionally.** Clear is the baseline, so a design that routes
-    an enable to a tile line and does not set this bit gates nothing -- the
-    selector bits are all correct and the register still clocks every cycle.
-
-    Evidence, over retained vendor images:
-
-    ============================  ======  ======
-    tile clock-enable line          set    clear
-    ============================  ======  ======
-    driven                         1,297   1,743
-    idle                              31  250,369
-    ============================  ======  ======
-
-    and per design, against the count of ``dffeas`` instances carrying a real
-    ``.ena`` net:
-
-    =========================  =============  ==============  ================
-    design                     ``.ena`` nets  ``BYPASSEN`` set  slices in driven
-    =========================  =============  ==============  ================
-    ``regbank16_user`` s1493              43              40                80
-    ``addsub16_user`` s1409               68              67               144
-    =========================  =============  ==============  ================
-
-    Every set bit lies inside a tile whose enable line is driven, and the count
-    tracks the number of enabled registers rather than the number of slices in
-    those tiles -- which is what distinguishes "this slice uses the enable" from
-    "this slice bypasses it". The shortfall (40 of 43, 67 of 68) is unexplained
-    and is why this is reported as ``correlated`` rather than exact.
-
-    The corollary matters for composition: an ordinary register sharing a tile
-    with a gated one has this bit clear and is therefore **not** gated, so a
-    mixed tile is safe by construction rather than something to refuse.
+    The vendor association with .ena was not a causal polarity test. A fixed
+    image intervention clearing BYPASSEN on eight native identity-LUT registers
+    restored update/hold/resume. Ordinary same-tile scratch registers failed
+    with either bit value. Mixed sequential tile use therefore remains refused.
     """
     if not 0 <= int(z) < 16:
         raise ControlEncodeError("slice z=%r is outside 0..15" % (z,))
@@ -271,9 +241,14 @@ def slice_enable_bit(x, y, z):
     return bit_position(x, y, row, SLICE_SELECTOR_COLUMN)
 
 
+def slice_enable_bit(x, y, z):
+    """Compatibility alias for old diagnostic scripts; the name is misleading."""
+    return slice_bypass_bit(x, y, z)
+
+
 def slice_enable_confidence():
-    """``correlated``: strong, but 3 of 43 and 1 of 68 registers are unaccounted."""
-    return "correlated"
+    """The former BYPASSEN-as-enable interpretation is withdrawn."""
+    return "withdrawn"
 
 
 def slice_line_confidence(family):

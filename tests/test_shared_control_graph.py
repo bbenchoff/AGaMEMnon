@@ -240,10 +240,7 @@ def test_a_ctrlmux_source_with_no_selector_bit_at_that_tile_is_refused():
 
 
 def test_only_slices_taking_line_one_get_a_LINE_selector_bit():
-    """The LINE selector is what line 0 does not need -- the cleared baseline
-    already selects line 0. The per-slice enable bit is needed either way, so
-    it is present in both cases; this test used to assert `off.sets == []` and
-    was encoding the bug that made a routed enable gate nothing."""
+    """Line zero is baseline; BYPASSEN must not be asserted as an enable."""
     from agamemnon.engine import control_encode
 
     on = shared_control.FEATURE.prepare([], {}, slice_lines={(14, 8, 3): 1})
@@ -252,8 +249,8 @@ def test_only_slices_taking_line_one_get_a_LINE_selector_bit():
     line_bit = control_encode.slice_line_bit(14, 8, 3, "clock_enable")
     assert line_bit in on.sets
     assert line_bit not in off.sets
-    assert control_encode.slice_enable_bit(14, 8, 3) in on.sets
-    assert control_encode.slice_enable_bit(14, 8, 3) in off.sets
+    assert control_encode.slice_bypass_bit(14, 8, 3) in on.clears
+    assert control_encode.slice_bypass_bit(14, 8, 3) in off.clears
 
 
 def test_a_slice_asking_for_a_line_that_does_not_exist_is_refused():
@@ -373,22 +370,33 @@ def test_the_flag_being_unset_adds_no_bel_at_all():
     assert context.ctx.bels == []
 
 
-def test_every_gated_slice_gets_its_enable_bit_whatever_the_line():
-    """Without CFG_BYPASSEN<z> the slice is clocked unconditionally and the
-    routed enable does nothing at all."""
+def test_native_enable_clears_the_erroneous_bypass_setting():
     from agamemnon.engine import control_encode
 
     on = shared_control.FEATURE.prepare([], {}, slice_lines={(14, 8, 3): 0})
-    assert on.sets == [control_encode.slice_enable_bit(14, 8, 3)]
+    assert on.sets == []
+    assert on.clears == [control_encode.slice_bypass_bit(14, 8, 3)]
 
     line1 = shared_control.FEATURE.prepare([], {}, slice_lines={(14, 8, 3): 1})
-    assert set(line1.sets) == {control_encode.slice_enable_bit(14, 8, 3),
-                               control_encode.slice_line_bit(14, 8, 3, "clock_enable")}
+    assert line1.sets == [control_encode.slice_line_bit(14, 8, 3, "clock_enable")]
+    byte, mask = on.clears[0]
+    image = bytearray([255]) * (byte + 1)
+    context = type("Ctx", (), {"image": image, "state": on, "ownership": None})()
+    shared_control.FEATURE.emit_bitstream(context)
+    assert image[byte] == (255 & ~mask)
 
 
-def test_an_ungated_slice_in_the_same_tile_gets_no_bit():
-    """A mixed tile is safe by construction: the ordinary register's BYPASSEN
-    stays clear, so the driven tile line does not gate it."""
-    state = shared_control.FEATURE.prepare([], {}, slice_lines={(14, 8, 3): 0})
-    from agamemnon.engine import control_encode
-    assert control_encode.slice_enable_bit(14, 8, 4) not in state.sets
+def test_ordinary_neighbour_is_not_mistaken_for_a_native_enable_member():
+    controller = dict(type=shared_control.TILE_CONTROL_BEL,
+                      attributes=dict(NEXTPNR_BEL="X14Y8_CLKEN0", AGRV2K_CLOCK_ENABLE_NET="enable"))
+    active = dict(type="GENERIC_SLICE", parameters=dict(FF_USED="1"),
+                  attributes=dict(NEXTPNR_BEL="X14Y8_SLICE3", AGRV2K_CLOCK_ENABLE_NET="enable"))
+    ordinary = dict(type="GENERIC_SLICE", parameters=dict(FF_USED="1"),
+                    attributes=dict(NEXTPNR_BEL="X14Y8_SLICE4"))
+    module = dict(cells=dict(control=controller, active=active, ordinary=ordinary))
+    assert shared_control.FEATURE.slice_lines_from_module(module) == {(14, 8, 3): 0}
+    ordinary["parameters"]["FF_USED"] = "0"
+    assert shared_control.FEATURE.slice_lines_from_module(module) == {(14, 8, 3): 0}
+    ordinary["parameters"]["FF_USED"] = "1"
+    ordinary["attributes"]["NEXTPNR_BEL"] = "X14Y9_SLICE4"
+    assert shared_control.FEATURE.slice_lines_from_module(module) == {(14, 8, 3): 0}
