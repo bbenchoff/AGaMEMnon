@@ -56,7 +56,11 @@ from .protocol import EmissionPhase, FeatureDescriptor
 #: with the rest of the uarch controls.
 SHARED_CONTROL_GRAPH_OPTION = "AGRV2K_SHARED_CONTROL_GRAPH"
 
-EDGE_TABLE = Path(__file__).with_name("tile_control_edges.csv")
+# Lives one level up in agamemnon/engine/ rather than beside this module: the
+# repository ignores *.csv globally and re-includes only ``agamemnon/engine/*.csv``,
+# not the features/ subdirectory. A table placed here would be silently dropped
+# from a commit and the feature would fail to load on a fresh clone.
+EDGE_TABLE = Path(__file__).resolve().parent.parent / "tile_control_edges.csv"
 
 #: Control-line families a control signal terminates on.
 CONTROL_SINKS = ("TileClkEnMUX", "TileSyncMUX")
