@@ -122,6 +122,77 @@ def test_native_srst_auto_wrapper_excludes_project_and_explicit_disable(monkeypa
     assert calls == [plain]
 
 
+def test_native_srst_wrapper_rejects_final_output_aliasing_source(monkeypatch, tmp_path):
+    monkeypatch.delenv("AGRV2K_SHARED_CONTROL_SRST_RECOVERY", raising=False)
+    source = tmp_path / "design.v"; source.write_text("module top; endmodule")
+    args = SimpleNamespace(uarch=True, input=str(source), project=None,
+                           no_native_clock_enable=False, qualified_checkpoint=None,
+                           qualified_bram_write=None, research_unsafe=False,
+                           output=str(source), write_routed=None, pcf=None, baseline=None)
+    with pytest.raises(SystemExit) as error:
+        cli.cmd_build(args)
+    assert error.value.code == 2
+
+
+def test_native_srst_wrapper_rejects_policy_aliasing_secondary_source(tmp_path):
+    source, secondary = tmp_path / "a.v", tmp_path / "b.v"
+    source.write_text("module a; endmodule"); secondary.write_text("module b; endmodule")
+    args = SimpleNamespace(uarch=True, input=str(source), sources=[str(secondary)], project=None,
+        no_native_clock_enable=False, qualified_checkpoint=None, qualified_bram_write=None,
+        research_unsafe=False, output=str(tmp_path / "out.bin"), write_routed=None,
+        pcf=None, baseline=None)
+    import os
+    prior = os.environ.get("AGAMEMNON_POLICY_SIDECAR"); os.environ["AGAMEMNON_POLICY_SIDECAR"] = str(secondary)
+    try:
+        with pytest.raises(SystemExit) as error: cli.cmd_build(args)
+        assert error.value.code == 2
+    finally:
+        if prior is None: os.environ.pop("AGAMEMNON_POLICY_SIDECAR", None)
+        else: os.environ["AGAMEMNON_POLICY_SIDECAR"] = prior
+
+
+def test_native_srst_wrapper_copies_only_recovered_requested_reports(tmp_path, monkeypatch):
+    def fake_once(candidate):
+        label = "recovered" if os.environ["AGRV2K_SHARED_CONTROL_SRST_RECOVERY"] == "1" else "legacy"
+        output = Path(candidate.output); output.write_bytes(label.encode())
+        routed = Path(candidate.write_routed); routed.write_text(label)
+        Path(os.environ["AGAMEMNON_POLICY_SIDECAR"]).write_text(label + " policy")
+        Path(os.environ["AGAMEMNON_OWNERSHIP_TRACE"]).write_text(label + " ownership")
+        return {"output": str(output), "routed_json": str(routed),
+                "slice_count": 1 if label == "recovered" else 2,
+                "routed_sha256": label, "eligible_srst_cells": 1}
+    monkeypatch.setattr(cli, "_cmd_build_once", fake_once)
+    monkeypatch.delenv("AGRV2K_SHARED_CONTROL_SRST_RECOVERY", raising=False)
+    policy, ownership = tmp_path / "policy.json", tmp_path / "ownership.json"
+    monkeypatch.setenv("AGAMEMNON_POLICY_SIDECAR", str(policy))
+    monkeypatch.setenv("AGAMEMNON_OWNERSHIP_TRACE", str(ownership))
+    args = SimpleNamespace(uarch=True, input="design.v", project=None,
+        no_native_clock_enable=False, qualified_checkpoint=None, qualified_bram_write=None,
+        research_unsafe=False, output=str(tmp_path / "out.bin"), write_routed=None,
+        pcf=None, baseline=None)
+    cli.cmd_build(args)
+    assert policy.read_text() == "recovered policy"
+    assert ownership.read_text() == "recovered ownership"
+    assert os.environ["AGAMEMNON_POLICY_SIDECAR"] == str(policy)
+    assert os.environ["AGAMEMNON_OWNERSHIP_TRACE"] == str(ownership)
+
+
+def test_native_srst_wrapper_restores_report_environment_on_error(tmp_path, monkeypatch):
+    def fail(_candidate):
+        raise SystemExit(1)
+    monkeypatch.setattr(cli, "_cmd_build_once", fail)
+    monkeypatch.delenv("AGRV2K_SHARED_CONTROL_SRST_RECOVERY", raising=False)
+    policy = str(tmp_path / "policy.json"); ownership = str(tmp_path / "ownership.json")
+    monkeypatch.setenv("AGAMEMNON_POLICY_SIDECAR", policy)
+    monkeypatch.setenv("AGAMEMNON_OWNERSHIP_TRACE", ownership)
+    args = SimpleNamespace(uarch=True, input="design.v", project=None, no_native_clock_enable=False,
+        qualified_checkpoint=None, qualified_bram_write=None, research_unsafe=False,
+        output=str(tmp_path / "out.bin"), write_routed=None, pcf=None, baseline=None)
+    with pytest.raises(SystemExit): cli.cmd_build(args)
+    assert os.environ["AGAMEMNON_POLICY_SIDECAR"] == policy
+    assert os.environ["AGAMEMNON_OWNERSHIP_TRACE"] == ownership
+
+
 def test_selective_report_overrides_only_ambiguous_placement_signature(tmp_path):
     path = tmp_path / "native-enable.json"
     path.write_text(json.dumps(_report()), encoding="utf-8")

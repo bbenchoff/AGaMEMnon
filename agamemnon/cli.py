@@ -3302,18 +3302,65 @@ def _native_srst_auto_enabled(a):
             not getattr(a, "no_native_clock_enable", False) and
             not getattr(a, "qualified_checkpoint", None) and
             not getattr(a, "qualified_bram_write", None) and
+            not getattr(a, "research_unsafe", False) and
             not getattr(a, "_native_srst_candidate", False) and
             "AGRV2K_SHARED_CONTROL_SRST_RECOVERY" not in os.environ)
 
 
-def _copy_candidate_products(result, destination, routed_destination):
+def _validate_native_srst_final_products(a, output):
+    """Validate public destinations before candidates use private temporaries."""
+    inputs = [("Verilog input", a.input)] + [("Verilog input", source)
+                                               for source in getattr(a, "sources", [])]
+    if getattr(a, "pcf", None): inputs.append(("PCF input", a.pcf))
+    if getattr(a, "baseline", None): inputs.append(("baseline input", a.baseline))
+    routed = getattr(a, "write_routed", None)
+    policy = os.environ.get("AGAMEMNON_POLICY_SIDECAR")
+    ownership = os.environ.get("AGAMEMNON_OWNERSHIP_TRACE")
+    products = [("build output", output, None), ("compressed build output", output + ".comp", None),
+                ("default policy sidecar", output + ".policy.json", "policy"),
+                ("compressed policy sidecar", output + ".comp.policy.json", "policy"),
+                ("selection sidecar", output + ".native-srst-selection.json", None),
+                ("build confidence report", output + ".confidence.json", "confidence"),
+                ("routed output", routed, None),
+                ("routed confidence report", routed + ".confidence.json" if routed else None, "confidence"),
+                ("selected policy sidecar", policy, "policy"), ("ownership trace", ownership, None)]
+    _validate_emission_product_paths(inputs, products)
+
+
+def _copy_candidate_products(result, destination, routed_destination,
+                             policy_destination=None, ownership_destination=None):
     shutil.copyfile(result["output"], destination)
-    for suffix in (".comp", ".confidence.json"):
+    for suffix in (".comp", ".policy.json", ".comp.policy.json", ".confidence.json"):
         source = result["output"] + suffix
         if os.path.isfile(source):
             shutil.copyfile(source, destination + suffix)
+            if suffix == ".confidence.json":
+                try:
+                    with open(destination + suffix, encoding="utf-8") as stream:
+                        confidence = json.load(stream)
+                    if isinstance(confidence, dict) and "output" in confidence:
+                        confidence["output"] = destination
+                        _write_json_atomic(destination + suffix, confidence)
+                except (OSError, ValueError, json.JSONDecodeError):
+                    pass
+        elif suffix != ".comp":
+            try: os.remove(destination + suffix)
+            except FileNotFoundError: pass
     if routed_destination:
         shutil.copyfile(result["routed_json"], routed_destination)
+        source = result["routed_json"] + ".confidence.json"
+        if os.path.isfile(source):
+            shutil.copyfile(source, routed_destination + ".confidence.json")
+        else:
+            try: os.remove(routed_destination + ".confidence.json")
+            except FileNotFoundError: pass
+    for source, destination_path in ((result.get("policy_sidecar"), policy_destination),
+                                     (result.get("ownership_trace"), ownership_destination)):
+        if source and destination_path and os.path.isfile(source):
+            shutil.copyfile(source, destination_path)
+        elif destination_path:
+            try: os.remove(destination_path)
+            except FileNotFoundError: pass
 
 
 def cmd_build(a):
@@ -3322,8 +3369,15 @@ def cmd_build(a):
         return _cmd_build_once(a)
     root_tmp = tempfile.mkdtemp(prefix="agamemnon_srst_candidates_")
     base_out = a.output or (os.path.splitext(os.path.basename(a.input))[0] + ".bin")
+    try:
+        _validate_native_srst_final_products(a, base_out)
+    except ValueError as exc:
+        print("error: %s" % exc)
+        sys.exit(2)
     candidates = []
     outcomes = []
+    requested_policy = os.environ.get("AGAMEMNON_POLICY_SIDECAR")
+    requested_ownership = os.environ.get("AGAMEMNON_OWNERSHIP_TRACE")
     # Candidate recovery is tried first. The legacy form wins exact ties, so
     # an unchanged mapping keeps its established output choice.
     candidate_specs = (("1", "recovered"), ("0", "legacy"))
@@ -3337,7 +3391,15 @@ def cmd_build(a):
         candidate.write_routed = os.path.join(root_tmp, label + ".routed.json")
         prior = os.environ.get("AGRV2K_SHARED_CONTROL_SRST_RECOVERY")
         prior_trace = os.environ.get("AGAMEMNON_ATTEMPT_TRACE_DIR")
+        prior_policy = os.environ.get("AGAMEMNON_POLICY_SIDECAR")
+        prior_ownership = os.environ.get("AGAMEMNON_OWNERSHIP_TRACE")
         os.environ["AGRV2K_SHARED_CONTROL_SRST_RECOVERY"] = recovery
+        private_policy = os.path.join(root_tmp, label + ".requested.policy.json")
+        private_ownership = os.path.join(root_tmp, label + ".requested.ownership.json")
+        if requested_policy:
+            os.environ["AGAMEMNON_POLICY_SIDECAR"] = private_policy
+        if requested_ownership:
+            os.environ["AGAMEMNON_OWNERSHIP_TRACE"] = private_ownership
         if prior_trace:
             os.environ["AGAMEMNON_ATTEMPT_TRACE_DIR"] = os.path.join(
                 prior_trace, "native_srst_" + label)
@@ -3354,8 +3416,18 @@ def cmd_build(a):
                 os.environ.pop("AGAMEMNON_ATTEMPT_TRACE_DIR", None)
             else:
                 os.environ["AGAMEMNON_ATTEMPT_TRACE_DIR"] = prior_trace
+            if prior_policy is None:
+                os.environ.pop("AGAMEMNON_POLICY_SIDECAR", None)
+            else:
+                os.environ["AGAMEMNON_POLICY_SIDECAR"] = prior_policy
+            if prior_ownership is None:
+                os.environ.pop("AGAMEMNON_OWNERSHIP_TRACE", None)
+            else:
+                os.environ["AGAMEMNON_OWNERSHIP_TRACE"] = prior_ownership
         if result is not None:
-            result.update({"mapping": label, "srst_recovery": recovery})
+            result.update({"mapping": label, "srst_recovery": recovery,
+                           "policy_sidecar": private_policy if requested_policy else None,
+                           "ownership_trace": private_ownership if requested_ownership else None})
             candidates.append(result)
             outcomes.append({"mapping": label, "outcome": "routed",
                              "slice_count": result["slice_count"],
@@ -3370,7 +3442,9 @@ def cmd_build(a):
     if candidates:
         selected = min(candidates, key=lambda item: (item["slice_count"],
                                                        item["mapping"] != "legacy"))
-        _copy_candidate_products(selected, base_out, getattr(a, "write_routed", None))
+        _validate_native_srst_final_products(a, base_out)
+        _copy_candidate_products(selected, base_out, getattr(a, "write_routed", None),
+                                 requested_policy, requested_ownership)
         selected_output = base_out
         selected_routed = getattr(a, "write_routed", None)
         sidecar = base_out + ".native-srst-selection.json"
