@@ -212,7 +212,11 @@ candidate build's runtime.
 `<output>.native-srst-selection.json` records each routed or exhausted
 candidate, its final slice count and routed hash, the selected mapping, and
 the selected image hash. `AGRV2K_SHARED_CONTROL_SRST_RECOVERY=0` or `=1`
-selects one profile for controlled A/B work. Direct synthesis and project
+selects reset lowering without automatic comparison. These explicit settings
+leave the other optimization defaults active, allowing an SRST-only A/B.
+To reproduce the full historical profile explicitly, also set
+`AGRV2K_SHARED_CONTROL_MINCE=4`, `AGRV2K_LUT_FF_BROADCAST=0`, and
+`AGRV2K_NATIVE_ENABLE_LOCAL_QIN=0`. Direct synthesis and project
 builds default to legacy (`0`); no-native builds keep their existing path.
 The recovered candidate uses ordinary CLI defaults
 `AGRV2K_SHARED_CONTROL_MINCE=8`, `AGRV2K_LUT_FF_BROADCAST=1`, and
