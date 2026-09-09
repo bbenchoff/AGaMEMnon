@@ -1933,6 +1933,24 @@ def test_local_qin_addition_preserves_exact_legacy_graph_replay(tmp_path):
     path = devdb / "dev_pips.csv"
     raw = path.read_bytes()
     lines = raw.splitlines(keepends=True)
+    # Reconstruct the exact pre-withdrawal snapshot before testing its older
+    # LOCAL_QIN predecessor. These are historical graph rows, not permission
+    # to emit their withdrawn selectors in a new checkpoint.
+    withdrawn = [
+        b"X18Y2_RMUX27.X18Y5_RMUX20,ROUTE,X18Y2_RMUX27,X18Y5_RMUX20,0.336,18,5,0\r\n",
+        b"X20Y2_RMUX27.X20Y5_RMUX20,ROUTE,X20Y2_RMUX27,X20Y5_RMUX20,0.336,20,5,0\r\n",
+        b"X18Y3_RMUX27.X18Y6_RMUX20,ROUTE,X18Y3_RMUX27,X18Y6_RMUX20,0.336,18,6,0\r\n",
+    ]
+    lines[176989:176989] = withdrawn
+    raw = b"".join(lines)
+    historical_count, historical_sha = sr.PRE_WITHDRAWAL_PHYSICAL_GRAPHS["0"]["release-strict"]
+    assert len(lines) - 1 == historical_count
+    assert hashlib.sha256(raw).hexdigest() == historical_sha
+    path.write_bytes(raw)
+    _replace_metadata_value(devdb / sr.DEV_META_NAME, "graph_pip_count", str(historical_count))
+    _replace_metadata_value(devdb / sr.DEV_META_NAME, "graph_pips_sha256", historical_sha)
+    _replace_metadata_value(devdb / "dev_meta.csv", "n_pips", str(historical_count))
+    assert sr.validate_devdb(devdb, CHIPDB)
     rows = list(csv.DictReader(raw.decode("utf-8").splitlines()))
     assert len(rows) + 1 == len(lines)
     additions = [row for row in rows if row["type"] == "LOCAL_QIN"]
