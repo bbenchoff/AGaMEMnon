@@ -2127,7 +2127,8 @@ static void pack_shared_control(Context *ctx)
         // z16; the second is a child at CLKEN1 z17.  Keep this path separate
         // from the legacy one-root shape so default builds remain byte-stable.
         if (pair_it != paired_with.end()) {
-            const auto &other_members = by_enable.at(pair_it->second);
+            const std::string partner = pair_it->second;
+            const auto &other_members = by_enable.at(partner);
             bool pinned = false;
             for (CellInfo *member : members)
                 pinned |= member->attrs.count(ctx->id("BEL")) != 0;
@@ -2135,13 +2136,13 @@ static void pack_shared_control(Context *ctx)
                 pinned |= member->attrs.count(ctx->id("BEL")) != 0;
             if (!pinned) {
                 auto net0 = ctx->nets.find(ctx->id(group.first));
-                auto net1 = ctx->nets.find(ctx->id(pair_it->second));
+                auto net1 = ctx->nets.find(ctx->id(partner));
                 NetInfo *enable0 = net0 == ctx->nets.end() ? nullptr : net0->second.get();
                 NetInfo *enable1 = net1 == ctx->nets.end() ? nullptr : net1->second.get();
                 if (enable0 == nullptr || enable1 == nullptr)
                     log_error("agrv2k: paired clock-enable group has missing input net\n");
                 const std::string name0 = "$agrv2k_clken$" + group.first + "$dual";
-                const std::string name1 = "$agrv2k_clken$" + pair_it->second + "$dual";
+                const std::string name1 = "$agrv2k_clken$" + partner + "$dual";
                 auto control0 = std::make_unique<CellInfo>(
                         ctx, ctx->id(name0), ctx->id("AGRV2K_TILE_CONTROL"));
                 auto control1 = std::make_unique<CellInfo>(
@@ -2174,8 +2175,8 @@ static void pack_shared_control(Context *ctx)
             // Explicit pins are left to the existing fixed-placement path;
             // pairing pinned groups would silently change their chosen tiles.
             paired_with.erase(group.first);
-            paired_with.erase(pair_it->second);
-            paired_secondary.erase(pair_it->second);
+            paired_with.erase(partner);
+            paired_secondary.erase(partner);
         }
 
         NetInfo *enable = nullptr;
