@@ -401,3 +401,84 @@ def test_experimental_enable_requires_separate_tiles_for_ordinary_registers():
     ordinary["parameters"]["FF_USED"] = "1"
     ordinary["attributes"]["NEXTPNR_BEL"] = "X14Y9_SLICE4"
     assert shared_control.FEATURE.slice_lines_from_module(module) == {(14, 8, 3): 0}
+
+
+def _dual_native_module():
+    """Two DFFE groups at one tile, as the guarded C++ path must emit."""
+    return dict(cells=dict(
+        root_a=dict(type=shared_control.TILE_CONTROL_BEL,
+                    attributes=dict(NEXTPNR_BEL="X14Y8_CLKEN0",
+                                    AGRV2K_CLOCK_ENABLE_NET="enable_a")),
+        root_b=dict(type=shared_control.TILE_CONTROL_BEL,
+                    attributes=dict(NEXTPNR_BEL="X14Y8_CLKEN1",
+                                    AGRV2K_CLOCK_ENABLE_NET="enable_b")),
+        a=dict(type="GENERIC_SLICE", parameters=dict(FF_USED="1"),
+               attributes=dict(NEXTPNR_BEL="X14Y8_SLICE3",
+                               AGRV2K_CLOCK_ENABLE_NET="enable_a")),
+        b=dict(type="GENERIC_SLICE", parameters=dict(FF_USED="1"),
+               attributes=dict(NEXTPNR_BEL="X14Y8_SLICE7",
+                               AGRV2K_CLOCK_ENABLE_NET="enable_b")),
+    ))
+
+
+def test_dual_native_line_one_is_strictly_opt_in(monkeypatch):
+    module = _dual_native_module()
+    monkeypatch.delenv(shared_control.DUAL_NATIVE_CONTROL_OPTION, raising=False)
+    with pytest.raises(shared_control.SharedControlEmitError, match="DUAL_NATIVE_CONTROL=1"):
+        shared_control.FEATURE.slice_lines_from_module(module)
+    monkeypatch.setenv(shared_control.DUAL_NATIVE_CONTROL_OPTION, "0")
+    with pytest.raises(shared_control.SharedControlEmitError, match="DUAL_NATIVE_CONTROL=1"):
+        shared_control.FEATURE.slice_lines_from_module(module)
+    monkeypatch.setenv(shared_control.DUAL_NATIVE_CONTROL_OPTION, "1")
+    assert shared_control.FEATURE.slice_lines_from_module(module) == {
+        (14, 8, 3): 0, (14, 8, 7): 1}
+
+
+@pytest.mark.parametrize("value", ["", "yes", "2", "-1"])
+def test_dual_native_switch_rejects_non_boolean_values(monkeypatch, value):
+    monkeypatch.setenv(shared_control.DUAL_NATIVE_CONTROL_OPTION, value)
+    with pytest.raises(shared_control.SharedControlEmitError, match="must be 0 or 1"):
+        shared_control.FEATURE.slice_lines_from_module(dict(cells={}))
+
+
+def test_dual_native_rejects_duplicate_line_and_enable_assignments(monkeypatch):
+    monkeypatch.setenv(shared_control.DUAL_NATIVE_CONTROL_OPTION, "1")
+    module = _dual_native_module()
+    module["cells"]["duplicate_line"] = dict(
+        type=shared_control.TILE_CONTROL_BEL,
+        attributes=dict(NEXTPNR_BEL="X14Y8_CLKEN1", AGRV2K_CLOCK_ENABLE_NET="other"))
+    with pytest.raises(shared_control.SharedControlEmitError, match="more than one native control root"):
+        shared_control.FEATURE.slice_lines_from_module(module)
+    del module["cells"]["duplicate_line"]
+    module["cells"]["root_b"]["attributes"]["AGRV2K_CLOCK_ENABLE_NET"] = "enable_a"
+    with pytest.raises(shared_control.SharedControlEmitError, match="more than one control line"):
+        shared_control.FEATURE.slice_lines_from_module(module)
+
+
+def test_dual_native_keeps_ordinary_ff_isolation(monkeypatch):
+    monkeypatch.setenv(shared_control.DUAL_NATIVE_CONTROL_OPTION, "1")
+    module = _dual_native_module()
+    module["cells"]["ordinary"] = dict(
+        type="GENERIC_SLICE", parameters=dict(FF_USED="1"),
+        attributes=dict(NEXTPNR_BEL="X14Y8_SLICE9"))
+    with pytest.raises(shared_control.SharedControlEmitError, match="mixed sequential control"):
+        shared_control.FEATURE.slice_lines_from_module(module)
+
+
+def test_dual_native_emits_both_tile_lines_and_only_b_slices_select_line_one(monkeypatch):
+    from agamemnon.engine import control_encode
+    monkeypatch.setenv(shared_control.DUAL_NATIVE_CONTROL_OPTION, "1")
+    lines = shared_control.FEATURE.slice_lines_from_module(_dual_native_module())
+    state = shared_control.FEATURE.prepare([
+        "X14Y8_CtrlMUX02.X14Y8_TileClkEnMUX00",
+        "X14Y8_CtrlMUX00.X14Y8_TileClkEnMUX01",
+    ], {}, slice_lines=lines)
+    line0 = control_encode.ControlAssignment(14, 8, "clock_enable", 0, "ctrl_a").bit()
+    line1 = control_encode.ControlAssignment(14, 8, "clock_enable", 1, "ctrl_a").bit()
+    a_bypass = control_encode.slice_bypass_bit(14, 8, 3)
+    b_bypass = control_encode.slice_bypass_bit(14, 8, 7)
+    b_line = control_encode.slice_line_bit(14, 8, 7, "clock_enable")
+    a_line = control_encode.slice_line_bit(14, 8, 3, "clock_enable")
+    assert line0 in state.sets and line1 in state.sets
+    assert b_line in state.sets and a_line not in state.sets
+    assert {a_bypass, b_bypass} <= set(state.clears)

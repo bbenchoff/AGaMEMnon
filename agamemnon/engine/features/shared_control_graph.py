@@ -67,6 +67,12 @@ from .protocol import EmissionPhase, FeatureDescriptor
 #: with the rest of the uarch controls.
 SHARED_CONTROL_GRAPH_OPTION = "AGRV2K_SHARED_CONTROL_GRAPH"
 
+# This is deliberately separate from graph generation.  The graph and encoder
+# know both clock-enable lines, but the released admission is one native group
+# on line 0.  A caller that wants two *native* groups in one tile must opt in
+# explicitly; ordinary FFs remain excluded in both modes.
+DUAL_NATIVE_CONTROL_OPTION = "AGRV2K_DUAL_NATIVE_CONTROL"
+
 # Lives one level up in agamemnon/engine/ rather than beside this module: the
 # repository ignores *.csv globally and re-includes only ``agamemnon/engine/*.csv``,
 # not the features/ subdirectory. A table placed here would be silently dropped
@@ -99,6 +105,20 @@ _WIRE = re.compile(r"X(\d+)Y(\d+)_([A-Za-z]+)(\d+)$")
 
 class SharedControlEmitError(Exception):
     """A routed control edge cannot be turned into bits."""
+
+
+def dual_native_control_enabled(environ=None):
+    """Return whether the unqualified two-native-line composition is enabled.
+
+    Treat an unset switch as ``0``.  Reject spelling mistakes instead of
+    silently enabling a new physical composition through truthiness.
+    """
+    value = (os.environ if environ is None else environ).get(
+        DUAL_NATIVE_CONTROL_OPTION, "0")
+    if value not in ("0", "1"):
+        raise SharedControlEmitError(
+            "%s must be 0 or 1 (got %r)" % (DUAL_NATIVE_CONTROL_OPTION, value))
+    return value == "1"
 
 
 @dataclass
@@ -277,12 +297,14 @@ class SharedControlGraphFeature:
           for *that* enable -- otherwise its register is clocked unconditionally
           while the design believes it is gated;
         * no two enables share a tile line;
-        * the line is 0, which is all the emission path supports today. Line 1
-          additionally needs ``CFG_CLKMUX<z>`` set on each consuming slice, and
-          that selector has never been on silicon.
+        * line 1 needs an explicit ``AGRV2K_DUAL_NATIVE_CONTROL=1`` opt-in.
+          Its selector encoding is known, but its conduction is not established.
         """
         cells = module.get("cells", {})
+        dual_native = dual_native_control_enabled()
         control_sites = {}
+        control_enable_lines = {}
+        control_tiles = set()
         for name, cell in cells.items():
             if cell.get("type") != TILE_CONTROL_BEL:
                 continue
@@ -297,19 +319,32 @@ class SharedControlGraphFeature:
                     "clock-enable bel" % (name, bel))
             x, y, line = (int(match.group(1)), int(match.group(2)),
                           int(match.group(3)))
-            if line != 0:
+            if line not in (0, 1):
                 raise SharedControlEmitError(
-                    "tile control cell %r took line %d at X%dY%d; only line 0 is "
-                    "emittable, because line 1 needs a per-slice CFG_CLKMUX bit "
-                    "that has never been on silicon" % (name, line, x, y))
+                    "tile control cell %r took invalid line %d at X%dY%d" %
+                    (name, line, x, y))
+            if line == 1 and not dual_native:
+                raise SharedControlEmitError(
+                    "tile control cell %r took line 1 at X%dY%d; %s=1 is required "
+                    "for the unqualified dual-native composition" %
+                    (name, x, y, DUAL_NATIVE_CONTROL_OPTION))
             enable = cell.get("attributes", {}).get("AGRV2K_CLOCK_ENABLE_NET")
             if not enable:
                 raise SharedControlEmitError(
                     "tile control cell %r names no enable net" % (name,))
-            if (x, y) in control_sites and control_sites[(x, y)][0] != enable:
+            line_key = (x, y, line)
+            if line_key in control_sites:
                 raise SharedControlEmitError(
-                    "tile X%dY%d hosts two different enables" % (x, y))
-            control_sites[(x, y)] = (enable, line)
+                    "tile X%dY%d line %d has more than one native control root" %
+                    (x, y, line))
+            enable_key = (x, y, enable)
+            if enable_key in control_enable_lines:
+                raise SharedControlEmitError(
+                    "enable %r has more than one control line at X%dY%d" %
+                    (enable, x, y))
+            control_sites[line_key] = enable
+            control_enable_lines[enable_key] = line
+            control_tiles.add((x, y))
 
         slice_lines = {}
         for name, cell in cells.items():
@@ -321,7 +356,7 @@ class SharedControlGraphFeature:
                 if (int(ff_used, 2) if isinstance(ff_used, str) else int(ff_used)):
                     ordinary_bel = cell.get("attributes", {}).get("NEXTPNR_BEL", "")
                     ordinary_site = re.fullmatch(r"X(\d+)Y(\d+)_SLICE(\d+)", ordinary_bel)
-                    if ordinary_site and tuple(map(int, ordinary_site.groups()[:2])) in control_sites:
+                    if ordinary_site and tuple(map(int, ordinary_site.groups()[:2])) in control_tiles:
                         raise SharedControlEmitError(
                             "ordinary register %r shares an enabled tile at %s; "
                             "mixed sequential control requires separate qualification" %
@@ -334,16 +369,12 @@ class SharedControlGraphFeature:
                     "clock-enabled slice %r is bound to %r" % (name, bel))
             x, y, z = (int(match.group(1)), int(match.group(2)),
                        int(match.group(3)))
-            site = control_sites.get((x, y))
-            if site is None:
+            line = control_enable_lines.get((x, y, enable))
+            if line is None:
                 raise SharedControlEmitError(
                     "clock-enabled slice %r at X%dY%d has no tile control cell; "
                     "its register would be clocked unconditionally" % (name, x, y))
-            if site[0] != enable:
-                raise SharedControlEmitError(
-                    "clock-enabled slice %r at X%dY%d takes a line driven by a "
-                    "different enable" % (name, x, y))
-            slice_lines[(x, y, z)] = site[1]
+            slice_lines[(x, y, z)] = line
         return slice_lines
 
 
