@@ -15504,11 +15504,11 @@ struct AgrvImpl : ViaductAPI
                 ControlPlacement candidate{{root, sink}};
                 for (size_t i = 0; i < members.size(); ++i)
                     candidate.emplace_back(members[i], bels[selected[i]]);
-                std::vector<BelId> temporary;
+                std::vector<std::pair<BelId, CellInfo *>> temporary;
                 for (auto &item : candidate) {
                     if (item.first->bel != BelId()) continue;
                     ctx->bindBel(item.second, item.first, STRENGTH_WEAK);
-                    temporary.push_back(item.second);
+                    temporary.emplace_back(item.second, item.first);
                 }
                 bool valid = true;
                 for (auto &item : candidate)
@@ -15572,8 +15572,10 @@ struct AgrvImpl : ViaductAPI
                         }
                     }
                 }
-                for (auto it = temporary.rbegin(); it != temporary.rend(); ++it)
-                    ctx->unbindBel(*it);
+                for (auto it = temporary.rbegin(); it != temporary.rend(); ++it) {
+                    if (ctx->getBoundBelCell(it->first) == it->second)
+                        ctx->unbindBel(it->first);
+                }
                 if (valid)
                     candidates.emplace(sink.index, std::move(candidate));
             }
