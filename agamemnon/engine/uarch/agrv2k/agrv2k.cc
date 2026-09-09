@@ -4370,6 +4370,8 @@ static void lock_bram_portb_corridors(Context *ctx,
     // This does not add graph resources; every named pip must already exist
     // in the gated device database and be available for the same net.
     std::unordered_map<int, std::vector<std::pair<std::string, std::string>>> x9_exact;
+    // Ordered vendor-routed Port-B address entry trees.
+    std::unordered_map<int, std::vector<std::pair<std::string, std::string>>> portb_exact;
     std::vector<std::pair<std::string, std::string>> x9_data4_pair_exact;
     std::unordered_map<std::string,
             std::vector<std::pair<std::string, std::string>>> site_read_exact;
@@ -4410,6 +4412,22 @@ static void lock_bram_portb_corridors(Context *ctx,
             if (f.size() >= 7 && f[1] == "AddressA")
                 x9_exact[to_int(f[2], -1)].push_back({f[4], f[5]});
         }
+        std::ifstream portb_paths(std::string(data_dir) + "/bram_portb_entry_corridors.csv");
+        std::getline(portb_paths, line);
+        while (std::getline(portb_paths, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            std::vector<std::string> f; std::string field; std::istringstream row(line);
+            while (std::getline(row, field, ',')) f.push_back(field);
+            if (f.size() < 10) continue;
+            int lane = to_int(f[0], -1);
+            if (lane < 0) continue;
+            auto node = [](const std::string &x, const std::string &y,
+                           const std::string &res) {
+                return "X" + x + "Y" + y + "_" + res;
+            };
+            portb_exact[lane].push_back({node(f[3], f[4], f[5]),
+                                         node(f[7], f[8], f[9])});
+        }
         std::ifstream data4_paths(std::string(data_dir) + "/bram_x9_data4_simultaneous_paths.csv");
         std::getline(data4_paths, line);
         while (std::getline(data4_paths, line)) {
@@ -4442,6 +4460,7 @@ static void lock_bram_portb_corridors(Context *ctx,
             requested_saved_pips.insert(edge.first + "." + edge.second);
     };
     for (const auto &entry : x9_exact) request_saved_path(entry.second);
+    for (const auto &entry : portb_exact) request_saved_path(entry.second);
     for (const auto &entry : site_read_exact) request_saved_path(entry.second);
     for (const auto &entry : serv_write_exact) request_saved_path(entry.second);
     request_saved_path(x9_data4_pair_exact);
@@ -5010,6 +5029,34 @@ static void lock_bram_portb_corridors(Context *ctx,
                     }
                     log_info("agrv2k: pre-routed AddressA[%d] over %d exact x9 pip(s)\n",
                              address_a_bit, int(candidate_path.size()));
+                }
+            }
+            if (exact_done)
+                continue;
+            int address_b_exact = -1;
+            if (std::sscanf(port.c_str(ctx), "AddressB[%d]", &address_b_exact) == 1 &&
+                    portb_exact.count(address_b_exact)) {
+                std::string cursor = ctx->getWireName(source).str(ctx);
+                const std::string target_name = ctx->getWireName(target).str(ctx);
+                std::vector<PipId> candidate_path;
+                bool matched = true;
+                for (const auto &edge : portb_exact.at(address_b_exact)) {
+                    if (edge.first != cursor) { matched = false; break; }
+                    PipId pip = saved_pip(edge.first, edge.second);
+                    if (pip == PipId() || !corridor_available(pip, net)) {
+                        matched = false; break;
+                    }
+                    candidate_path.push_back(pip);
+                    cursor = edge.second;
+                }
+                if (matched && cursor == target_name) {
+                    for (PipId pip : candidate_path) {
+                        ctx->bindPip(pip, net, STRENGTH_LOCKED);
+                        ++locked;
+                    }
+                    exact_done = true;
+                    log_info("agrv2k: pre-routed AddressB[%d] over %d exact vendor Port-B pip(s)\n",
+                             address_b_exact, int(candidate_path.size()));
                 }
             }
             if (exact_done)
