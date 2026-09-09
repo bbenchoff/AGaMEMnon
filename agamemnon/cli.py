@@ -1824,6 +1824,36 @@ def _restart_with_lut_carry(a):
             delattr(a, key)
 
 
+def _set_default_tile_compaction(a, env):
+    """Enable ordinary-build compaction without changing explicit/replay policy."""
+    if "AGRV2K_TILE_COMPACT" in env:
+        return False
+    if getattr(a, "_tile_compaction_disabled", False):
+        env["AGRV2K_TILE_COMPACT"] = "0"
+        return False
+    if (not getattr(a, "uarch", False) or
+            getattr(a, "qualified_checkpoint", None) or
+            getattr(a, "qualified_bram_write", None) or
+            getattr(a, "research_unsafe", False) or
+            any(key.startswith("AGRV2K_REPLAY_BELS") for key in env)):
+        return False
+    env["AGRV2K_TILE_COMPACT"] = "1"
+    return True
+
+
+def _tile_compaction_fallback_allowed(automatic, records):
+    """Only proven placement/routing exhaustion permits an uncompacted retry."""
+    if not automatic or not records or any(
+            "AGaMEMnon place&route time limit exceeded" in record.log
+            for record in records):
+        return False
+    summary = _attempt_ladder.summarize_ladder(records)
+    return bool(summary and not summary.succeeded and summary.signature_counts and
+                all(record.outcome == _attempt_ladder.NOT_ROUTED for record in records) and
+                all(sig.kind in {"PLACEMENT", "ARC_FAILURE"}
+                    for sig, _ in summary.signature_counts))
+
+
 def _native_enable_fallback_allowed(native_enable, document, records):
     """Retry an exhausted placement ladder only when native enables are present.
 
@@ -2118,6 +2148,9 @@ def _cmd_build_once(a):
 
     env = dict(os.environ)
     env["AGAMEMNON_DATA"] = data
+    auto_tile_compaction = _set_default_tile_compaction(a, env)
+    if auto_tile_compaction:
+        print("[build] routing-aware tile compaction enabled; uncompacted placement remains a fallback")
     # Select both halves together: preserving DFFE without its routing graph
     # would create an unroutable control sink. Keep replay profiles on their
     # historical synthesis/graph; ordinary uarch builds use native enables.
@@ -3013,6 +3046,14 @@ def _cmd_build_once(a):
                 print("[build]   did not route; escalating")
         os.remove(pristine)
         if log is None:
+            if _tile_compaction_fallback_allowed(auto_tile_compaction, attempt_records):
+                print("[build] compact placement/routing ladder exhausted; retrying without tile compaction")
+                print("[build] compact diagnostics retained at %s" % tmp)
+                uncompacted = copy.copy(a)
+                uncompacted._tile_compaction_disabled = True
+                uncompacted._fallback_stages = (
+                    *getattr(a, "_fallback_stages", ()), "uncompacted")
+                return _cmd_build_once(uncompacted)
             if native_enable:
                 # A structured zero-assignment report is deliberately checked
                 # before the historical classifier gate.  The producer fails
