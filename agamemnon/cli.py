@@ -2879,6 +2879,9 @@ def _cmd_build_once(a):
                     os.makedirs(trace_dir, exist_ok=True)
                     trace_stem = "attempt_%02d_cap%d_seed%s_fo%d" % (
                         attempt_no + 1, cap, seed, fo)
+                    if env.get("AGRV2K_CONTROL_SLOT_AUDIT"):
+                        env["AGRV2K_CONTROL_SLOT_AUDIT"] = os.path.abspath(
+                            os.path.join(trace_dir, trace_stem + ".control-slots.tsv"))
                     # Preserve live native diagnostics even when the caller
                     # times out before run() can return captured output.
                     attempt_npr.extend(["--log", os.path.join(trace_dir, trace_stem + ".log")])
@@ -2887,7 +2890,9 @@ def _cmd_build_once(a):
                               encoding="utf-8") as trace_meta:
                         json.dump({"cap": cap, "seed": seed, "fanout": fo,
                                    "placement": "placer_heap" if generic_place else "conduction",
-                                   "devdb": os.path.abspath(devdb), "command": attempt_npr},
+                                   "devdb": os.path.abspath(devdb), "command": attempt_npr,
+                                   "environment": {k: v for k, v in env.items()
+                                                   if k.startswith(("AGAMEMNON_", "AGRV2K_"))}},
                                   trace_meta, indent=2, sort_keys=True)
                         trace_meta.write("\n")
                 placement_label = ("placer_heap, seed=%s" % seed if generic_place

@@ -38,3 +38,14 @@ def test_compaction_does_not_admit_unsupported_control(tmp_path, monkeypatch):
         '--no-route', '--placer', 'heap')
     assert result.returncode != 0
     assert support.UNSUPPORTED in log
+
+
+@pytest.mark.parametrize('value', ['yes', '-1', '2'])
+def test_regrouping_rejects_malformed_option(tmp_path, monkeypatch, value):
+    monkeypatch.setenv('AGRV2K_SHARED_CONTROL_ENABLE', '1')
+    monkeypatch.setenv('AGRV2K_CONTROL_REPARTITION', value)
+    result, log, _ = support._run(tmp_path, 'bad_grouping',
+        support._design(support._slice(mode='NONE', bel='X14Y8_SLICE0')),
+        '--no-route', '--placer', 'heap')
+    assert result.returncode != 0
+    assert 'AGRV2K_CONTROL_REPARTITION must be 0 or 1' in log

@@ -15239,11 +15239,26 @@ struct AgrvImpl : ViaductAPI
         control_placements.clear();
         if (!shared_control_enable_admitted())
             return;
+        // Diagnostic-only endpoint sets for failed group matching. These are
+        // actual individually legal slots, not geometric reachability guesses.
+        std::ofstream slot_audit;
+        if (const char *path = std::getenv("AGRV2K_CONTROL_SLOT_AUDIT")) {
+            slot_audit.open(path);
+            if (!slot_audit) log_error("agrv2k: cannot open control-slot audit\n");
+            slot_audit << "root\ttile\tmember\tlegal_slots\n";
+        }
         struct InfeasibleGroup {
             std::string key;
             int count, candidate_tiles;
         };
         std::vector<InfeasibleGroup> infeasible_groups;
+        bool repartition = false;
+        if (const char *value = std::getenv("AGRV2K_CONTROL_REPARTITION")) {
+            if (std::string(value) != "0" && std::string(value) != "1")
+                log_error("agrv2k: AGRV2K_CONTROL_REPARTITION must be 0 or 1\n");
+            repartition = std::string(value) == "1";
+        }
+        std::vector<std::pair<CellInfo *, std::vector<CellInfo *>>> split_groups;
         std::string first_infeasible;
         for (auto &entry : ctx->cells) {
             CellInfo *root = entry.second.get();
@@ -15270,6 +15285,7 @@ struct AgrvImpl : ViaductAPI
                 }
             }
             int rejected_enable_source = 0;
+            std::vector<CellInfo *> best_subset;
             for (BelId sink : ctx->getBels()) {
                 if (ctx->getBelType(sink) != root->type ||
                     ctx->getBelLocation(sink).z != 16 || !ctx->checkBelAvail(sink))
@@ -15315,6 +15331,19 @@ struct AgrvImpl : ViaductAPI
                             slots[i].push_back(z);
                     }
                 }
+                if (slot_audit.is_open()) {
+                    for (size_t i = 0; i < members.size(); ++i) {
+                        slot_audit << root->name.str(ctx) << '\t' << loc.x << ',' << loc.y
+                                   << '\t' << members[i]->name.str(ctx) << '\t';
+                        for (size_t j = 0; j < slots[i].size(); ++j) {
+                            if (j) slot_audit << ',';
+                            slot_audit << slots[i][j];
+                        }
+                        slot_audit << '\n';
+                    }
+                    // log_error below may terminate without unwinding streams.
+                    slot_audit.flush();
+                }
                 // Find distinct legal slots, not merely enough existing BELs.
                 // Try the legacy assignment first to preserve it wherever valid.
                 std::vector<int> selected(members.size(), -1), owner(16, -1);
@@ -15348,7 +15377,13 @@ struct AgrvImpl : ViaductAPI
                     bool matched = true;
                     for (size_t i = 0; i < members.size(); ++i) {
                         std::vector<bool> seen(16, false);
-                        if (!augment(int(i), seen)) { matched = false; break; }
+                        if (!augment(int(i), seen)) matched = false;
+                    }
+                    if (!matched && repartition) {
+                        std::vector<CellInfo *> subset;
+                        for (size_t i = 0; i < members.size(); ++i)
+                            if (selected[i] >= 0) subset.push_back(members[i]);
+                        if (subset.size() > best_subset.size()) best_subset = std::move(subset);
                     }
                     if (!matched) continue;
                 }
@@ -15393,6 +15428,11 @@ struct AgrvImpl : ViaductAPI
             log_info("agrv2k:   %d tile assignment(s) excluded by enable-driver reachability\n",
                      rejected_enable_source);
             if (candidates.empty()) {
+                bool movable = root->bel == BelId() && !root->attrs.count(ctx->id("BEL"));
+                for (CellInfo *member : members)
+                    movable &= member->bel == BelId() && !member->attrs.count(ctx->id("BEL"));
+                if (repartition && movable && !best_subset.empty() && best_subset.size() < members.size())
+                    split_groups.emplace_back(root, best_subset);
                 if (first_infeasible.empty()) first_infeasible = root->name.str(ctx);
                 // Only the explicit driver-reachability contradiction is a
                 // selective-lowering certificate. Other placement failures
@@ -15411,6 +15451,42 @@ struct AgrvImpl : ViaductAPI
                 if (identified && !key.empty())
                     infeasible_groups.push_back({key, int(members.size()), rejected_enable_source});
             }
+        }
+        if (!split_groups.empty()) {
+            // prePlace precedes creation of the placer and router cell indices.
+            // Partition only an impossible group; each recursive pass must
+            // reduce its size. A partial matching is a grouping proposal, not
+            // admission: rerun complete simultaneous and driver checks below.
+            for (auto &split : split_groups) {
+                CellInfo *root = split.first;
+                const auto old_members = root->constr_children;
+                std::set<CellInfo *> keep(split.second.begin(), split.second.end());
+                std::string name = root->name.str(ctx) + "$split";
+                for (int index = 0; ctx->cells.count(ctx->id(name)); ++index)
+                    name = root->name.str(ctx) + "$split" + std::to_string(index);
+                auto added = std::make_unique<CellInfo>(ctx, ctx->id(name), root->type);
+                added->attrs = root->attrs;
+                added->region = root->region;
+                added->addInput(ctx->id("I"));
+                added->connectPort(ctx->id("I"), root->getPort(ctx->id("I")));
+                std::vector<std::pair<CellInfo *, Loc>> first{{root, Loc(0, 0, 16)}};
+                std::vector<std::pair<CellInfo *, Loc>> second{{added.get(), Loc(0, 0, 16)}};
+                root->constr_children.clear();
+                root->cluster = ClusterId();
+                for (CellInfo *member : old_members) {
+                    member->cluster = ClusterId();
+                    auto &shape = keep.count(member) ? first : second;
+                    shape.emplace_back(member, Loc(0, 0, int(shape.size()) - 1));
+                }
+                make_relative_cluster(ctx, first, true);
+                make_relative_cluster(ctx, second, true);
+                log_info("agrv2k: repartition impossible enable group '%s': %d -> %d + %d registers\n",
+                         ctx->nameOf(root), int(old_members.size()), int(first.size()) - 1, int(second.size()) - 1);
+                ctx->cells[added->name] = std::move(added);
+            }
+            ctx->assignArchInfo();
+            prepare_control_placements();
+            return;
         }
         const char *report = std::getenv("AGRV2K_NATIVE_ENABLE_INFEASIBLE_REPORT");
         if (report && !infeasible_groups.empty()) {
