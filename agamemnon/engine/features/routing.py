@@ -2347,6 +2347,7 @@ class RoutingFeature:
         self, *, pips, cell, options, tables, physical_io_state, exact_mcu_pips,
         mcu_cells, mcu_exit_pairs, bram_feature, bram_state, slice_config,
         left_vendor_slices, output_modes=None, omux_sources=None,
+        retained_withdrawn_pips=frozenset(),
     ):
         state = RoutingState()
         output_modes = {} if output_modes is None else output_modes
@@ -2394,6 +2395,12 @@ class RoutingFeature:
 
         for pip in pips:
             source_text, destination_text = pip.split(".", 1)
+            # Check before every resolver, including context groups, admitted
+            # rows and predictors. Graph exclusion alone cannot protect pack.
+            if (routing_selectors.nonportable_translation(
+                    tables.clean_edge, source_text, destination_text) and
+                    pip not in retained_withdrawn_pips):
+                raise SystemExit("withdrawn selector translation: " + pip)
             source, destination = parse_wire(source_text), parse_wire(destination_text)
             if not source or not destination:
                 continue

@@ -293,6 +293,7 @@ def test_exact_row_normalizes_once_for_architecture_and_bitgen(tmp_path):
     tables = SimpleNamespace(
         chipdb_root=root,
         admission_binding={"test": True},
+        clean_edge={},
         admitted_edge=selected,
     )
     physical = _physical_io_state(
@@ -399,6 +400,7 @@ def test_exact_iotile_row_supplies_absent_pip_only_in_experiment_and_emits_exact
 
     tables = SimpleNamespace(
         chipdb_root=root, admission_binding={"test": True},
+        clean_edge={},
         admitted_edge=selected,
     )
     physical = _physical_io_state()
@@ -584,6 +586,7 @@ def test_runtime_rejects_two_admitted_rows_in_one_owner_field(tmp_path):
     }
     tables = SimpleNamespace(
         chipdb_root=tmp_path, admission_binding={}, admitted_edge=admitted,
+        clean_edge={},
     )
     physical = _physical_io_state()
     bram = SimpleNamespace(resolve_route=lambda *args, **kwargs: None)

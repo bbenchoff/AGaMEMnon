@@ -31,6 +31,17 @@ FILENAME = "sel_edge_pairs.agdb"
 NONPORTABLE_RELATIVE_KEYS = frozenset({
     ("RMUX", 69, "RMUX", 15, 0, 0),
     ("RMUX", 46, "RMUX", 7, 0, 1),
+    # RMUX27 -> RMUX20 with dy=3 is witnessed only from source row1 to
+    # destination row4, at columns13 and21. At X18Y5, its inferred pair2/9
+    # has a directed vendor route/image witness for X18Y1_RMUX75 instead
+    # of X18Y2_RMUX27. Compact addsub fails with the inferred edge;
+    # rerouting only its snapshot net passes the full4096-observation
+    # contract3/3. That intervention changes a segment, not just this edge,
+    # so it is not a single-edge conduction proof. Withdraw the unsupported
+    # translation while preserving exact boundary observations. Passing
+    # route-intervention image: 94b619bfdaff0b473bc635e4f6e4b965761cda3da
+    # 1410a9ae47f766ee931464c. Fresh ordinary-source qualification is separate.
+    ("RMUX", 20, "RMUX", 27, 0, 3),
 })
 
 _WIRE = re.compile(r"X(-?\d+)Y(-?\d+)_([A-Za-z]+)(\d+)")

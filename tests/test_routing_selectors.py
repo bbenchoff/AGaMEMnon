@@ -1,6 +1,22 @@
 from agamemnon.engine.routing_selectors import relative_edges, nonportable_translation
 
 
+def test_row_one_rmux27_boundary_observations_do_not_translate_to_interior():
+    clean = {
+        (13, 4, "RMUX", 20, "RMUX", 13, 1, 27): (2, 9),
+        (21, 4, "RMUX", 20, "RMUX", 21, 1, 27): (2, 9),
+        (18, 5, "RMUX", 20, "RMUX", 18, 1, 75): (2, 9),
+    }
+    relative, rejected = relative_edges(clean)
+    assert ("RMUX", 20, "RMUX", 27, 0, 3) in rejected
+    assert ("RMUX", 20, "RMUX", 27, 0, 3) not in relative
+    assert nonportable_translation(clean, "X18Y2_RMUX27", "X18Y5_RMUX20")
+    assert not nonportable_translation(clean, "X13Y1_RMUX27", "X13Y4_RMUX20")
+    assert not nonportable_translation(clean, "X21Y1_RMUX27", "X21Y4_RMUX20")
+    assert not nonportable_translation(clean, "X18Y1_RMUX75", "X18Y5_RMUX20")
+    assert relative[("RMUX", 20, "RMUX", 75, 0, 4)] == (2, 9)
+
+
 def test_boundary_only_rmux_turnback_is_not_exported_to_interior():
     clean = {(20, y, "RMUX", 69, "RMUX", 20, y, 15): (0, 8)
              for y in range(1, 11)}

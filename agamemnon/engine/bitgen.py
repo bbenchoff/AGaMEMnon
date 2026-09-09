@@ -12,7 +12,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from agamemnon.engine import lzw_codec as L
-from agamemnon.engine import special_routes, retained_replay
+from agamemnon.engine import special_routes, retained_replay, retained_routing
 from agamemnon.engine.crossbar_outputs import source_modes
 from agamemnon.engine.bit_ownership import BitOwnershipTrace
 from agamemnon.engine.claim_policy import ClaimPolicyError, evaluate_policy, write_sidecar
@@ -207,6 +207,19 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT, document=None,
         module, chipdb_root, cell_map, routing_tables.archival_legacy,
         options=options,
     )
+    try:
+        retained_withdrawn_pips, retained_routing_hash = retained_routing.authenticate(
+            physical_io_state.pips, routing_tables.clean_edge,
+            routed_path, module, options,
+        )
+    except ValueError as exc:
+        raise SystemExit(str(exc))
+    if retained_routing_hash is not None:
+        if (clock_validation.quarantined_bitstream_sha256 is not None and
+                clock_validation.quarantined_bitstream_sha256 != retained_routing_hash):
+            raise SystemExit("retained routing and clock image identities disagree")
+        clock_validation = replace(
+            clock_validation, quarantined_bitstream_sha256=retained_routing_hash)
     mcu_gpio_state = MCU_GPIO_FEATURE.prepare(
         module, mcu_cells, physical_io_state=physical_io_state
     )
@@ -225,6 +238,7 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT, document=None,
         left_vendor_slices=core_logic_state.left_vendor_slices,
         output_modes=source_modes(module),
         omux_sources=omux_output_sources(module),
+        retained_withdrawn_pips=retained_withdrawn_pips,
     )
     ROUTING_FEATURE.delegate_bits(
         routing_state,
