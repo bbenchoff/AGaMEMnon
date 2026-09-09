@@ -335,6 +335,18 @@ static bool shared_control_enable_admitted()
     return admitted;
 }
 
+// The second native line is experimental and must remain opt-in.  Keep the
+// exact value check here so accidental environment inheritance cannot widen
+// ordinary builds.
+static bool dual_native_control_enabled()
+{
+    static const bool enabled = [] {
+        const char *value = getenv("AGRV2K_DUAL_NATIVE_CONTROL");
+        return value != nullptr && std::string(value) == "1";
+    }();
+    return enabled;
+}
+
 // Attribute carrying the enable net from the frontend DFFE onto the packed
 // slice.  The slice itself has no CE pin -- the enable terminates on a tile
 // control line -- so the net has to travel as a name until pack_shared_control
@@ -539,11 +551,11 @@ static bool shared_control_cell_admitted(Context *ctx, const CellInfo *cell,
     return false;
 }
 
-// Mixed sequential use of the experimental CLKEn0 tile failed its silicon
-// contract. Until separate-line isolation is qualified, exclude other FF
-// groups; this is an admission boundary, not a hardware capacity claim. Keep
-// this check in native BEL validity, where both tentative and fixed bindings
-// are visible, rather than relying on the cluster shape alone.
+// Mixed sequential use of the experimental clock-enable tile failed its
+// silicon contract. Keep ordinary FFs isolated from native-control groups;
+// dual-line use is separately opt-in and still checks both lines. Keep this
+// check in native BEL validity, where tentative and fixed bindings are
+// visible, rather than relying on the cluster shape alone.
 static bool native_clock_enable_tile_compatible(Context *ctx, const CellInfo *candidate,
                                                 BelId bel, bool explain_invalid)
 {
@@ -552,7 +564,10 @@ static bool native_clock_enable_tile_compatible(Context *ctx, const CellInfo *ca
 
     const Loc loc = ctx->getBelLocation(bel);
     const bool candidate_control = candidate->type == ctx->id("AGRV2K_TILE_CONTROL") &&
-                                   loc.z == 16; // CLKEn0 only; line 1 is unadmitted.
+                                   (loc.z == 16 || loc.z == 17);
+    if (candidate->type == ctx->id("AGRV2K_TILE_CONTROL") &&
+        loc.z == 17 && !dual_native_control_enabled())
+        return false;
     const bool candidate_ff = candidate->type == ctx->id("GENERIC_SLICE") &&
                               int_or_default(candidate->params, ctx->id("FF_USED"), 0) != 0;
     if (!candidate_control && !candidate_ff)
@@ -564,16 +579,11 @@ static bool native_clock_enable_tile_compatible(Context *ctx, const CellInfo *ca
     };
     auto reject = [&](const char *reason, const CellInfo *other) {
         if (explain_invalid)
-            log_info("agrv2k validity: native CLKEn0 tile isolation rejects %s '%s' at %s with FF '%s'\n",
+            log_info("agrv2k validity: native clock-enable tile isolation rejects %s '%s' at %s with FF '%s'\n",
                      reason, ctx->nameOf(candidate), ctx->nameOfBel(bel), ctx->nameOf(other));
         return false;
     };
 
-    BelId root_bel = ctx->getBelByLocation(Loc(loc.x, loc.y, 16));
-    CellInfo *root = root_bel == BelId() ? nullptr : ctx->getBoundBelCell(root_bel);
-    const std::string root_group = root != nullptr && root->type == ctx->id("AGRV2K_TILE_CONTROL")
-                                           ? enable_group(root)
-                                           : std::string();
     const std::string candidate_group = enable_group(candidate);
 
     // A control root itself must reject pre-existing ordinary or differently
@@ -581,15 +591,20 @@ static bool native_clock_enable_tile_compatible(Context *ctx, const CellInfo *ca
     // and against each placed FF even while the root remains unbound.
     if (candidate_control && candidate_group.empty()) {
         if (explain_invalid)
-            log_info("agrv2k validity: native CLKEn0 tile control '%s' at %s has no enable group\n",
+            log_info("agrv2k validity: native clock-enable tile control '%s' at %s has no enable group\n",
                      ctx->nameOf(candidate), ctx->nameOfBel(bel));
         return false;
     }
-    if (candidate_ff && root != nullptr && root->type == ctx->id("AGRV2K_TILE_CONTROL")) {
-        if (root_group.empty())
-            return reject("control root has no enable group", root);
-        if (candidate_group != root_group)
-            return reject("control-group mismatch", root);
+    for (int line = 0; line < 2; ++line) {
+        BelId root_bel = ctx->getBelByLocation(Loc(loc.x, loc.y, 16 + line));
+        CellInfo *root = root_bel == BelId() ? nullptr : ctx->getBoundBelCell(root_bel);
+        if (candidate_ff && root != nullptr && root->type == ctx->id("AGRV2K_TILE_CONTROL")) {
+            const std::string root_group = enable_group(root);
+            if (root_group.empty())
+                return reject("control root has no enable group", root);
+            if (candidate_group != root_group)
+                return reject("control-group mismatch", root);
+        }
     }
 
     for (int z = 0; z < 16; ++z) {
@@ -15298,7 +15313,9 @@ struct AgrvImpl : ViaductAPI
             std::vector<CellInfo *> best_subset;
             for (BelId sink : ctx->getBels()) {
                 if (ctx->getBelType(sink) != root->type ||
-                    ctx->getBelLocation(sink).z != 16 || !ctx->checkBelAvail(sink))
+                    (ctx->getBelLocation(sink).z != 16 &&
+                     (!dual_native_control_enabled() || ctx->getBelLocation(sink).z != 17)) ||
+                    !ctx->checkBelAvail(sink))
                     continue;
                 if (root->region && root->region->constr_bels &&
                     !root->region->bels.count(sink))
