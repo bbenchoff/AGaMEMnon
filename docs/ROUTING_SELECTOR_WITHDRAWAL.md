@@ -49,5 +49,6 @@ The normal new-graph retained suite then passed all 60 tests. Focused routing,
 replay and control tests passed 123 tests; seven graph identity/tamper tests
 also passed. These finite results do not establish arbitrary-design vendor
 parity, general mixed-control qualification, or physical speed improvement.
-Compaction and expanded control sharing remain explicit options. No release
-is created by this change.
+Compaction was subsequently promoted with placement preflight and fallback;
+see [ordinary default qualification](DEFAULT_TILE_PACKING.md). Expanded
+control sharing remains explicit. No release is created by this change.

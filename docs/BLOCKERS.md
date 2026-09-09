@@ -17,7 +17,10 @@ selector translation, fresh ordinary-source addsub16 at 151/12 and util20 at
 are 151/26 and 434/41. The earlier compact images remain known failures;
 the new source flow avoids the withdrawn edges and refuses their emission in
 new checkpoints. This resolves those two measured compact-image failures,
-not general vendor-level density or timing. Compaction remains explicit.
+not general vendor-level density or timing. Compaction and exact placement
+preflight are now ordinary CLI defaults, qualified together on all three
+workloads with 3/3 passing runs per image. Qualified/replay settings are
+preserved. See [default placement and fallback](DEFAULT_TILE_PACKING.md).
 See [repair and qualification scope](ROUTING_SELECTOR_WITHDRAWAL.md).
 
 Mixed ordinary/native and two-native-group clock sharing have conditional

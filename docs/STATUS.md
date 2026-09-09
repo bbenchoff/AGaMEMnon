@@ -27,7 +27,11 @@ that passes its silicon contract 3/3, versus the default's sixteen tiles and
 the vendor's five. After the boundary-selector repair, fresh compact addsub16
 (151 slices, 12 tiles) and util20 (434 slices, 39 tiles) also pass their full
 silicon contracts 3/3; their noncompact controls pass at 26 and 41 tiles.
-Compaction remains explicit. These results supersede the older compact-image
+Compaction, impossible-control-group repartition and carry-ingress preflight
+are now ordinary CLI defaults. Fresh default regbank16/addsub16/util20 builds
+pass 3/3 each at 68/6, 151/12 and 434/39, with an uncompacted retry for
+classified placement/routing exhaustion. See [default placement](DEFAULT_TILE_PACKING.md).
+These results supersede the older compact-image
 failures for the repaired source flow, while the original failing images
 remain rejected. See [selector repair and scope](ROUTING_SELECTOR_WITHDRAWAL.md).
 
