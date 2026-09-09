@@ -3457,6 +3457,10 @@ def _cmd_build_once(a):
             "slice_count": _routed_slice_count(final_snapshot.document),
             "occupied_tiles": _routed_tile_count(final_snapshot.document),
             "native_enabled_slices": _routed_native_population(final_snapshot.document),
+            "effective_build_state": {
+                key: getattr(a, key, default) for key, default in (
+                    ("no_hard_carry", False), ("_tile_compaction_disabled", False),
+                    ("_native_enable_excluded_group_ids", ()), ("_fallback_stages", ()))},
             "routed_sha256": final_snapshot.sha256,
             "eligible_srst_cells": getattr(a, "_native_srst_eligible_cells", None)}
 
@@ -3581,6 +3585,8 @@ def _compare_control_sharing(a, baseline, root_tmp):
     candidate._native_enable_snapshot = None
     candidate._native_enable_excluded_group_ids = ()
     candidate._fallback_stages = ()
+    for key, value in baseline.get("effective_build_state", {}).items():
+        setattr(candidate, key, value)
     candidate.output = os.path.join(root_tmp, profile + ".bin")
     candidate.write_routed = os.path.join(root_tmp, profile + ".routed.json")
     overrides = dict(baseline["mapping_options"])
@@ -3594,6 +3600,7 @@ def _compare_control_sharing(a, baseline, root_tmp):
             os.environ["AGAMEMNON_ATTEMPT_TRACE_DIR"], "control_" + profile)
     prior = {key: os.environ.get(key) for key in overrides}
     report.update(profile=profile, options=options)
+    report["baseline_build_state"] = baseline.get("effective_build_state", {})
     try:
         os.environ.update(overrides)
         result = _cmd_build_once(candidate)
@@ -3708,8 +3715,10 @@ def cmd_build(a):
             outcomes.append({"mapping": label, "outcome": "eligible_exhaustion",
                              "mapping_options": mapping_options})
     if candidates:
-        selected = min(candidates, key=lambda item: (item["slice_count"],
-                                                       item["mapping"] != "legacy"))
+        selected = min(candidates, key=lambda item: (
+            item["slice_count"],
+            item["occupied_tiles"] if item.get("occupied_tiles") is not None else float("inf"),
+            item["mapping"] != "legacy"))
         selected, sharing_report = _compare_control_sharing(a, selected, root_tmp)
         _validate_native_srst_final_products(a, base_out)
         _copy_candidate_products(selected, base_out, getattr(a, "write_routed", None),

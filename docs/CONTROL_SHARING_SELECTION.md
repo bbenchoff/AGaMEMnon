@@ -20,8 +20,8 @@ and unknown failures are not silently converted to success. Candidate products
 and requested reports use private destinations until selection.
 
 The existing native-SRST selection sidecar records the composition options,
-population, result and selected profile. The historical SRST mapping tie rule
-is unchanged. This avoids multiplying both synthesis mappings by every sharing
+population, result and selected profile. Equal-slice SRST mappings now prefer
+fewer occupied tiles, retaining legacy on an exact resource tie. This avoids multiplying both synthesis mappings by every sharing
 profile, while addressing the measured case where sharing routed successfully
 but increased tile count.
 
