@@ -342,7 +342,13 @@ static bool dual_native_control_enabled()
 {
     static const bool enabled = [] {
         const char *value = getenv("AGRV2K_DUAL_NATIVE_CONTROL");
-        return value != nullptr && std::string(value) == "1";
+        if (value == nullptr || std::string(value) == "0")
+            return false;
+        if (std::string(value) != "1") {
+            log_error("agrv2k: AGRV2K_DUAL_NATIVE_CONTROL must be exactly 0 or 1\n");
+            return false;
+        }
+        return true;
     }();
     return enabled;
 }
