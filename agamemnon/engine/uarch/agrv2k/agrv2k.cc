@@ -15460,11 +15460,101 @@ struct AgrvImpl : ViaductAPI
 
     void postPlace() override
     {
+        audit_tile_move_feasibility();
         refresh_mcu_endpoint_owner("post-place", true);
         refresh_global_clock_resources("post-place", true);
         audit_global_clock_routes("post-place import", false);
         lock_global_clock_tree("post-place");
         audit_global_clock_routes("post-place", true);
+    }
+
+    // Diagnostic only: test single-cell moves into initially empty slots in
+    // occupied tiles, restoring every binding before continuing. This is a
+    // placement-legality inventory, not a simultaneous routability proof.
+    void audit_tile_move_feasibility()
+    {
+        const char *filename = std::getenv("AGRV2K_TILE_MOVE_AUDIT");
+        if (filename == nullptr) return;
+        struct Saved { CellInfo *cell; BelId bel; PlaceStrength strength; };
+        std::vector<Saved> placed;
+        std::set<std::pair<int, int>> tiles;
+        for (auto &entry : ctx->cells) {
+            CellInfo *cell = entry.second.get();
+            if (cell->type != ctx->id("GENERIC_SLICE") || cell->bel == BelId()) continue;
+            placed.push_back({cell, cell->bel, cell->belStrength});
+            Loc loc = ctx->getBelLocation(cell->bel);
+            tiles.emplace(loc.x, loc.y);
+        }
+        std::sort(placed.begin(), placed.end(), [&](const Saved &a, const Saved &b) {
+            return a.cell->name.str(ctx) < b.cell->name.str(ctx);
+        });
+        std::vector<BelId> empty;
+        for (BelId bel : ctx->getBels()) {
+            Loc loc = ctx->getBelLocation(bel);
+            if (ctx->getBelType(bel) == ctx->id("GENERIC_SLICE") &&
+                tiles.count({loc.x, loc.y}) && ctx->checkBelAvail(bel)) empty.push_back(bel);
+        }
+        std::sort(empty.begin(), empty.end(), [&](BelId a, BelId b) {
+            return ctx->getBelName(a).str(ctx) < ctx->getBelName(b).str(ctx);
+        });
+        // Hex names keep arbitrary RTL identifiers unambiguous in the TSV.
+        auto hex = [](const std::string &s) {
+            std::string out;
+            for (unsigned char c : s) { out += "0123456789abcdef"[c >> 4]; out += "0123456789abcdef"[c & 15]; }
+            return out;
+        };
+        auto reason = [&](CellInfo *cell, BelId bel) -> std::string {
+            if (!slice_data_inputs_have_ingress(ctx, cell, bel)) return "input_ingress";
+            if (!shared_clock_tile_compatible(cell, bel, false)) return "tile_clock";
+            if (!global_clock_cell_compatible(cell, false)) return "global_clock";
+            if (!shared_control_cell_admitted(ctx, cell, bel, false)) return "control_admission";
+            if (!native_clock_enable_tile_compatible(ctx, cell, bel, false)) return "enable_isolation";
+            if (!register_input_bel_valid(ctx, cell, bel, false)) return "register_input";
+            if (!native_endpoint_cell_admitted(ctx, cell, bel, false)) return "native_endpoint";
+            if (!mcu_endpoint_cell_admitted(cell, bel, false)) return "mcu_endpoint";
+            if (!fixed_endpoint_pins_reachable(cell, bel, false)) return "fixed_endpoint_reachability";
+            if (!shared_ingress_valid(cell, bel, false)) return "shared_ingress_contention";
+            if (!local_slice_output_pairs_valid(cell, bel, false)) return "local_output_pair";
+            return "other_architecture_rule";
+        };
+        std::ofstream out(filename);
+        if (!out) log_error("agrv2k: cannot open tile move audit\n");
+        out << "cell_hex\tfrom\tto\tverdict\treason\taffected_cell_hex\n";
+        for (const Saved &saved : placed) {
+            CellInfo *cell = saved.cell;
+            for (BelId target : empty) {
+                std::string why, affected;
+                if (saved.strength >= STRENGTH_FIXED || cell->attrs.count(ctx->id("BEL"))) why = "fixed_binding";
+                else if (cell->cluster != ClusterId()) why = "cluster_requires_joint_move";
+                else if (cell->region != nullptr && cell->region->constr_bels && !cell->region->bels.count(target)) why = "region";
+                else {
+                    ctx->unbindBel(saved.bel);
+                    ctx->bindBel(target, cell, saved.strength);
+                    if (!ctx->isBelLocationValid(target)) why = reason(cell, target);
+                    else for (const Saved &other : placed) {
+                        if (other.cell == cell) continue;
+                        if (!ctx->isBelLocationValid(other.bel)) {
+                            why = reason(other.cell, other.bel);
+                            affected = hex(other.cell->name.str(ctx));
+                            break;
+                        }
+                    }
+                    ctx->unbindBel(target);
+                    ctx->bindBel(saved.bel, cell, saved.strength);
+                }
+                out << hex(cell->name.str(ctx)) << '\t' << ctx->getBelName(saved.bel).str(ctx)
+                    << '\t' << ctx->getBelName(target).str(ctx) << '\t'
+                    << (why.empty() ? "legal_single_move" : "rejected") << '\t' << why << '\t' << affected << '\n';
+            }
+        }
+        out.close();
+        if (!out) log_error("agrv2k: tile move audit write failed\n");
+        for (const Saved &saved : placed)
+            if (saved.cell->bel != saved.bel || saved.cell->belStrength != saved.strength ||
+                ctx->getBoundBelCell(saved.bel) != saved.cell)
+                log_error("agrv2k: tile move audit failed to restore placement\n");
+        log_info("agrv2k: tile move audit completed for %d cells and %d empty occupied-tile slots\n",
+                 int(placed.size()), int(empty.size()));
     }
 
     void reserve_required_routes(bool check_placed_driver)
