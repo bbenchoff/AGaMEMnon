@@ -1649,7 +1649,91 @@ static void lift_clock_enable(Context *ctx, CellInfo *dff, CellInfo *lc)
         log_error("agrv2k: DFFE '%s' has no enable net\n", ctx->nameOf(dff));
     lc->attrs[clock_enable_net_attr(ctx)] = enable->name.str(ctx);
     lc->attrs[shared_control_mode_attr(ctx)] = std::string("CLOCK_ENABLE_POS");
+    const IdString group_id = ctx->id("AGRV2K_ENABLE_GROUP_ID");
+    if (dff->attrs.count(group_id))
+        lc->attrs[group_id] = dff->attrs.at(group_id);
     dff->disconnectPort(ctx->id("EN"));
+}
+
+// If a combinational LUT feeds only register D pins, replicating its function
+// lets each copy occupy the LUT already present in that register's slice.
+// N separate registers plus one shared LUT become N fused slices. This is
+// deliberately separate from own-Q feedback and fixed-footprint packing.
+static void pack_lut_ff_broadcast(Context *ctx)
+{
+    const char *enabled = std::getenv("AGRV2K_LUT_FF_BROADCAST");
+    if (enabled == nullptr || std::string(enabled) == "0")
+        return;
+    if (std::string(enabled) != "1")
+        log_error("agrv2k: AGRV2K_LUT_FF_BROADCAST must be 0 or 1\n");
+    std::vector<CellInfo *> luts;
+    for (auto &entry : ctx->cells)
+        if (is_lut(ctx, entry.second.get())) luts.push_back(entry.second.get());
+    std::sort(luts.begin(), luts.end(), [&](CellInfo *a, CellInfo *b) {
+        return a->name.str(ctx) < b->name.str(ctx);
+    });
+    int groups = 0, copies = 0;
+    for (CellInfo *lut : luts) {
+        bool plain = lut->bel == BelId() && lut->cluster == ClusterId() && lut->region == nullptr;
+        for (const auto &attr : lut->attrs)
+            if (attr.first != ctx->id("src") && attr.first != ctx->id("module_not_derived")) plain = false;
+        NetInfo *data = lut->getPort(ctx->id("Q"));
+        if (!plain || !data) continue;
+        // Replication must not silently discard user net constraints, routes,
+        // or observation requirements attached to the shared function.
+        if (data->region || data->clkconstr || !data->wires.empty()) continue;
+        for (const auto &attr : data->attrs)
+            if (attr.first != ctx->id("src")) plain = false;
+        for (const auto &port : ctx->ports)
+            if (port.second.net == data) plain = false;
+        std::vector<CellInfo *> registers;
+        for (const auto &user : data->users) {
+            if (!user.cell || user.port != ctx->id("D") || !is_packable_ff(ctx, user.cell)) {
+                plain = false;
+                break;
+            }
+            CellInfo *ff = user.cell;
+            if (ff->bel != BelId() || ff->cluster != ClusterId() || ff->region != nullptr ||
+                ff->attrs.count(ctx->id("BEL")) || ff->attrs.count(ctx->id("NEXTPNR_BEL")))
+                plain = false;
+            if (ff->attrs.count(ctx->id("keep")) || ff->attrs.count(ctx->id("dont_touch")))
+                plain = false;
+            for (const auto &port : lut->ports)
+                if (port.second.type == PORT_IN && port.second.net &&
+                    port.second.net == ff->getPort(ctx->id("Q"))) plain = false;
+            registers.push_back(ff);
+        }
+        if (!plain || registers.size() < 2) continue;
+        std::sort(registers.begin(), registers.end(), [&](CellInfo *a, CellInfo *b) {
+            return a->name.str(ctx) < b->name.str(ctx);
+        });
+        if (std::adjacent_find(registers.begin(), registers.end()) != registers.end()) continue;
+        // Keep the original LUT and net for the first register. Only clones
+        // are added; the existing fusion pass owns all net/cell deletion.
+        for (size_t i = 1; i < registers.size(); ++i) {
+            const std::string prefix = lut->name.str(ctx) + "$ffcopy$" + std::to_string(i);
+            std::string name = prefix;
+            for (int suffix = 0; ctx->cells.count(ctx->id(name)) || ctx->nets.count(ctx->id(name)); ++suffix)
+                name = prefix + "$" + std::to_string(suffix);
+            CellInfo *clone = ctx->createCell(ctx->id(name), lut->type);
+            clone->params = lut->params;
+            clone->attrs = lut->attrs;
+            for (const auto &port : lut->ports) {
+                if (port.second.type != PORT_IN) continue;
+                clone->addInput(port.first);
+                if (port.second.net) clone->connectPort(port.first, port.second.net);
+            }
+            NetInfo *local = ctx->createNet(ctx->id(name));
+            clone->addOutput(ctx->id("Q"));
+            clone->connectPort(ctx->id("Q"), local);
+            registers[i]->disconnectPort(ctx->id("D"));
+            registers[i]->connectPort(ctx->id("D"), local);
+            ++copies;
+        }
+        ++groups;
+    }
+    log_info("agrv2k: duplicated %d shared data LUT(s), %d additional copy/copies for register fusion\n",
+             groups, copies);
 }
 
 static void pack_lut_lutffs(Context *ctx)
@@ -8825,6 +8909,65 @@ struct AgrvImpl : ViaductAPI
     mutable std::mutex timing_cache_mutex;
     static constexpr size_t TIMING_CACHE_LIMIT = 64;
 
+    // Geometry only: this cache never changes routing admission or timing.
+    // Router2 also asks for (wire, wire) boxes to build its spatial index;
+    // those queries must remain the physical location of that single wire.
+    mutable std::unordered_map<int64_t, BoundingBox> route_escape_boxes;
+    mutable std::mutex route_escape_mutex;
+
+    BoundingBox endpoint_escape_box(WireId endpoint, bool uphill) const
+    {
+        const int64_t key = int64_t(endpoint.index) * 2 + int(uphill);
+        std::lock_guard<std::mutex> lock(route_escape_mutex);
+        auto cached = route_escape_boxes.find(key);
+        if (cached != route_escape_boxes.end())
+            return cached->second;
+        const auto &origin = ctx->wire_info(endpoint);
+        BoundingBox box;
+        box.x0 = box.x1 = origin.x;
+        box.y0 = box.y1 = origin.y;
+        std::vector<WireId> queue{endpoint};
+        std::unordered_set<int> visited{endpoint.index};
+        // Follow exact directed pips until the general RMUX mesh is reached.
+        // This includes endpoint ingress/egress detours that an endpoint-only
+        // rectangle misses. Do not walk the entire connected mesh per net.
+        constexpr size_t MAX_ESCAPE_WIRES = 4096;
+        for (size_t head = 0; head < queue.size(); ++head) {
+            WireId wire = queue[head];
+            const auto &info = ctx->wire_info(wire);
+            box.x0 = std::min(box.x0, info.x);
+            box.x1 = std::max(box.x1, info.x);
+            box.y0 = std::min(box.y0, info.y);
+            box.y1 = std::max(box.y1, info.y);
+            const std::string name = ctx->nameOfWire(wire);
+            if (name.find("_RMUX") != std::string::npos)
+                continue;
+            auto visit = [&](WireId next) {
+                if (next != WireId() && visited.insert(next.index).second)
+                    queue.push_back(next);
+            };
+            if (uphill) {
+                for (PipId pip : ctx->getPipsUphill(wire))
+                    visit(ctx->getPipSrcWire(pip));
+            } else {
+                for (PipId pip : ctx->getPipsDownhill(wire))
+                    visit(ctx->getPipDstWire(pip));
+            }
+            if (queue.size() > MAX_ESCAPE_WIRES) {
+                // A capped traversal cannot justify a partial bound. Use the
+                // complete device rectangle, never a truncated corridor.
+                box.x0 = box.y0 = 0;
+                box.x1 = ctx->getGridDimX();
+                box.y1 = ctx->getGridDimY();
+                break;
+            }
+        }
+        if (route_escape_boxes.size() >= 4096)
+            route_escape_boxes.clear();
+        route_escape_boxes.emplace(key, box);
+        return box;
+    }
+
     // Conducting inter-tile tile-graph (RMUX->RMUX, silicon-verified), for isBelLocationValid's
     // conducting-pair check. Loaded from master_conduction.csv in the chipdb dir (if present).
     std::unordered_map<int, std::unordered_set<int>> tile_adj;
@@ -11992,6 +12135,25 @@ struct AgrvImpl : ViaductAPI
                              ctx->getBelPinWire(dst_bel, dst_pin));
     }
 
+    BoundingBox getRouteBoundingBox(WireId src, WireId dst) const override
+    {
+        BoundingBox box = ViaductAPI::getRouteBoundingBox(src, dst);
+        const char *mode = std::getenv("AGRV2K_ROUTE_BOUNDS");
+        if (mode == nullptr || std::string(mode) == "legacy")
+            return box;
+        if (std::string(mode) != "directed")
+            log_error("agrv2k: AGRV2K_ROUTE_BOUNDS must be legacy or directed\n");
+        if (src == dst)
+            return box;
+        for (const BoundingBox &escape : {endpoint_escape_box(src, false), endpoint_escape_box(dst, true)}) {
+            box.x0 = std::min(box.x0, escape.x0);
+            box.x1 = std::max(box.x1, escape.x1);
+            box.y0 = std::min(box.y0, escape.y0);
+            box.y1 = std::max(box.y1, escape.y1);
+        }
+        return box;
+    }
+
     bool getWireDelay(WireId wire, DelayQuad &delay) const override
     {
         (void) wire;
@@ -14762,6 +14924,7 @@ struct AgrvImpl : ViaductAPI
         pack_bram_trim(ctx); // drop a read-only BRAM's don't-care DataInA (avoids an unroutable GND fanout)
         pack_io(ctx);
         pack_carries(ctx);   // dedicated HW carry: fuse AG32_FA(+DFF) -> GENERIC_SLICE keeping CIN/COUT
+        pack_lut_ff_broadcast(ctx);
         pack_lut_lutffs(ctx);
         pack_nonlut_ffs(ctx);
         // After both FF paths, so every lifted enable is visible at once and a
@@ -15076,6 +15239,12 @@ struct AgrvImpl : ViaductAPI
         control_placements.clear();
         if (!shared_control_enable_admitted())
             return;
+        struct InfeasibleGroup {
+            std::string key;
+            int count, candidate_tiles;
+        };
+        std::vector<InfeasibleGroup> infeasible_groups;
+        std::string first_infeasible;
         for (auto &entry : ctx->cells) {
             CellInfo *root = entry.second.get();
             if (root->type != ctx->id("AGRV2K_TILE_CONTROL") ||
@@ -15223,10 +15392,50 @@ struct AgrvImpl : ViaductAPI
                      ctx->nameOf(root), int(members.size()), int(candidates.size()));
             log_info("agrv2k:   %d tile assignment(s) excluded by enable-driver reachability\n",
                      rejected_enable_source);
-            if (candidates.empty())
-                log_error("agrv2k: clock-enable cluster '%s' has no legal same-tile slot assignment\n",
-                          ctx->nameOf(root));
+            if (candidates.empty()) {
+                if (first_infeasible.empty()) first_infeasible = root->name.str(ctx);
+                // Only the explicit driver-reachability contradiction is a
+                // selective-lowering certificate. Other placement failures
+                // retain the ordinary failure path. IDs originate in the
+                // immutable pre-Qin netlist, never an ABC display name.
+                std::string key;
+                bool identified = rejected_enable_source > 0;
+                for (CellInfo *member : members) {
+                    auto id = member->attrs.find(ctx->id("AGRV2K_ENABLE_GROUP_ID"));
+                    if (id == member->attrs.end()) { identified = false; break; }
+                    std::string value = id->second.as_string();
+                    if (value.size() != 16 || value.find_first_not_of("0123456789abcdef") != std::string::npos ||
+                        (!key.empty() && value != key)) { identified = false; break; }
+                    key = value;
+                }
+                if (identified && !key.empty())
+                    infeasible_groups.push_back({key, int(members.size()), rejected_enable_source});
+            }
         }
+        const char *report = std::getenv("AGRV2K_NATIVE_ENABLE_INFEASIBLE_REPORT");
+        if (report && !infeasible_groups.empty()) {
+            // The CLI supplies a fresh path per invocation and archives it.
+            // Only validated hexadecimal IDs and numeric values are written.
+            const std::string temporary = std::string(report) + ".tmp";
+            std::ofstream out(temporary);
+            if (!out) log_error("agrv2k: cannot write native-enable infeasibility report\n");
+            out << "{\"schema\":\"agamemnon.native-enable-infeasible.v1\","
+                   "\"stage\":\"prepare_control_placements\",\"groups\":[";
+            for (size_t i = 0; i < infeasible_groups.size(); ++i) {
+                const auto &g = infeasible_groups[i];
+                if (i) out << ',';
+                out << "{\"key\":\"" << g.key << "\",\"native_ff_count\":" << g.count
+                    << ",\"candidate_tiles\":" << g.candidate_tiles
+                    << ",\"legal_tiles\":0,\"rejected_enable_driver\":" << g.candidate_tiles << '}';
+            }
+            out << "]}\n";
+            out.close();
+            if (!out || std::rename(temporary.c_str(), report) != 0)
+                log_error("agrv2k: cannot finalize native-enable infeasibility report\n");
+        }
+        if (!first_infeasible.empty())
+            log_error("agrv2k: clock-enable cluster '%s' has no legal same-tile slot assignment\n",
+                      first_infeasible.c_str());
     }
 
     void prePlace() override
