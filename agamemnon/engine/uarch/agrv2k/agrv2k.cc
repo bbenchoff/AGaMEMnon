@@ -4005,7 +4005,8 @@ static void pack_bram_localize_const(Context *ctx)
             // hard-constant source: the vendor witness uses independent
             // approach sources for these terminals.  Local zero drivers keep
             // the same BRAM value while allowing per-lane BEL assignment.
-            const bool split_live_portb_address = port_b_read_used && addr_b;
+            const bool split_live_portb_address = port_b_read_used && addr_b &&
+                    addr_b_bit >= 3;
             // A constant-HIGH We*/WeB is an unconditional write.  The generic control blob
             // (bram_rom_ctrl.csv vs bram_dual_ctrl.csv, chosen in features/bram.py from
             // portb_read + WeA-connectivity) has only a write-DISABLED baseline for an
