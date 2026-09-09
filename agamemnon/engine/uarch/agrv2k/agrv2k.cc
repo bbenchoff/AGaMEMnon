@@ -580,7 +580,8 @@ static bool native_clock_enable_tile_compatible(Context *ctx, const CellInfo *ca
     auto reject = [&](const char *reason, const CellInfo *other) {
         if (explain_invalid)
             log_info("agrv2k validity: native clock-enable tile isolation rejects %s '%s' at %s with FF '%s'\n",
-                     reason, ctx->nameOf(candidate), ctx->nameOfBel(bel), ctx->nameOf(other));
+                     reason, ctx->nameOf(candidate), ctx->nameOfBel(bel),
+                     other ? ctx->nameOf(other) : "<unbound-root>");
         return false;
     };
 
@@ -595,17 +596,22 @@ static bool native_clock_enable_tile_compatible(Context *ctx, const CellInfo *ca
                      ctx->nameOf(candidate), ctx->nameOfBel(bel));
         return false;
     }
+    bool saw_bound_root = false;
+    bool matched_bound_root = false;
     for (int line = 0; line < 2; ++line) {
         BelId root_bel = ctx->getBelByLocation(Loc(loc.x, loc.y, 16 + line));
         CellInfo *root = root_bel == BelId() ? nullptr : ctx->getBoundBelCell(root_bel);
         if (candidate_ff && root != nullptr && root->type == ctx->id("AGRV2K_TILE_CONTROL")) {
+            saw_bound_root = true;
             const std::string root_group = enable_group(root);
             if (root_group.empty())
                 return reject("control root has no enable group", root);
-            if (candidate_group != root_group)
-                return reject("control-group mismatch", root);
+            if (candidate_group == root_group)
+                matched_bound_root = true;
         }
     }
+    if (candidate_ff && saw_bound_root && !matched_bound_root)
+        return reject("control-group mismatch", nullptr);
 
     for (int z = 0; z < 16; ++z) {
         BelId occupant_bel = ctx->getBelByLocation(Loc(loc.x, loc.y, z));
