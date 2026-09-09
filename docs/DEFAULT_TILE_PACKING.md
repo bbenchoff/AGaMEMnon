@@ -14,9 +14,8 @@ can retry once without compaction. Abort, timing and unclassified failures
 do not authorize that retry.
 
 Explicit environment values are preserved. Qualified checkpoint/BRAM,
-replay and research profiles retain their settings. Automatic preflight also
-preserves explicit mixed/dual-control experiments; broader sharing remains
-outside this default promotion. Direct nextpnr entry points retain their
+replay and research profiles retain their settings. Automatic preflight preserves explicit mixed/dual controls. Ordinary builds
+also compare profitable sharing profiles; see [selection policy](CONTROL_SHARING_SELECTION.md). Direct nextpnr entry points retain their
 explicit switches. `AGRV2K_TILE_COMPACT=0` disables ordinary CLI compaction.
 
 ## Fresh-source qualification, September 9
@@ -46,6 +45,6 @@ verified, with no flash or option-byte writes. Result SHA256:
 
 All 58 retained images remain byte-identical (60 regression tests passed),
 and 90 focused default/fallback tests passed. Fences remain 74. This does not
-establish physical speed, arbitrary-design vendor density, or general mixed
-control qualification. Denser util20 placements still encounter routing
+establish physical speed, arbitrary-design vendor density, or arbitrary control
+compositions. Denser util20 placements still encounter routing
 failures. No release is created by this main-branch update.

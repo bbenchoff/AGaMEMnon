@@ -1,11 +1,10 @@
 # v0.4.0 release status and remaining limitations — 2026-09-07
 
-Main-branch update, 2026-09-08: isolated line-0 native clock enable is now the
-default for ordinary `build --uarch`, following a fresh-source 3/3 silicon
-contract. Lack of any native enable path is no longer a blocker. Mixed
-sequential tiles, line 1, combined controls and broader site qualification
-remain open. [Scope and fallback](NATIVE_CLOCK_ENABLE_EXPERIMENT.md).
-No new release was published; the v0.4.0 record below is unchanged.
+Main after v0.4.0 supports positive-edge, active-high native enables and
+profitable mixed/dual sharing on the qualified MCU bus clock. Other clock
+profiles, combined controls and broader site qualification remain open.
+See [sharing limits](LOCAL_CLOCK_SHARING.md). No new release was published;
+the historical v0.4.0 record below is unchanged.
 
 ## Development update — routing-aware packing
 
@@ -23,13 +22,13 @@ workloads with 3/3 passing runs per image. Qualified/replay settings are
 preserved. See [default placement and fallback](DEFAULT_TILE_PACKING.md).
 See [repair and qualification scope](ROUTING_SELECTOR_WITHDRAWAL.md).
 
-Mixed ordinary/native and two-native-group clock sharing have conditional
-implementations and fresh source builds that reproduce their silicon-passing
-images exactly. The mixed fixture reduces 69 slices/16 tiles to 69/14.
-General supported admission remains open; these options are experimental.
-Reset recovery on the mixed fixture separately exposes fixed MCU `hwrite`
-ingress placement restrictions. The retained58 byte gate passes and fences
-remain **74 -> 74**. See [scope and evidence](LOCAL_CLOCK_SHARING.md).
+Mixed ordinary/native and two-native-group sharing are qualified and compared
+automatically in ordinary builds. The aligned source fixture uses 96 slices
+in ten isolated tiles versus nine with either sharing profile; both sharing
+images passed 3/3 with controls and a raw temporal-state audit. This removes
+the absence of supported sharing as a blocker, not arbitrary control or clock
+composition limits. All 58 retained images remain unchanged; fences remain
+**74 -> 74**. See [scope and evidence](LOCAL_CLOCK_SHARING.md).
 
 The following sections describe the published v0.4.0 snapshot. Worktrees and
 branches have subsequently been created for the development work above.

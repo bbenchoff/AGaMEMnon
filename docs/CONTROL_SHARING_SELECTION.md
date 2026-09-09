@@ -1,5 +1,8 @@
 # Control-sharing selection
 
+This is ordinary CLI behavior for the qualified MCU bus-clock compositions.
+See [qualification and hardware limits](LOCAL_CLOCK_SHARING.md).
+
 Ordinary uarch builds first produce the existing isolated native-SRST
 candidate set.  The selector chooses that baseline by `(slice_count,
 occupied_tiles)`, retaining legacy on an exact tie.  Sharing is only measured

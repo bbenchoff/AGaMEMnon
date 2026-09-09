@@ -2,19 +2,22 @@
 
 ## Main after v0.4.0 — 2026-09-09
 
-Ordinary `build --uarch` now uses native positive-edge, active-high register
-enables on line 0, with ordinary and differently enabled registers placed in
-other tiles. The fresh-source isolated composition passed its full silicon
-contract 3/3. Use `--no-native-clock-enable` for the prior data-logic path;
-retained replay profiles keep it automatically. Mixed sequential tiles, line 1
-and combined asynchronous controls remain outside the supported native scope.
-See [native enable evidence and limits](NATIVE_CLOCK_ENABLE_EXPERIMENT.md).
+Ordinary `build --uarch` uses positive-edge, active-high native enables.
+For the qualified MCU bus clock, it separately compares isolated, mixed
+(one native group plus ordinary registers on the idle local line), and dual
+(two native groups, no ordinary registers in that tile) placements. A sharing
+candidate replaces the isolated result only when its slice/tile counts improve.
+The profiles are never combined. Other clock profiles and combined asynchronous
+controls remain outside this sharing qualification. Use `--no-native-clock-enable`
+for data-logic enables; retained replay profiles preserve their settings.
+See [sharing qualification](LOCAL_CLOCK_SHARING.md) and
+[selection and bounded fallback](CONTROL_SHARING_SELECTION.md).
 This is a main-branch change, not a new release; fences remain 74.
 
 The control/mapping optimization adds automatic comparison of recovered-reset
 native enables against the historical mapping, choosing the smaller completed
 routed result. Profitable shared-data LUT packing and native own-Q feedback
-are supported within the isolated line-0 scope. The eight-arm silicon batch
+are supported within the supported control compositions. The earlier eight-arm silicon batch
 passed 24 candidate runs: reset-priority examples reduced 78 slices to 73 and
 72, and a matched native broadcast example reduced 87 slices/18 tiles to
 71/14. These are bounded functional and area results; no fence closed and no
