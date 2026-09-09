@@ -11,6 +11,17 @@ and combined asynchronous controls remain outside the supported native scope.
 See [native enable evidence and limits](NATIVE_CLOCK_ENABLE_EXPERIMENT.md).
 This is a main-branch change, not a new release; fences remain 74.
 
+The control/mapping optimization adds automatic comparison of recovered-reset
+native enables against the historical mapping, choosing the smaller completed
+routed result. Profitable shared-data LUT packing and native own-Q feedback
+are supported within the isolated line-0 scope. The eight-arm silicon batch
+passed 24 candidate runs: reset-priority examples reduced 78 slices to 73 and
+72, and a matched native broadcast example reduced 87 slices/18 tiles to
+71/14. These are bounded functional and area results; no fence closed and no
+physical speed or general width improvement is established. ABC9 LUT timing
+mapping and directed route bounds are available explicitly; their comparisons
+do not justify making either the default.
+
 ## v0.4.0 supported scope — 2026-09-07
 
 [v0.4.0 is published](https://github.com/bbenchoff/AGaMEMnon/releases/tag/v0.4.0). Tagged CI and SDK workflows pass,

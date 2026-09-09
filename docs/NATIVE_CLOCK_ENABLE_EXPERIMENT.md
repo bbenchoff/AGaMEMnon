@@ -9,8 +9,11 @@ Build nextpnr with the supplied `build.sh`; it applies the required Viaduct
 cluster-placement hook patch. Existing v0.4.0 release binaries are unchanged.
 
 The supported composition uses line 0 and isolates native-enabled FFs from
-ordinary or differently controlled FFs. Synchronous reset remains lowered to
-data logic; combined asynchronous controls and line 1 remain outside this scope.
+ordinary or differently controlled FFs. Combined asynchronous controls and
+line 1 remain outside this scope. Ordinary source builds use a native-enable
+minimum group threshold of 8, LUT-to-multiple-FF broadcast preparation, and
+native local-QIN preparation. These are placement/synthesis choices, not a
+general capacity or speed claim.
 If native registers are present and every attempt in the placement ladder
 fails before routing, the default flow resynthesizes once with data-logic
 enables. It preserves the native attempt logs and keeps both routing databases
@@ -200,7 +203,7 @@ fence or establish support outside the enforced isolated line-0 composition.
 
 Native synchronous-reset recovery is evaluated as a bounded build choice for
 ordinary source builds. The CLI completes both recovered and legacy-native
-candidates when recovery has eligible synchronous-reset cells, then selects
+candidates, then selects
 the lower final routed `GENERIC_SLICE` count; equal counts retain legacy. This
 uses completed routed results because pre-pack counts do not account for
 selective enable lowering or placement effects. It can therefore add one full
@@ -211,10 +214,21 @@ candidate, its final slice count and routed hash, the selected mapping, and
 the selected image hash. `AGRV2K_SHARED_CONTROL_SRST_RECOVERY=0` or `=1`
 selects one profile for controlled A/B work. Direct synthesis and project
 builds default to legacy (`0`); no-native builds keep their existing path.
+The recovered candidate uses ordinary CLI defaults
+`AGRV2K_SHARED_CONTROL_MINCE=8`, `AGRV2K_LUT_FF_BROADCAST=1`, and
+`AGRV2K_NATIVE_ENABLE_LOCAL_QIN=1`; the legacy candidate retains its
+historical missing-only defaults of 4, 0, and 0. Explicit user values override
+both profiles.
 `AGRV2K_SHARED_CONTROL_MINCE` remains a positive native-enable group threshold.
 An explicit zero-assignment placement certificate can selectively lower only
 the infeasible enable group while retaining successful native groups.
 
+The bounded SRST priority fixtures have silicon results: reset-first (priority
+0) measured soft/native 3/3 PASS at 78/73 slices, and enable-first (priority
+1) measured soft/native 3/3 PASS at 78/72 slices. Each native arm used exactly
+the eight target registers as native enables. These results cover only those
+priority/value contracts and isolated line 0 fixture contracts.
+
 This selection preserves a lower-cost mapping; it does not claim a general
-routing, timing, ABC9, or silicon improvement. Newly recovered synchronous
-control compositions remain unqualified.
+routing, timing, ABC9, or silicon improvement. The priority fixtures do not
+qualify arbitrary synchronous control compositions.

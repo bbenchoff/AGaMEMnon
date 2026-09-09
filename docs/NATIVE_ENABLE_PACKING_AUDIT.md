@@ -26,7 +26,8 @@ the number of occupied tiles.
 one unconstrained LUT feeds only the D pins of multiple packable registers,
 the packer duplicates the function and fuses each copy into its consuming
 register's slice. N registers plus one shared LUT become N fused slices.
-The option defaults off; `0` explicitly disables it and other values fail.
+In standalone nextpnr the option defaults off; `0` explicitly disables it and
+other values fail. Ordinary CLI builds supply the default described below.
 
 The transformation excludes own-Q feedback, externally observed data outputs,
 fixed or region-constrained cells, constrained/routed data nets and preserved
@@ -34,11 +35,23 @@ cells. Existing LUT/FF fusion, control isolation and routing legality still
 apply. It does not admit ordinary FFs into native-enabled tiles or alter the
 native control line.
 
-An ordinary-source regbank16 A/B retained 32 native registers while reducing
-87 slices in 18 tiles to 71 slices in 17 tiles. Model Fmax decreased from
-181.46 to 153.40 MHz. The separate data-logic build used 68 slices, so this
-does not establish an overall area or speed advantage over that alternative.
-These new images have not been qualified on silicon.
+For ordinary native clock-enable flows, the CLI tries an optimized candidate
+with `AGRV2K_SHARED_CONTROL_MINCE=8` and `AGRV2K_LUT_FF_BROADCAST=1`, and a
+historical candidate with threshold 4 and broadcast disabled. It selects the
+smaller completed mapping, retaining historical mapping on ties. Explicit
+environment choices take precedence for both candidates. Raw standalone
+invocations retain their existing unset behavior.
+
+A fresh frozen-source regbank16 A/B retained 32 native registers while
+reducing 87 slices in 18 tiles to 71 slices in 14 tiles. Its two direct
+subprocess arms returned zero. The count reduction is not a silicon-speed
+claim.
+
+A bounded board batch ran the broadcast regbank32 functional contract with
+broadcast off and on three times each, alongside its reference and controls.
+The batch independently audited as pass. It establishes the tested functional
+contract for those images; it does not establish that every native register is
+gated, mixed-tile admission, or a general performance/capacity result.
 
 The audit checks placement and isolation, including missing placements and
 different enable groups sharing a tile. It cannot establish selector behavior,

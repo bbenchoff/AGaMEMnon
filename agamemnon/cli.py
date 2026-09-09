@@ -1961,6 +1961,31 @@ def _routed_slice_count(document):
                for cell in module.get("cells", {}).values())
 
 
+def _native_mapping_defaults(env):
+    """Ordinary-flow policies exercised by the reset/feedback/packing A/Bs.
+
+    Direct synthesis and nextpnr entry points retain their explicit switches.
+    User overrides remain available for attributable comparisons.
+    """
+    for key, value in (
+        ("AGRV2K_SHARED_CONTROL_MINCE", "8"),
+        ("AGRV2K_LUT_FF_BROADCAST", "1"),
+        ("AGRV2K_NATIVE_ENABLE_LOCAL_QIN", "1"),
+    ):
+        env.setdefault(key, value)
+
+
+_NATIVE_MAPPING_OPTION_KEYS = ("AGRV2K_SHARED_CONTROL_MINCE",
+                               "AGRV2K_LUT_FF_BROADCAST",
+                               "AGRV2K_NATIVE_ENABLE_LOCAL_QIN")
+
+
+def _native_srst_candidate_options(recovery):
+    defaults = ("8", "1", "1") if recovery == "1" else ("4", "0", "0")
+    return {key: os.environ.get(key, value)
+            for key, value in zip(_NATIVE_MAPPING_OPTION_KEYS, defaults)}
+
+
 def _cmd_build_once(a):
     """Single-command open build: Verilog -> yosys synth -> nextpnr place&route -> our bitgen -> .bin,
     entirely from the self-contained package (engine/ + chipdb/ + synth/). No vendor binary. yosys and
@@ -2086,6 +2111,7 @@ def _cmd_build_once(a):
     # would create an unroutable control sink. Keep replay profiles on their
     # historical synthesis/graph; ordinary uarch builds use native enables.
     native_enable = (a.uarch and not getattr(a, "no_native_clock_enable", False)
+                     and os.environ.get("AGRV2K_SHARED_CONTROL_ENABLE") != "0"
                      and not a.qualified_checkpoint
                      and not getattr(a, "qualified_bram_write", None))
     for control_option in ("AGRV2K_SHARED_CONTROL_ENABLE", "AGRV2K_SHARED_CONTROL_GRAPH"):
@@ -2093,6 +2119,8 @@ def _cmd_build_once(a):
             env[control_option] = "1"
         else:
             env.pop(control_option, None)
+    if native_enable:
+        _native_mapping_defaults(env)
     print("[build] clock enables: %s" % (
         "native line 0 with isolated register tiles" if native_enable else "register data logic"))
     # Never inherit an undocumented placement experiment accidentally. The
@@ -3393,7 +3421,12 @@ def cmd_build(a):
         prior_trace = os.environ.get("AGAMEMNON_ATTEMPT_TRACE_DIR")
         prior_policy = os.environ.get("AGAMEMNON_POLICY_SIDECAR")
         prior_ownership = os.environ.get("AGAMEMNON_OWNERSHIP_TRACE")
+        prior_mapping = {key: os.environ.get(key) for key in _NATIVE_MAPPING_OPTION_KEYS}
         os.environ["AGRV2K_SHARED_CONTROL_SRST_RECOVERY"] = recovery
+        mapping_options = _native_srst_candidate_options(recovery)
+        if recovery == "0":
+            for key, value in mapping_options.items():
+                os.environ.setdefault(key, value)
         private_policy = os.path.join(root_tmp, label + ".requested.policy.json")
         private_ownership = os.path.join(root_tmp, label + ".requested.ownership.json")
         if requested_policy:
@@ -3424,21 +3457,25 @@ def cmd_build(a):
                 os.environ.pop("AGAMEMNON_OWNERSHIP_TRACE", None)
             else:
                 os.environ["AGAMEMNON_OWNERSHIP_TRACE"] = prior_ownership
+            for key, value in prior_mapping.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
         if result is not None:
             result.update({"mapping": label, "srst_recovery": recovery,
+                           "mapping_options": mapping_options,
                            "policy_sidecar": private_policy if requested_policy else None,
                            "ownership_trace": private_ownership if requested_ownership else None})
             candidates.append(result)
             outcomes.append({"mapping": label, "outcome": "routed",
                              "slice_count": result["slice_count"],
                              "routed_sha256": result["routed_sha256"],
-                             "eligible_srst_cells": result["eligible_srst_cells"]})
-            if recovery == "1" and result["eligible_srst_cells"] == 0:
-                # Recovery could not change this netlist. It is exactly the
-                # established native synthesis, so do not pay for legacy P&R.
-                break
+                             "eligible_srst_cells": result["eligible_srst_cells"],
+                             "mapping_options": mapping_options})
         else:
-            outcomes.append({"mapping": label, "outcome": "eligible_exhaustion"})
+            outcomes.append({"mapping": label, "outcome": "eligible_exhaustion",
+                             "mapping_options": mapping_options})
     if candidates:
         selected = min(candidates, key=lambda item: (item["slice_count"],
                                                        item["mapping"] != "legacy"))

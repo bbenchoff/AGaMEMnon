@@ -15,6 +15,19 @@ DOCUMENT = {"modules": {"top": {"cells": {"state": {"type": "DFFE"}}}}}
 PLACEMENT = record("ERROR: clock-enable cluster has no legal same-tile slot assignment")
 
 
+def test_native_mapping_defaults_keep_explicit_comparison_controls():
+    env = {}
+    cli._native_mapping_defaults(env)
+    assert env == {'AGRV2K_SHARED_CONTROL_MINCE': '8',
+                   'AGRV2K_LUT_FF_BROADCAST': '1',
+                   'AGRV2K_NATIVE_ENABLE_LOCAL_QIN': '1'}
+    explicit = {key: '0' for key in env}
+    explicit['AGRV2K_SHARED_CONTROL_MINCE'] = '4'
+    expected = dict(explicit)
+    cli._native_mapping_defaults(explicit)
+    assert explicit == expected
+
+
 def test_native_placement_fallback_requires_live_native_population():
     assert cli._native_enable_fallback_allowed(True, DOCUMENT, [PLACEMENT])
     assert not cli._native_enable_fallback_allowed(False, DOCUMENT, [PLACEMENT])
@@ -191,6 +204,56 @@ def test_native_srst_wrapper_restores_report_environment_on_error(tmp_path, monk
     with pytest.raises(SystemExit): cli.cmd_build(args)
     assert os.environ["AGAMEMNON_POLICY_SIDECAR"] == policy
     assert os.environ["AGAMEMNON_OWNERSHIP_TRACE"] == ownership
+
+
+def test_native_srst_candidates_use_distinct_missing_only_mapping_defaults(tmp_path, monkeypatch):
+    seen = []
+    def fake(candidate):
+        seen.append((os.environ["AGRV2K_SHARED_CONTROL_SRST_RECOVERY"],
+                     tuple(os.environ.get(key) for key in cli._NATIVE_MAPPING_OPTION_KEYS)))
+        output = Path(candidate.output); output.write_bytes(b"x")
+        routed = Path(candidate.write_routed); routed.write_text("{}")
+        return {"output":str(output),"routed_json":str(routed),"slice_count":1,
+                "routed_sha256":"x","eligible_srst_cells":0}
+    monkeypatch.setattr(cli, "_cmd_build_once", fake)
+    for key in cli._NATIVE_MAPPING_OPTION_KEYS: monkeypatch.delenv(key, raising=False)
+    monkeypatch.delenv("AGRV2K_SHARED_CONTROL_SRST_RECOVERY", raising=False)
+    args=SimpleNamespace(uarch=True,input="design.v",sources=[],project=None,no_native_clock_enable=False,
+        qualified_checkpoint=None,qualified_bram_write=None,research_unsafe=False,
+        output=str(tmp_path/"out.bin"),write_routed=None,pcf=None,baseline=None)
+    cli.cmd_build(args)
+    assert seen == [("1", (None,None,None)), ("0", ("4","0","0"))]
+    sidecar = json.loads((tmp_path / "out.bin.native-srst-selection.json").read_text())
+    assert sidecar["candidates"][0]["mapping_options"] == {
+        "AGRV2K_SHARED_CONTROL_MINCE": "8", "AGRV2K_LUT_FF_BROADCAST": "1",
+        "AGRV2K_NATIVE_ENABLE_LOCAL_QIN": "1"}
+    assert sidecar["candidates"][1]["mapping_options"] == {
+        "AGRV2K_SHARED_CONTROL_MINCE": "4", "AGRV2K_LUT_FF_BROADCAST": "0",
+        "AGRV2K_NATIVE_ENABLE_LOCAL_QIN": "0"}
+    assert all(key not in os.environ for key in cli._NATIVE_MAPPING_OPTION_KEYS)
+
+
+def test_native_srst_candidate_mapping_overrides_survive_success_and_error(tmp_path, monkeypatch):
+    original = {key: value for key, value in zip(cli._NATIVE_MAPPING_OPTION_KEYS, ("9", "7", "5"))}
+    for key, value in original.items(): monkeypatch.setenv(key, value)
+    monkeypatch.delenv("AGRV2K_SHARED_CONTROL_SRST_RECOVERY", raising=False)
+    seen = []
+    def fake(candidate):
+        seen.append(tuple(os.environ[key] for key in cli._NATIVE_MAPPING_OPTION_KEYS))
+        output=Path(candidate.output); output.write_bytes(b"x")
+        routed=Path(candidate.write_routed); routed.write_text("{}")
+        return {"output":str(output),"routed_json":str(routed),"slice_count":1,
+                "routed_sha256":"x","eligible_srst_cells":0}
+    monkeypatch.setattr(cli, "_cmd_build_once", fake)
+    args=SimpleNamespace(uarch=True,input="design.v",sources=[],project=None,no_native_clock_enable=False,
+        qualified_checkpoint=None,qualified_bram_write=None,research_unsafe=False,
+        output=str(tmp_path/"out.bin"),write_routed=None,pcf=None,baseline=None)
+    cli.cmd_build(args)
+    assert seen == [("9","7","5"), ("9","7","5")]
+    assert {key:os.environ[key] for key in original} == original
+    monkeypatch.setattr(cli, "_cmd_build_once", lambda _a: (_ for _ in ()).throw(SystemExit(1)))
+    with pytest.raises(SystemExit): cli.cmd_build(args)
+    assert {key:os.environ[key] for key in original} == original
 
 
 def test_selective_report_overrides_only_ambiguous_placement_signature(tmp_path):
