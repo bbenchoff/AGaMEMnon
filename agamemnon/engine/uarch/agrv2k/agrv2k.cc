@@ -620,7 +620,16 @@ static bool native_clock_enable_tile_compatible(Context *ctx, const CellInfo *ca
             occupant->type != ctx->id("GENERIC_SLICE") ||
             int_or_default(occupant->params, ctx->id("FF_USED"), 0) == 0)
             continue;
-        if (enable_group(occupant) != candidate_group)
+        const std::string occupant_group = enable_group(occupant);
+        bool occupant_matches_root = occupant_group == candidate_group;
+        for (int line = 0; line < 2; ++line) {
+            BelId root_bel = ctx->getBelByLocation(Loc(loc.x, loc.y, 16 + line));
+            CellInfo *root = root_bel == BelId() ? nullptr : ctx->getBoundBelCell(root_bel);
+            if (root != nullptr && root->type == ctx->id("AGRV2K_TILE_CONTROL") &&
+                enable_group(root) == occupant_group)
+                occupant_matches_root = true;
+        }
+        if (!occupant_matches_root)
             return reject("control-group mismatch", occupant);
     }
     return true;
@@ -15394,8 +15403,7 @@ struct AgrvImpl : ViaductAPI
             std::vector<CellInfo *> best_subset;
             for (BelId sink : ctx->getBels()) {
                 if (ctx->getBelType(sink) != root->type ||
-                    (ctx->getBelLocation(sink).z != 16 &&
-                     (!dual_native_control_enabled() || ctx->getBelLocation(sink).z != 17)) ||
+                    ctx->getBelLocation(sink).z != 16 ||
                     !ctx->checkBelAvail(sink))
                     continue;
                 if (root->region && root->region->constr_bels &&
@@ -15504,6 +15512,16 @@ struct AgrvImpl : ViaductAPI
                 ControlPlacement candidate{{root, sink}};
                 for (size_t i = 0; i < members.size(); ++i)
                     candidate.emplace_back(members[i], bels[selected[i]]);
+                std::set<BelId> candidate_bels;
+                bool duplicate_bel = false;
+                for (auto &item : candidate) {
+                    if (!candidate_bels.insert(item.second).second) {
+                        duplicate_bel = true;
+                        break;
+                    }
+                }
+                if (duplicate_bel)
+                    continue;
                 std::vector<std::pair<BelId, CellInfo *>> temporary;
                 for (auto &item : candidate) {
                     if (item.first->bel != BelId()) continue;
