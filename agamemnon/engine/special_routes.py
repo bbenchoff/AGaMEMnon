@@ -52,13 +52,13 @@ EXPECTED_CATALOG_SHA256 = (
 # rows reproduces the prior strict/tiered CSV byte-for-byte; the physical pad
 # corridors and all other graph rows are unchanged. Keep both exact snapshots
 # for replay, without accepting arbitrary self-reported graph digests.
-EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 250422
+EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 250419
 EXPECTED_PHYSICAL_GRAPH_SHA256 = (
-    "7785c45468e8a44b294852f243f7db399eb7f222747f42bcb5bbd6345c1f2d5e"
+    "1acfd1135d8ee321a4675848d59b5542849055789cf23f95c861da574c9f6b66"
 )
-EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 328383
+EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 328308
 EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
-    "a690d457d0f96d3ccbef9b72098e6f21ed775220e4bd3ae6edca71afba248d23"
+    "dbbd476da80cd664da239be0ea7d0aeaad475e0c2830a1645d693ffc3a8d6596"
 )
 # The native-control graph contributes the finite, reviewed shared-control
 # topology.  It is a separate graph profile: accepting it by changing the base
@@ -66,13 +66,29 @@ EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
 # graph authority.
 EXPECTED_SHARED_CONTROL_PHYSICAL_GRAPHS = {
     "release-strict": (
-        251495,
-        "b36d3f47141f6f81c6e9b5451e9b531c9993904213c581f4810db9c40533d8e3",
+        251492,
+        "c7f93f8f9c8b2681b9c31ce11b04c5673d3d56400691ebe84d2ef3e0c617aee1",
     ),
     "tiered": (
-        329456,
-        "7af056a493fe487c95c38bb27df25f490806519d3db9206e99fe011d07fe63f2",
+        329381,
+        "fffb6d9c28c17e97600eaa7f2c90b65267ba842354dbde9261f655bf809fa0a5",
     ),
+}
+# Preserve exact historical graph snapshots after the retained58 byte gate.
+# New graphs remove only the unsupported RMUX27 -> RMUX20 relative rule:
+# three strict edges or 75 tiered edges; all surviving rows are unchanged.
+# Emission independently refuses withdrawn edges in new checkpoints, even if
+# a historical graph was supplied. Historical graph identity is not admission
+# evidence for those edges; retained_routing binds the sole replay exception.
+PRE_WITHDRAWAL_PHYSICAL_GRAPHS = {
+    "0": {
+        "release-strict": (250422, "7785c45468e8a44b294852f243f7db399eb7f222747f42bcb5bbd6345c1f2d5e"),
+        "tiered": (328383, "a690d457d0f96d3ccbef9b72098e6f21ed775220e4bd3ae6edca71afba248d23"),
+    },
+    "1": {
+        "release-strict": (251495, "b36d3f47141f6f81c6e9b5451e9b531c9993904213c581f4810db9c40533d8e3"),
+        "tiered": (329456, "7af056a493fe487c95c38bb27df25f490806519d3db9206e99fe011d07fe63f2"),
+    },
 }
 LEGACY_PHYSICAL_GRAPHS = {
     "release-strict": (248310, "46bea5556598f30010ae30cbc172f81f4eda4f6d8d879c71ceef4c7589816f81"),
@@ -565,6 +581,9 @@ def _validated_devdb(devdb, chipdb_root=None):
             if (shared_control_graph == "0" and
                     (graph_pip_count, graph_pips_sha256) == LEGACY_PHYSICAL_GRAPHS[admission]):
                 expected_pip_count, expected_pips_sha256 = LEGACY_PHYSICAL_GRAPHS[admission]
+            historical = PRE_WITHDRAWAL_PHYSICAL_GRAPHS[shared_control_graph][admission]
+            if (graph_pip_count, graph_pips_sha256) == historical:
+                expected_pip_count, expected_pips_sha256 = historical
         except KeyError:
             raise SpecialRouteError(
                 "uarch special-route physical graph has unknown routing admission %r" %
