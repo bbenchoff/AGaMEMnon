@@ -33,6 +33,8 @@ PROFILE = "physical-io"
 CATALOG_NAME = "special_routes_l48_left_output.csv"
 DEV_CATALOG_NAME = "dev_special_routes.csv"
 DEV_META_NAME = "dev_special_route_meta.csv"
+SHARED_CONTROL_GRAPH_MARKER = "shared_control_graph"
+SHARED_CONTROL_GRAPH_ENV = "AGRV2K_SHARED_CONTROL_GRAPH"
 TOKEN_CLASS = "AGAMEMNON_SPECIAL_ROUTE_CLASS"
 TOKEN_LANE = "AGAMEMNON_SPECIAL_ROUTE_LANE"
 TOKEN_DIGEST = "AGAMEMNON_SPECIAL_ROUTE_CATALOG_SHA256"
@@ -58,6 +60,20 @@ EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 328383
 EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
     "a690d457d0f96d3ccbef9b72098e6f21ed775220e4bd3ae6edca71afba248d23"
 )
+# The native-control graph contributes the finite, reviewed shared-control
+# topology.  It is a separate graph profile: accepting it by changing the base
+# fingerprint would make a graph-generation switch invisible to the physical
+# graph authority.
+EXPECTED_SHARED_CONTROL_PHYSICAL_GRAPHS = {
+    "release-strict": (
+        251495,
+        "b36d3f47141f6f81c6e9b5451e9b531c9993904213c581f4810db9c40533d8e3",
+    ),
+    "tiered": (
+        329456,
+        "7af056a493fe487c95c38bb27df25f490806519d3db9206e99fe011d07fe63f2",
+    ),
+}
 LEGACY_PHYSICAL_GRAPHS = {
     "release-strict": (248310, "46bea5556598f30010ae30cbc172f81f4eda4f6d8d879c71ceef4c7589816f81"),
     "tiered": (326271, "8ff4c97f71118b3ccbbdc8b535b81eb28a8996dc2ce569a29fbdc2fb91eac1a4"),
@@ -72,6 +88,21 @@ EXPECTED_PHYSICAL_GRAPHS = {
         EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256,
     ),
 }
+
+
+def shared_control_graph_marker(environ=None):
+    """Return the explicit shared-control graph profile marker.
+
+    This is deliberately stricter than the historical presence-style feature
+    flag.  The marker binds a generated device graph to one of two reviewed
+    physical identities; spelling mistakes must not silently choose a graph.
+    """
+    value = (os.environ if environ is None else environ).get(
+        SHARED_CONTROL_GRAPH_ENV, "0")
+    if value not in ("0", "1"):
+        raise SpecialRouteError(
+            "%s must be 0 or 1 (got %r)" % (SHARED_CONTROL_GRAPH_ENV, value))
+    return value
 # Marker migration is intentionally hash-only.  These immutable routed inputs
 # predate the typed special-route module markers and are already pinned in
 # qualification/pack_regression.json.  The three SERV rows are also bound by
@@ -349,6 +380,7 @@ def emit_devdb_metadata(out_dir, chipdb_root=None, environ=None, graph_pips=()):
     """Emit the complete catalog plus profile/digest metadata into one devdb."""
     catalog = load_catalog(chipdb_root)
     out_dir = Path(out_dir)
+    shared_control_graph = shared_control_graph_marker(environ)
     enabled = expected_enabled(environ)
     graph_pips = set(graph_pips)
     pips_by_name, graph_pip_count, graph_pips_sha256 = _devdb_pips(out_dir)
@@ -376,6 +408,7 @@ def emit_devdb_metadata(out_dir, chipdb_root=None, environ=None, graph_pips=()):
         ("catalog_sha256", catalog.digest),
         ("graph_pip_count", str(graph_pip_count)),
         ("graph_pips_sha256", graph_pips_sha256),
+        (SHARED_CONTROL_GRAPH_MARKER, shared_control_graph),
     )
     with (out_dir / DEV_META_NAME).open("w", newline="", encoding="utf-8") as stream:
         writer = csv.writer(stream)
@@ -487,6 +520,12 @@ def _validated_devdb(devdb, chipdb_root=None):
             )
     if metadata.get("enabled") not in ("0", "1"):
         raise SpecialRouteError("uarch special-route enabled flag is invalid")
+    # Databases emitted before the marker existed can only describe the
+    # historical base graph.  In particular, a marker-less database may never
+    # select the native shared-control graph.
+    shared_control_graph = metadata.get(SHARED_CONTROL_GRAPH_MARKER, "0")
+    if shared_control_graph not in ("0", "1"):
+        raise SpecialRouteError("uarch special-route shared-control graph marker is invalid")
     rows = _read_exact_csv(devdb / DEV_CATALOG_NAME, FIELDS)
     if hashlib.sha256(_canonical_bytes(rows)).hexdigest() != catalog.digest:
         raise SpecialRouteError("uarch special-route catalog/cache digest drift")
@@ -517,8 +556,14 @@ def _validated_devdb(devdb, chipdb_root=None):
         pips_by_name, graph_pip_count, graph_pips_sha256 = _devdb_pips(devdb)
         admission = env.get("AGAMEMNON_ROUTING_ADMISSION", "release-strict")
         try:
-            expected_pip_count, expected_pips_sha256 = EXPECTED_PHYSICAL_GRAPHS[admission]
-            if (graph_pip_count, graph_pips_sha256) == LEGACY_PHYSICAL_GRAPHS[admission]:
+            if shared_control_graph == "1":
+                expected_pip_count, expected_pips_sha256 = (
+                    EXPECTED_SHARED_CONTROL_PHYSICAL_GRAPHS[admission]
+                )
+            else:
+                expected_pip_count, expected_pips_sha256 = EXPECTED_PHYSICAL_GRAPHS[admission]
+            if (shared_control_graph == "0" and
+                    (graph_pip_count, graph_pips_sha256) == LEGACY_PHYSICAL_GRAPHS[admission]):
                 expected_pip_count, expected_pips_sha256 = LEGACY_PHYSICAL_GRAPHS[admission]
         except KeyError:
             raise SpecialRouteError(

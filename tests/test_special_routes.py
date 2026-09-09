@@ -1279,6 +1279,7 @@ def test_source_fresh_tiered_physical_devdb_matches_pinned_graph(tmp_path):
     raw_graph = graph_path.read_bytes()
     assert raw_graph.count(b"\n") - 1 == sr.EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT
     assert hashlib.sha256(raw_graph).hexdigest() == sr.EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256
+    assert sr._csv_dict(devdb / sr.DEV_META_NAME)[sr.SHARED_CONTROL_GRAPH_MARKER] == "0"
     assert sr.validate_devdb(devdb, CHIPDB) is True
 
     with graph_path.open("a", newline="", encoding="utf-8") as stream:
@@ -1296,6 +1297,100 @@ def test_source_fresh_tiered_physical_devdb_matches_pinned_graph(tmp_path):
         devdb / "dev_meta.csv", "n_pips",
         sr.EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT + 1,
     )
+    with pytest.raises(sr.SpecialRouteError, match="physical graph identity drift"):
+        sr.validate_devdb(devdb, CHIPDB)
+
+
+@pytest.mark.parametrize(
+    "admission, expected", (
+        ("release-strict", sr.EXPECTED_SHARED_CONTROL_PHYSICAL_GRAPHS["release-strict"]),
+        ("tiered", sr.EXPECTED_SHARED_CONTROL_PHYSICAL_GRAPHS["tiered"]),
+    ),
+)
+def test_source_fresh_shared_control_graph_is_exact_and_tamper_proof(
+        tmp_path, admission, expected):
+    """The native-control graph is a separate exact physical profile."""
+    root = Path(__file__).parents[1]
+    devdb = tmp_path / ("shared-control-" + admission)
+    command = [
+        sys.executable,
+        str(root / "agamemnon" / "engine" / "emit_uarch_db.py"),
+        "--arch", str(root / "agamemnon" / "engine" / "arch.py"),
+        "--data", str(CHIPDB),
+        "--out", str(devdb),
+    ]
+    environ = list(sr.SOURCE_FRESH_PHYSICAL_ENV) + [
+        "AGRV2K_SHARED_CONTROL_GRAPH=1",
+    ]
+    if admission != "release-strict":
+        environ.append("AGAMEMNON_ROUTING_ADMISSION=" + admission)
+    for item in environ:
+        command.extend(("--env", item))
+    emitted = subprocess.run(
+        command, cwd=root, text=True, capture_output=True, timeout=90,
+    )
+    assert emitted.returncode == 0, emitted.stdout + emitted.stderr
+
+    graph_path = devdb / "dev_pips.csv"
+    raw = graph_path.read_bytes()
+    count, digest = expected
+    assert raw.count(b"\n") - 1 == count
+    assert hashlib.sha256(raw).hexdigest() == digest
+    assert sr._csv_dict(devdb / sr.DEV_META_NAME)[sr.SHARED_CONTROL_GRAPH_MARKER] == "1"
+    assert sr.validate_devdb(devdb, CHIPDB) is True
+
+    for marker, error in (("0", "physical graph identity drift"),
+                          (None, "physical graph identity drift"),
+                          ("invalid", "shared-control graph marker is invalid")):
+        label = "stripped" if marker is None else marker
+        wrong_marker = tmp_path / ("shared-control-" + admission + "-marker-" + label)
+        shutil.copytree(devdb, wrong_marker)
+        marker_path = wrong_marker / sr.DEV_META_NAME
+        if marker is None:
+            rows = list(csv.reader(marker_path.open(newline="", encoding="utf-8")))
+            with marker_path.open("w", newline="", encoding="utf-8") as stream:
+                csv.writer(stream).writerows(
+                    row for row in rows if row[0] != sr.SHARED_CONTROL_GRAPH_MARKER)
+        else:
+            _replace_metadata_value(marker_path, sr.SHARED_CONTROL_GRAPH_MARKER, marker)
+        with pytest.raises(sr.SpecialRouteError, match=error):
+            sr.validate_devdb(wrong_marker, CHIPDB)
+
+    for kind in ("missing", "extra"):
+        altered = tmp_path / ("shared-control-" + admission + "-" + kind)
+        shutil.copytree(devdb, altered)
+        path = altered / "dev_pips.csv"
+        lines = path.read_bytes().splitlines(keepends=True)
+        if kind == "missing":
+            index = next(i for i, line in enumerate(lines) if b",SHARED_CONTROL," in line)
+            del lines[index]
+        else:
+            lines.append(
+                b"FAKE_TILE_OMUX00.FAKE_TILE_RMUX00,PIP,FAKE_TILE_OMUX00,"
+                b"FAKE_TILE_RMUX00,0,0,0,0\r\n"
+            )
+        path.write_bytes(b"".join(lines))
+        altered_raw = path.read_bytes()
+        altered_count = altered_raw.count(b"\n") - 1
+        _replace_metadata_value(
+            altered / sr.DEV_META_NAME, "graph_pip_count", str(altered_count))
+        _replace_metadata_value(
+            altered / sr.DEV_META_NAME, "graph_pips_sha256",
+            hashlib.sha256(altered_raw).hexdigest())
+        _replace_metadata_value(altered / "dev_meta.csv", "n_pips", str(altered_count))
+        with pytest.raises(sr.SpecialRouteError, match="physical graph identity drift"):
+            sr.validate_devdb(altered, CHIPDB)
+
+
+def test_shared_control_graph_marker_is_strict(tmp_path):
+    with pytest.raises(sr.SpecialRouteError, match="must be 0 or 1"):
+        sr.shared_control_graph_marker({sr.SHARED_CONTROL_GRAPH_ENV: "yes"})
+
+    # A marker cannot promote the historical base graph into the native profile.
+    devdb = tmp_path / "base-marker-one"
+    shutil.copytree(PHYSICAL_DEVDB, devdb)
+    _replace_metadata_value(devdb / sr.DEV_META_NAME,
+                            sr.SHARED_CONTROL_GRAPH_MARKER, "1")
     with pytest.raises(sr.SpecialRouteError, match="physical graph identity drift"):
         sr.validate_devdb(devdb, CHIPDB)
 
