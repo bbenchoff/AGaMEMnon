@@ -1824,6 +1824,23 @@ def _restart_with_lut_carry(a):
             delattr(a, key)
 
 
+def _set_default_placement_preflight(a, env):
+    """Repair impossible control grouping and detect impossible carry ingress.
+
+    These checks retain the architecture's exact legality predicates. Replay
+    and qualified profiles keep their recorded settings; explicit overrides
+    remain available for attributable comparisons.
+    """
+    if (not getattr(a, "uarch", False) or
+            getattr(a, "qualified_checkpoint", None) or
+            getattr(a, "qualified_bram_write", None) or
+            getattr(a, "research_unsafe", False) or
+            any(key.startswith("AGRV2K_REPLAY_BELS") for key in env)):
+        return
+    env.setdefault("AGRV2K_CONTROL_REPARTITION", "1")
+    env.setdefault("AGRV2K_CARRY_GRAPH_PREFLIGHT", "1")
+
+
 def _set_default_tile_compaction(a, env):
     """Enable ordinary-build compaction without changing explicit/replay policy."""
     if "AGRV2K_TILE_COMPACT" in env:
@@ -2148,6 +2165,7 @@ def _cmd_build_once(a):
 
     env = dict(os.environ)
     env["AGAMEMNON_DATA"] = data
+    _set_default_placement_preflight(a, env)
     auto_tile_compaction = _set_default_tile_compaction(a, env)
     if auto_tile_compaction:
         print("[build] routing-aware tile compaction enabled; uncompacted placement remains a fallback")
