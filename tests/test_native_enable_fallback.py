@@ -54,7 +54,7 @@ def test_sharing_selects_only_measured_improvement(tmp_path, monkeypatch, tiles,
 @pytest.mark.parametrize("failure", [SystemExit(2), ValueError("policy"), RuntimeError("unknown")])
 def test_sharing_does_not_hide_nonplacement_failures(tmp_path, monkeypatch, failure):
     monkeypatch.setattr(cli, "_control_sharing_auto_enabled", lambda a: True)
-    monkeypatch.setattr(cli, "_control_sharing_opportunity", lambda doc: ("mixed", {}))
+    monkeypatch.setattr(cli, "_control_sharing_opportunity", lambda doc: (("mixed",), {}))
     routed = tmp_path / "baseline.json"
     routed.write_text("{}")
     baseline = dict(routed_json=str(routed), occupied_tiles=10, slice_count=96,

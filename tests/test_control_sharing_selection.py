@@ -119,6 +119,56 @@ def test_composition_profiles_are_exclusive(tmp_path, monkeypatch, groups, ordin
     assert set(observed[0].values()) == {"0", "1"}
 
 
+def test_both_opportunities_compare_separate_profiles_and_choose_lower_tiles(tmp_path, monkeypatch):
+    routed = tmp_path / "baseline.json"
+    _routed(routed, native_groups=("a", "b"), ordinary=1)
+    monkeypatch.setattr(cli, "_control_sharing_auto_enabled", lambda a: True)
+    observed, states = [], []
+    state = {"no_hard_carry": True, "_tile_compaction_disabled": True,
+             "_native_enable_excluded_group_ids": (), "_fallback_stages": ("uncompacted",)}
+    def build(candidate):
+        options = candidate._control_sharing_options
+        observed.append(options)
+        states.append((candidate.no_hard_carry, candidate._tile_compaction_disabled,
+                       candidate._fallback_stages))
+        tiles = 9 if options["AGRV2K_DUAL_NATIVE_CONTROL"] == "1" else 10
+        return {"slice_count": 96, "occupied_tiles": tiles,
+                "routed_sha256": "dual" if tiles == 9 else "mixed"}
+    monkeypatch.setattr(cli, "_cmd_build_once", build)
+    chosen, report = cli._compare_control_sharing(
+        _ordinary_args(), _baseline(routed, state=state), str(tmp_path))
+    assert observed == [
+        {"AGRV2K_MIXED_NATIVE_CONTROL": "1", "AGRV2K_DUAL_NATIVE_CONTROL": "0"},
+        {"AGRV2K_MIXED_NATIVE_CONTROL": "0", "AGRV2K_DUAL_NATIVE_CONTROL": "1"},
+    ]
+    assert all(set(options.values()) == {"0", "1"} for options in observed)
+    assert states == [(True, True, ("uncompacted",))] * 2
+    assert chosen["routed_sha256"] == "dual"
+    assert report["selected"] == "dual"
+    assert [row["profile"] for row in report["profiles"]] == ["mixed", "dual"]
+    assert [row["selected"] for row in report["profiles"]] == [False, True]
+
+
+def test_isolated_wins_ties_and_mixed_wins_equal_improved_profiles(tmp_path, monkeypatch):
+    routed = tmp_path / "baseline.json"
+    _routed(routed, native_groups=("a", "b"), ordinary=1)
+    monkeypatch.setattr(cli, "_control_sharing_auto_enabled", lambda a: True)
+    baseline = _baseline(routed)
+    # Equal-to-baseline metrics preserve isolated.
+    monkeypatch.setattr(cli, "_cmd_build_once", lambda candidate: {
+        "slice_count": 96, "occupied_tiles": 10, "routed_sha256": "tie"})
+    chosen, report = cli._compare_control_sharing(_ordinary_args(), baseline, str(tmp_path))
+    assert chosen is baseline and report["selected"] == "isolated"
+    # Equal improvements are deterministic: mixed appears first and stays selected.
+    monkeypatch.setattr(cli, "_cmd_build_once", lambda candidate: {
+        "slice_count": 96, "occupied_tiles": 9,
+        "routed_sha256": "mixed" if candidate._control_sharing_options[
+            "AGRV2K_MIXED_NATIVE_CONTROL"] == "1" else "dual"})
+    chosen, report = cli._compare_control_sharing(_ordinary_args(), baseline, str(tmp_path))
+    assert chosen["routed_sha256"] == "mixed"
+    assert report["selected"] == "mixed"
+
+
 @pytest.mark.parametrize("change", [
     {"qualified_checkpoint": "checkpoint"},
     {"qualified_bram_write": "source"},
@@ -151,9 +201,47 @@ def test_classified_exhaustion_keeps_baseline_and_other_failures_propagate(tmp_p
                         lambda candidate: (_ for _ in ()).throw(cli._ControlSharingCandidateExhausted()))
     chosen, report = cli._compare_control_sharing(_ordinary_args(), baseline, str(tmp_path))
     assert chosen is baseline
+    assert report["profiles"] == [{
+        "profile": "mixed",
+        "options": {"AGRV2K_MIXED_NATIVE_CONTROL": "1", "AGRV2K_DUAL_NATIVE_CONTROL": "0"},
+        "outcome": "classified_placement_routing_exhaustion"}]
     assert report["outcome"] == "classified_placement_routing_exhaustion"
     for failure in (RuntimeError("unknown"), SystemExit(2)):
         monkeypatch.setattr(cli, "_cmd_build_once",
                             lambda candidate, failure=failure: (_ for _ in ()).throw(failure))
         with pytest.raises(type(failure)):
             cli._compare_control_sharing(_ordinary_args(), baseline, str(tmp_path))
+
+
+def test_classified_mixed_exhaustion_continues_to_dual(tmp_path, monkeypatch):
+    routed = tmp_path / "baseline.json"
+    _routed(routed, native_groups=("a", "b"), ordinary=1)
+    monkeypatch.setattr(cli, "_control_sharing_auto_enabled", lambda a: True)
+    calls = []
+    def build(candidate):
+        profile = "mixed" if candidate._control_sharing_options[
+            "AGRV2K_MIXED_NATIVE_CONTROL"] == "1" else "dual"
+        calls.append(profile)
+        if profile == "mixed":
+            raise cli._ControlSharingCandidateExhausted()
+        return {"slice_count": 96, "occupied_tiles": 9, "routed_sha256": "dual"}
+    monkeypatch.setattr(cli, "_cmd_build_once", build)
+    chosen, report = cli._compare_control_sharing(_ordinary_args(), _baseline(routed), str(tmp_path))
+    assert calls == ["mixed", "dual"]
+    assert chosen["routed_sha256"] == "dual"
+    assert report["profiles"][0]["outcome"] == "classified_placement_routing_exhaustion"
+
+
+def test_unknown_or_timing_mixed_failure_does_not_run_dual(tmp_path, monkeypatch):
+    routed = tmp_path / "baseline.json"
+    _routed(routed, native_groups=("a", "b"), ordinary=1)
+    monkeypatch.setattr(cli, "_control_sharing_auto_enabled", lambda a: True)
+    for failure in (RuntimeError("unknown"), RuntimeError("timing")):
+        calls = []
+        def build(candidate, failure=failure):
+            calls.append(candidate._control_sharing_options)
+            raise failure
+        monkeypatch.setattr(cli, "_cmd_build_once", build)
+        with pytest.raises(RuntimeError, match=str(failure)):
+            cli._compare_control_sharing(_ordinary_args(), _baseline(routed), str(tmp_path))
+        assert len(calls) == 1

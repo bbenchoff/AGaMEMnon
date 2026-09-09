@@ -1,32 +1,39 @@
-# Automatic control-sharing candidate
+# Control-sharing selection
 
-Development status: implemented on the control-selection branch, awaiting
-fresh ordinary-source builds, retained-image regression and qualification.
-This document does not declare a new supported default on main.
+Ordinary uarch builds first produce the existing isolated native-SRST
+candidate set.  The selector chooses that baseline by `(slice_count,
+occupied_tiles)`, retaining legacy on an exact tie.  Sharing is only measured
+after this isolated selection, so it never changes synthesis, carry fallback,
+or the recovered-versus-legacy decision used for the comparison.
 
-The implementation first completes the existing isolated native-reset mapping
-comparison. It inspects the selected routed registers and tries at most one
-additional composition: mixed native/ordinary sharing when both populations
-exist, otherwise dual-native sharing when there are multiple enable groups.
-The two options are not enabled together. Designs without an opportunity do
-not incur another build. Explicit sharing options and replay, qualified and
-research flows retain their policy.
+When the selected routed JSON contains an opportunity, the CLI may make up to
+two independent A/B candidates from that same immutable baseline:
 
-The alternative must complete routing and emission and improve the pair
-`(slice count, occupied logic tiles)`. Isolated wins ties. Missing placement
-information cannot produce a favorable tile count. A classified placement or
-routing exhaustion retains the completed baseline; policy, timing, timeout
-and unknown failures are not silently converted to success. Candidate products
-and requested reports use private destinations until selection.
+| Profile | Preconditions | Environment |
+| --- | --- | --- |
+| `mixed` | at least one native-enable group and at least one ordinary FF | `AGRV2K_MIXED_NATIVE_CONTROL=1`, `AGRV2K_DUAL_NATIVE_CONTROL=0` |
+| `dual` | at least two native-enable groups | `AGRV2K_MIXED_NATIVE_CONTROL=0`, `AGRV2K_DUAL_NATIVE_CONTROL=1` |
 
-The existing native-SRST selection sidecar records the composition options,
-population, result and selected profile. Equal-slice SRST mappings now prefer
-fewer occupied tiles, retaining legacy on an exact resource tie. This avoids multiplying both synthesis mappings by every sharing
-profile, while addressing the measured case where sharing routed successfully
-but increased tile count.
+The profiles are never combined.  Mixed sharing needs a local line for the
+ordinary FF; dual sharing uses both lines for two native-enable groups.  Each
+candidate receives the selected baseline's effective state, including carry
+fallback, compaction state, selectively lowered enable groups, and fallback
+stages.  Its output, routed JSON, policy sidecar, ownership trace, and attempt
+trace directory are profile-specific.
 
-Remaining validation includes exact option propagation, candidate synthesis
-and carry-fallback identity, private-report isolation, the 58 retained images,
-and fresh builds of the mixed fixture and the width workloads. The existing
-96-slice, ten-versus-nine-tile silicon comparison motivates this work but does
-not itself qualify this automatic selection implementation.
+The result keeps the isolated baseline unless a candidate is a strict
+improvement in `(slice_count, occupied_tiles)`.  If mixed and dual have equal
+improved metrics, mixed remains selected because it is measured first.  The
+sidecar records the baseline population and an ordered result for every
+profile, including options, route hash, measured metrics, and selection.
+
+Only the existing classified placement/routing-exhaustion exception is treated
+as a candidate rejection.  A rejected mixed candidate does not prevent a dual
+candidate from being measured.  Timing, policy, validation, and unknown
+failures propagate.  Automatic comparison is excluded for explicit sharing
+controls, replay, qualified checkpoints, BRAM-write qualification, research
+profiles, and builds without automatic native-SRST selection.
+
+This selection is a resource comparison for separately qualified compositions.
+It does not claim that every design benefits, that both compositions can share
+a tile together, or that routing/timing quality improves.

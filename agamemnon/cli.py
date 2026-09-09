@@ -3555,14 +3555,19 @@ def _control_sharing_opportunity(document):
                 groups.add((module_name, enable))
             else:
                 ordinary += 1
-    # Prefer the independently qualified mixed composition when both kinds
-    # could help. Never silently combine the two experimental compositions.
-    profile = "mixed" if groups and ordinary else "dual" if len(groups) > 1 else None
-    return profile, {"native_groups": len(groups), "ordinary_registers": ordinary}
+    # These are two separately qualified compositions.  They may both be
+    # worth measuring, but are never combined in one candidate: ordinary FFs
+    # require one idle local line, while a dual-native tile occupies both.
+    profiles = []
+    if groups and ordinary:
+        profiles.append("mixed")
+    if len(groups) > 1:
+        profiles.append("dual")
+    return tuple(profiles), {"native_groups": len(groups), "ordinary_registers": ordinary}
 
 
 def _compare_control_sharing(a, baseline, root_tmp):
-    """One completed-profile comparison; isolated wins ties and exhaustion."""
+    """Compare at most two separate profiles; isolated wins exact ties."""
     report = {"selected": "isolated", "baseline_tiles": baseline.get("occupied_tiles")}
     if not _control_sharing_auto_enabled(a):
         report["outcome"] = "explicit_or_ineligible_profile"
@@ -3571,61 +3576,77 @@ def _compare_control_sharing(a, baseline, root_tmp):
         report["outcome"] = "missing_measured_tile_count"
         return baseline, report
     with open(baseline["routed_json"], encoding="utf-8") as stream:
-        profile, population = _control_sharing_opportunity(json.load(stream))
+        profiles, population = _control_sharing_opportunity(json.load(stream))
     report.update(population)
-    if profile is None:
+    report["profiles"] = []
+    report["baseline_build_state"] = baseline.get("effective_build_state", {})
+    if not profiles:
         report["outcome"] = "no_measured_sharing_opportunity"
         return baseline, report
-    options = {"AGRV2K_MIXED_NATIVE_CONTROL": str(int(profile == "mixed")),
-               "AGRV2K_DUAL_NATIVE_CONTROL": str(int(profile == "dual"))}
-    candidate = copy.copy(a)
-    candidate._native_srst_candidate = True
-    candidate._control_sharing_candidate = True
-    candidate._control_sharing_options = options
-    candidate._native_enable_snapshot = None
-    candidate._native_enable_excluded_group_ids = ()
-    candidate._fallback_stages = ()
-    for key, value in baseline.get("effective_build_state", {}).items():
-        setattr(candidate, key, value)
-    candidate.output = os.path.join(root_tmp, profile + ".bin")
-    candidate.write_routed = os.path.join(root_tmp, profile + ".routed.json")
-    overrides = dict(baseline["mapping_options"])
-    overrides["AGRV2K_SHARED_CONTROL_SRST_RECOVERY"] = baseline["srst_recovery"]
-    for key, suffix in (("AGAMEMNON_POLICY_SIDECAR", ".requested.policy.json"),
-                        ("AGAMEMNON_OWNERSHIP_TRACE", ".requested.ownership.json")):
-        if key in os.environ:
-            overrides[key] = os.path.join(root_tmp, profile + suffix)
-    if "AGAMEMNON_ATTEMPT_TRACE_DIR" in os.environ:
-        overrides["AGAMEMNON_ATTEMPT_TRACE_DIR"] = os.path.join(
-            os.environ["AGAMEMNON_ATTEMPT_TRACE_DIR"], "control_" + profile)
-    prior = {key: os.environ.get(key) for key in overrides}
-    report.update(profile=profile, options=options)
-    report["baseline_build_state"] = baseline.get("effective_build_state", {})
-    try:
-        os.environ.update(overrides)
-        result = _cmd_build_once(candidate)
-    except _ControlSharingCandidateExhausted:
+    best = baseline
+    for profile in profiles:
+        options = {"AGRV2K_MIXED_NATIVE_CONTROL": str(int(profile == "mixed")),
+                   "AGRV2K_DUAL_NATIVE_CONTROL": str(int(profile == "dual"))}
+        candidate = copy.copy(a)
+        candidate._native_srst_candidate = True
+        candidate._control_sharing_candidate = True
+        candidate._control_sharing_options = options
+        candidate._native_enable_snapshot = None
+        candidate._native_enable_excluded_group_ids = ()
+        candidate._fallback_stages = ()
+        # Every profile is an A/B comparison against the immutable isolated
+        # baseline, not against a preceding sharing profile.
+        for key, value in baseline.get("effective_build_state", {}).items():
+            setattr(candidate, key, value)
+        candidate.output = os.path.join(root_tmp, profile + ".bin")
+        candidate.write_routed = os.path.join(root_tmp, profile + ".routed.json")
+        overrides = dict(baseline["mapping_options"])
+        overrides["AGRV2K_SHARED_CONTROL_SRST_RECOVERY"] = baseline["srst_recovery"]
+        for key, suffix in (("AGAMEMNON_POLICY_SIDECAR", ".requested.policy.json"),
+                            ("AGAMEMNON_OWNERSHIP_TRACE", ".requested.ownership.json")):
+            if key in os.environ:
+                overrides[key] = os.path.join(root_tmp, profile + suffix)
+        if "AGAMEMNON_ATTEMPT_TRACE_DIR" in os.environ:
+            overrides["AGAMEMNON_ATTEMPT_TRACE_DIR"] = os.path.join(
+                os.environ["AGAMEMNON_ATTEMPT_TRACE_DIR"], "control_" + profile)
+        prior = {key: os.environ.get(key) for key in overrides}
+        profile_report = {"profile": profile, "options": options}
+        try:
+            os.environ.update(overrides)
+            result = _cmd_build_once(candidate)
+        except _ControlSharingCandidateExhausted:
+            profile_report["outcome"] = "classified_placement_routing_exhaustion"
+            report["profiles"].append(profile_report)
+            continue
+        finally:
+            for key, value in prior.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+        profile_report.update(outcome="routed", slice_count=result["slice_count"],
+                              occupied_tiles=result.get("occupied_tiles"),
+                              routed_sha256=result["routed_sha256"])
+        if (result.get("occupied_tiles") is not None and
+                (result["slice_count"], result["occupied_tiles"]) <
+                (best["slice_count"], best["occupied_tiles"])):
+            result.update(mapping=baseline["mapping"], srst_recovery=baseline["srst_recovery"],
+                          mapping_options=baseline["mapping_options"],
+                          policy_sidecar=overrides.get("AGAMEMNON_POLICY_SIDECAR"),
+                          ownership_trace=overrides.get("AGAMEMNON_OWNERSHIP_TRACE"))
+            best = result
+            report["selected"] = profile
+            for previous in report["profiles"]:
+                previous["selected"] = False
+            profile_report["selected"] = True
+        else:
+            profile_report["selected"] = False
+        report["profiles"].append(profile_report)
+    if any(row["outcome"] == "routed" for row in report["profiles"]):
+        report["outcome"] = "measured_profiles"
+    else:
         report["outcome"] = "classified_placement_routing_exhaustion"
-        return baseline, report
-    finally:
-        for key, value in prior.items():
-            if value is None:
-                os.environ.pop(key, None)
-            else:
-                os.environ[key] = value
-    report.update(outcome="routed", slice_count=result["slice_count"],
-                  occupied_tiles=result.get("occupied_tiles"),
-                  routed_sha256=result["routed_sha256"])
-    if (result.get("occupied_tiles") is not None and
-            (result["slice_count"], result["occupied_tiles"]) <
-            (baseline["slice_count"], baseline["occupied_tiles"])):
-        result.update(mapping=baseline["mapping"], srst_recovery=baseline["srst_recovery"],
-                      mapping_options=baseline["mapping_options"],
-                      policy_sidecar=overrides.get("AGAMEMNON_POLICY_SIDECAR"),
-                      ownership_trace=overrides.get("AGAMEMNON_OWNERSHIP_TRACE"))
-        report["selected"] = profile
-        return result, report
-    return baseline, report
+    return best, report
 
 
 def cmd_build(a):
