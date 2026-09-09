@@ -17,14 +17,14 @@ CHIPDB = ROOT / "agamemnon" / "chipdb"
 TILE = (14, 8)
 
 
-def _validation(*, tiles=frozenset({TILE}), profile="HSE_PLL_CLKIN_V1",
-                source_class="HSE_PLL"):
+def _validation(*, tiles=frozenset({TILE}), profile="MCU_BUS_DEFAULT_V1",
+                source_class="MCU_BUS"):
     return ClockValidationResult(
         owner_bit=1,
         source_profile=profile,
         source_class=source_class,
         clocked_tiles=tiles,
-        active_slice_leaves=frozenset({"X14Y8_ClkMUX00"}),
+        active_slice_leaves=frozenset({"X14Y8_ClkMUX03"}),
         bram_edges=frozenset(), quarantined_extra_leaves=frozenset(),
         quarantined_bitstream_sha256=None,
         catalog_sha256="0" * 64, topology_sha256="0" * 64,
@@ -68,8 +68,9 @@ def test_native_line0_preserves_the_existing_clock_byte_sequence():
     [
         ({(14, 8, 16): 1}, None, "invalid line"),
         ({(15, 8, 3): 1}, _validation(), "outside the validated GCLK0"),
-        ({(14, 8, 3): 1}, _validation(profile="MCU_BUS_DEFAULT_V1",
-                                       source_class="MCU_BUS"),
+        ({(14, 8, 2): 1}, None, "no validated GCLK0 active leaf"),
+        ({(14, 8, 3): 1}, _validation(profile="HSE_PLL_CLKIN_V1",
+                                       source_class="HSE_PLL"),
          "requires qualified GCLK0 profile"),
     ],
 )

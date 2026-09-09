@@ -230,6 +230,7 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT, document=None,
         routing_state,
         set(core_logic_state.register_sets) | set(bram_state.sets),
     )
+    control_slice_lines = SHARED_CONTROL_GRAPH_FEATURE.slice_lines_from_module(module)
     clock_state = CLOCK_FEATURE.prepare(
         core_logic_state.clocked_tiles,
         core_logic_state.register_sets,
@@ -238,7 +239,7 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT, document=None,
         chipdb_root,
         options,
         clock_validation,
-        slice_lines=SHARED_CONTROL_GRAPH_FEATURE.slice_lines_from_module(module),
+        slice_lines=control_slice_lines,
     )
     CLOCK_FEATURE.exclude_ownership(
         clock_state, PHYSICAL_IO_FEATURE.writable_bits(physical_io_state)
@@ -257,7 +258,8 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT, document=None,
     shared_control_state = SHARED_CONTROL_GRAPH_FEATURE.prepare(
         routing_state.shared_control_pips,
         cell_map,
-        slice_lines=SHARED_CONTROL_GRAPH_FEATURE.slice_lines_from_module(module),
+        slice_lines=control_slice_lines,
+        ordinary_slices=SHARED_CONTROL_GRAPH_FEATURE.ordinary_slice_sites_from_module(module),
         options=options,
     )
 

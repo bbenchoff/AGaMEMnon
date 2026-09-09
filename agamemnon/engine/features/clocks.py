@@ -16,7 +16,7 @@ VP_AGM_007_CLOCK_TILES = frozenset({
     (1, 1), (12, 4), (14, 5), (20, 1), (20, 12),
 })
 
-_LINE1_PROFILE = ("HSE_PLL_CLKIN_V1", "HSE_PLL", 100, 8)
+_LINE1_PROFILE = ("MCU_BUS_DEFAULT_V1", "MCU_BUS")
 _CLKSEL0_TEMPLATE_CELL = (32, 30, "CFG_TILECLKMUX[0]")
 _CLKSEL1_TEMPLATE_CELL = (35, 30, "CFG_TILECLKMUX[4]")
 _LINE1_SEAM_SELECTION = 11
@@ -37,17 +37,17 @@ def _line1_tiles(slice_lines, validated_clock, options):
         if (x, y) not in validated_clock.clocked_tiles:
             raise SystemExit("clocks: native control slice X%dY%d_SLICE%d is outside "
                              "the validated GCLK0 active-leaf tiles" % (x, y, z))
+        if "X%dY%d_ClkMUX%02d" % (x, y, z) not in validated_clock.active_slice_leaves:
+            raise SystemExit("clocks: native control slice X%dY%d_SLICE%d has no "
+                             "validated GCLK0 active leaf" % (x, y, z))
         if line == 1:
             line1.add((x, y))
     if not line1:
         return frozenset()
-    profile, source_class, sysclk, hse = _LINE1_PROFILE
-    actual = (validated_clock.source_profile, validated_clock.source_class,
-              options.integer("AGAMEMNON_SYSCLK"), options.integer("AGAMEMNON_HSE"))
+    actual = (validated_clock.source_profile, validated_clock.source_class)
     if actual != _LINE1_PROFILE:
         raise SystemExit("clocks: native line 1 requires qualified GCLK0 profile "
-                         "%s/%s at SYSCLK=%d HSE=%d (got %r)" %
-                         (profile, source_class, sysclk, hse, actual))
+                         "%s/%s (got %r)" % (*_LINE1_PROFILE, actual))
     return frozenset(line1)
 
 
@@ -270,7 +270,8 @@ class ClockFeature:
         line1_tiles = _line1_tiles(slice_lines, validated_clock, options)
         if line1_tiles and seam_selection != 5:
             raise SystemExit("clocks: native line 1 requires qualified clock seam selector 5")
-        line1_selects = _line1_clock_select_bits(chipdb_root, clksel0, line1_tiles)
+        line1_selects = (_line1_clock_select_bits(chipdb_root, clksel0, line1_tiles)
+                         if line1_tiles else {})
         # A clocked tile with no entry in these tables used to be skipped in
         # silence: its FFs were placed, its slices presented, its data routed,
         # and the tile clock select was simply never programmed -- so the design

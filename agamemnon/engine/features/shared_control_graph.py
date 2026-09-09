@@ -72,6 +72,7 @@ SHARED_CONTROL_GRAPH_OPTION = "AGRV2K_SHARED_CONTROL_GRAPH"
 # on line 0.  A caller that wants two *native* groups in one tile must opt in
 # explicitly; ordinary FFs remain excluded in both modes.
 DUAL_NATIVE_CONTROL_OPTION = "AGRV2K_DUAL_NATIVE_CONTROL"
+MIXED_NATIVE_CONTROL_OPTION = "AGRV2K_MIXED_NATIVE_CONTROL"
 
 # Lives one level up in agamemnon/engine/ rather than beside this module: the
 # repository ignores *.csv globally and re-includes only ``agamemnon/engine/*.csv``,
@@ -127,6 +128,7 @@ class SharedControlState:
     clears: list = field(default_factory=list)
     tile_lines: dict = field(default_factory=dict)
     slice_lines: dict = field(default_factory=dict)
+    ordinary_slices: frozenset = frozenset()
     routes: int = 0
     sources: int = 0
 
@@ -302,6 +304,10 @@ class SharedControlGraphFeature:
         """
         cells = module.get("cells", {})
         dual_native = dual_native_control_enabled()
+        mixed_value = os.environ.get(MIXED_NATIVE_CONTROL_OPTION, "0")
+        if mixed_value not in ("0", "1"):
+            raise SharedControlEmitError("%s must be 0 or 1" % MIXED_NATIVE_CONTROL_OPTION)
+        mixed_native = mixed_value == "1"
         control_sites = {}
         control_enable_lines = {}
         control_tiles = set()
@@ -357,10 +363,14 @@ class SharedControlGraphFeature:
                     ordinary_bel = cell.get("attributes", {}).get("NEXTPNR_BEL", "")
                     ordinary_site = re.fullmatch(r"X(\d+)Y(\d+)_SLICE(\d+)", ordinary_bel)
                     if ordinary_site and tuple(map(int, ordinary_site.groups()[:2])) in control_tiles:
-                        raise SharedControlEmitError(
-                            "ordinary register %r shares an enabled tile at %s; "
-                            "mixed sequential control requires separate qualification" %
-                            (name, ordinary_bel))
+                        x, y, z = map(int, ordinary_site.groups())
+                        used = {line for cx, cy, line in control_sites if (cx, cy) == (x, y)}
+                        if not mixed_native or len(used) != 1:
+                            raise SharedControlEmitError(
+                                "ordinary register %r shares an enabled tile at %s; "
+                                "mixed sequential control requires an enabled experiment "
+                                "and one idle local clock line" % (name, ordinary_bel))
+                        slice_lines[(x, y, z)] = 1 - next(iter(used))
                 continue
             bel = cell.get("attributes", {}).get("NEXTPNR_BEL", "")
             match = re.fullmatch(r"X(\d+)Y(\d+)_SLICE(\d+)", bel)
@@ -377,8 +387,21 @@ class SharedControlGraphFeature:
             slice_lines[(x, y, z)] = line
         return slice_lines
 
+    def ordinary_slice_sites_from_module(self, module):
+        """Identify ordinary FFs independently; only mapped sites are consumed."""
+        sites = set()
+        for cell in module.get("cells", {}).values():
+            if cell.get("type") != "GENERIC_SLICE" or cell.get("attributes", {}).get("AGRV2K_CLOCK_ENABLE_NET"):
+                continue
+            used = cell.get("parameters", {}).get("FF_USED", 0)
+            if not (int(used, 2) if isinstance(used, str) else int(used)):
+                continue
+            match = re.fullmatch(r"X(\d+)Y(\d+)_SLICE(\d+)", cell.get("attributes", {}).get("NEXTPNR_BEL", ""))
+            if match:
+                sites.add(tuple(map(int, match.groups())))
+        return frozenset(sites)
 
-    def prepare(self, pips, selector_cells, slice_lines=None, options=None):
+    def prepare(self, pips, selector_cells, slice_lines=None, options=None, ordinary_slices=()):
         """Resolve routed control edges to selector bits.
 
         ``pips`` are the ``SRC.DST`` names ``features.routing`` handed over
@@ -393,6 +416,7 @@ class SharedControlGraphFeature:
         stuck at whatever the base image left behind.
         """
         state = SharedControlState(slice_lines=dict(slice_lines or {}))
+        state.ordinary_slices = frozenset(ordinary_slices) & state.slice_lines.keys()
 
         for pip in pips:
             source_text, destination_text = pip.split(".", 1)
@@ -457,6 +481,10 @@ class SharedControlGraphFeature:
                     "%s is not a control destination" % (destination_text,))
 
         for (x, y, z), line in sorted(state.slice_lines.items()):
+            if (x, y, z) in state.ordinary_slices and (x, y, "clock_enable", line) in state.tile_lines:
+                raise SharedControlEmitError(
+                    "ordinary register X%dY%d_SLICE%d selects driven clock-enable line %d"
+                    % (x, y, z, line))
             family = "clock_enable"
             if control_encode.slice_line_confidence(family) != "exact":
                 raise SharedControlEmitError(
@@ -468,13 +496,16 @@ class SharedControlGraphFeature:
             # fixed-image silicon intervention. Clearing this bit restored
             # update/hold/resume for identity-LUT native registers. It did not
             # establish BYPASSEN semantics for other register input modes.
-            state.clears.append(control_encode.slice_bypass_bit(x, y, z))
+            # Ordinary register input-mode bits are not native-enable fields.
+            # Preserve them when assigning the idle local clock line.
+            if (x, y, z) not in state.ordinary_slices:
+                state.clears.append(control_encode.slice_bypass_bit(x, y, z))
             if line == 1:
                 # Clear means line 0, which the cleared baseline already gives.
                 state.sets.append(control_encode.slice_line_bit(x, y, z, family))
 
         print("shared control: %d tile-line selection(s), %d CtrlMUX source(s), "
-              "%d gated slice(s) (%d on line 1) -> %d config bits"
+              "%d clock-selected slice(s) (%d on line 1) -> %d config bits"
               % (state.routes, state.sources, len(state.slice_lines),
                  sum(1 for line in state.slice_lines.values() if line == 1),
                  len(state.sets) + len(state.clears)))
