@@ -26,8 +26,17 @@ preserved when its local clock selection changes.
 
 A fresh ordinary-source dual-enable build from commit `62c254d` reproduces
 the diagnostic image that passed the independent-enable contract three times.
-The mixed composition also passed its diagnostic contract after clock-line
-isolation, but its fresh placement implementation is still under validation.
+The mixed composition now also reproduces its passing diagnostic image through
+a full source build: 69 slices in 14 tiles, compared with the retained isolated
+same-source fixture's 69 slices in 16 tiles. Both builds reproduce on the
+corrected `mixed-r3` native binary. The retained gate preserves all 58 images;
+compiled validation includes ordinary-only tiles, native-only tiles, mixed
+tiles, incompatible groups, and register-input legality.
+
+Reset recovery on this mixed fixture still fails placement: a combinational
+cell's fixed MCU `hwrite` input lacks admitted ingress at the attempted sites.
+The successful mixed build explicitly disables reset recovery. The data-logic
+fallback preserves build completion but does not demonstrate native sharing.
 These bounded results do not qualify arbitrary enable compositions, establish
 physical speed, or repair the outstanding compact addsub16/util20 failures.
 

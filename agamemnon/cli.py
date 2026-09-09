@@ -2132,8 +2132,17 @@ def _cmd_build_once(a):
             env.pop(control_option, None)
     if native_enable:
         _native_mapping_defaults(env)
-    print("[build] clock enables: %s" % (
-        "native line 0 with isolated register tiles" if native_enable else "register data logic"))
+    control_description = "register data logic"
+    if native_enable:
+        control_description = "native line 0 with isolated register tiles"
+        sharing = []
+        if env.get("AGRV2K_DUAL_NATIVE_CONTROL") == "1":
+            sharing.append("two native groups")
+        if env.get("AGRV2K_MIXED_NATIVE_CONTROL") == "1":
+            sharing.append("ordinary/native register sharing")
+        if sharing:
+            control_description = "native enables with experimental " + ", ".join(sharing)
+    print("[build] clock enables: %s" % control_description)
     # Never inherit an undocumented placement experiment accidentally. The
     # CLI option is the sole public selector and WSLENV forwards AGRV2K_*.
     if compact_maxd is None:
