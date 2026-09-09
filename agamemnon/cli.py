@@ -2021,6 +2021,25 @@ def _routed_slice_count(document):
                for cell in module.get("cells", {}).values())
 
 
+def _routed_tile_count(document):
+    """Count occupied logic tiles, or return None for incomplete placement.
+
+    Missing BELs must not make an incomplete candidate appear cheaper. Module
+    identity is included so independent module coordinates are not collapsed.
+    """
+    tiles = set()
+    for module_name, module in document.get("modules", {}).items():
+        for cell in module.get("cells", {}).values():
+            if cell.get("type") != "GENERIC_SLICE":
+                continue
+            bel = cell.get("attributes", {}).get("NEXTPNR_BEL", "")
+            match = re.fullmatch(r"(X\d+Y\d+)_SLICE\d+", str(bel))
+            if match is None:
+                return None
+            tiles.add((module_name, match.group(1)))
+    return len(tiles)
+
+
 def _native_mapping_defaults(env):
     """Ordinary-flow policies exercised by the reset/feedback/packing A/Bs.
 
@@ -3416,6 +3435,7 @@ def _cmd_build_once(a):
         PJ.write_flash_plan(project, mcu_output=mcu_output, fabric_output=out)
     return {"output": out, "routed_json": routed_json,
             "slice_count": _routed_slice_count(final_snapshot.document),
+            "occupied_tiles": _routed_tile_count(final_snapshot.document),
             "routed_sha256": final_snapshot.sha256,
             "eligible_srst_cells": getattr(a, "_native_srst_eligible_cells", None)}
 
@@ -3568,6 +3588,7 @@ def cmd_build(a):
             candidates.append(result)
             outcomes.append({"mapping": label, "outcome": "routed",
                              "slice_count": result["slice_count"],
+                             "occupied_tiles": result.get("occupied_tiles"),
                              "routed_sha256": result["routed_sha256"],
                              "eligible_srst_cells": result["eligible_srst_cells"],
                              "mapping_options": mapping_options})

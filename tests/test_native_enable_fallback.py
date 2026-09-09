@@ -16,6 +16,21 @@ DOCUMENT = {"modules": {"top": {"cells": {"state": {"type": "DFFE"}}}}}
 PLACEMENT = record("ERROR: clock-enable cluster has no legal same-tile slot assignment")
 
 
+def test_routed_tile_metric_requires_complete_slice_placement():
+    cells = {
+        "a": {"type": "GENERIC_SLICE", "attributes": {"NEXTPNR_BEL": "X15Y10_SLICE0"}},
+        "b": {"type": "GENERIC_SLICE", "attributes": {"NEXTPNR_BEL": "X15Y10_SLICE7"}},
+        "c": {"type": "GENERIC_SLICE", "attributes": {"NEXTPNR_BEL": "X17Y10_SLICE1"}},
+        "ctrl": {"type": "AGRV2K_TILE_CONTROL"},
+    }
+    document = {"modules": {"top": {"cells": cells}}}
+    assert cli._routed_tile_count(document) == 2
+    cells["c"]["attributes"].clear()
+    assert cli._routed_tile_count(document) is None
+    cells["c"]["attributes"]["NEXTPNR_BEL"] = "not_a_placed_slice"
+    assert cli._routed_tile_count(document) is None
+
+
 def test_native_mapping_defaults_keep_explicit_comparison_controls():
     env = {}
     cli._native_mapping_defaults(env)
