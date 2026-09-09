@@ -22,6 +22,8 @@ def test_preflight_is_independent_of_compaction(compact):
     ({"research_unsafe": True}, {}),
     ({}, {"AGRV2K_REPLAY_BELS": "placement.json"}),
     ({}, {"AGRV2K_REPLAY_BELS_HARD": "placement.json"}),
+    ({}, {"AGRV2K_DUAL_NATIVE_CONTROL": "1"}),
+    ({}, {"AGRV2K_MIXED_NATIVE_CONTROL": "1"}),
     ({}, {"AGRV2K_CONTROL_REPARTITION": "0", "AGRV2K_CARRY_GRAPH_PREFLIGHT": "0"}),
     ({}, {"AGRV2K_CONTROL_REPARTITION": "invalid", "AGRV2K_CARRY_GRAPH_PREFLIGHT": "invalid"}),
 ])

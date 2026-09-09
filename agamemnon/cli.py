@@ -1835,6 +1835,8 @@ def _set_default_placement_preflight(a, env):
             getattr(a, "qualified_checkpoint", None) or
             getattr(a, "qualified_bram_write", None) or
             getattr(a, "research_unsafe", False) or
+            any(env.get(key) == "1" for key in
+                ("AGRV2K_DUAL_NATIVE_CONTROL", "AGRV2K_MIXED_NATIVE_CONTROL")) or
             any(key.startswith("AGRV2K_REPLAY_BELS") for key in env)):
         return
     env.setdefault("AGRV2K_CONTROL_REPARTITION", "1")
