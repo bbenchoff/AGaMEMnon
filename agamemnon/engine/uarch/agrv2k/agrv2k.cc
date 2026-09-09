@@ -15461,11 +15461,148 @@ struct AgrvImpl : ViaductAPI
     void postPlace() override
     {
         audit_tile_move_feasibility();
+        compact_placed_tiles();
         refresh_mcu_endpoint_owner("post-place", true);
         refresh_global_clock_resources("post-place", true);
         audit_global_clock_routes("post-place import", false);
         lock_global_clock_tree("post-place");
         audit_global_clock_routes("post-place", true);
+    }
+
+    // Bounded, opt-in placement refinement. The router's estimateDelay and
+    // timing model are unchanged. Whole clusters move atomically; every move
+    // must improve packing and preserve all current placement predicates.
+    void compact_placed_tiles()
+    {
+        const char *option = std::getenv("AGRV2K_TILE_COMPACT");
+        if (option == nullptr || std::string(option) == "0") return;
+        if (std::string(option) != "1") log_error("agrv2k: AGRV2K_TILE_COMPACT must be 0 or 1\n");
+        using Tile = std::pair<int, int>;
+        auto tile_of = [&](BelId bel) { Loc l = ctx->getBelLocation(bel); return Tile(l.x, l.y); };
+        std::vector<CellInfo *> slices, roots;
+        for (auto &entry : ctx->cells) {
+            CellInfo *cell = entry.second.get();
+            if (cell->bel == BelId()) continue;
+            if (cell->type == ctx->id("GENERIC_SLICE")) slices.push_back(cell);
+            if ((cell->type == ctx->id("GENERIC_SLICE") || cell->type == ctx->id("AGRV2K_TILE_CONTROL")) &&
+                (cell->cluster == ClusterId() || cell->cluster == cell->name)) roots.push_back(cell);
+        }
+        auto counts = [&]() {
+            std::map<Tile, int> result;
+            for (CellInfo *cell : slices) ++result[tile_of(cell->bel)];
+            return result;
+        };
+        auto score = [&]() {
+            auto occupied = counts();
+            long long concentration = 0, wirelength = 0;
+            for (const auto &entry : occupied) concentration += entry.second * entry.second;
+            for (auto &entry : ctx->nets) {
+                NetInfo *net = entry.second.get();
+                if (net->driver.cell == nullptr || net->driver.cell->bel == BelId()) continue;
+                Loc source = ctx->getBelLocation(net->driver.cell->bel);
+                int x0 = source.x, x1 = source.x, y0 = source.y, y1 = source.y;
+                for (auto &user : net->users) {
+                    if (user.cell == nullptr || user.cell->bel == BelId() || user.port == ctx->id("CLK")) continue;
+                    Loc sink = ctx->getBelLocation(user.cell->bel);
+                    x0 = std::min(x0, sink.x); x1 = std::max(x1, sink.x);
+                    y0 = std::min(y0, sink.y); y1 = std::max(y1, sink.y);
+                }
+                wirelength += (x1 - x0) + (y1 - y0);
+            }
+            return std::make_tuple(int(occupied.size()), -concentration, wirelength);
+        };
+        for (CellInfo *cell : slices)
+            if (!ctx->isBelLocationValid(cell->bel))
+                log_error("agrv2k: compaction requires a legal initial placement (%s)\n", ctx->nameOf(cell));
+        const auto initial = score();
+        int trials = 0, accepted = 0, passes = 0;
+        // Explicit bounded search, not a claim that exhaustion proves no fit.
+        constexpr int trial_limit = 20000;
+        for (; passes < 4 && trials < trial_limit; ++passes) {
+            int before = accepted;
+            auto occupied = counts();
+            std::sort(roots.begin(), roots.end(), [&](CellInfo *a, CellInfo *b) {
+                return std::make_tuple(occupied[tile_of(a->bel)], a->name.str(ctx)) <
+                       std::make_tuple(occupied[tile_of(b->bel)], b->name.str(ctx));
+            });
+            for (CellInfo *root : roots) {
+                if (trials >= trial_limit) break;
+                ControlPlacement original;
+                if (root->cluster == ClusterId()) original.push_back({root, root->bel});
+                else for (auto &entry : ctx->cells)
+                    if (entry.second->cluster == root->cluster)
+                        original.push_back({entry.second.get(), entry.second->bel});
+                std::map<CellInfo *, PlaceStrength> strengths;
+                bool movable = true;
+                for (const auto &member : original) {
+                    CellInfo *cell = member.first;
+                    if (member.second == BelId() || cell->belStrength >= STRENGTH_FIXED ||
+                        cell->attrs.count(ctx->id("BEL"))) { movable = false; break; }
+                    strengths[cell] = cell->belStrength;
+                    // Do not detach already-routed data/control endpoints.
+                    // The global clock tree is refreshed after compaction.
+                    for (auto &port : cell->ports) {
+                        if (port.first == ctx->id("CLK") || port.second.net == nullptr) continue;
+                        WireId wire = ctx->getBelPinWire(member.second, port.first);
+                        if (wire != WireId() && ctx->getBoundWireNet(wire) == port.second.net) movable = false;
+                    }
+                }
+                if (!movable) continue;
+                auto base = score(), best_score = base;
+                ControlPlacement best;
+                occupied = counts();
+                std::vector<BelId> targets;
+                for (BelId bel : ctx->getBels())
+                    if (ctx->getBelType(bel) == root->type && occupied.count(tile_of(bel))) targets.push_back(bel);
+                std::sort(targets.begin(), targets.end(), [&](BelId a, BelId b) {
+                    return std::make_tuple(-occupied[tile_of(a)], ctx->getBelName(a).str(ctx)) <
+                           std::make_tuple(-occupied[tile_of(b)], ctx->getBelName(b).str(ctx));
+                });
+                for (const auto &member : original) ctx->unbindBel(member.second);
+                for (BelId target : targets) {
+                    if (trials >= trial_limit) break;
+                    ++trials;
+                    ControlPlacement candidate;
+                    if (root->cluster == ClusterId()) candidate.push_back({root, target});
+                    else if (!ctx->getClusterPlacement(root->cluster, target, candidate)) continue;
+                    if (candidate.size() != original.size()) continue;
+                    std::set<int> unique;
+                    bool valid = true;
+                    for (const auto &member : candidate) {
+                        CellInfo *cell = member.first;
+                        if (!strengths.count(cell) || member.second == BelId() ||
+                            !unique.insert(member.second.index).second || !ctx->checkBelAvail(member.second) ||
+                            !ctx->isValidBelForCellType(cell->type, member.second) ||
+                            (cell->region && cell->region->constr_bels && !cell->region->bels.count(member.second))) valid = false;
+                        if (!valid) break;
+                        for (auto &port : cell->ports) {
+                            if (port.first == ctx->id("CLK") || port.second.net == nullptr) continue;
+                            WireId wire = ctx->getBelPinWire(member.second, port.first);
+                            NetInfo *owner = wire == WireId() ? nullptr : ctx->getBoundWireNet(wire);
+                            if (owner != nullptr && owner != port.second.net) valid = false;
+                        }
+                    }
+                    if (!valid) continue;
+                    for (const auto &member : candidate) ctx->bindBel(member.second, member.first, strengths.at(member.first));
+                    const auto cost = score();
+                    if (cost < best_score) {
+                        for (CellInfo *cell : slices)
+                            if (!ctx->isBelLocationValid(cell->bel)) { valid = false; break; }
+                        if (valid) for (const auto &member : candidate)
+                            if (!ctx->isBelLocationValid(member.second)) { valid = false; break; }
+                        if (valid) { best = candidate; best_score = cost; }
+                    }
+                    for (const auto &member : candidate) ctx->unbindBel(member.second);
+                }
+                const ControlPlacement &selected = best.empty() ? original : best;
+                for (const auto &member : selected) ctx->bindBel(member.second, member.first, strengths.at(member.first));
+                if (!best.empty()) ++accepted;
+            }
+            if (before == accepted) break;
+        }
+        const auto final = score();
+        log_info("agrv2k: tile compaction %d -> %d tiles, %d accepted cluster moves, %d trials, %d passes; placement only\n",
+                 std::get<0>(initial), std::get<0>(final), accepted, trials, passes);
     }
 
     // Diagnostic only: test single-cell moves into initially empty slots in
