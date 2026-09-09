@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 from agamemnon.engine.qin_pack import (
     expand_uniform_bram_init,
     externalize_multi_selffb,
+    lower_local_qin_feedback,
     permute_pad_inputs_high,
     permute_reads_to_inputD,
     permute_selffb_to_inputD,
@@ -45,6 +46,109 @@ def _add_feedback_cells(data, count):
             "type": "DFF", "connections": {"D": [d_net], "Q": [q_net]},
         }
     return cells
+
+
+def _dffe_feedback_netlist(*, extra_port=None, en=7):
+    data = _self_feedback_netlist()
+    data["modules"]["top"]["cells"]["ff"] = {
+        "type": "DFFE",
+        "attributes": {"AGRV2K_SHARED_CONTROL_MODE": "CLOCK_ENABLE_POS",
+                       "AGRV2K_ENABLE_GROUP_ID": "0123456789abcdef"},
+        "port_directions": {"CLK": "input", "EN": "input", "D": "input", "Q": "output"},
+        "connections": {"CLK": [1], "EN": [en], "D": [6], "Q": [5]},
+    }
+    if extra_port:
+        data["modules"]["top"]["cells"]["ff"]["connections"][extra_port] = [9]
+    return data
+
+
+def test_native_enable_local_qin_is_default_off_and_preserves_dffe(monkeypatch, tmp_path):
+    monkeypatch.delenv("AGRV2K_NATIVE_ENABLE_LOCAL_QIN", raising=False)
+    monkeypatch.delenv("AGRV2K_SHARED_CONTROL_ENABLE", raising=False)
+    path = tmp_path / "dffe.json"
+    path.write_text(json.dumps(_dffe_feedback_netlist()), encoding="utf-8")
+    assert lower_local_qin_feedback(path) == 0
+    assert json.loads(path.read_text())["modules"]["top"]["cells"]["ff"]["type"] == "DFFE"
+
+
+@pytest.mark.parametrize("name,value", [
+    ("AGRV2K_NATIVE_ENABLE_LOCAL_QIN", "0"),
+    ("AGRV2K_SHARED_CONTROL_ENABLE", "0"),
+])
+def test_native_enable_local_qin_zero_flag_is_off(monkeypatch, tmp_path, name, value):
+    monkeypatch.setenv("AGRV2K_NATIVE_ENABLE_LOCAL_QIN", "1")
+    monkeypatch.setenv("AGRV2K_SHARED_CONTROL_ENABLE", "1")
+    monkeypatch.setenv(name, value)
+    path = tmp_path / "disabled.json"
+    path.write_text(json.dumps(_dffe_feedback_netlist()), encoding="utf-8")
+    assert lower_local_qin_feedback(path) == 0
+
+
+@pytest.mark.parametrize("name", ["AGRV2K_NATIVE_ENABLE_LOCAL_QIN", "AGRV2K_SHARED_CONTROL_ENABLE"])
+def test_native_enable_local_qin_rejects_non_boolean_flags(monkeypatch, tmp_path, name):
+    monkeypatch.setenv("AGRV2K_NATIVE_ENABLE_LOCAL_QIN", "1")
+    monkeypatch.setenv("AGRV2K_SHARED_CONTROL_ENABLE", "1")
+    monkeypatch.setenv(name, "yes")
+    path = tmp_path / "bad_flag.json"
+    path.write_text(json.dumps(_dffe_feedback_netlist()), encoding="utf-8")
+    with pytest.raises(SystemExit, match="must be 0 or 1"):
+        lower_local_qin_feedback(path)
+
+
+def test_native_enable_local_qin_keeps_enable_and_external_lut_observer(monkeypatch, tmp_path):
+    monkeypatch.setenv("AGRV2K_NATIVE_ENABLE_LOCAL_QIN", "1")
+    monkeypatch.setenv("AGRV2K_SHARED_CONTROL_ENABLE", "1")
+    data = _dffe_feedback_netlist()
+    data["modules"]["top"]["cells"]["observer"] = {
+        "type": "MCU_DOUT", "port_directions": {"DOUT": "input"}, "connections": {"DOUT": [6]}}
+    path = tmp_path / "dffe_observed.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    assert lower_local_qin_feedback(path) == 1
+    cells = json.loads(path.read_text())["modules"]["top"]["cells"]
+    state, lut = cells["ff"], cells["lut"]
+    assert state["type"] == "DFFE"
+    assert state["connections"]["EN"] == [7]
+    assert state["attributes"]["AGRV2K_ENABLE_GROUP_ID"] == "0123456789abcdef"
+    assert lut["connections"]["I"][2] == 5
+    assert lut["attributes"]["agamemnon_local_qin_feedback"] == "1"
+    assert cells["observer"]["connections"]["DOUT"] == [6]
+    assert state["connections"]["D"] != [6]
+    # Qin's observer copy preserves the LUT F/output net; the state Q remains
+    # the only local feedback source and is never used as simultaneous F/Q.
+    copies = [c for n, c in cells.items() if n.startswith("$local_qin_observer$")]
+    assert len(copies) == 1 and copies[0]["connections"]["Q"] == [6]
+
+
+def test_native_enable_local_qin_leaves_unrelated_constant_d_dffe_untouched(monkeypatch, tmp_path):
+    monkeypatch.setenv("AGRV2K_NATIVE_ENABLE_LOCAL_QIN", "1")
+    monkeypatch.setenv("AGRV2K_SHARED_CONTROL_ENABLE", "1")
+    data = _dffe_feedback_netlist()
+    data["modules"]["top"]["cells"]["constant"] = {
+        "type": "DFFE", "attributes": {"AGRV2K_SHARED_CONTROL_MODE": "CLOCK_ENABLE_POS"},
+        "port_directions": {"CLK": "input", "EN": "input", "D": "input", "Q": "output"},
+        "connections": {"CLK": [1], "EN": [7], "D": ["0"], "Q": [30]},
+    }
+    path = tmp_path / "mixed.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    assert lower_local_qin_feedback(path) == 1
+    constant = json.loads(path.read_text())["modules"]["top"]["cells"]["constant"]
+    assert constant["connections"]["D"] == ["0"]
+    assert constant["connections"]["Q"] == [30]
+
+
+@pytest.mark.parametrize("mutate,match", [
+    (lambda d: d["modules"]["top"]["cells"]["ff"]["connections"].__setitem__("EN", ["1"]), "scalar integer DFFE.EN"),
+    (lambda d: d["modules"]["top"]["cells"]["ff"]["connections"].__setitem__("ARST", [9]), "reset/control"),
+])
+def test_native_enable_local_qin_rejects_malformed_dffe(monkeypatch, tmp_path, mutate, match):
+    monkeypatch.setenv("AGRV2K_NATIVE_ENABLE_LOCAL_QIN", "1")
+    monkeypatch.setenv("AGRV2K_SHARED_CONTROL_ENABLE", "1")
+    data = _dffe_feedback_netlist()
+    mutate(data)
+    path = tmp_path / "bad_dffe.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(SystemExit, match=match):
+        lower_local_qin_feedback(path)
 
 
 def test_self_feedback_is_lowered_to_direct_input_d(tmp_path):

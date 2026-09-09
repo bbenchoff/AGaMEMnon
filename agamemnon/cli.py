@@ -40,7 +40,7 @@ extension; see docs/PROGRAMMING.md.
     agamemnon flash app.bin --addr 0x80010000 --backup full.bin --transport usb
     agamemnon go 0x80010000 --transport usb
 """
-import os, sys, argparse, subprocess, tempfile, json, hashlib, shutil, time, re, csv
+import os, sys, argparse, subprocess, tempfile, json, hashlib, shutil, time, re, csv, importlib.util, copy
 import math
 
 from .tool_shim import stage_windows_directory, stage_windows_executable
@@ -1249,8 +1249,14 @@ def _translate_wsl_nextpnr_args(command):
 
 def _forward_wsl_uarch_environment(env):
     """Tell WSL to import uarch controls and its runtime evidence directory."""
+    report_key = "AGRV2K_NATIVE_ENABLE_INFEASIBLE_REPORT"
     wanted = sorted(key for key in env
-                    if key.startswith("AGRV2K_") or key.startswith("NEXTPNR_ROUTER2_"))
+                    if (key.startswith("AGRV2K_") or key.startswith("NEXTPNR_ROUTER2_"))
+                    and key != report_key)
+    if env.get(report_key):
+        # The report is created by a WSL nextpnr process in a Windows-created
+        # temporary directory. Mark it as a path so WSLENV translates it.
+        wanted.append(report_key + "/p")
     if env.get("AGAMEMNON_DATA"):
         wanted.append("AGAMEMNON_DATA/p")
     existing = [item for item in env.get("WSLENV", "").split(":") if item]
@@ -1826,7 +1832,136 @@ def _native_enable_fallback_allowed(native_enable, document, records):
                 all(sig.kind == "PLACEMENT" for sig, _ in summary.signature_counts))
 
 
-def cmd_build(a):
+_NATIVE_ENABLE_INFEASIBLE_SCHEMA = "agamemnon.native-enable-infeasible.v1"
+
+
+def _selective_enable_helper():
+    """Load the deliberately pre-qin helper without making synth a package."""
+    source = os.path.join(SYNTH, "selective_enable.py")
+    spec = importlib.util.spec_from_file_location("agamemnon_selective_enable", source)
+    if spec is None or spec.loader is None:
+        raise ValueError("cannot load native-enable selective lowering helper")
+    helper = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(helper)
+    return helper
+
+
+def _write_json_atomic(path, document):
+    directory = os.path.dirname(os.path.abspath(path))
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=directory,
+                                     prefix=os.path.basename(path) + ".",
+                                     suffix=".tmp", delete=False) as stream:
+        json.dump(document, stream, sort_keys=True, separators=(",", ":"))
+        stream.write("\n")
+        temporary = stream.name
+    os.replace(temporary, path)
+
+
+def _stamp_native_enable_groups(path):
+    helper = _selective_enable_helper()
+    try:
+        with open(path, encoding="utf-8") as stream:
+            document = json.load(stream)
+        helper.stamp_enable_groups(document)
+        _write_json_atomic(path, document)
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        raise ValueError("cannot stamp native-enable groups: %s" % exc)
+    return helper
+
+
+def _load_native_enable_infeasible_report(path):
+    """Read only a complete, explicit pre-placement infeasibility report.
+
+    The C++ uarch writes this atomically during ``prepare_control_placements``.
+    Display names are intentionally not parsed: optimisation-generated net names
+    are unstable, while ``group_id`` is the frontend/helper's stable identity.
+    ``None`` means that the failed ladder did not establish this narrow cause.
+    """
+    if not path or not os.path.isfile(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as stream:
+            report = json.load(stream)
+    except (OSError, ValueError) as exc:
+        raise ValueError("cannot read native-enable infeasibility report %s: %s" %
+                         (path, exc))
+    if not isinstance(report, dict) or report.get("schema") != _NATIVE_ENABLE_INFEASIBLE_SCHEMA:
+        raise ValueError("native-enable infeasibility report has an unknown schema")
+    if report.get("stage") != "prepare_control_placements":
+        raise ValueError("native-enable infeasibility report has an invalid stage")
+    groups = report.get("groups")
+    if not isinstance(groups, list) or not groups:
+        raise ValueError("native-enable infeasibility report has no groups")
+    selected = []
+    for group in groups:
+        if not isinstance(group, dict):
+            raise ValueError("native-enable infeasibility report has a malformed group")
+        group_id = group.get("key")
+        native_ff_count = group.get("native_ff_count")
+        candidate_tiles = group.get("candidate_tiles")
+        legal_tiles = group.get("legal_tiles")
+        rejected = group.get("rejected_enable_driver")
+        if not isinstance(group_id, str) or not re.fullmatch(r"[0-9a-f]{16}", group_id):
+            raise ValueError("native-enable infeasibility report group has no stable key")
+        if (type(native_ff_count) is not int or native_ff_count <= 0 or
+                not all(type(value) is int and value >= 0
+                        for value in (candidate_tiles, legal_tiles, rejected))):
+            raise ValueError("native-enable infeasibility report group has invalid counts")
+        # Select only the exact proven condition. A no-slot group, an ordinary
+        # routing failure, or a partial reachability loss needs its own handling.
+        if candidate_tiles > 0 and legal_tiles == 0 and rejected == candidate_tiles:
+            selected.append(group_id)
+    if not selected:
+        return None
+    return {"schema": _NATIVE_ENABLE_INFEASIBLE_SCHEMA,
+            "groups": tuple(sorted(set(selected)))}
+
+
+def _native_enable_selective_fallback_allowed(native_enable, document, records,
+                                              report, fallback_stages=()):
+    """Allow one narrow retry when the uarch proved zero group assignment.
+
+    The report is stronger evidence than the log classifier: the native
+    cluster's fatal text is emitted during placement preparation and can be
+    classified as packing by older ladder signatures.  Still refuse a timeout,
+    completed/timing attempt, or non-retryable engine verdict.
+    """
+    if ("selective_data_logic_enable" in fallback_stages or report is None or
+            not native_enable or not records or not any(
+                cell.get("type") == "DFFE"
+                for module in document.get("modules", {}).values()
+                for cell in module.get("cells", {}).values())):
+        return False
+    if any("AGaMEMnon place&route time limit exceeded" in record.log
+           for record in records):
+        return False
+    return all(record.outcome == _attempt_ladder.NOT_ROUTED for record in records)
+
+
+def _native_enable_infeasible_groups_from_reports(paths):
+    """Union exact group IDs from the banked per-attempt reports."""
+    groups = set()
+    for path in paths:
+        report = _load_native_enable_infeasible_report(path)
+        if report is not None:
+            groups.update(report["groups"])
+    if not groups:
+        return None
+    return {"schema": _NATIVE_ENABLE_INFEASIBLE_SCHEMA,
+            "groups": tuple(sorted(groups))}
+
+
+class _NativeSRSTCandidateExhausted(RuntimeError):
+    """A native candidate exhausted P&R without a safety-policy refusal."""
+
+
+def _routed_slice_count(document):
+    return sum(cell.get("type") == "GENERIC_SLICE"
+               for module in document.get("modules", {}).values()
+               for cell in module.get("cells", {}).values())
+
+
+def _cmd_build_once(a):
     """Single-command open build: Verilog -> yosys synth -> nextpnr place&route -> our bitgen -> .bin,
     entirely from the self-contained package (engine/ + chipdb/ + synth/). No vendor binary. yosys and
     nextpnr-generic come from $AGAMEMNON_OSS/bin (or PATH). $AGAMEMNON_DATA overrides the shipped chip
@@ -2160,8 +2295,30 @@ def cmd_build(a):
     synth_env["AGAMEMNON_YOSYS_LUT_K"] = "4"
     synth_env["AGAMEMNON_YOSYS_JSON"] = synth_json
     synth_env["AGAMEMNON_YOSYS_TOP"] = top or ""
-    run("synth", ["yosys", "-q", "-c", synth_tcl, *sources],
-        child_env=synth_env)
+    _selective_snapshot = (getattr(a, "_native_enable_snapshot", None)
+                           if native_enable else None)
+    if _selective_snapshot:
+        if not os.path.isfile(_selective_snapshot):
+            print("error: native-enable selective fallback lost its pre-qin snapshot")
+            sys.exit(1)
+        shutil.copyfile(_selective_snapshot, synth_json)
+        print("[build] native clock-enable selective retry: restored pre-qin synthesis snapshot")
+    else:
+        run("synth", ["yosys", "-q", "-c", synth_tcl, *sources],
+            child_env=synth_env)
+        if (getattr(a, "_native_srst_candidate", False) and
+                os.environ.get("AGRV2K_SHARED_CONTROL_SRST_RECOVERY") == "1"):
+            try:
+                with open(synth_json + ".srst-recovery.json", encoding="utf-8") as stream:
+                    srst_report = json.load(stream)
+                if (srst_report.get("schema") != "agamemnon.srst-recovery.v1" or
+                        type(srst_report.get("eligible_cells")) is not int or
+                        srst_report["eligible_cells"] < 0):
+                    raise ValueError("invalid schema or eligible cell count")
+                a._native_srst_eligible_cells = srst_report["eligible_cells"]
+            except (OSError, ValueError, json.JSONDecodeError) as exc:
+                print("error: native SRST candidate eligibility sidecar rejected: %s" % exc)
+                sys.exit(1)
     # SILENT-DEGRADATION GUARD: synth_pads.tcl writes a stable JSON sidecar
     # (<synth_json>.leftover_mem.json) naming every memory cell that
     # memory_libmap declined to map onto the hard ALTA_BRAM9K block RAM (see
@@ -2180,7 +2337,7 @@ def cmd_build(a):
     # --strict-memory-lowering is also set, in which case it suppresses that
     # failure) so nothing that already passes it breaks.
     _mem_leftover_sidecar = synth_json + ".leftover_mem.json"
-    if os.path.exists(_mem_leftover_sidecar):
+    if not _selective_snapshot and os.path.exists(_mem_leftover_sidecar):
         try:
             with open(_mem_leftover_sidecar) as _mem_leftover_fh:
                 _mem_leftover_names = json.load(_mem_leftover_fh)
@@ -2234,9 +2391,37 @@ def cmd_build(a):
                 print(str(exc))
                 print("error: build claim-policy preflight failed after output-pad composition")
                 sys.exit(1)
-    # Registered own-Q feedback is lowered to the silicon-characterized direct
-    # D branch (OMUX[3z+1] -> IMUX[4z+3]); other single cell reads use input D
-    # only when that slot is not reserved by self-feedback.
+    # A selective retry must begin from this exact synthesized design, before
+    # qin mutates it. The group helper stamps a stable hexadecimal ID on each
+    # admitted DFFE, which C++ preserves through packing and reports without
+    # exposing unstable Yosys net names.
+    if native_enable:
+        if not _selective_snapshot:
+            try:
+                _stamp_native_enable_groups(synth_json)
+            except ValueError as exc:
+                print("error: %s" % exc)
+                sys.exit(1)
+            _native_enable_snapshot = synth_json + ".preqin-native-enable"
+            shutil.copyfile(synth_json, _native_enable_snapshot)
+            a._native_enable_snapshot = _native_enable_snapshot
+        _excluded_enable_groups = getattr(a, "_native_enable_excluded_group_ids", ())
+        if _excluded_enable_groups:
+            try:
+                changed = _selective_enable_helper().lower_infeasible_groups(
+                    _selective_snapshot, _excluded_enable_groups, synth_json)
+            except ValueError as exc:
+                print("error: native-enable selective fallback rejected: %s" % exc)
+                sys.exit(1)
+            if set(changed) != set(_excluded_enable_groups) or any(
+                    count <= 0 for count in changed.values()):
+                print("error: native-enable selective fallback did not lower every requested group")
+                sys.exit(1)
+            print("[build] native clock-enable selective retry: lowered %d infeasible group(s)" %
+                  len(changed))
+    # Ordinary own-Q feedback uses internal Qin on LUT input C. Explicit
+    # direct-D checkpoints retain their separate path; remaining cell reads
+    # and pad inputs receive the input permutations enforced by qin_pack.
     run("qin", [sys.executable, os.path.join(engine, "qin_pack.py"), synth_json])
     if qualified_bram_source:
         QBW.prepare_route_reservations(synth_json, qualified_bram_source["id"])
@@ -2579,7 +2764,13 @@ def cmd_build(a):
         # agamemnon/engine/attempt_ladder.py for why this matters (three honest reproductions of
         # one design previously reported three different failing nets).
         attempts_dir = os.path.join(tmp, "attempts")
+        # The C++ native-control diagnostic is atomic and requires its parent
+        # directory before nextpnr starts.  Without this, the first ladder
+        # rung loses the certificate while later trace/log creation happens to
+        # create it, wasting the only potentially decisive early observation.
+        os.makedirs(attempts_dir, exist_ok=True)
         attempt_records = []
+        native_enable_reports = []
         attempt_no = 0
         for attempt, (cap, fo) in enumerate(attempts):
             shutil.copy(pristine, synth_json)                 # always start from the un-split netlist
@@ -2607,6 +2798,21 @@ def cmd_build(a):
                     env["AGRV2K_CONDPLACE_SEED"] = seed
                 attempt_npr = npr + (["--placer", "heap", "--seed", seed]
                                      if generic_place else [])
+                # C++ writes only an atomic structured report for the narrow
+                # zero-assignment/enable-driver-reachability condition. Each
+                # attempt receives a distinct absolute path so diagnosis is
+                # retained and no stale report can select a later netlist.
+                native_enable_report = None
+                if native_enable:
+                    native_enable_report = os.path.join(
+                        attempts_dir,
+                        "attempt_%02d_cap%d_seed%s_fo%d.native-enable.json" %
+                        (attempt_no + 1, cap, seed, fo),
+                    )
+                    env["AGRV2K_NATIVE_ENABLE_INFEASIBLE_REPORT"] = os.path.abspath(
+                        native_enable_report)
+                else:
+                    env.pop("AGRV2K_NATIVE_ENABLE_INFEASIBLE_REPORT", None)
                 # Cap and seed are chosen inside the attempt loop, after the base
                 # WSLENV forwarding list was assembled. Refresh it so WSL imports
                 # the controls that the Windows-side log advertises.
@@ -2664,6 +2870,18 @@ def cmd_build(a):
                            timeout=attempt_timeout,
                            child_env=_build_tool_env(env, oss=oss, runtime=npr_runtime))
                 attempt_no += 1
+                if native_enable_report and os.path.isfile(native_enable_report):
+                    native_enable_reports.append(native_enable_report)
+                    trace_root = env.get("AGAMEMNON_ATTEMPT_TRACE_DIR")
+                    if trace_root:
+                        for stage in getattr(a, "_fallback_stages", ()):
+                            trace_root = os.path.join(trace_root, stage)
+                        os.makedirs(trace_root, exist_ok=True)
+                        shutil.copyfile(
+                            native_enable_report,
+                            os.path.join(trace_root,
+                                         os.path.basename(native_enable_report)),
+                        )
                 # Classify this attempt's outcome ONCE and reuse it for both disk logging and the
                 # branches below -- same conditions, same order, as before this change.
                 if _nextpnr_aborted(rlog, run.returncode):
@@ -2730,15 +2948,57 @@ def cmd_build(a):
                 print("[build]   did not route; escalating")
         os.remove(pristine)
         if log is None:
-            if _native_enable_fallback_allowed(native_enable, pre_clock_document, attempt_records):
+            if native_enable:
+                # A structured zero-assignment report is deliberately checked
+                # before the historical classifier gate.  The producer fails
+                # in placement preparation, whose legacy wording can classify
+                # as PACKING even though its report proves this exact cause.
                 print(_attempt_ladder.format_ladder_summary(
                     _attempt_ladder.summarize_ladder(attempt_records), attempts_dir=attempts_dir))
+                try:
+                    _selective_report = _native_enable_infeasible_groups_from_reports(
+                        native_enable_reports)
+                except ValueError as exc:
+                    # Do not infer group identity from the human-facing log.
+                    # Preserve the existing all-data-logic compatibility retry.
+                    print("[build] native clock-enable selective report rejected: %s" % exc)
+                    _selective_report = None
+                if _native_enable_selective_fallback_allowed(
+                        native_enable, pre_clock_document, attempt_records,
+                        _selective_report, getattr(a, "_fallback_stages", ())):
+                    _prior_excluded = set(getattr(
+                        a, "_native_enable_excluded_group_ids", ()))
+                    _prior_excluded.update(_selective_report["groups"])
+                    _snapshot = getattr(a, "_native_enable_snapshot", None)
+                    if not _snapshot or not os.path.isfile(_snapshot):
+                        print("error: native-enable selective fallback has no pre-qin snapshot")
+                        sys.exit(1)
+                    print("[build] native clock-enable placement has explicit zero-assignment "
+                          "groups; retrying from the same synthesized snapshot with only %d "
+                          "group(s) lowered to data logic" % len(_prior_excluded))
+                    print("[build] native clock-enable diagnostics retained at %s" % tmp)
+                    a._native_enable_excluded_group_ids = tuple(sorted(_prior_excluded))
+                    a._fallback_stages = (*getattr(a, "_fallback_stages", ()),
+                                          "selective_data_logic_enable")
+                    return _cmd_build_once(a)
+            if (getattr(a, "_native_srst_candidate", False) and native_enable and
+                    attempt_records and
+                    all(record.outcome == _attempt_ladder.NOT_ROUTED
+                        for record in attempt_records) and
+                    not any("AGaMEMnon place&route time limit exceeded" in record.log
+                            for record in attempt_records)):
+                # Do not let the candidate's historical soft fallback hide an
+                # alternate native mapping. Validation and policy exits above
+                # remain ordinary fatal exits and are deliberately not caught.
+                raise _NativeSRSTCandidateExhausted(
+                    "native candidate exhausted its placement/routing ladder")
+            if _native_enable_fallback_allowed(native_enable, pre_clock_document, attempt_records):
                 print("[build] native clock-enable placement ladder exhausted; "
                       "resynthesizing once with register data-logic enables")
                 print("[build] native clock-enable diagnostics retained at %s" % tmp)
                 a.no_native_clock_enable = True
                 a._fallback_stages = (*getattr(a, "_fallback_stages", ()), "data_logic_enable")
-                return cmd_build(a)
+                return _cmd_build_once(a)
             # Dedicated carry is an optimization, not a reason for a default
             # build to lose breadth.  A physically qualified chain can still
             # strand its terminal fanout on the strict graph (large lowered
@@ -2756,7 +3016,7 @@ def cmd_build(a):
                 print("[build] dedicated-carry diagnostics retained at %s" % tmp)
                 a.no_hard_carry = True
                 a._fallback_stages = (*getattr(a, "_fallback_stages", ()), "lut_carry")
-                return cmd_build(a)
+                return _cmd_build_once(a)
             # G10 -- report across every attempt, not just the last: which failure signature
             # recurred (a far stronger signal than whichever rung the ladder ended on), and run
             # the G5 self-check against that recurring attempt rather than an arbitrary final one.
@@ -3028,6 +3288,114 @@ def cmd_build(a):
     if project is not None:
         mcu_output = PJ.build_mcu(project)
         PJ.write_flash_plan(project, mcu_output=mcu_output, fabric_output=out)
+    return {"output": out, "routed_json": routed_json,
+            "slice_count": _routed_slice_count(final_snapshot.document),
+            "routed_sha256": final_snapshot.sha256,
+            "eligible_srst_cells": getattr(a, "_native_srst_eligible_cells", None)}
+
+
+def _native_srst_auto_enabled(a):
+    """Automatic dual mapping applies only to ordinary native uarch builds."""
+    return (getattr(a, "uarch", False) and getattr(a, "input", None) and
+            not getattr(a, "project", None) and
+            os.environ.get("AGRV2K_SHARED_CONTROL_ENABLE") != "0" and
+            not getattr(a, "no_native_clock_enable", False) and
+            not getattr(a, "qualified_checkpoint", None) and
+            not getattr(a, "qualified_bram_write", None) and
+            not getattr(a, "_native_srst_candidate", False) and
+            "AGRV2K_SHARED_CONTROL_SRST_RECOVERY" not in os.environ)
+
+
+def _copy_candidate_products(result, destination, routed_destination):
+    shutil.copyfile(result["output"], destination)
+    for suffix in (".comp", ".confidence.json"):
+        source = result["output"] + suffix
+        if os.path.isfile(source):
+            shutil.copyfile(source, destination + suffix)
+    if routed_destination:
+        shutil.copyfile(result["routed_json"], routed_destination)
+
+
+def cmd_build(a):
+    """Build, selecting the cheaper successful native SRST mapping when needed."""
+    if not _native_srst_auto_enabled(a):
+        return _cmd_build_once(a)
+    root_tmp = tempfile.mkdtemp(prefix="agamemnon_srst_candidates_")
+    base_out = a.output or (os.path.splitext(os.path.basename(a.input))[0] + ".bin")
+    candidates = []
+    outcomes = []
+    # Candidate recovery is tried first. The legacy form wins exact ties, so
+    # an unchanged mapping keeps its established output choice.
+    candidate_specs = (("1", "recovered"), ("0", "legacy"))
+    for recovery, label in candidate_specs:
+        candidate = copy.copy(a)
+        candidate._native_srst_candidate = True
+        candidate._native_enable_snapshot = None
+        candidate._native_enable_excluded_group_ids = ()
+        candidate._fallback_stages = ()
+        candidate.output = os.path.join(root_tmp, label + ".bin")
+        candidate.write_routed = os.path.join(root_tmp, label + ".routed.json")
+        prior = os.environ.get("AGRV2K_SHARED_CONTROL_SRST_RECOVERY")
+        prior_trace = os.environ.get("AGAMEMNON_ATTEMPT_TRACE_DIR")
+        os.environ["AGRV2K_SHARED_CONTROL_SRST_RECOVERY"] = recovery
+        if prior_trace:
+            os.environ["AGAMEMNON_ATTEMPT_TRACE_DIR"] = os.path.join(
+                prior_trace, "native_srst_" + label)
+        try:
+            result = _cmd_build_once(candidate)
+        except _NativeSRSTCandidateExhausted:
+            result = None
+        finally:
+            if prior is None:
+                os.environ.pop("AGRV2K_SHARED_CONTROL_SRST_RECOVERY", None)
+            else:
+                os.environ["AGRV2K_SHARED_CONTROL_SRST_RECOVERY"] = prior
+            if prior_trace is None:
+                os.environ.pop("AGAMEMNON_ATTEMPT_TRACE_DIR", None)
+            else:
+                os.environ["AGAMEMNON_ATTEMPT_TRACE_DIR"] = prior_trace
+        if result is not None:
+            result.update({"mapping": label, "srst_recovery": recovery})
+            candidates.append(result)
+            outcomes.append({"mapping": label, "outcome": "routed",
+                             "slice_count": result["slice_count"],
+                             "routed_sha256": result["routed_sha256"],
+                             "eligible_srst_cells": result["eligible_srst_cells"]})
+            if recovery == "1" and result["eligible_srst_cells"] == 0:
+                # Recovery could not change this netlist. It is exactly the
+                # established native synthesis, so do not pay for legacy P&R.
+                break
+        else:
+            outcomes.append({"mapping": label, "outcome": "eligible_exhaustion"})
+    if candidates:
+        selected = min(candidates, key=lambda item: (item["slice_count"],
+                                                       item["mapping"] != "legacy"))
+        _copy_candidate_products(selected, base_out, getattr(a, "write_routed", None))
+        selected_output = base_out
+        selected_routed = getattr(a, "write_routed", None)
+        sidecar = base_out + ".native-srst-selection.json"
+        with open(sidecar, "w", encoding="utf-8", newline="\n") as stream:
+            json.dump({"schema": "agamemnon.native-srst-selection.v1",
+                       "selected": selected["mapping"],
+                       "selected_output": selected_output,
+                       "selected_routed": selected_routed,
+                       "selected_image_sha256": _sha256_file(selected_output),
+                       "candidates": outcomes}, stream,
+                      indent=2, sort_keys=True)
+            stream.write("\n")
+        print("[build] native SRST selection: %s (%d routed slices)" %
+              (selected["mapping"], selected["slice_count"]))
+        selected = dict(selected)
+        selected.update({"output": selected_output, "routed_json": selected_routed})
+        return selected
+    # Both native candidates had an eligible implementation exhaustion. Keep
+    # the historical single soft fallback as the final compatibility path.
+    fallback = copy.copy(a)
+    fallback.no_native_clock_enable = True
+    fallback._native_enable_snapshot = None
+    fallback._native_enable_excluded_group_ids = ()
+    fallback._fallback_stages = ("native_srst_candidates_exhausted",)
+    return _cmd_build_once(fallback)
 
 
 def cmd_transport_probe(a):

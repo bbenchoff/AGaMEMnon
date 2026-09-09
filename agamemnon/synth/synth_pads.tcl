@@ -213,6 +213,51 @@ yosys opt -fast
 # With the flag unset the list is byte-for-byte what it was, so an ordinary
 # build lowers exactly what it lowered before and no emitted image moves.
 set _shared_control_enable [info exists ::env(AGRV2K_SHARED_CONTROL_ENABLE)]
+# Synchronous reset has no decoded tile control line.  Remove only that
+# control first, then let opt recognize the remaining hold muxes as native
+# enables.  `-nosdff` is essential: it prevents opt from rebuilding the
+# synchronous-reset forms which the frontend deliberately does not admit.
+# The order preserves source priority: reset-first RTL becomes an enable whose
+# D input is reset-selected, while enable-first RTL keeps its hold condition.
+set _shared_control_srst_recovery 0
+if {$_shared_control_enable} {
+    # This is an experiment selector, separate from the established native
+    # enable path.  Setting it to 0 retains the pre-recovery frontend exactly:
+    # existing DFFE_PP_ cells remain eligible, while every synchronous-reset
+    # family follows the legacy dffunmap fallback below. Recovery is off by
+    # default so direct synthesis, project builds, and retained flows retain
+    # the established mapping. The CLI's dual-candidate selector sets 1
+    # explicitly only for its recovered candidate.
+    set _shared_control_srst_recovery 0
+    if {[info exists ::env(AGRV2K_SHARED_CONTROL_SRST_RECOVERY)]} {
+        set _shared_control_srst_recovery $::env(AGRV2K_SHARED_CONTROL_SRST_RECOVERY)
+    }
+    if {$_shared_control_srst_recovery ne "0" &&
+        $_shared_control_srst_recovery ne "1"} {
+        error "AGRV2K_SHARED_CONTROL_SRST_RECOVERY must be 0 or 1 (got '$_shared_control_srst_recovery')"
+    }
+}
+if {$_shared_control_srst_recovery} {
+    # Sidecar for the CLI's bounded dual-candidate selector.  It records an
+    # exact pre-recovery population, avoiding a source-text heuristic and
+    # letting ordinary enable-only designs retain their single historical run.
+    if {$OUT ne ""} {
+        set _srst_eligible_file "${OUT}.srst-recovery-select.txt"
+        yosys select -write $_srst_eligible_file t:\$_SDFF_* t:\$_SDFFE_* t:\$_SDFFCE_*
+        set _srst_eligible_fh [open $_srst_eligible_file r]
+        set _srst_eligible_count 0
+        foreach _srst_eligible_line [split [read $_srst_eligible_fh] "\n"] {
+            if {[string length [string trim $_srst_eligible_line]] > 0} { incr _srst_eligible_count }
+        }
+        close $_srst_eligible_fh
+        file delete -force $_srst_eligible_file
+        set _srst_sidecar_fh [open "${OUT}.srst-recovery.json" w]
+        puts $_srst_sidecar_fh "{\"schema\":\"agamemnon.srst-recovery.v1\",\"eligible_cells\":$_srst_eligible_count}"
+        close $_srst_sidecar_fh
+    }
+    yosys dffunmap -srst-only
+    yosys opt -full -nosdff
+}
 set _dffunmap_families [list t:\$_DFFE_NN_ t:\$_DFFE_NP_ t:\$_DFFE_PN_]
 if {!$_shared_control_enable} {
     lappend _dffunmap_families t:\$_DFFE_PP_
@@ -266,19 +311,48 @@ if {[llength $_shared_control_unsupported] > 0} {
     puts stderr "AGAMEMNON shared control: unsupported register control/polarity/value; only plain positive-edge and bare active-high asynchronous clear-to-zero are accepted by the N4.1 frontend: $_shared_control_unsupported"
     error "unsupported shared register control"
 }
-yosys setattr -set AGRV2K_SHARED_CONTROL_MODE \
-    \"ASYNC_CLEAR_POS_ZERO\" t:\$_DFF_PP0_
 set _dfflegalize_cells [list -cell \$_DFF_P_ 0 -cell \$_DFF_PP0_ 0]
 if {$_shared_control_enable} {
-    # Tag before legalizing: dfflegalize may rewrite the cell, and this
-    # attribute is what the packer reads to tell an admitted clock enable from
-    # an unknown control port.
-    yosys setattr -set AGRV2K_SHARED_CONTROL_MODE \
-        \"CLOCK_ENABLE_POS\" t:\$_DFFE_PP_
+    # Keep only enable groups large enough to justify one of the tile's two
+    # shared lines.  This is an explicit build setting so experiments can
+    # measure 2/4/8 without changing the no-native or retained-replay flow.
+    # Reject non-positive values here rather than silently treating a typo as
+    # a different architecture policy.
+    set _shared_control_mince 4
+    if {[info exists ::env(AGRV2K_SHARED_CONTROL_MINCE)]} {
+        set _shared_control_mince $::env(AGRV2K_SHARED_CONTROL_MINCE)
+    }
+    if {![string is integer -strict $_shared_control_mince] ||
+        $_shared_control_mince <= 0} {
+        error "AGRV2K_SHARED_CONTROL_MINCE must be a positive integer (got '$_shared_control_mince')"
+    }
     lappend _dfflegalize_cells -cell \$_DFFE_PP_ 0
+    lappend _dfflegalize_cells -mince $_shared_control_mince
 }
 yosys dfflegalize {*}$_dfflegalize_cells
-yosys abc -lut $LUT_K -dress
+# Legalization may unmap an undersized enable group.  Stamp only after it has
+# finished, so every CLOCK_ENABLE_POS tag has a real DFFE cell and a real EN
+# port for the packer to consume.  The existing async-clear tag is likewise
+# applied after legalization for one uniform final-cell invariant.
+yosys setattr -set AGRV2K_SHARED_CONTROL_MODE \
+    \"ASYNC_CLEAR_POS_ZERO\" t:\$_DFF_PP0_
+if {$_shared_control_enable} {
+    yosys setattr -set AGRV2K_SHARED_CONTROL_MODE \
+        \"CLOCK_ENABLE_POS\" t:\$_DFFE_PP_
+}
+set _agamemnon_abc9 0
+if {[info exists ::env(AGAMEMNON_ABC9)]} {
+    set _agamemnon_abc9 $::env(AGAMEMNON_ABC9)
+}
+if {$_agamemnon_abc9 ne "0" && $_agamemnon_abc9 ne "1"} {
+    error "AGAMEMNON_ABC9 must be 0 or 1 (got '$_agamemnon_abc9')"
+}
+if {$_agamemnon_abc9} {
+    source $SCRIPT_DIR/abc9_ag32.tcl
+    agamemnon_abc9_map $SCRIPT_DIR $LUT_K
+} else {
+    yosys abc -lut $LUT_K -dress
+}
 yosys clean
 set _techmap_maps [list -map $SCRIPT_DIR/cells_map.v]
 if {$_shared_control_enable} {

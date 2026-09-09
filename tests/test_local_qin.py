@@ -130,3 +130,55 @@ def test_local_qin_routed_protocol_rejects_wrong_physical_shapes(fault):
         with pytest.raises(SystemExit): validate_module_register_inputs(module)
     else:
         assert validate_module_register_inputs(module)["state"].mode == "LOCAL_QIN_I2"
+
+
+def test_native_enable_local_qin_composes_register_and_control_protocols():
+    """One packed slice may use Qin and the qualified enable line together.
+
+    This is intentionally a routed-JSON contract, rather than an assertion
+    about silicon timing.  It proves that neither final validator silently
+    drops the other protocol and that the control emitter still writes the
+    slice selection/bypass bits for a LOCAL_QIN_I2 state cell.
+    """
+    from agamemnon.engine import control_encode
+    from agamemnon.engine.features import shared_control, shared_control_graph
+    from agamemnon.engine.features.register_input import validate_module_register_inputs
+
+    state = {
+        "type": "GENERIC_SLICE",
+        "parameters": {"FF_USED": "1", "INIT": f"{0x0f0f:016b}", "K": "4"},
+        "attributes": {
+            "NEXTPNR_BEL": "X14Y8_SLICE3",
+            "AGRV2K_REGISTER_INPUT_MODE": "LOCAL_QIN_I2",
+            "agamemnon_local_qin_feedback": "1",
+            "AGRV2K_SHARED_CONTROL_MODE": "CLOCK_ENABLE_POS",
+            "AGRV2K_CLOCK_ENABLE_NET": "enable",
+            "AGRV2K_ENABLE_GROUP_ID": "0123456789abcdef",
+        },
+        "port_directions": {"CLK": "input", "I": "input", "Q": "output", "F": "output"},
+        # Q is the Qin source on I2.  F is deliberately absent: a LOCAL_QIN
+        # slice cannot present its old LUT result as a simultaneous F output.
+        "connections": {"CLK": [2], "I": ["0", "0", 5, "0"], "Q": [5], "F": []},
+    }
+    controller = {
+        "type": shared_control_graph.TILE_CONTROL_BEL,
+        "attributes": {"NEXTPNR_BEL": "X14Y8_CLKEN0", "AGRV2K_CLOCK_ENABLE_NET": "enable"},
+        "connections": {},
+    }
+    observer = {
+        "type": "MCU_DOUT", "port_directions": {"DOUT": "input"},
+        "connections": {"DOUT": [5]},
+    }
+    module = {"cells": {"state": state, "control": controller, "observer": observer},
+              "netnames": {"clock": {"bits": [2]}, "q": {"bits": [5]},
+                           "enable": {"bits": [7]}}}
+
+    assert validate_module_register_inputs(module)["state"].mode == "LOCAL_QIN_I2"
+    assert shared_control.validate_module_shared_controls(module)["state"].mode == "CLOCK_ENABLE_POS"
+    lines = shared_control_graph.FEATURE.slice_lines_from_module(module)
+    assert lines == {(14, 8, 3): 0}
+    emitted = shared_control_graph.FEATURE.prepare([], {}, slice_lines=lines)
+    assert emitted.clears == [control_encode.slice_bypass_bit(14, 8, 3)]
+    assert emitted.sets == []
+    assert state["connections"]["F"] == []
+    assert observer["connections"]["DOUT"] == [5]

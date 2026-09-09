@@ -195,3 +195,26 @@ coordinates, combined modes, timing closure and general placement capacity are
 not qualified by this fixture. The unexplained vendor BYPASSEN comparison stays
 unexplained. A passing bounded contract does not close an unrelated silicon
 fence or establish support outside the enforced isolated line-0 composition.
+
+## Native SRST candidate selection
+
+Native synchronous-reset recovery is evaluated as a bounded build choice for
+ordinary source builds. The CLI completes both recovered and legacy-native
+candidates when recovery has eligible synchronous-reset cells, then selects
+the lower final routed `GENERIC_SLICE` count; equal counts retain legacy. This
+uses completed routed results because pre-pack counts do not account for
+selective enable lowering or placement effects. It can therefore add one full
+candidate build's runtime.
+
+`<output>.native-srst-selection.json` records each routed or exhausted
+candidate, its final slice count and routed hash, the selected mapping, and
+the selected image hash. `AGRV2K_SHARED_CONTROL_SRST_RECOVERY=0` or `=1`
+selects one profile for controlled A/B work. Direct synthesis and project
+builds default to legacy (`0`); no-native builds keep their existing path.
+`AGRV2K_SHARED_CONTROL_MINCE` remains a positive native-enable group threshold.
+An explicit zero-assignment placement certificate can selectively lower only
+the infeasible enable group while retaining successful native groups.
+
+This selection preserves a lower-cost mapping; it does not claim a general
+routing, timing, ABC9, or silicon improvement. Newly recovered synchronous
+control compositions remain unqualified.

@@ -336,10 +336,60 @@ def lower_local_qin_feedback(json_path):
                           for item in group.values() for bit in item.get("bits", []) if type(bit) is int]
         next_bit = max(occupied_bits, default=0) + 1
         additions = {}
+        # A native clock-enable DFFE is an experiment-only extension.  The
+        # ordinary DFF path below is intentionally unchanged and remains the
+        # default.  Both flags are required so a DFFE cannot silently acquire
+        # an unqualified local-Qin physical composition merely because shared
+        # controls were enabled for another design.
+        def flag(name):
+            value = os.environ.get(name, "0")
+            if value not in ("0", "1"):
+                raise SystemExit("%s must be 0 or 1" % name)
+            return value == "1"
+
+        admit_dffe = (flag("AGRV2K_NATIVE_ENABLE_LOCAL_QIN") and
+                      flag("AGRV2K_SHARED_CONTROL_ENABLE"))
         by_d = {}
         for cell in cells.values():
             if cell.get("type") == "DFF" and cell["connections"].get("D"):
                 by_d.setdefault(cell["connections"]["D"][0], []).append(cell)
+        if admit_dffe:
+            # Do not impose Qin-specific shape rules on unrelated native
+            # enables.  In particular a constant-D DFFE is a legal pre-qin
+            # result and cannot form own-Q LUT feedback.  First identify only
+            # DFFEs that actually close one mapped LUT's Q-to-D loop; validate
+            # that physical candidate fully below.
+            candidates = set()
+            for lut in cells.values():
+                if lut.get("type") != "LUT":
+                    continue
+                output = lut.get("connections", {}).get("Q", [])
+                inputs = lut.get("connections", {}).get("I", [])
+                if len(output) != 1 or type(output[0]) is not int:
+                    continue
+                for dffe in cells.values():
+                    if dffe.get("type") != "DFFE":
+                        continue
+                    connections = dffe.get("connections", {})
+                    d, q = connections.get("D", []), connections.get("Q", [])
+                    if (len(d) == 1 and type(d[0]) is int and d[0] == output[0] and
+                            len(q) == 1 and type(q[0]) is int and q[0] in inputs):
+                        candidates.add(id(dffe))
+            for cell in cells.values():
+                if cell.get("type") != "DFFE" or id(cell) not in candidates:
+                    continue
+                connections = cell.get("connections", {})
+                allowed = {"CLK", "EN", "D", "Q"}
+                if set(connections) - allowed:
+                    raise SystemExit("native-enable local Qin rejects DFFE with reset/control port(s)")
+                scalar = {}
+                for port in ("CLK", "EN", "D", "Q"):
+                    bits = connections.get(port)
+                    if (not isinstance(bits, list) or len(bits) != 1 or
+                            type(bits[0]) is not int):
+                        raise SystemExit("native-enable local Qin requires scalar integer DFFE.%s" % port)
+                    scalar[port] = bits[0]
+                by_d.setdefault(scalar["D"], []).append(cell)
         for cell in cells.values():
             if cell.get("type") != "LUT":
                 continue
