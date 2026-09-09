@@ -31,9 +31,31 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+import runpy
+import pytest
 
 REPO = Path(__file__).resolve().parents[1]
 REGEN = REPO / "qualification" / "regen_serv_evidence.py"
+
+
+@pytest.mark.parametrize("changed", [None, "route", "image", "environment", "predicted", "unmapped", "legacy"])
+def test_retained_prediction_exception_binds_every_identity(monkeypatch, changed):
+    from agamemnon.engine import retained_routing as retained
+    namespace = runpy.run_path(str(REGEN))
+    check = namespace["retained_prediction_count"]
+    bindings = check.__globals__
+    monkeypatch.setitem(bindings, "sha256_text_file", lambda _: (
+        "bad" if changed == "route" else retained.SERV_ROUTED_SHA256))
+    monkeypatch.setitem(bindings, "sha256_binary_file", lambda _: (
+        "bad" if changed == "image" else retained.SERV_IMAGE_SHA256))
+    env = {key: value for key, value in retained.SERV_ENVIRONMENT.items()
+           if key != "AGAMEMNON_DIRECT_D"}
+    if changed == "environment":
+        env["AGAMEMNON_SYSCLK"] = "100"
+    metrics = dict(predicted=1, unmapped=0, legacy=0)
+    if changed in metrics:
+        metrics[changed] += 1
+    assert check("route", "image", env, metrics) == int(changed is None)
 
 
 def test_serv_evidence_artifacts_pack_clean_and_match_record():

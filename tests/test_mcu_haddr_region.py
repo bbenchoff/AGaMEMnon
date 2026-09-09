@@ -48,7 +48,7 @@ def test_exact_field_emission_replaces_only_its_field_and_refuses_missing_cells(
         cell=cell if row['cell_table'] == 'fabric' else {},
         mcu_cells=cell if row['cell_table'] == 'mcu' else {},
         options=options_from({'AGAMEMNON_ALLOW_UNMAPPED': '1'} if allow_unmapped else {}),
-        tables=SimpleNamespace(admission_binding=None, admitted_edge={}),
+        tables=SimpleNamespace(admission_binding=None, admitted_edge={}, clean_edge=set()),
         physical_io_state=SimpleNamespace(physical_fixed_pip=set(), physical_oe_pip={}),
         exact_mcu_pips=fields, mcu_exit_pairs={}, bram_feature=None, bram_state=None,
         slice_config={}, left_vendor_slices=set())

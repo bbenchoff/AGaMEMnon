@@ -16,7 +16,7 @@ def resolve(physical):
         cell={(18, 9, "CFG_RMUX9", 26): (300, 1),
               (18, 9, "CFG_RMUX9", 29): (301, 2)},
         options=options_from({"AGAMEMNON_PHYSICAL_IO": "1"}),
-        tables=SimpleNamespace(admission_binding={}, admitted_edge={}),
+        tables=SimpleNamespace(admission_binding={}, admitted_edge={}, clean_edge={}, relative_edge={}),
         physical_io_state=physical,
         exact_mcu_pips={source + destination: ("logic", "CFG_RMUX9", (), (26, 29))},
         mcu_cells={}, mcu_exit_pairs={},

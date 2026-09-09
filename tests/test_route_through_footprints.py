@@ -157,7 +157,8 @@ def test_shared_control_delegation_is_opt_in_and_logic_tile_only(monkeypatch):
     common = dict(
         cell={},
         tables=SimpleNamespace(chipdb_root=ROOT / "agamemnon" / "chipdb",
-                               admission_binding=None, admitted_edge={}),
+                               admission_binding=None, admitted_edge={}, clean_edge={},
+                               relative_edge={}),
         physical_io_state=PhysicalIoState(), exact_mcu_pips={}, mcu_cells={},
         mcu_exit_pairs={},
         bram_feature=SimpleNamespace(resolve_route=lambda *args, **kwargs: True),

@@ -23,7 +23,7 @@ def prepare(pips, sources, cell=None, bram_mapped=None):
         pips=pips, cell=cell if cell is not None else {
             (4, 5, 'CFG_OMUX2', i): (100, 1 << i) for i in range(3)},
         options=options_from({}),
-        tables=SimpleNamespace(admission_binding=None, admitted_edge={}),
+        tables=SimpleNamespace(admission_binding=None, admitted_edge={}, clean_edge=set()),
         physical_io_state=PhysicalIoState(), exact_mcu_pips={}, mcu_cells={},
         mcu_exit_pairs={}, bram_feature=SimpleNamespace(resolve_route=lambda *a, **kw: bram_mapped),
         bram_state=SimpleNamespace(), slice_config={}, left_vendor_slices=set(),

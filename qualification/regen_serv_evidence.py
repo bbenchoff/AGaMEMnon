@@ -13,8 +13,11 @@ Worse, a routed JSON can be shipped that no longer packs strict-clean at all.
 
 This tool regenerates the *derivable* fields of the record from the actual
 files, and — crucially — **re-packs each routed JSON through strict AGaMEMnon
-bitgen and refuses to bless an artifact that does not pack clean**
-(``unmapped != 0``, or any predicted/legacy selector).  It never invents
+bitgen and refuses new unmapped, predicted or legacy selectors**. The sole
+withdrawn SERV selector is allowed only for its exact retained checkpoint,
+environment and final image; its predicted count remains visible alongside
+``retained_nonportable``. This exception is reproduction, not new qualification.
+It never invents
 silicon results: ``rtl.*``, ``hardware.*``, ``estimate_mhz``, ``verdict``,
 ``meaning`` and the prose fields are left exactly as they are — refresh them by
 hand from your requalification run.
@@ -57,7 +60,7 @@ REPO = os.path.dirname(HERE)
 EVIDENCE = os.path.join(HERE, "serv_compliance_evidence.jsonl")
 # Track the newest append-only replay record. Keep this suffix specific: the
 # historical local-int replay intentionally remains in the same ledger.
-DEFAULT_TRIAL_SUFFIX = "f-output-requalification-20260905"
+DEFAULT_TRIAL_SUFFIX = "withdrawn-selector-replay-20260909"
 TEXT_HASH_MODE = "sha256-lf-v1"
 
 # A qualification record is data, not permission to inject arbitrary process
@@ -143,12 +146,31 @@ def qualified_pack_environment(record):
     return dict(configured)
 
 
+def retained_prediction_count(routed_abs, out_bin, pack_environment, metrics):
+    """Authenticate the sole historical prediction; never mark it clean.
+
+    Bitgen separately authenticates the full module and enforces final image
+    identity. This evidence gate also binds the checkpoint, environment and
+    image so a prediction on any new route cannot inherit the exception.
+    """
+    if REPO not in sys.path:
+        sys.path.insert(0, REPO)
+    from agamemnon.engine import retained_routing
+    env = dict(pack_environment, **LEGACY_REPLAY_ENV)
+    if (metrics.get("predicted") != 1 or metrics.get("unmapped") or
+            metrics.get("legacy") or env != retained_routing.SERV_ENVIRONMENT or
+            sha256_text_file(routed_abs) != retained_routing.SERV_ROUTED_SHA256 or
+            sha256_binary_file(out_bin) != retained_routing.SERV_IMAGE_SHA256):
+        return 0
+    return 1
+
+
 def strict_pack(routed_abs, out_bin, pack_environment):
     """Pack a routed JSON through strict bitgen (no archival ALLOW_UNMAPPED).
 
     Returns (bitstream_sha256, metrics dict). Raises RuntimeError if the pack
-    fails or is not strict-clean — this is the gate that stops a non-conducting
-    or unmapped artifact from being recorded as qualified.
+    fails or has an unauthenticated non-clean selector. Exact historical
+    reproduction remains separately tallied and never becomes portable evidence.
     """
     # Do not let a developer shell silently alter a qualification replay. Drop
     # every ambient AGaMEMnon switch, then apply only the reviewed record.
@@ -172,6 +194,13 @@ def strict_pack(routed_abs, out_bin, pack_environment):
         "unmapped": int(m["unmapped"]),
     }
     dirty = {k: metrics[k] for k in ("unmapped", "predicted", "legacy") if metrics[k]}
+    if proc.returncode == 0 and dirty == {"predicted": 1}:
+        retained = retained_prediction_count(routed_abs, out_bin, pack_environment, metrics)
+        if retained:
+            # Keep predicted=1 visible. This is exact historical reproduction,
+            # not a portable selector or a strict-clean new qualification.
+            metrics["retained_nonportable"] = retained
+            dirty = {}
     if proc.returncode != 0 or dirty:
         raise RuntimeError(
             "strict pack of %s is NOT clean (%s); refusing to record it as "
@@ -264,8 +293,9 @@ def main(argv=None):
         updated["supersedes"] = lines[i]["trial_id"]
         updated["trial_id"] = a.append_trial_id
         updated["replay_scope"] = (
-            "Derivable artifact replay after independently qualified selector "
-            "tables changed packing classification; silicon fields are inherited "
+            "Derivable artifact replay after selector classification changed; "
+            "retained_nonportable identifies an exact historical exception, not "
+            "portable selector evidence. Silicon fields are inherited "
             "unchanged from the superseded record and no new hardware claim is made."
         )
         with open(a.evidence, "a", encoding="utf-8", newline="\n") as f:
