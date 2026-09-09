@@ -15525,7 +15525,9 @@ struct AgrvImpl : ViaductAPI
             for (BelId target : empty) {
                 std::string why, affected;
                 if (saved.strength >= STRENGTH_FIXED || cell->attrs.count(ctx->id("BEL"))) why = "fixed_binding";
-                else if (cell->cluster != ClusterId()) why = "cluster_requires_joint_move";
+                else if (cell->cluster != ClusterId() &&
+                         (cell->cluster != cell->name || !cell->constr_children.empty()))
+                    why = "cluster_requires_joint_move";
                 else if (cell->region != nullptr && cell->region->constr_bels && !cell->region->bels.count(target)) why = "region";
                 else {
                     ctx->unbindBel(saved.bel);
