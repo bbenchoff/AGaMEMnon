@@ -11,7 +11,7 @@ No new release was published; the v0.4.0 record below is unchanged.
 
 The current engine supersedes several width outcomes in the historical release
 table below. Regbank16 now has a compact 68-slice/six-tile source build that
-passes silicon 3/3 (default 68/16; vendor 69/5). After withdrawing a nonportable
+passes silicon 3/3 (previous default 68/16; vendor 69/5). After withdrawing a nonportable
 selector translation, fresh ordinary-source addsub16 at 151/12 and util20 at
 434/39 also pass their original full silicon contracts 3/3. Their baselines
 are 151/26 and 434/41. The earlier compact images remain known failures;
