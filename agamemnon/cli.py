@@ -3097,6 +3097,9 @@ def _cmd_build_once(a):
                 if (outcome != _attempt_ladder.ABORTED and run.returncode and
                         re.search(r"^ERROR: agrv2k: CARRY_GRAPH_INFEASIBLE:", rlog, re.MULTILINE)):
                     if getattr(a, "_control_sharing_candidate", False):
+                        if outcome != _attempt_ladder.NOT_ROUTED:
+                            print("error: optional carry refusal also contains a fatal routing or hardware result")
+                            sys.exit(1)
                         # This exact C++ refusal is already a completed
                         # optional-profile verdict.  Do not resynthesise carry
                         # or enter data-logic fallbacks while comparing it with
