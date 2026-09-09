@@ -3966,6 +3966,14 @@ static void pack_bram_localize_const(Context *ctx)
             else if (p.second.net == vcc)
                 pins.push_back({p.first, true});
         }
+        bool port_b_read_used = false;
+        for (auto &p : ci->ports) {
+            if (p.first.str(ctx).rfind("DataOutB[", 0) == 0 &&
+                    p.second.net != nullptr && !p.second.net->users.empty()) {
+                port_b_read_used = true;
+                break;
+            }
+        }
         for (IdString p : unused_data)
             ci->disconnectPort(p);
         if (!unused_data.empty())
@@ -3992,6 +4000,12 @@ static void pack_bram_localize_const(Context *ctx)
                     is_write_enable ||
                     pin_name.rfind("ByteEnA", 0) == 0 || pin_name.rfind("ByteEnB", 0) == 0 ||
                     pin_name.rfind("ClkEn0", 0) == 0 || pin_name.rfind("ClkEn1", 0) == 0;
+            // A live Port-B address bus is a simultaneously routed tree.  Do
+            // not strand all of its zero-valued lanes on the single global
+            // hard-constant source: the vendor witness uses independent
+            // approach sources for these terminals.  Local zero drivers keep
+            // the same BRAM value while allowing per-lane BEL assignment.
+            const bool split_live_portb_address = port_b_read_used && addr_b;
             // A constant-HIGH We*/WeB is an unconditional write.  The generic control blob
             // (bram_rom_ctrl.csv vs bram_dual_ctrl.csv, chosen in features/bram.py from
             // portb_read + WeA-connectivity) has only a write-DISABLED baseline for an
@@ -4014,7 +4028,8 @@ static void pack_bram_localize_const(Context *ctx)
                     "--qualified-bram-write.\n",
                     pin_name.c_str());
             }
-            if (hardconst && !pr.second && (addr_a || addr_b || data_a || data_b)) {
+            if (hardconst && !pr.second && (addr_a || addr_b || data_a || data_b) &&
+                    !split_live_portb_address) {
                 // These are required inputs, not implicit zeroes. Unselected
                 // BRAM inputs can read HIGH: a controlled initialized-read
                 // experiment distinguishes that state from routed ground.
@@ -4028,7 +4043,7 @@ static void pack_bram_localize_const(Context *ctx)
             }
             if (hardconst &&
                     (!pr.second || characterized_control || default_high_suffix ||
-                     default_high_data)) {
+                     default_high_data) && !split_live_portb_address) {
                 // The BRAM control/default blob supplies fixed Re/ByteEn/ClkEn and the unused
                 // address/data don't-cares were trimmed separately. The width adapter appends constant-one
                 // address suffixes (x18:4, x9:3, x4:2, x2:1); its routed netlist has no path for those
