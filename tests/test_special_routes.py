@@ -902,17 +902,14 @@ def test_current_physical_touching_pip_role_matrix_is_exhaustive(
     catalog = sr.load_catalog(CHIPDB)
     graph_path = PHYSICAL_DEVDB / "dev_pips.csv"
     raw = graph_path.read_bytes()
-    assert hashlib.sha256(raw).hexdigest() == (
-        # Native Qin adds two departures from protected output-lane wires.
-        "7785c45468e8a44b294852f243f7db399eb7f222747f42bcb5bbd6345c1f2d5e"
-    )
+    assert hashlib.sha256(raw).hexdigest() == sr.EXPECTED_PHYSICAL_GRAPH_SHA256
     with graph_path.open(newline="", encoding="utf-8") as stream:
         graph_rows = tuple(csv.DictReader(stream))
     graph = {(row["src"], row["dst"]) for row in graph_rows}
     graph_by_name = {
         row["name"]: (row["src"], row["dst"]) for row in graph_rows
     }
-    assert len(graph) == 250422
+    assert len(graph) == sr.EXPECTED_PHYSICAL_GRAPH_PIP_COUNT
     touching = sorted(
         edge for edge in graph
         if (edge[0] in catalog.wires or edge[1] in catalog.wires) and
