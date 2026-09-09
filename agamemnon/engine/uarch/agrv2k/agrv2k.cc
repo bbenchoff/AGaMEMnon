@@ -15454,7 +15454,7 @@ struct AgrvImpl : ViaductAPI
                 }
                 // Find distinct legal slots, not merely enough existing BELs.
                 // Try the legacy assignment first to preserve it wherever valid.
-                std::vector<int> selected(members.size(), -1), owner(16, -1);
+                std::vector<int> selected(members.size(), -1), owner(18, -1);
                 bool legacy = true;
                 for (size_t i = 0; i < members.size(); ++i) {
                     int z = members[i]->constr_z;
@@ -15484,7 +15484,7 @@ struct AgrvImpl : ViaductAPI
                         };
                     bool matched = true;
                     for (size_t i = 0; i < members.size(); ++i) {
-                        std::vector<bool> seen(16, false);
+                        std::vector<bool> seen(18, false);
                         if (!augment(int(i), seen)) matched = false;
                     }
                     if (!matched && repartition) {
