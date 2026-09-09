@@ -1,5 +1,6 @@
 from agamemnon import cli
 from agamemnon.engine import attempt_ladder as ladder
+import copy
 import json
 import os
 from pathlib import Path
@@ -230,6 +231,57 @@ def test_native_srst_candidates_use_distinct_missing_only_mapping_defaults(tmp_p
     assert sidecar["candidates"][1]["mapping_options"] == {
         "AGRV2K_SHARED_CONTROL_MINCE": "4", "AGRV2K_LUT_FF_BROADCAST": "0",
         "AGRV2K_NATIVE_ENABLE_LOCAL_QIN": "0"}
+    assert all(key not in os.environ for key in cli._NATIVE_MAPPING_OPTION_KEYS)
+
+
+def test_native_srst_candidates_keep_compaction_retry_local_and_legacy_mapping(
+        tmp_path, monkeypatch):
+    """The recovered retry must not turn off the separate legacy candidate."""
+    seen = []
+
+    def options(candidate):
+        env = dict(os.environ)
+        automatic = cli._set_default_tile_compaction(candidate, env)
+        cli._native_mapping_defaults(env)
+        return automatic, env["AGRV2K_TILE_COMPACT"], tuple(
+            env[key] for key in cli._NATIVE_MAPPING_OPTION_KEYS)
+
+    def fake_once(candidate):
+        recovery = os.environ["AGRV2K_SHARED_CONTROL_SRST_RECOVERY"]
+        seen.append((recovery, *options(candidate)))
+        if recovery == "1":
+            retry = copy.copy(candidate)
+            retry._tile_compaction_disabled = True
+            seen.append(("recovered-uncompacted", *options(retry)))
+        output = Path(candidate.output)
+        output.write_bytes(b"x")
+        routed = Path(candidate.write_routed)
+        routed.write_text("{}", encoding="utf-8")
+        return {"output": str(output), "routed_json": str(routed),
+                "slice_count": 1 if recovery == "1" else 2,
+                "routed_sha256": recovery, "eligible_srst_cells": 0}
+
+    monkeypatch.setattr(cli, "_cmd_build_once", fake_once)
+    monkeypatch.delenv("AGRV2K_TILE_COMPACT", raising=False)
+    monkeypatch.delenv("AGRV2K_SHARED_CONTROL_SRST_RECOVERY", raising=False)
+    for key in cli._NATIVE_MAPPING_OPTION_KEYS:
+        monkeypatch.delenv(key, raising=False)
+    args = SimpleNamespace(
+        uarch=True, input="design.v", sources=[], project=None,
+        no_native_clock_enable=False, qualified_checkpoint=None,
+        qualified_bram_write=None, research_unsafe=False,
+        output=str(tmp_path / "out.bin"), write_routed=None,
+        pcf=None, baseline=None)
+
+    cli.cmd_build(args)
+
+    assert seen == [
+        ("1", True, "1", ("8", "1", "1")),
+        ("recovered-uncompacted", False, "0", ("8", "1", "1")),
+        ("0", True, "1", ("4", "0", "0")),
+    ]
+    assert not hasattr(args, "_tile_compaction_disabled")
+    assert "AGRV2K_TILE_COMPACT" not in os.environ
     assert all(key not in os.environ for key in cli._NATIVE_MAPPING_OPTION_KEYS)
 
 
