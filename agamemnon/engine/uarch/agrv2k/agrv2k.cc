@@ -15381,6 +15381,7 @@ struct AgrvImpl : ViaductAPI
             repartition = std::string(value) == "1";
         }
         std::vector<std::pair<CellInfo *, std::vector<CellInfo *>>> split_groups;
+        std::vector<std::pair<CellInfo *, CellInfo *>> unpair_groups;
         std::string first_infeasible;
         for (auto &entry : ctx->cells) {
             CellInfo *root = entry.second.get();
@@ -15612,7 +15613,18 @@ struct AgrvImpl : ViaductAPI
                 bool movable = root->bel == BelId() && !root->attrs.count(ctx->id("BEL"));
                 for (CellInfo *member : members)
                     movable &= member->bel == BelId() && !member->attrs.count(ctx->id("BEL"));
-                if (repartition && movable && !best_subset.empty() && best_subset.size() < members.size())
+                CellInfo *secondary = nullptr;
+                for (CellInfo *member : members) {
+                    if (member->type != ctx->id("AGRV2K_TILE_CONTROL")) continue;
+                    if (secondary) log_error("agrv2k: paired cluster has multiple secondary controls\n");
+                    secondary = member;
+                }
+                // A heterogeneous pair must first fall back to its two real
+                // enable groups. Treating its second control as an ordinary
+                // FF during partial-match repartition would change ownership.
+                if (secondary && movable)
+                    unpair_groups.emplace_back(root, secondary);
+                else if (!secondary && repartition && movable && !best_subset.empty() && best_subset.size() < members.size())
                     split_groups.emplace_back(root, best_subset);
                 if (first_infeasible.empty()) first_infeasible = root->name.str(ctx);
                 // Only the explicit driver-reachability contradiction is a
@@ -15632,6 +15644,38 @@ struct AgrvImpl : ViaductAPI
                 if (identified && !key.empty())
                     infeasible_groups.push_back({key, int(members.size()), rejected_enable_source});
             }
+        }
+        if (!unpair_groups.empty()) {
+            for (auto &pair : unpair_groups) {
+                CellInfo *first_root = pair.first, *second_root = pair.second;
+                const auto members = first_root->constr_children;
+                const std::string first_enable = first_root->attrs.at(clock_enable_net_attr(ctx)).as_string();
+                const std::string second_enable = second_root->attrs.at(clock_enable_net_attr(ctx)).as_string();
+                std::vector<std::pair<CellInfo *, Loc>> first{{first_root, Loc(0, 0, 16)}};
+                std::vector<std::pair<CellInfo *, Loc>> second{{second_root, Loc(0, 0, 16)}};
+                first_root->constr_children.clear();
+                second_root->constr_children.clear();
+                first_root->cluster = second_root->cluster = ClusterId();
+                for (CellInfo *member : members) {
+                    if (member == second_root) continue;
+                    const auto attr = member->attrs.find(clock_enable_net_attr(ctx));
+                    if (member->type != ctx->id("GENERIC_SLICE") || attr == member->attrs.end())
+                        log_error("agrv2k: malformed member in paired native group\n");
+                    const std::string enable = attr->second.as_string();
+                    if (enable != first_enable && enable != second_enable)
+                        log_error("agrv2k: paired member has an unrelated enable\n");
+                    member->cluster = ClusterId();
+                    auto &shape = enable == first_enable ? first : second;
+                    shape.emplace_back(member, Loc(0, 0, int(shape.size()) - 1));
+                }
+                make_relative_cluster(ctx, first, true);
+                make_relative_cluster(ctx, second, true);
+                log_info("agrv2k: unpair infeasible native groups '%s' and '%s'; preserve both enables\n",
+                         ctx->nameOf(first_root), ctx->nameOf(second_root));
+            }
+            ctx->assignArchInfo();
+            prepare_control_placements();
+            return;
         }
         if (!split_groups.empty()) {
             // prePlace precedes creation of the placer and router cell indices.
