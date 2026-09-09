@@ -2015,6 +2015,10 @@ class _NativeSRSTCandidateExhausted(RuntimeError):
     """A native candidate exhausted P&R without a safety-policy refusal."""
 
 
+class _ControlSharingCandidateExhausted(RuntimeError):
+    """An optional sharing comparison exhausted classified placement/routing."""
+
+
 def _routed_slice_count(document):
     return sum(cell.get("type") == "GENERIC_SLICE"
                for module in document.get("modules", {}).values()
@@ -2038,6 +2042,13 @@ def _routed_tile_count(document):
                 return None
             tiles.add((module_name, match.group(1)))
     return len(tiles)
+
+
+def _routed_native_population(document):
+    return sum(cell.get("type") == "GENERIC_SLICE" and bool(
+                   cell.get("attributes", {}).get("AGRV2K_CLOCK_ENABLE_NET"))
+               for module in document.get("modules", {}).values()
+               for cell in module.get("cells", {}).values())
 
 
 def _native_mapping_defaults(env):
@@ -2188,6 +2199,10 @@ def _cmd_build_once(a):
     env["AGAMEMNON_DATA"] = data
     _set_default_placement_preflight(a, env)
     auto_tile_compaction = _set_default_tile_compaction(a, env)
+    if getattr(a, "_control_sharing_candidate", False):
+        # Apply after ordinary preflight policy: these are automatic candidates,
+        # not explicit experiments that preserve their own preflight settings.
+        env.update(a._control_sharing_options)
     if auto_tile_compaction:
         print("[build] routing-aware tile compaction enabled; uncompacted placement remains a fallback")
     # Select both halves together: preserving DFFE without its routing graph
@@ -3085,6 +3100,11 @@ def _cmd_build_once(a):
                 print("[build]   did not route; escalating")
         os.remove(pristine)
         if log is None:
+            if (getattr(a, "_control_sharing_candidate", False) and
+                    _tile_compaction_fallback_allowed(True, attempt_records)):
+                # Keep the completed isolated baseline instead of starting
+                # another compaction/native-lowering ladder for this option.
+                raise _ControlSharingCandidateExhausted(tmp)
             if _tile_compaction_fallback_allowed(auto_tile_compaction, attempt_records):
                 print("[build] compact placement/routing ladder exhausted; retrying without tile compaction")
                 print("[build] compact diagnostics retained at %s" % tmp)
@@ -3436,6 +3456,7 @@ def _cmd_build_once(a):
     return {"output": out, "routed_json": routed_json,
             "slice_count": _routed_slice_count(final_snapshot.document),
             "occupied_tiles": _routed_tile_count(final_snapshot.document),
+            "native_enabled_slices": _routed_native_population(final_snapshot.document),
             "routed_sha256": final_snapshot.sha256,
             "eligible_srst_cells": getattr(a, "_native_srst_eligible_cells", None)}
 
@@ -3507,6 +3528,97 @@ def _copy_candidate_products(result, destination, routed_destination,
         elif destination_path:
             try: os.remove(destination_path)
             except FileNotFoundError: pass
+
+
+def _control_sharing_auto_enabled(a):
+    return (_native_srst_auto_enabled(a) and
+            not any(key in os.environ for key in
+                    ("AGRV2K_MIXED_NATIVE_CONTROL", "AGRV2K_DUAL_NATIVE_CONTROL")) and
+            not any(key.startswith("AGRV2K_REPLAY_BELS") for key in os.environ))
+
+
+def _control_sharing_opportunity(document):
+    groups, ordinary = set(), 0
+    for module_name, module in document.get("modules", {}).items():
+        for cell in module.get("cells", {}).values():
+            if cell.get("type") != "GENERIC_SLICE":
+                continue
+            used = cell.get("parameters", {}).get("FF_USED", "0")
+            if not (int(used, 2) if isinstance(used, str) else int(used)):
+                continue
+            enable = cell.get("attributes", {}).get("AGRV2K_CLOCK_ENABLE_NET")
+            if enable:
+                groups.add((module_name, enable))
+            else:
+                ordinary += 1
+    # Prefer the independently qualified mixed composition when both kinds
+    # could help. Never silently combine the two experimental compositions.
+    profile = "mixed" if groups and ordinary else "dual" if len(groups) > 1 else None
+    return profile, {"native_groups": len(groups), "ordinary_registers": ordinary}
+
+
+def _compare_control_sharing(a, baseline, root_tmp):
+    """One completed-profile comparison; isolated wins ties and exhaustion."""
+    report = {"selected": "isolated", "baseline_tiles": baseline.get("occupied_tiles")}
+    if not _control_sharing_auto_enabled(a):
+        report["outcome"] = "explicit_or_ineligible_profile"
+        return baseline, report
+    if baseline.get("occupied_tiles") is None:
+        report["outcome"] = "missing_measured_tile_count"
+        return baseline, report
+    with open(baseline["routed_json"], encoding="utf-8") as stream:
+        profile, population = _control_sharing_opportunity(json.load(stream))
+    report.update(population)
+    if profile is None:
+        report["outcome"] = "no_measured_sharing_opportunity"
+        return baseline, report
+    options = {"AGRV2K_MIXED_NATIVE_CONTROL": str(int(profile == "mixed")),
+               "AGRV2K_DUAL_NATIVE_CONTROL": str(int(profile == "dual"))}
+    candidate = copy.copy(a)
+    candidate._native_srst_candidate = True
+    candidate._control_sharing_candidate = True
+    candidate._control_sharing_options = options
+    candidate._native_enable_snapshot = None
+    candidate._native_enable_excluded_group_ids = ()
+    candidate._fallback_stages = ()
+    candidate.output = os.path.join(root_tmp, profile + ".bin")
+    candidate.write_routed = os.path.join(root_tmp, profile + ".routed.json")
+    overrides = dict(baseline["mapping_options"])
+    overrides["AGRV2K_SHARED_CONTROL_SRST_RECOVERY"] = baseline["srst_recovery"]
+    for key, suffix in (("AGAMEMNON_POLICY_SIDECAR", ".requested.policy.json"),
+                        ("AGAMEMNON_OWNERSHIP_TRACE", ".requested.ownership.json")):
+        if key in os.environ:
+            overrides[key] = os.path.join(root_tmp, profile + suffix)
+    if "AGAMEMNON_ATTEMPT_TRACE_DIR" in os.environ:
+        overrides["AGAMEMNON_ATTEMPT_TRACE_DIR"] = os.path.join(
+            os.environ["AGAMEMNON_ATTEMPT_TRACE_DIR"], "control_" + profile)
+    prior = {key: os.environ.get(key) for key in overrides}
+    report.update(profile=profile, options=options)
+    try:
+        os.environ.update(overrides)
+        result = _cmd_build_once(candidate)
+    except _ControlSharingCandidateExhausted:
+        report["outcome"] = "classified_placement_routing_exhaustion"
+        return baseline, report
+    finally:
+        for key, value in prior.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+    report.update(outcome="routed", slice_count=result["slice_count"],
+                  occupied_tiles=result.get("occupied_tiles"),
+                  routed_sha256=result["routed_sha256"])
+    if (result.get("occupied_tiles") is not None and
+            (result["slice_count"], result["occupied_tiles"]) <
+            (baseline["slice_count"], baseline["occupied_tiles"])):
+        result.update(mapping=baseline["mapping"], srst_recovery=baseline["srst_recovery"],
+                      mapping_options=baseline["mapping_options"],
+                      policy_sidecar=overrides.get("AGAMEMNON_POLICY_SIDECAR"),
+                      ownership_trace=overrides.get("AGAMEMNON_OWNERSHIP_TRACE"))
+        report["selected"] = profile
+        return result, report
+    return baseline, report
 
 
 def cmd_build(a):
@@ -3598,6 +3710,7 @@ def cmd_build(a):
     if candidates:
         selected = min(candidates, key=lambda item: (item["slice_count"],
                                                        item["mapping"] != "legacy"))
+        selected, sharing_report = _compare_control_sharing(a, selected, root_tmp)
         _validate_native_srst_final_products(a, base_out)
         _copy_candidate_products(selected, base_out, getattr(a, "write_routed", None),
                                  requested_policy, requested_ownership)
@@ -3610,6 +3723,7 @@ def cmd_build(a):
                        "selected_output": selected_output,
                        "selected_routed": selected_routed,
                        "selected_image_sha256": _sha256_file(selected_output),
+                       "control_sharing": sharing_report,
                        "candidates": outcomes}, stream,
                       indent=2, sort_keys=True)
             stream.write("\n")

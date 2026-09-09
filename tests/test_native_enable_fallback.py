@@ -31,6 +31,43 @@ def test_routed_tile_metric_requires_complete_slice_placement():
     assert cli._routed_tile_count(document) is None
 
 
+@pytest.mark.parametrize("tiles,expected", [(9, "mixed"), (10, "isolated"), (11, "isolated")])
+def test_sharing_selects_only_measured_improvement(tmp_path, monkeypatch, tiles, expected):
+    monkeypatch.setattr(cli, "_control_sharing_auto_enabled", lambda a: True)
+    routed = tmp_path / "baseline.json"
+    routed.write_text(json.dumps({"modules": {"top": {"cells": {
+        "native": {"type": "GENERIC_SLICE", "parameters": {"FF_USED": "1"},
+                   "attributes": {"AGRV2K_CLOCK_ENABLE_NET": "enable"}},
+        "ordinary": {"type": "GENERIC_SLICE", "parameters": {"FF_USED": "1"}},
+    }}}}))
+    baseline = dict(routed_json=str(routed), occupied_tiles=10, slice_count=96,
+                    mapping="legacy", srst_recovery="0", mapping_options={})
+    def build(candidate):
+        assert candidate._control_sharing_options == {
+            "AGRV2K_MIXED_NATIVE_CONTROL": "1", "AGRV2K_DUAL_NATIVE_CONTROL": "0"}
+        return dict(slice_count=96, occupied_tiles=tiles, routed_sha256="candidate")
+    monkeypatch.setattr(cli, "_cmd_build_once", build)
+    _, report = cli._compare_control_sharing(SimpleNamespace(), baseline, str(tmp_path))
+    assert report["selected"] == expected
+
+
+@pytest.mark.parametrize("failure", [SystemExit(2), ValueError("policy"), RuntimeError("unknown")])
+def test_sharing_does_not_hide_nonplacement_failures(tmp_path, monkeypatch, failure):
+    monkeypatch.setattr(cli, "_control_sharing_auto_enabled", lambda a: True)
+    monkeypatch.setattr(cli, "_control_sharing_opportunity", lambda doc: ("mixed", {}))
+    routed = tmp_path / "baseline.json"
+    routed.write_text("{}")
+    baseline = dict(routed_json=str(routed), occupied_tiles=10, slice_count=96,
+                    mapping="legacy", srst_recovery="0", mapping_options={})
+    def build(candidate):
+        raise failure
+    monkeypatch.setattr(cli, "_cmd_build_once", build)
+    monkeypatch.delenv("AGRV2K_SHARED_CONTROL_SRST_RECOVERY", raising=False)
+    with pytest.raises(type(failure)):
+        cli._compare_control_sharing(SimpleNamespace(), baseline, str(tmp_path))
+    assert "AGRV2K_SHARED_CONTROL_SRST_RECOVERY" not in os.environ
+
+
 def test_native_mapping_defaults_keep_explicit_comparison_controls():
     env = {}
     cli._native_mapping_defaults(env)
