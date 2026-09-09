@@ -2077,10 +2077,85 @@ static void pack_shared_control(Context *ctx)
     log_info("Packing shared controls..\n");
     std::vector<std::unique_ptr<CellInfo>> new_cells;
     int controls = 0;
+    std::set<std::string> paired_secondary;
+    std::map<std::string, std::string> paired_with;
+    if (dual_native_control_enabled()) {
+        std::string previous;
+        for (const auto &entry : by_enable) {
+            if (!previous.empty() &&
+                by_enable.at(previous).size() + entry.second.size() <= 16) {
+                paired_with[previous] = entry.first;
+                paired_with[entry.first] = previous;
+                paired_secondary.insert(entry.first);
+                previous.clear();
+            } else {
+                previous = entry.first;
+            }
+        }
+    }
     for (auto &group : by_enable) {
+        auto pair_it = paired_with.find(group.first);
+        if (pair_it != paired_with.end() && paired_secondary.count(group.first))
+            continue;
         std::vector<CellInfo *> members = group.second;
         std::sort(members.begin(), members.end(),
                   [](const CellInfo *a, const CellInfo *b) { return a->name < b->name; });
+
+        // Under the explicit dual-line opt-in, pair two stable enable groups
+        // into one heterogeneous cluster.  The first control owns CLKEN0 at
+        // z16; the second is a child at CLKEN1 z17.  Keep this path separate
+        // from the legacy one-root shape so default builds remain byte-stable.
+        if (pair_it != paired_with.end()) {
+            const auto &other_members = by_enable.at(pair_it->second);
+            bool pinned = false;
+            for (CellInfo *member : members)
+                pinned |= member->attrs.count(ctx->id("BEL")) != 0;
+            for (CellInfo *member : other_members)
+                pinned |= member->attrs.count(ctx->id("BEL")) != 0;
+            if (!pinned) {
+                auto net0 = ctx->nets.find(ctx->id(group.first));
+                auto net1 = ctx->nets.find(ctx->id(pair_it->second));
+                NetInfo *enable0 = net0 == ctx->nets.end() ? nullptr : net0->second.get();
+                NetInfo *enable1 = net1 == ctx->nets.end() ? nullptr : net1->second.get();
+                if (enable0 == nullptr || enable1 == nullptr)
+                    log_error("agrv2k: paired clock-enable group has missing input net\n");
+                const std::string name0 = "$agrv2k_clken$" + group.first + "$dual";
+                const std::string name1 = "$agrv2k_clken$" + pair_it->second + "$dual";
+                auto control0 = std::make_unique<CellInfo>(
+                        ctx, ctx->id(name0), ctx->id("AGRV2K_TILE_CONTROL"));
+                auto control1 = std::make_unique<CellInfo>(
+                        ctx, ctx->id(name1), ctx->id("AGRV2K_TILE_CONTROL"));
+                control0->addInput(ctx->id("I"));
+                control1->addInput(ctx->id("I"));
+                control0->connectPort(ctx->id("I"), enable0);
+                control1->connectPort(ctx->id("I"), enable1);
+                control0->attrs[shared_control_mode_attr(ctx)] = std::string("CLOCK_ENABLE_POS");
+                control1->attrs[shared_control_mode_attr(ctx)] = std::string("CLOCK_ENABLE_POS");
+                control0->attrs[clock_enable_net_attr(ctx)] = group.first;
+                control1->attrs[clock_enable_net_attr(ctx)] = pair_it->second;
+                std::vector<std::pair<CellInfo *, Loc>> shape;
+                shape.push_back({control0.get(), Loc(0, 0, 16)});
+                shape.push_back({control1.get(), Loc(0, 0, 17)});
+                int z = 0;
+                for (CellInfo *member : members)
+                    shape.push_back({member, Loc(0, 0, z++)});
+                for (CellInfo *member : other_members)
+                    shape.push_back({member, Loc(0, 0, z++)});
+                make_relative_cluster(ctx, shape, true);
+                log_info("  paired clock enables '%s' + '%s': %d + %d register(s) on CLKEN0/1\n",
+                         group.first.c_str(), pair_it->second.c_str(),
+                         int(members.size()), int(other_members.size()));
+                new_cells.push_back(std::move(control0));
+                new_cells.push_back(std::move(control1));
+                controls += 2;
+                continue;
+            }
+            // Explicit pins are left to the existing fixed-placement path;
+            // pairing pinned groups would silently change their chosen tiles.
+            paired_with.erase(group.first);
+            paired_with.erase(pair_it->second);
+            paired_secondary.erase(pair_it->second);
+        }
 
         NetInfo *enable = nullptr;
         auto net_it = ctx->nets.find(ctx->id(group.first));
@@ -15322,8 +15397,8 @@ struct AgrvImpl : ViaductAPI
                     continue;
                 const Loc loc = ctx->getBelLocation(sink);
                 std::vector<std::vector<int>> slots(members.size());
-                std::vector<BelId> bels(16);
-                for (int z = 0; z < 16; ++z)
+                std::vector<BelId> bels(18);
+                for (int z = 0; z < 18; ++z)
                     bels[z] = ctx->getBelByLocation(Loc(loc.x, loc.y, z));
                 for (size_t i = 0; i < members.size(); ++i) {
                     CellInfo *member = members[i];
@@ -15339,9 +15414,15 @@ struct AgrvImpl : ViaductAPI
                             slots[i].push_back(fixed.z);
                         continue;
                     }
-                    for (int z = 0; z < 16; ++z) {
+                    int z_begin = 0, z_end = 16;
+                    if (member->type == root->type && member->constr_abs_z) {
+                        z_begin = member->constr_z;
+                        z_end = member->constr_z + 1;
+                    }
+                    for (int z = z_begin; z < z_end; ++z) {
                         BelId bel = bels[z];
-                        if (bel == BelId() || ctx->getBelType(bel) != member->type ||
+                        if (z < 0 || z >= int(bels.size()) || bel == BelId() ||
+                            ctx->getBelType(bel) != member->type ||
                             !ctx->checkBelAvail(bel))
                             continue;
                         if (member->region && member->region->constr_bels &&
@@ -15444,6 +15525,46 @@ struct AgrvImpl : ViaductAPI
                         }
                     }
                     if (!source_valid) { valid = false; ++rejected_enable_source; }
+                }
+                // A paired root has a second independent enable driver.  It
+                // must retain at least one legal source site under the same
+                // tentative cluster binding; checking only the root driver
+                // would permit a routed-but-undrivable second control line.
+                if (valid && dual_native_control_enabled()) {
+                    for (CellInfo *member : members) {
+                        if (member->type != root->type)
+                            continue;
+                        NetInfo *child_enable = member->getPort(ctx->id("I"));
+                        CellInfo *child_driver = child_enable ? child_enable->driver.cell : nullptr;
+                        if (!child_driver || child_driver->type != ctx->id("GENERIC_SLICE"))
+                            continue;
+                        bool source_valid = child_driver->bel != BelId()
+                                ? ctx->isBelLocationValid(child_driver->bel) : false;
+                        if (child_driver->bel == BelId()) {
+                            for (BelId dbel : ctx->getBels()) {
+                                if (ctx->getBelType(dbel) != child_driver->type ||
+                                    !ctx->checkBelAvail(dbel))
+                                    continue;
+                                if (child_driver->region && child_driver->region->constr_bels &&
+                                    !child_driver->region->bels.count(dbel))
+                                    continue;
+                                auto explicit_bel = child_driver->attrs.find(ctx->id("BEL"));
+                                if (explicit_bel != child_driver->attrs.end() &&
+                                    ctx->getBelByNameStr(explicit_bel->second.as_string()) != dbel)
+                                    continue;
+                                ctx->bindBel(dbel, child_driver, STRENGTH_WEAK);
+                                source_valid = ctx->isBelLocationValid(dbel);
+                                ctx->unbindBel(dbel);
+                                if (source_valid)
+                                    break;
+                            }
+                        }
+                        if (!source_valid) {
+                            valid = false;
+                            ++rejected_enable_source;
+                            break;
+                        }
+                    }
                 }
                 for (auto it = temporary.rbegin(); it != temporary.rend(); ++it)
                     ctx->unbindBel(*it);
