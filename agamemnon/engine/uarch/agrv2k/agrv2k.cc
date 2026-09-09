@@ -353,6 +353,24 @@ static bool dual_native_control_enabled()
     return enabled;
 }
 
+// One native enable line plus ordinary registered state is an experimental
+// mixed-clock composition. It remains off unless the exact boolean opt-in is
+// present; a second native line still makes the tile ineligible for mixing.
+static bool mixed_native_control_enabled()
+{
+    static const bool enabled = [] {
+        const char *value = getenv("AGRV2K_MIXED_NATIVE_CONTROL");
+        if (value == nullptr || std::string(value) == "0")
+            return false;
+        if (std::string(value) != "1") {
+            log_error("agrv2k: AGRV2K_MIXED_NATIVE_CONTROL must be exactly 0 or 1\n");
+            return false;
+        }
+        return true;
+    }();
+    return enabled;
+}
+
 // Attribute carrying the enable net from the frontend DFFE onto the packed
 // slice.  The slice itself has no CE pin -- the enable terminates on a tile
 // control line -- so the net has to travel as a name until pack_shared_control
@@ -557,11 +575,11 @@ static bool shared_control_cell_admitted(Context *ctx, const CellInfo *cell,
     return false;
 }
 
-// Mixed sequential use of the experimental clock-enable tile failed its
-// silicon contract. Keep ordinary FFs isolated from native-control groups;
-// dual-line use is separately opt-in and still checks both lines. Keep this
-// check in native BEL validity, where tentative and fixed bindings are
-// visible, rather than relying on the cluster shape alone.
+// Native enables normally isolate a tile. The narrow mixed opt-in admits one
+// enable group with ordinary state, preserving the other local clock line for
+// that ordinary state. Two native groups plus ordinary state remains refused.
+// Keep this check in native BEL validity, where tentative and fixed bindings
+// are visible, rather than relying on the cluster shape alone.
 static bool native_clock_enable_tile_compatible(Context *ctx, const CellInfo *candidate,
                                                 BelId bel, bool explain_invalid)
 {
@@ -602,23 +620,36 @@ static bool native_clock_enable_tile_compatible(Context *ctx, const CellInfo *ca
                      ctx->nameOf(candidate), ctx->nameOfBel(bel));
         return false;
     }
-    bool saw_bound_root = false;
-    bool matched_bound_root = false;
+    std::set<std::string> root_groups;
+    int occupied_root_lines = 0;
     for (int line = 0; line < 2; ++line) {
         BelId root_bel = ctx->getBelByLocation(Loc(loc.x, loc.y, 16 + line));
         CellInfo *root = root_bel == BelId() ? nullptr : ctx->getBoundBelCell(root_bel);
-        if (candidate_ff && root != nullptr && root->type == ctx->id("AGRV2K_TILE_CONTROL")) {
-            saw_bound_root = true;
+        if (root != nullptr && root->type == ctx->id("AGRV2K_TILE_CONTROL")) {
             const std::string root_group = enable_group(root);
             if (root_group.empty())
                 return reject("control root has no enable group", root);
-            if (candidate_group == root_group)
-                matched_bound_root = true;
+            root_groups.insert(root_group);
+            ++occupied_root_lines;
         }
     }
-    if (candidate_ff && saw_bound_root && !matched_bound_root)
+    auto group_has_bound_root = [&](const std::string &group) {
+        return root_groups.count(group) != 0;
+    };
+
+    // Preserve the historical native-only rule: once a control root is bound,
+    // every enabled FF in the tile must belong to one of those roots.  The
+    // mixed opt-in only changes how ordinary FFs coexist with a valid group.
+    if (candidate_ff && !candidate_group.empty() && !root_groups.empty() &&
+        !group_has_bound_root(candidate_group))
         return reject("control-group mismatch", nullptr);
 
+    std::set<std::string> native_groups = root_groups;
+    bool ordinary_registered = candidate_ff && candidate_group.empty();
+    if (candidate_control)
+        native_groups.insert(candidate_group);
+    else if (candidate_ff && !candidate_group.empty())
+        native_groups.insert(candidate_group);
     for (int z = 0; z < 16; ++z) {
         BelId occupant_bel = ctx->getBelByLocation(Loc(loc.x, loc.y, z));
         CellInfo *occupant = occupant_bel == BelId() ? nullptr : ctx->getBoundBelCell(occupant_bel);
@@ -627,17 +658,29 @@ static bool native_clock_enable_tile_compatible(Context *ctx, const CellInfo *ca
             int_or_default(occupant->params, ctx->id("FF_USED"), 0) == 0)
             continue;
         const std::string occupant_group = enable_group(occupant);
-        bool occupant_matches_root = occupant_group == candidate_group;
-        for (int line = 0; line < 2; ++line) {
-            BelId root_bel = ctx->getBelByLocation(Loc(loc.x, loc.y, 16 + line));
-            CellInfo *root = root_bel == BelId() ? nullptr : ctx->getBoundBelCell(root_bel);
-            if (root != nullptr && root->type == ctx->id("AGRV2K_TILE_CONTROL") &&
-                enable_group(root) == occupant_group)
-                occupant_matches_root = true;
+        if (occupant_group.empty()) {
+            ordinary_registered = true;
+            continue;
         }
-        if (!occupant_matches_root)
+        // For a native candidate retain the historical comparison against its
+        // group, with a bound root as the only alternative.  An ordinary
+        // candidate has no group, so every enabled occupant must be backed by
+        // a control root before it can share the tile.
+        const bool occupant_matches_candidate = !candidate_group.empty() &&
+                                              occupant_group == candidate_group;
+        if (!occupant_matches_candidate && !group_has_bound_root(occupant_group))
             return reject("control-group mismatch", occupant);
+        native_groups.insert(occupant_group);
     }
+
+    if (!ordinary_registered)
+        return true;
+    if (!mixed_native_control_enabled())
+        return reject("ordinary register requires AGRV2K_MIXED_NATIVE_CONTROL=1", nullptr);
+    if (native_groups.size() != 1)
+        return reject("mixed tile requires exactly one native enable group", nullptr);
+    if (occupied_root_lines > 1)
+        return reject("mixed tile reserves the other local clock line", nullptr);
     return true;
 }
 
