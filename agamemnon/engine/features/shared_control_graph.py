@@ -1,4 +1,4 @@
-"""Tile shared-control routing and isolated native clock-enable emission.
+"""Tile shared-control routing and qualified native clock-enable emission.
 
 Companion to :mod:`agamemnon.engine.features.shared_control`, which validates a
 routed slice's control shape and fails closed. This module supplies the missing
@@ -36,10 +36,11 @@ and runs with the enable stuck at the baseline value. It does not emit a
 per-slice ``sync`` selection: that mapping rests on row pairing alone and every
 sync observation in the corpus uses line 0, so nothing discriminates it.
 
-The registered, owner-approved scope is positive-edge, active-high native
-clock enable on line 0, with ordinary and differently controlled FFs excluded
-from the tile. A fresh ordinary-source composition passed its entire silicon
-contract three times. Line 1 and mixed sequential tiles remain unqualified.
+The registered scope is positive-edge, active-high native clock enable on the
+MCU bus clock. Separately qualified compositions are isolated line-0 tiles,
+one native group with ordinary FFs on the idle line, and two native groups
+without ordinary FFs. Mixed and dual profiles are never combined. Fresh
+ordinary-source compositions passed their discriminating silicon contracts.
 
 Normal ``build --uarch`` sets both ``AGRV2K_SHARED_CONTROL_GRAPH`` and
 ``AGRV2K_SHARED_CONTROL_ENABLE``. ``--no-native-clock-enable`` and retained
@@ -109,7 +110,7 @@ class SharedControlEmitError(Exception):
 
 
 def dual_native_control_enabled(environ=None):
-    """Return whether the unqualified two-native-line composition is enabled.
+    """Return whether the two-native-line composition profile is enabled.
 
     Treat an unset switch as ``0``.  Reject spelling mistakes instead of
     silently enabling a new physical composition through truthiness.
@@ -299,8 +300,9 @@ class SharedControlGraphFeature:
           for *that* enable -- otherwise its register is clocked unconditionally
           while the design believes it is gated;
         * no two enables share a tile line;
-        * line 1 needs an explicit ``AGRV2K_DUAL_NATIVE_CONTROL=1`` opt-in.
-          Its selector encoding is known, but its conduction is not established.
+        * line 1 needs the appropriate mixed or dual profile, selected by the
+          ordinary CLI comparison or explicitly requested at the low level.
+          Both line selection and the second local clock feed must be emitted.
         """
         cells = module.get("cells", {})
         dual_native = dual_native_control_enabled()
@@ -332,7 +334,7 @@ class SharedControlGraphFeature:
             if line == 1 and not dual_native:
                 raise SharedControlEmitError(
                     "tile control cell %r took line 1 at X%dY%d; %s=1 is required "
-                    "for the unqualified dual-native composition" %
+                    "for the dual-native composition" %
                     (name, x, y, DUAL_NATIVE_CONTROL_OPTION))
             enable = cell.get("attributes", {}).get("AGRV2K_CLOCK_ENABLE_NET")
             if not enable:

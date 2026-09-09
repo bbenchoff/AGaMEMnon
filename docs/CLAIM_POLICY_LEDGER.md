@@ -19,7 +19,7 @@ Policy version: `D0-v1`.
 | `physical_io` | release | individually_qualified | electrical | preexisting_v4 | preexisting V4 release scope | qualification/io_evidence.jsonl<br>qualification/left_edge_output_evidence.jsonl<br>qualification/bidir_left_quad_evidence.jsonl |
 | `route_through` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/bram_evidence.jsonl<br>qualification/bram_site_read_evidence.jsonl |
 | `routing` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/routing_evidence.jsonl |
-| `shared_control_graph` | release | individually_qualified | configuration | approved | positive-edge active-high native enable, isolated single-enable tiles on line 0; mixed sequential tiles and line 1 excluded | docs/NATIVE_CLOCK_ENABLE_EXPERIMENT.md |
+| `shared_control_graph` | release | individually_qualified | configuration | approved | positive-edge active-high native enable on the MCU bus clock; isolated, one-native-group mixed, or two-native-group dual tiles; dual tiles exclude ordinary FFs and mixed/dual profiles are never combined | docs/NATIVE_CLOCK_ENABLE_EXPERIMENT.md |
 
 ## Engine options
 

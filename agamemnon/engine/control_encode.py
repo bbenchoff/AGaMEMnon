@@ -233,7 +233,8 @@ def slice_bypass_bit(x, y, z):
     The vendor association with .ena was not a causal polarity test. A fixed
     image intervention clearing BYPASSEN on eight native identity-LUT registers
     restored update/hold/resume. Ordinary same-tile scratch registers failed
-    with either bit value. Mixed sequential tile use therefore remains refused.
+    with either bit value. Mixed sharing additionally needs the idle local
+    line and its clock feed; BYPASSEN alone is not an ordinary-FF exemption.
     """
     if not 0 <= int(z) < 16:
         raise ControlEncodeError("slice z=%r is outside 0..15" % (z,))

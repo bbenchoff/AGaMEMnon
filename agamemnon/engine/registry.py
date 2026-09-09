@@ -53,9 +53,9 @@ class ClaimMetadata:
 POLICY_VERSION = "D0-v1"
 FEATURE_CLAIM_OVERRIDES = {
     "shared_control_graph": {
-        "claim_scope": "positive-edge active-high native enable, isolated single-enable tiles on line 0; mixed sequential tiles and line 1 excluded",
+        "claim_scope": "positive-edge active-high native enable on the MCU bus clock; isolated, one-native-group mixed, or two-native-group dual tiles; dual tiles exclude ordinary FFs and mixed/dual profiles are never combined",
         "approval_state": "approved",
-        "review_date": "2026-09-08",
+        "review_date": "2026-09-09",
     },
 }
 EVIDENCE_TIERS = {
