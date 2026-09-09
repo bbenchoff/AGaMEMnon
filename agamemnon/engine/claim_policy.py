@@ -272,6 +272,16 @@ def _part_device_error(options):
     return None
 
 
+def _qualified_retained_replay_error(options):
+    """Fail policy evaluation before a caller can select an unknown replay ID."""
+    from agamemnon.engine import retained_replay
+    try:
+        retained_replay._selected_profile(options)
+    except ValueError as exc:
+        return "option:AGAMEMNON_QUALIFIED_RETAINED_REPLAY: %s" % exc
+    return None
+
+
 def evaluate_policy(options, features=FEATURES, include_constants=True):
     policy = options.raw("AGAMEMNON_STRICT_POLICY")
     explicit = tuple(sorted({
@@ -293,6 +303,9 @@ def evaluate_policy(options, features=FEATURES, include_constants=True):
     part_device_error = _part_device_error(options)
     if part_device_error:
         errors.append(part_device_error)
+    qualified_replay_error = _qualified_retained_replay_error(options)
+    if qualified_replay_error:
+        errors.append(qualified_replay_error)
 
     # Routing-wave rows are not options and must not inherit the blanket
     # release qualification of sel_edge_pairs.agdb. Resolve their exact

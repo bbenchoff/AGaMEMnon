@@ -13,6 +13,16 @@ This remains a diagnostic replay prototype and requires explicit research policy
 AGAMEMNON_RETAINED_REPLAY=pre-owner-v1 agamemnon pack checkpoint.json original.bin --research-unsafe
 ```
 
+Two separately registered source-to-image profiles, `mcu-ahb-bank16-read-word0`
+and `mcu-ahb-bank16-public-scratch4`, are release-strict exceptions only through
+`agamemnon build --qualified-checkpoint`. The CLI first verifies the exact
+source/checkpoint hashes and an isomorphic route-transport proof, then emits
+from the immutable original checkpoint; `--write-routed` therefore contains the
+actual emitted checkpoint and its `.transported-proof.json` sibling retains the
+proven transport. The new option accepts no other profile ID, checks the
+registry's checkpoint/module/environment/image identity, and is mutually
+exclusive with the diagnostic switch above.
+
 Original replay is archival reproduction, not new silicon qualification or permission to program an otherwise refused image. The research-policy sidecar must remain with its artifact. Original and migrated pins are separate immutable expectations; passing one does not count as passing the other.
 
 The wheel includes the replay registry and the routing datasets required by the runtime inventory. Packaging and repack results are recorded in the AG32-Docs `gpt6_xbar_*replay*20260906` evidence. The usable release still requires its full installation, workflow and control-first hardware gates.

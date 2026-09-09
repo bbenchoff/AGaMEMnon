@@ -139,6 +139,10 @@ def test_structural_source_exact_route_replay_reproduces_qualified_image(tmp_pat
         "301edbab67a42edcfb958d4dda7f3ffba786d425123a7c27826fccfba6765160"
     assert hashlib.sha256(Path(str(output) + ".comp").read_bytes()).hexdigest() == \
         "5b90b852722c2e78b1d417ca804b42cbadd13e303aa75914f9a51358232f9bae"
+    assert routed.read_bytes() == ROUTED.read_bytes()
+    transported = Path(str(routed) + ".transported-proof.json")
+    assert transported.is_file()
+    assert transported.read_bytes() != routed.read_bytes()
     # The exact hard-boundary corridor map now gates both architecture and
     # emission. The former x=13 blind-formula fallback is absent from strict
     # routing, while this exact route replay and both image hashes remain

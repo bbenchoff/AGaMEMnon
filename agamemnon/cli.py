@@ -256,6 +256,10 @@ QUALIFIED_ROUTE_PROFILES = {
         "compressed_sha256": "5b90b852722c2e78b1d417ca804b42cbadd13e303aa75914f9a51358232f9bae",
         "hse": 8,
         "sysclk": 10,
+        # This exact retained checkpoint predates typed clock metadata. The
+        # child-only setting enables its independently authenticated pre-owner
+        # emission path after every profile binding has succeeded.
+        "qualified_retained_replay": "mcu-ahb-bank16-read-word0",
     },
     "mcu-ahb-bank16-public-scratch4": {
         "source": "mcu_ahb_register_bank16_public_scratch4_structural.v",
@@ -266,6 +270,7 @@ QUALIFIED_ROUTE_PROFILES = {
         "compressed_sha256": "dd20ea9549bf0d5f0c4dc09988a2696aeab57cb4f299ac12c136e4842e04e516",
         "hse": 8,
         "sysclk": 10,
+        "qualified_retained_replay": "mcu-ahb-bank16-public-scratch4",
     },
     # Individually qualified x18, fixed-address same-Port-A BRAM matrix. These
     # four profiles are intentionally separate and hash-bound: they establish
@@ -404,6 +409,53 @@ def _qualified_route_profile(a, sources, engine, data, env, freq):
     result["id"] = a.qualified_checkpoint
     result["checkpoint_path"] = checkpoint
     return result
+
+
+def _apply_qualified_retained_replay(env, profile):
+    """Add the closed retained-replay setting for an authenticated profile.
+
+    The caller invokes this only after :func:`_qualified_route_profile` has
+    checked the registry-selected source, checkpoint, engine, device database,
+    and clock contract. Ambient use remains forbidden by that validator.
+    """
+    replay = profile.get("qualified_retained_replay")
+    if replay is None:
+        return
+    if profile.get("id") not in {
+            "mcu-ahb-bank16-read-word0",
+            "mcu-ahb-bank16-public-scratch4",
+    } or replay != profile["id"]:
+        raise ValueError("qualified route profile has an unsupported retained replay binding")
+    env["AGAMEMNON_QUALIFIED_RETAINED_REPLAY"] = replay
+
+
+def _stage_qualified_checkpoint_after_replay(profile, routed_json, replay_log,
+                                             proof_output=None):
+    """Preserve route-replay proof, then emit only the registered checkpoint.
+
+    The transport JSON proves the exact synthesized source graph maps to the
+    checkpoint. It is never an emission fallback: only route_replay's success
+    marker permits replacing it with the immutable registered checkpoint.
+    """
+    replay = profile.get("qualified_retained_replay")
+    if (profile.get("id") not in {
+            "mcu-ahb-bank16-read-word0",
+            "mcu-ahb-bank16-public-scratch4",
+    } or replay != profile["id"]):
+        raise ValueError("qualified route profile cannot stage a retained checkpoint")
+    if not any(line.startswith("exact route replay verified")
+               for line in replay_log.splitlines()):
+        raise ValueError("qualified route replay did not produce its verification marker")
+    if _sha256_file(profile["checkpoint_path"]) != profile["checkpoint_sha256"]:
+        raise ValueError("qualified route checkpoint hash drifted before staging")
+    transported = routed_json + ".transported-proof.json"
+    shutil.copyfile(routed_json, transported)
+    shutil.copyfile(profile["checkpoint_path"], routed_json)
+    if _sha256_file(routed_json) != profile["checkpoint_sha256"]:
+        raise ValueError("qualified route checkpoint staging hash mismatch")
+    if proof_output:
+        shutil.copyfile(transported, proof_output)
+    return transported
 
 
 def _qualified_bram_source_profile(a, sources, engine, data, env, freq):
@@ -2220,12 +2272,19 @@ def _cmd_build_once(a):
     base = os.path.splitext(os.path.basename(a.input))[0]
     out = a.output or (base + ".bin")
     write_routed = getattr(a, "write_routed", None)
+    qualified_transport_output = (
+        write_routed + ".transported-proof.json"
+        if write_routed and QUALIFIED_ROUTE_PROFILES.get(
+            getattr(a, "qualified_checkpoint", None), {}
+        ).get("qualified_retained_replay") else None
+    )
     policy_sidecar = os.environ.get("AGAMEMNON_POLICY_SIDECAR")
     ownership_trace = os.environ.get("AGAMEMNON_OWNERSHIP_TRACE")
     emission_products = [
         ("build output", out, None),
         ("compressed build output", out + ".comp", None),
         ("requested routed output", write_routed, None),
+        ("qualified transported replay proof", qualified_transport_output, None),
         ("default policy sidecar", out + ".policy.json", "policy"),
         ("intermediate policy sidecar", out + ".comp.policy.json", "policy"),
         ("selected policy sidecar", policy_sidecar, "policy"),
@@ -2364,6 +2423,7 @@ def _cmd_build_once(a):
         try:
             qualified_profile = _qualified_route_profile(
                 a, sources, engine, data, env, freq)
+            _apply_qualified_retained_replay(env, qualified_profile)
         except (OSError, ValueError) as exc:
             print("error: %s" % exc)
             sys.exit(2)
@@ -2638,6 +2698,14 @@ def _cmd_build_once(a):
         for line in log.splitlines():
             if line.startswith("exact route replay verified"):
                 print("[build] " + line)
+        if qualified_profile.get("qualified_retained_replay"):
+            try:
+                _stage_qualified_checkpoint_after_replay(
+                    qualified_profile, routed_json, log, qualified_transport_output)
+            except (OSError, ValueError) as exc:
+                print("error: %s" % exc)
+                sys.exit(1)
+            print("[build] qualified checkpoint staged after transport proof")
     elif getattr(a, "uarch", False):
         live_portb = _json_has_live_bram_portb(synth_json)
         try:

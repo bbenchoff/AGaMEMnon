@@ -36,6 +36,25 @@ def test_default_release_policy_admits_the_preexisting_v4_surface():
     assert {row["maturity"] for row in decision.selected} == {"release"}
 
 
+@pytest.mark.parametrize("profile", (
+    "mcu-ahb-bank16-read-word0", "mcu-ahb-bank16-public-scratch4",
+))
+def test_qualified_retained_replay_option_is_release_scoped(profile):
+    name = "AGAMEMNON_QUALIFIED_RETAINED_REPLAY"
+    decision = evaluate_policy(options_from({name: profile}))
+    row = next(item for item in decision.selected if item["name"] == name)
+    assert row["maturity"] == "release"
+    assert row["evidence_tier"] == "individually_qualified"
+    assert row["value"] == profile
+
+
+def test_qualified_retained_replay_unknown_profile_fails_before_emission():
+    with pytest.raises(ClaimPolicyError, match="unknown qualified retained replay profile"):
+        evaluate_policy(options_from({
+            "AGAMEMNON_QUALIFIED_RETAINED_REPLAY": "arbitrary",
+        }))
+
+
 def test_native_enable_claim_is_bounded_and_newly_approved():
     from agamemnon.engine.registry import manifest
     decision = evaluate_policy(options_from({}))

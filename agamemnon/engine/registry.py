@@ -77,6 +77,7 @@ OPTIONS = {
     "AGAMEMNON_STRICT_POLICY": _value("release-strict", "policy", "bitgen", "diagnostic", "docs/ENGINE_CONFIGURATION.md", "Select release-strict, experimental-strict, or research-unsafe claim-policy enforcement."),
     "AGAMEMNON_EXPERIMENTAL_FEATURES": _value("", "csv", "bitgen", "diagnostic", "docs/ENGINE_CONFIGURATION.md", "Comma-separated feature IDs explicitly admitted to one experimental-strict build."),
     "AGAMEMNON_RETAINED_REPLAY": _value(None, "text", "bitgen", "diagnostic", "agamemnon/engine/retained_replay.py", "Reproduce an authenticated original checkpoint with explicit pre-owner-v1 emission semantics."),
+    "AGAMEMNON_QUALIFIED_RETAINED_REPLAY": _value(None, "text", "bitgen", "release", "qualification/pack_regression_pre_owner_v1.json", "Replay only the two exact source/checkpoint/image profiles bound by the CLI and retained-pre-owner registry."),
     "AGAMEMNON_POLICY_SIDECAR": _value(None, "path", "bitgen", "diagnostic", "docs/ENGINE_CONFIGURATION.md", "Override the path for the hash-bound claim-policy sidecar."),
     "AGAMEMNON_VALIDATED_ROUTED_SHA256": _value(None, "text", "bitgen", "diagnostic", "agamemnon/engine/special_routes.py", "Internal parent/child binding for the exact validated routed checkpoint snapshot."),
     "AGAMEMNON_SPECIAL_ROUTE_DEVDB": _value(None, "path", "both", "diagnostic", "agamemnon/engine/special_routes.py", "Internal binding to the selected generated device graph used for typed special-route validation."),
@@ -230,6 +231,7 @@ INDIVIDUALLY_QUALIFIED_OPTIONS = {
     "AGAMEMNON_SYSCLK", "AGAMEMNON_HSE", "AGAMEMNON_BASELINE",
     "AGAMEMNON_MCU_XY", "AGAMEMNON_WIRE_TIMING_MARGIN",
     "AGAMEMNON_FROM_SCRATCH_BASE",
+    "AGAMEMNON_QUALIFIED_RETAINED_REPLAY",
 }
 DIFFERENTIALLY_VALIDATED_OPTIONS = {
     "AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG",

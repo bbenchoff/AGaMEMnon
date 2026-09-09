@@ -10,6 +10,8 @@ import sys
 
 import pytest
 
+from agamemnon import cli
+
 
 ROOT = Path(__file__).resolve().parents[1]
 Q = ROOT / "qualification"
@@ -148,6 +150,86 @@ def test_qualified_profile_rejects_raw_paths_and_ambient_escape_knobs(tmp_path):
         cwd=ROOT, env=escaped, capture_output=True, text=True)
     assert ambient.returncode == 2
     assert "forbids ambient option" in ambient.stdout
+    escaped = dict(clean)
+    escaped["AGAMEMNON_QUALIFIED_RETAINED_REPLAY"] = \
+        "mcu-ahb-bank16-public-scratch4"
+    ambient_replay = subprocess.run(
+        base + ["--qualified-checkpoint",
+                "mcu-ahb-bank16-public-scratch4"],
+        cwd=ROOT, env=escaped, capture_output=True, text=True)
+    assert ambient_replay.returncode == 2
+    assert "forbids ambient option" in ambient_replay.stdout
+
+
+@pytest.mark.parametrize("profile", (
+    "mcu-ahb-bank16-read-word0",
+    "mcu-ahb-bank16-public-scratch4",
+))
+def test_retained_replay_is_derived_only_after_exact_profile_binding(
+        profile, monkeypatch, tmp_path):
+    for name in tuple(os.environ):
+        if name.startswith("AGAMEMNON_"):
+            monkeypatch.delenv(name, raising=False)
+    record = cli.QUALIFIED_ROUTE_PROFILES[profile]
+    source = tmp_path / record["source"]
+    checkpoint = tmp_path / record["checkpoint"]
+    source.write_bytes((Q / record["source"]).read_bytes())
+    checkpoint.write_bytes((Q / record["checkpoint"]).read_bytes())
+    monkeypatch.setattr(cli, "_qualified_profile_root", lambda _profile: str(tmp_path))
+    args = type("Args", (), {
+        "qualified_checkpoint": profile,
+        "leds": False, "mcu": False, "true_topo": False,
+        "no_intra_rmux": False, "pin": None, "pin_hook": None,
+        "baseline": None, "pcf": None, "hard_carry": False,
+    })()
+
+    with pytest.raises(ValueError, match="requires exact source"):
+        cli._qualified_route_profile(
+            args, [str(tmp_path / "unbound.v")], cli.ENGINE, cli.CHIPDB,
+            {"AGAMEMNON_HSE": "8"}, 10)
+
+    bound = cli._qualified_route_profile(
+        args, [str(source)], cli.ENGINE, cli.CHIPDB,
+        {"AGAMEMNON_HSE": "8"}, 10)
+    child_env = {}
+    cli._apply_qualified_retained_replay(child_env, bound)
+    assert child_env == {"AGAMEMNON_QUALIFIED_RETAINED_REPLAY": profile}
+
+    checkpoint.write_bytes(checkpoint.read_bytes() + b"drift")
+    with pytest.raises(ValueError, match="checkpoint hash drifted"):
+        cli._qualified_route_profile(
+            args, [str(source)], cli.ENGINE, cli.CHIPDB,
+            {"AGAMEMNON_HSE": "8"}, 10)
+
+
+def test_qualified_checkpoint_stages_only_after_route_replay_proof(tmp_path):
+    transported = tmp_path / "transported.json"
+    checkpoint = tmp_path / "checkpoint.json"
+    transported.write_bytes(b"transport proof")
+    checkpoint.write_bytes(b"registered checkpoint")
+    profile = {
+        "id": "mcu-ahb-bank16-read-word0",
+        "qualified_retained_replay": "mcu-ahb-bank16-read-word0",
+        "checkpoint_path": str(checkpoint),
+    }
+    profile["checkpoint_sha256"] = hashlib.sha256(checkpoint.read_bytes()).hexdigest()
+    durable_proof = tmp_path / "emitted.json.transported-proof.json"
+    with pytest.raises(ValueError, match="verification marker"):
+        cli._stage_qualified_checkpoint_after_replay(
+            profile, str(transported), "route replay emitted no proof", durable_proof)
+    assert transported.read_bytes() == b"transport proof"
+    assert not durable_proof.exists()
+    proof = cli._stage_qualified_checkpoint_after_replay(
+        profile, str(transported), "exact route replay verified cells=1 nets=1",
+        durable_proof)
+    assert transported.read_bytes() == b"registered checkpoint"
+    assert Path(proof).read_bytes() == b"transport proof"
+    assert durable_proof.read_bytes() == b"transport proof"
+    with pytest.raises(ValueError, match="cannot stage"):
+        cli._stage_qualified_checkpoint_after_replay(
+            {"id": "bram-tmux9-i0-d1-we0", "checkpoint_path": str(checkpoint),
+             "checkpoint_sha256": profile["checkpoint_sha256"]},
+            str(transported), "exact route replay verified cells=1 nets=1")
 
 
 def test_silicon_record_binds_exact_scope_and_every_production_artifact():

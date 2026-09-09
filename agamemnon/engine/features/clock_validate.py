@@ -354,11 +354,25 @@ def _active_endpoints(module, require_complete):
 
 
 def _legacy_metadata_absence(module, routed_sha256, profile, owner, chipdb_root,
-                             catalog):
+                             catalog, options=None):
     """Return an exact legacy image hash or reject an untyped routed input."""
     if not isinstance(routed_sha256, str) or not _HEX64.fullmatch(routed_sha256):
         _reject("typed clock metadata is absent outside an exact legacy checkpoint")
     module_sha256 = _module_sha256(module)
+
+    # Two source/checkpoint/image profiles are replayed under a separate
+    # release-maturity option. The helper verifies the selected ID, pinned
+    # registry digest, canonical routed/module pair, and expected final image.
+    # The ordinary diagnostic replay switch has no path through this branch.
+    from agamemnon.engine import retained_replay
+    try:
+        qualified_image = retained_replay.qualified_clock_identity(
+            options, routed_sha256, module, chipdb_root
+        )
+    except ValueError as exc:
+        _reject(str(exc))
+    if qualified_image is not None:
+        return qualified_image
 
     # The four shipped BRAM checkpoints and the retained routes with composite
     # extra leaves already carry the stronger dual-hash quarantine identity.
@@ -417,7 +431,7 @@ def _legacy_metadata_absence(module, routed_sha256, profile, owner, chipdb_root,
 
 
 def _validate_routed_metadata(module, owner, profile, catalog, routed_sha256,
-                              chipdb_root):
+                              chipdb_root, options):
     """Bind serialized nextpnr clock identity to independently derived intent.
 
     Retained pre-N5.7 checkpoints contain no typed clock attributes, so complete
@@ -432,7 +446,7 @@ def _validate_routed_metadata(module, owner, profile, catalog, routed_sha256,
     present = {key for key in attrs if str(key).startswith("AGAMEMNON_CLOCK_")}
     if not present:
         return _legacy_metadata_absence(
-            module, routed_sha256, profile, owner, chipdb_root, catalog
+            module, routed_sha256, profile, owner, chipdb_root, catalog, options
         )
     if present != _CLOCK_METADATA_KEYS:
         _reject("typed clock metadata is missing or has extra fields")
@@ -561,7 +575,7 @@ def _validate(module_value, chipdb_root=None, options=None, routed_sha256=None,
     legacy_bitstream_sha256 = None
     if require_complete:
         legacy_bitstream_sha256 = _validate_routed_metadata(
-            module, owner, profile, catalog, routed_sha256, chipdb_root
+            module, owner, profile, catalog, routed_sha256, chipdb_root, options
         )
     if _option(options, "AGAMEMNON_NGCLK", 1) not in (1, "1"):
         _reject("strict GCLK0 closure requires AGAMEMNON_NGCLK=1")
@@ -615,10 +629,22 @@ def _validate(module_value, chipdb_root=None, options=None, routed_sha256=None,
             _reject("inactive/extra slice clock leaves do not match an exact quarantine")
         if any(inactive.get(leaf) != owner for leaf in quarantined):
             _reject("quarantined leaf is not an inactive FF leaf on the admitted owner")
-        if (quarantined_bitstream_sha256 is not None and
-                quarantined_bitstream_sha256 != row["bitstream_sha256"]):
-            _reject("legacy metadata/quarantine image identity mismatch")
-        quarantined_bitstream_sha256 = row["bitstream_sha256"]
+        from agamemnon.engine import retained_replay
+        try:
+            qualified_image = retained_replay.qualified_clock_identity(
+                options, routed_sha256, module, chipdb_root
+            )
+        except ValueError as exc:
+            _reject(str(exc))
+        if qualified_image is not None:
+            if quarantined_bitstream_sha256 != qualified_image:
+                _reject("qualified retained replay image identity mismatch")
+            quarantined_bitstream_sha256 = qualified_image
+        else:
+            if (quarantined_bitstream_sha256 is not None and
+                    quarantined_bitstream_sha256 != row["bitstream_sha256"]):
+                _reject("legacy metadata/quarantine image identity mismatch")
+            quarantined_bitstream_sha256 = row["bitstream_sha256"]
     missing_edges = expected_edges - actual_protected
     if require_complete and (missing_edges or actual_roots != expected_roots):
         _reject("routed owner tree is incomplete or has the wrong source root")
