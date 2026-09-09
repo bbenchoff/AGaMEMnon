@@ -673,7 +673,7 @@ static bool native_clock_enable_tile_compatible(Context *ctx, const CellInfo *ca
         native_groups.insert(occupant_group);
     }
 
-    if (!ordinary_registered)
+    if (!ordinary_registered || native_groups.empty())
         return true;
     if (!mixed_native_control_enabled())
         return reject("ordinary register requires AGRV2K_MIXED_NATIVE_CONTROL=1", nullptr);

@@ -117,3 +117,19 @@ def test_mixed_control_rejects_two_occupied_lines_with_same_group(tmp_path, monk
         assert "AGRV2K_MIXED_NATIVE_CONTROL=1" in log
     else:
         assert "reserves the other local clock line" in log
+
+
+@pytest.mark.parametrize("mixed", ("0", "1"))
+def test_ordinary_only_register_tile_remains_legal(tmp_path, monkeypatch, mixed):
+    result, log, output = _run(tmp_path, monkeypatch, "ordinary_only_" + mixed,
+                               (), mixed, ordinary=True)
+    assert result.returncode == 0, log
+    assert output.exists()
+
+
+@pytest.mark.parametrize("mixed", ("0", "1"))
+def test_native_only_register_tile_preserves_legacy_legality(tmp_path, monkeypatch, mixed):
+    result, log, output = _run(tmp_path, monkeypatch, "native_only_" + mixed,
+                               ("enable_a",), mixed, ordinary=False)
+    assert result.returncode == 0, log
+    assert output.exists()
