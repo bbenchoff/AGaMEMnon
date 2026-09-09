@@ -10,6 +10,38 @@ ROOT = __import__("pathlib").Path(__file__).resolve().parent.parent
 SYNTH = ROOT / "agamemnon" / "synth"
 
 
+def _yosys_or_skip():
+    yosys = shutil.which("yosys")
+    if yosys:
+        return yosys
+    wsl = shutil.which("wsl")
+    if wsl:
+        try:
+            probe = subprocess.run([wsl, "--exec", "yosys", "-V"],
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                   timeout=10)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+        else:
+            if probe.returncode == 0:
+                return None  # Use the verified WSL Yosys below.
+    pytest.skip("Yosys unavailable natively and through WSL")
+
+
+@pytest.mark.parametrize("available", [False, True])
+def test_wsl_launcher_alone_does_not_establish_yosys_availability(monkeypatch, available):
+    monkeypatch.setattr(shutil, "which", lambda name: "wsl.exe" if name == "wsl" else None)
+    def probe(command, **kwargs):
+        assert command == ["wsl.exe", "--exec", "yosys", "-V"]
+        return subprocess.CompletedProcess(command, 0 if available else 1)
+    monkeypatch.setattr(subprocess, "run", probe)
+    if available:
+        assert _yosys_or_skip() is None
+    else:
+        with pytest.raises(pytest.skip.Exception, match="Yosys unavailable"):
+            _yosys_or_skip()
+
+
 def test_abc9_model_has_only_recovered_lut_arcs_and_no_hardblock_claims():
     model = (SYNTH / "ag32_abc9_model.v").read_text(encoding="utf-8")
     hook = (SYNTH / "abc9_ag32.tcl").read_text(encoding="utf-8")
@@ -28,10 +60,7 @@ def test_abc9_model_has_only_recovered_lut_arcs_and_no_hardblock_claims():
 
 def test_abc9_maps_ordinary_logic_to_existing_lut_path(tmp_path):
     """The optional hook must produce $lut/LUTs consumable by cells_map.v."""
-    yosys = shutil.which("yosys")
-    wsl = not yosys and shutil.which("wsl")
-    if not yosys and not wsl:
-        pytest.skip("yosys unavailable")
+    yosys = _yosys_or_skip()
     source = tmp_path / "ordinary.v"
     output = tmp_path / "ordinary.json"
     source.write_text("""\
@@ -72,10 +101,7 @@ endmodule
 
 def test_abc9_full_hook_leaves_dedicated_carry_for_existing_packer(tmp_path):
     """ABC9 must not absorb AG32_FA before the normal carry packer sees it."""
-    yosys = shutil.which("yosys")
-    wsl = not yosys and shutil.which("wsl")
-    if not yosys and not wsl:
-        pytest.skip("yosys unavailable")
+    yosys = _yosys_or_skip()
 
     def tool_path(path):
         value = str(path).replace("\\", "/")

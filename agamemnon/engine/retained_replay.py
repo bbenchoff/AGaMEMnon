@@ -2,7 +2,7 @@
 import hashlib
 import json
 from pathlib import Path
-from agamemnon.engine.registry import OPTIONS
+from agamemnon.engine.registry import OPTIONS, EngineOptions
 
 OPTION = "AGAMEMNON_RETAINED_REPLAY"
 PROFILE = "pre-owner-v1"
@@ -23,9 +23,10 @@ def _selected_profile(options):
     if options is None:
         return None
     # Clock validation also accepts a plain options mapping.
-    read = options.raw if hasattr(options, "raw") else options.get
-    value = read(OPTION)
-    qualified = read(QUALIFIED_OPTION)
+    if not hasattr(options, "raw"):
+        options = EngineOptions(options)
+    value = options.raw("AGAMEMNON_RETAINED_REPLAY")
+    qualified = options.raw("AGAMEMNON_QUALIFIED_RETAINED_REPLAY")
     if value not in (None, "") and qualified not in (None, ""):
         raise ValueError("legacy and qualified retained replay modes are mutually exclusive")
     if qualified not in (None, ""):
