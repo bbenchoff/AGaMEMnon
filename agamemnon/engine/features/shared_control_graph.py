@@ -277,12 +277,13 @@ class SharedControlGraphFeature:
           for *that* enable -- otherwise its register is clocked unconditionally
           while the design believes it is gated;
         * no two enables share a tile line;
-        * the line is 0, which is all the emission path supports today. Line 1
-          additionally needs ``CFG_CLKMUX<z>`` set on each consuming slice, and
-          that selector has never been on silicon.
+        * a line is either 0 or 1, and every enabled slice names the enable
+          root on the line it consumes. Clock-feature emission owns the
+          line-1 local-clock companion fields.
         """
         cells = module.get("cells", {})
         control_sites = {}
+        control_lines = {}
         for name, cell in cells.items():
             if cell.get("type") != TILE_CONTROL_BEL:
                 continue
@@ -297,19 +298,24 @@ class SharedControlGraphFeature:
                     "clock-enable bel" % (name, bel))
             x, y, line = (int(match.group(1)), int(match.group(2)),
                           int(match.group(3)))
-            if line != 0:
+            if line not in (0, 1):
                 raise SharedControlEmitError(
-                    "tile control cell %r took line %d at X%dY%d; only line 0 is "
-                    "emittable, because line 1 needs a per-slice CFG_CLKMUX bit "
-                    "that has never been on silicon" % (name, line, x, y))
+                    "tile control cell %r took unsupported line %d at X%dY%d"
+                    % (name, line, x, y))
             enable = cell.get("attributes", {}).get("AGRV2K_CLOCK_ENABLE_NET")
             if not enable:
                 raise SharedControlEmitError(
                     "tile control cell %r names no enable net" % (name,))
-            if (x, y) in control_sites and control_sites[(x, y)][0] != enable:
+            if (x, y, line) in control_sites:
                 raise SharedControlEmitError(
-                    "tile X%dY%d hosts two different enables" % (x, y))
-            control_sites[(x, y)] = (enable, line)
+                    "tile X%dY%d line %d has more than one enable root"
+                    % (x, y, line))
+            if (x, y, enable) in control_lines:
+                raise SharedControlEmitError(
+                    "tile X%dY%d enable %r has more than one control line"
+                    % (x, y, enable))
+            control_sites[(x, y, line)] = enable
+            control_lines[(x, y, enable)] = line
 
         slice_lines = {}
         for name, cell in cells.items():
@@ -321,7 +327,9 @@ class SharedControlGraphFeature:
                 if (int(ff_used, 2) if isinstance(ff_used, str) else int(ff_used)):
                     ordinary_bel = cell.get("attributes", {}).get("NEXTPNR_BEL", "")
                     ordinary_site = re.fullmatch(r"X(\d+)Y(\d+)_SLICE(\d+)", ordinary_bel)
-                    if ordinary_site and tuple(map(int, ordinary_site.groups()[:2])) in control_sites:
+                    if ordinary_site and any(
+                            site[:2] == tuple(map(int, ordinary_site.groups()[:2]))
+                            for site in control_sites):
                         raise SharedControlEmitError(
                             "ordinary register %r shares an enabled tile at %s; "
                             "mixed sequential control requires separate qualification" %
@@ -334,16 +342,12 @@ class SharedControlGraphFeature:
                     "clock-enabled slice %r is bound to %r" % (name, bel))
             x, y, z = (int(match.group(1)), int(match.group(2)),
                        int(match.group(3)))
-            site = control_sites.get((x, y))
-            if site is None:
+            line = control_lines.get((x, y, enable))
+            if line is None:
                 raise SharedControlEmitError(
                     "clock-enabled slice %r at X%dY%d has no tile control cell; "
                     "its register would be clocked unconditionally" % (name, x, y))
-            if site[0] != enable:
-                raise SharedControlEmitError(
-                    "clock-enabled slice %r at X%dY%d takes a line driven by a "
-                    "different enable" % (name, x, y))
-            slice_lines[(x, y, z)] = site[1]
+            slice_lines[(x, y, z)] = line
         return slice_lines
 
 

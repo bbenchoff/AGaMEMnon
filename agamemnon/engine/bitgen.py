@@ -238,6 +238,7 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT, document=None,
         chipdb_root,
         options,
         clock_validation,
+        slice_lines=SHARED_CONTROL_GRAPH_FEATURE.slice_lines_from_module(module),
     )
     CLOCK_FEATURE.exclude_ownership(
         clock_state, PHYSICAL_IO_FEATURE.writable_bits(physical_io_state)

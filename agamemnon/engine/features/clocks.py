@@ -7,6 +7,7 @@ import os
 from dataclasses import dataclass, field
 
 from agamemnon.engine.registry import CONSTANTS
+from agamemnon.engine import control_encode, default_frame
 
 from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, WritableRegion
 
@@ -14,6 +15,62 @@ from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, Writab
 VP_AGM_007_CLOCK_TILES = frozenset({
     (1, 1), (12, 4), (14, 5), (20, 1), (20, 12),
 })
+
+_LINE1_PROFILE = ("HSE_PLL_CLKIN_V1", "HSE_PLL", 100, 8)
+_CLKSEL0_TEMPLATE_CELL = (32, 30, "CFG_TILECLKMUX[0]")
+_CLKSEL1_TEMPLATE_CELL = (35, 30, "CFG_TILECLKMUX[4]")
+_LINE1_SEAM_SELECTION = 11
+
+
+def _line1_tiles(slice_lines, validated_clock, options):
+    """Return tiles with a validated native consumer of local clock line 1."""
+    line1 = set()
+    for site, line in dict(slice_lines or {}).items():
+        if (not isinstance(site, tuple) or len(site) != 3 or
+                any(not isinstance(value, int) or isinstance(value, bool)
+                    for value in site)):
+            raise SystemExit("clocks: native control slice line has malformed site %r" % (site,))
+        x, y, z = site
+        if not 0 <= z < 16 or line not in (0, 1):
+            raise SystemExit("clocks: native control slice X%dY%d_SLICE%d has invalid line %r"
+                             % (x, y, z, line))
+        if (x, y) not in validated_clock.clocked_tiles:
+            raise SystemExit("clocks: native control slice X%dY%d_SLICE%d is outside "
+                             "the validated GCLK0 active-leaf tiles" % (x, y, z))
+        if line == 1:
+            line1.add((x, y))
+    if not line1:
+        return frozenset()
+    profile, source_class, sysclk, hse = _LINE1_PROFILE
+    actual = (validated_clock.source_profile, validated_clock.source_class,
+              options.integer("AGAMEMNON_SYSCLK"), options.integer("AGAMEMNON_HSE"))
+    if actual != _LINE1_PROFILE:
+        raise SystemExit("clocks: native line 1 requires qualified GCLK0 profile "
+                         "%s/%s at SYSCLK=%d HSE=%d (got %r)" %
+                         (profile, source_class, sysclk, hse, actual))
+    return frozenset(line1)
+
+
+def _line1_clock_select_bits(chipdb_root, clksel0, tiles):
+    """Derive CFG_TILECLKMUX[4] from the shipped template, never an offset."""
+    cells, _families = default_frame.load_logictile_template(chipdb_root)
+    if cells.get(_CLKSEL0_TEMPLATE_CELL[:2]) != _CLKSEL0_TEMPLATE_CELL[2]:
+        raise SystemExit("clocks: LogicTile template lacks CFG_TILECLKMUX[0] at W32/B30")
+    if cells.get(_CLKSEL1_TEMPLATE_CELL[:2]) != _CLKSEL1_TEMPLATE_CELL[2]:
+        raise SystemExit("clocks: LogicTile template lacks CFG_TILECLKMUX[4] at W35/B30")
+    for key, bit in clksel0.items():
+        try:
+            x, y = (int(value) for value in key.split(","))
+            observed = tuple(bit)
+        except (AttributeError, TypeError, ValueError):
+            raise SystemExit("clocks: logictile_clksel0.json has malformed entry %r" % (key,))
+        if control_encode.bit_position(x, y, *_CLKSEL0_TEMPLATE_CELL[:2]) != observed:
+            raise SystemExit("clocks: logictile_clksel0.json disagrees with the shipped "
+                             "LogicTile template at X%dY%d" % (x, y))
+    return {
+        tile: control_encode.bit_position(*tile, *_CLKSEL1_TEMPLATE_CELL[:2])
+        for tile in tiles
+    }
 
 
 def refuse_silicon_negative_clock_reach(clocked_tiles, options):
@@ -79,6 +136,8 @@ class ClockFeature:
             WritableRegion("sparse_json", "clk0_spine.json"),
             WritableRegion("coordinate_json", "logictile_clksel0.json"),
             WritableRegion("coordinate_json", "logictile_asyncmux3.json"),
+            WritableRegion("coordinate_template", "logictile_config_template.csv"),
+            WritableRegion("cell_map", "pips_full.csv", "byte", "mask"),
             WritableRegion("preamble_profile", "agamemnon/engine/preamble.py"),
         ),
         phase=EmissionPhase.CLOCKS,
@@ -160,7 +219,8 @@ class ClockFeature:
         return global_count + pip_count
 
     def prepare(self, clocked_tiles, registered_sets, bram_cells,
-                selector_cells, chipdb_root, options, validated_clock):
+                selector_cells, chipdb_root, options, validated_clock,
+                slice_lines=None):
         # Placement is useful only as a cross-check.  The routed validator is
         # the authority for the one admitted owner, source, tree, and selector
         # footprint; emission must never derive a clock plan from placement
@@ -207,6 +267,10 @@ class ClockFeature:
             topology_sha256=validated_clock.topology_sha256,
         )
         seam_selection = options.integer("AGAMEMNON_CLK_SEAM")
+        line1_tiles = _line1_tiles(slice_lines, validated_clock, options)
+        if line1_tiles and seam_selection != 5:
+            raise SystemExit("clocks: native line 1 requires qualified clock seam selector 5")
+        line1_selects = _line1_clock_select_bits(chipdb_root, clksel0, line1_tiles)
         # A clocked tile with no entry in these tables used to be skipped in
         # silence: its FFs were placed, its slices presented, its data routed,
         # and the tile clock select was simply never programmed -- so the design
@@ -236,6 +300,15 @@ class ClockFeature:
                     )
                 state.sets.append(seam)
             state.sets.append(tuple(asyncmux3[key]))
+            if (x, y) in line1_tiles:
+                seam = selector_cells.get((x, y, "CFG_SEAMMUX", _LINE1_SEAM_SELECTION))
+                if not seam:
+                    raise SystemExit(
+                        "clocks: pips_full.csv has no CFG_SEAMMUX sel %d cell at "
+                        "native line-1 LogicTile X%dY%d" %
+                        (_LINE1_SEAM_SELECTION, x, y)
+                    )
+                state.sets.extend((line1_selects[(x, y)], seam))
         state.bram_x9_hse_input = any(
             width == 8 for _x, _y, width, _width_b, _mode in bram_cells
         )
