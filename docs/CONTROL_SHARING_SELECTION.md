@@ -21,18 +21,29 @@ fallback, compaction state, selectively lowered enable groups, and fallback
 stages.  Its output, routed JSON, policy sidecar, ownership trace, and attempt
 trace directory are profile-specific.
 
+An optional profile is bounded to three place-and-route invocations, with a
+60-second limit per invocation or a smaller user `--attempt-timeout`.  This
+budget applies only after the isolated baseline has completed.  It preserves
+that baseline when every completed attempt is individually either a classified
+placement/directed-arc failure, or an explicit route deadline; the latter is
+recorded as `optional_route_budget_expired`, not as physical infeasibility.  A
+deadline never authorizes an earlier unknown result.  The exact
+`CARRY_GRAPH_INFEASIBLE` refusal is likewise recorded as an optional-profile
+outcome and does not restart carry or data-logic fallback for the comparison.
+
 The result keeps the isolated baseline unless a candidate is a strict
 improvement in `(slice_count, occupied_tiles)`.  If mixed and dual have equal
 improved metrics, mixed remains selected because it is measured first.  The
 sidecar records the baseline population and an ordered result for every
 profile, including options, route hash, measured metrics, and selection.
 
-Only the existing classified placement/routing-exhaustion exception is treated
-as a candidate rejection.  A rejected mixed candidate does not prevent a dual
-candidate from being measured.  Timing, policy, validation, and unknown
-failures propagate.  Automatic comparison is excluded for explicit sharing
-controls, replay, qualified checkpoints, BRAM-write qualification, research
-profiles, and builds without automatic native-SRST selection.
+Only those bounded outcomes and the existing classified placement/routing
+exhaustion are treated as candidate rejection.  A rejected mixed candidate does
+not prevent a dual candidate from being measured.  Timing, policy, validation,
+abort, and unknown failures propagate.  Automatic comparison is excluded for
+explicit sharing controls, replay, qualified checkpoints, BRAM-write
+qualification, research profiles, and builds without automatic native-SRST
+selection.
 
 This selection is a resource comparison for separately qualified compositions.
 It does not claim that every design benefits, that both compositions can share

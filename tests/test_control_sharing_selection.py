@@ -5,6 +5,11 @@ from types import SimpleNamespace
 import pytest
 
 from agamemnon import cli
+from agamemnon.engine import attempt_ladder as ladder
+
+
+def _attempt(log, outcome=ladder.NOT_ROUTED):
+    return ladder.AttemptRecord(1, 8, "4", 0, outcome, log)
 
 
 def _routed(path, *, native_groups=(), ordinary=0):
@@ -99,6 +104,44 @@ def test_sharing_candidate_copies_effective_mapping_state(tmp_path, monkeypatch)
     assert observed == state
     assert chosen is baseline and report["selected"] == "isolated"
     assert report["baseline_build_state"] == state
+
+
+def test_sharing_budget_is_candidate_private_and_respects_tighter_user_limit(tmp_path, monkeypatch):
+    routed = tmp_path / "baseline.json"
+    _routed(routed, native_groups=("a",), ordinary=1)
+    monkeypatch.setattr(cli, "_control_sharing_auto_enabled", lambda a: True)
+    args = _ordinary_args(attempt_timeout=7.0)
+    baseline = _baseline(routed, state={"no_hard_carry": True})
+    observed = []
+    def build(candidate):
+        observed.append((candidate.attempt_timeout,
+                         candidate._control_sharing_max_route_attempts,
+                         candidate.no_hard_carry))
+        return {"slice_count": 96, "occupied_tiles": 10, "routed_sha256": "sharing"}
+    monkeypatch.setattr(cli, "_cmd_build_once", build)
+    chosen, report = cli._compare_control_sharing(args, baseline, str(tmp_path))
+    assert chosen is baseline
+    assert observed == [(7.0, 3, True)]
+    assert args.attempt_timeout == 7.0
+    assert baseline["effective_build_state"] == {"no_hard_carry": True}
+    assert report["profiles"][0]["route_attempt_budget"] == {
+        "max_route_attempts": 3, "attempt_timeout_seconds": 7.0}
+
+
+def test_control_sharing_stop_helper_requires_known_records_individually():
+    placement = _attempt("Unable to place cell")
+    arc = _attempt("ERROR: Failed to route arc 1.0 of net 's', from A to B.")
+    deadline = _attempt("AGaMEMnon place&route time limit exceeded (60 seconds)")
+    unknown = _attempt("unclassified implementation result")
+    assert cli._control_sharing_budget_outcome([placement, arc], 3) is None
+    assert cli._control_sharing_budget_outcome([placement, arc, placement], 3) == (
+        "classified_placement_routing_exhaustion")
+    assert cli._control_sharing_budget_outcome([placement, deadline, arc], 3) == (
+        "optional_route_budget_expired")
+    # One deadline cannot turn a different unknown record into a safe skip.
+    assert cli._control_sharing_budget_outcome([placement, deadline, unknown], 3) is None
+    assert cli._control_sharing_budget_outcome(
+        [placement, arc, _attempt("Routing complete", ladder.TIMING_FAILED)], 3) is None
 
 
 @pytest.mark.parametrize(("groups", "ordinary", "expected"), [
@@ -204,6 +247,8 @@ def test_classified_exhaustion_keeps_baseline_and_other_failures_propagate(tmp_p
     assert report["profiles"] == [{
         "profile": "mixed",
         "options": {"AGRV2K_MIXED_NATIVE_CONTROL": "1", "AGRV2K_DUAL_NATIVE_CONTROL": "0"},
+        "route_attempt_budget": {
+            "max_route_attempts": 3, "attempt_timeout_seconds": 60.0},
         "outcome": "classified_placement_routing_exhaustion"}]
     assert report["outcome"] == "classified_placement_routing_exhaustion"
     for failure in (RuntimeError("unknown"), SystemExit(2)):
@@ -230,6 +275,27 @@ def test_classified_mixed_exhaustion_continues_to_dual(tmp_path, monkeypatch):
     assert calls == ["mixed", "dual"]
     assert chosen["routed_sha256"] == "dual"
     assert report["profiles"][0]["outcome"] == "classified_placement_routing_exhaustion"
+
+
+@pytest.mark.parametrize("outcome", [
+    "optional_route_budget_expired", "optional_carry_graph_infeasible",
+])
+def test_optional_budget_outcomes_are_recorded_without_selecting_candidate(
+        tmp_path, monkeypatch, outcome):
+    routed = tmp_path / "baseline.json"
+    _routed(routed, native_groups=("a",), ordinary=1)
+    monkeypatch.setattr(cli, "_control_sharing_auto_enabled", lambda a: True)
+    monkeypatch.setattr(
+        cli, "_cmd_build_once",
+        lambda candidate: (_ for _ in ()).throw(cli._ControlSharingCandidateExhausted(
+            outcome, attempts_run=1, max_route_attempts=3, attempt_timeout_seconds=60.0)))
+    baseline = _baseline(routed)
+    chosen, report = cli._compare_control_sharing(_ordinary_args(), baseline, str(tmp_path))
+    assert chosen is baseline
+    assert report["profiles"][0].items() >= {
+        "outcome": outcome, "attempts_run": 1,
+        "max_route_attempts": 3, "attempt_timeout_seconds": 60.0}.items()
+    assert report["outcome"] == outcome
 
 
 def test_unknown_or_timing_mixed_failure_does_not_run_dual(tmp_path, monkeypatch):

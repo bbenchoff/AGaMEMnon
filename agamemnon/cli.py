@@ -2018,6 +2018,63 @@ class _NativeSRSTCandidateExhausted(RuntimeError):
 class _ControlSharingCandidateExhausted(RuntimeError):
     """An optional sharing comparison exhausted classified placement/routing."""
 
+    def __init__(self, outcome="classified_placement_routing_exhaustion", *,
+                 attempts_run=None, max_route_attempts=None,
+                 attempt_timeout_seconds=None):
+        super().__init__(outcome)
+        self.outcome = outcome
+        self.attempts_run = attempts_run
+        self.max_route_attempts = max_route_attempts
+        self.attempt_timeout_seconds = attempt_timeout_seconds
+
+    def report(self):
+        result = {"outcome": self.outcome}
+        if self.attempts_run is not None:
+            result["attempts_run"] = self.attempts_run
+        if self.max_route_attempts is not None:
+            result["max_route_attempts"] = self.max_route_attempts
+        if self.attempt_timeout_seconds is not None:
+            result["attempt_timeout_seconds"] = self.attempt_timeout_seconds
+        return result
+
+
+_CONTROL_SHARING_MAX_ROUTE_ATTEMPTS = 3
+_CONTROL_SHARING_MAX_ATTEMPT_SECONDS = 60.0
+_CONTROL_SHARING_TIMEOUT_MARKER = "AGaMEMnon place&route time limit exceeded"
+
+
+def _control_sharing_attempt_budget(a):
+    """Return the bounded private P&R budget for one optional profile."""
+    user_timeout = getattr(a, "attempt_timeout", None)
+    timeout = _CONTROL_SHARING_MAX_ATTEMPT_SECONDS
+    if user_timeout is not None:
+        timeout = min(timeout, user_timeout)
+    return _CONTROL_SHARING_MAX_ROUTE_ATTEMPTS, timeout
+
+
+def _control_sharing_budget_outcome(records, max_route_attempts):
+    """Safe optional-profile retention reason after its bounded P&R search.
+
+    A timeout is a search-budget observation, not evidence of physical
+    infeasibility.  It is safe only when every other completed attempt has an
+    independently classified placement or directed-arc failure; an unknown
+    record must remain fatal even when another attempt timed out.
+    """
+    if len(records) < max_route_attempts:
+        return None
+    if any(record.outcome != _attempt_ladder.NOT_ROUTED for record in records):
+        return None
+    saw_deadline = False
+    for record in records:
+        if _CONTROL_SHARING_TIMEOUT_MARKER in record.log:
+            saw_deadline = True
+            continue
+        signature = _attempt_ladder._signature_for(record)
+        if signature is None or signature.kind not in {"PLACEMENT", "ARC_FAILURE"}:
+            return None
+    return ("optional_route_budget_expired" if saw_deadline
+            else "classified_placement_routing_exhaustion")
+
 
 def _routed_slice_count(document):
     return sum(cell.get("type") == "GENERIC_SLICE"
@@ -3039,6 +3096,17 @@ def _cmd_build_once(a):
                 _attempt_ladder.write_attempt_log(attempts_dir, record)
                 if (outcome != _attempt_ladder.ABORTED and run.returncode and
                         re.search(r"^ERROR: agrv2k: CARRY_GRAPH_INFEASIBLE:", rlog, re.MULTILINE)):
+                    if getattr(a, "_control_sharing_candidate", False):
+                        # This exact C++ refusal is already a completed
+                        # optional-profile verdict.  Do not resynthesise carry
+                        # or enter data-logic fallbacks while comparing it with
+                        # an isolated image that has already completed.
+                        raise _ControlSharingCandidateExhausted(
+                            "optional_carry_graph_infeasible",
+                            attempts_run=attempt_no,
+                            max_route_attempts=getattr(
+                                a, "_control_sharing_max_route_attempts", None),
+                            attempt_timeout_seconds=attempt_timeout)
                     if _default_carry_fallback_allowed(a):
                         print("[build] no carry footprint has all required graph ingress; "
                               "resynthesizing once with LUT carry fallback")
@@ -3057,6 +3125,29 @@ def _cmd_build_once(a):
                     print(rlog[-4000:])
                     print("error: nextpnr rejected a deterministic hardware constraint; "
                           "placement/routing retries cannot make this image safe")
+                    sys.exit(1)
+                if (outcome != _attempt_ladder.SUCCESS and
+                        getattr(a, "_control_sharing_candidate", False) and
+                        attempt_no >= getattr(a, "_control_sharing_max_route_attempts", float("inf"))):
+                    budget_outcome = _control_sharing_budget_outcome(
+                        attempt_records, a._control_sharing_max_route_attempts)
+                    if budget_outcome is not None:
+                        raise _ControlSharingCandidateExhausted(
+                            budget_outcome,
+                            attempts_run=attempt_no,
+                            max_route_attempts=a._control_sharing_max_route_attempts,
+                            attempt_timeout_seconds=attempt_timeout)
+                    # Do not allow an unclassified, timing, or otherwise
+                    # unsafe optional candidate to escape through the ordinary
+                    # synthesis/mapping fallback ladder.  Its completed
+                    # isolated baseline remains untouched, but the build must
+                    # report the real unsafe result instead of selecting it.
+                    summary = _attempt_ladder.format_ladder_summary(
+                        _attempt_ladder.summarize_ladder(attempt_records), attempts_dir=attempts_dir)
+                    if summary:
+                        print(summary)
+                    print("error: optional control-sharing route budget reached without "
+                          "a classified placement/arc result or a safe deadline-only record")
                     sys.exit(1)
                 if outcome == _attempt_ladder.SUCCESS:
                     try:
@@ -3104,7 +3195,11 @@ def _cmd_build_once(a):
                     _tile_compaction_fallback_allowed(True, attempt_records)):
                 # Keep the completed isolated baseline instead of starting
                 # another compaction/native-lowering ladder for this option.
-                raise _ControlSharingCandidateExhausted(tmp)
+                raise _ControlSharingCandidateExhausted(
+                    "classified_placement_routing_exhaustion",
+                    attempts_run=len(attempt_records),
+                    max_route_attempts=getattr(a, "_control_sharing_max_route_attempts", None),
+                    attempt_timeout_seconds=attempt_timeout)
             if _tile_compaction_fallback_allowed(auto_tile_compaction, attempt_records):
                 print("[build] compact placement/routing ladder exhausted; retrying without tile compaction")
                 print("[build] compact diagnostics retained at %s" % tmp)
@@ -3587,10 +3682,13 @@ def _compare_control_sharing(a, baseline, root_tmp):
     for profile in profiles:
         options = {"AGRV2K_MIXED_NATIVE_CONTROL": str(int(profile == "mixed")),
                    "AGRV2K_DUAL_NATIVE_CONTROL": str(int(profile == "dual"))}
+        max_route_attempts, attempt_timeout = _control_sharing_attempt_budget(a)
         candidate = copy.copy(a)
         candidate._native_srst_candidate = True
         candidate._control_sharing_candidate = True
         candidate._control_sharing_options = options
+        candidate._control_sharing_max_route_attempts = max_route_attempts
+        candidate.attempt_timeout = attempt_timeout
         candidate._native_enable_snapshot = None
         candidate._native_enable_excluded_group_ids = ()
         candidate._fallback_stages = ()
@@ -3610,12 +3708,19 @@ def _compare_control_sharing(a, baseline, root_tmp):
             overrides["AGAMEMNON_ATTEMPT_TRACE_DIR"] = os.path.join(
                 os.environ["AGAMEMNON_ATTEMPT_TRACE_DIR"], "control_" + profile)
         prior = {key: os.environ.get(key) for key in overrides}
-        profile_report = {"profile": profile, "options": options}
+        profile_report = {
+            "profile": profile,
+            "options": options,
+            "route_attempt_budget": {
+                "max_route_attempts": max_route_attempts,
+                "attempt_timeout_seconds": attempt_timeout,
+            },
+        }
         try:
             os.environ.update(overrides)
             result = _cmd_build_once(candidate)
-        except _ControlSharingCandidateExhausted:
-            profile_report["outcome"] = "classified_placement_routing_exhaustion"
+        except _ControlSharingCandidateExhausted as exc:
+            profile_report.update(exc.report())
             report["profiles"].append(profile_report)
             continue
         finally:
@@ -3645,7 +3750,9 @@ def _compare_control_sharing(a, baseline, root_tmp):
     if any(row["outcome"] == "routed" for row in report["profiles"]):
         report["outcome"] = "measured_profiles"
     else:
-        report["outcome"] = "classified_placement_routing_exhaustion"
+        terminal_outcomes = {row["outcome"] for row in report["profiles"]}
+        report["outcome"] = (terminal_outcomes.pop() if len(terminal_outcomes) == 1
+                             else "optional_profiles_not_selected")
     return best, report
 
 
