@@ -11,10 +11,14 @@ No new release was published; the v0.4.0 record below is unchanged.
 
 The current engine supersedes several width outcomes in the historical release
 table below. Regbank16 now has a compact 68-slice/six-tile source build that
-passes silicon 3/3 (default 68/16; vendor 69/5). Addsub16 passes at 151/26 and
-util20 at 434/41. Their compact 151/12 and 434/39 images route and emit but fail
-silicon. The remaining blocker is physical correctness of those compact
-compositions, not absence of an emitted image. Compaction remains explicit.
+passes silicon 3/3 (default 68/16; vendor 69/5). After withdrawing a nonportable
+selector translation, fresh ordinary-source addsub16 at 151/12 and util20 at
+434/39 also pass their original full silicon contracts 3/3. Their baselines
+are 151/26 and 434/41. The earlier compact images remain known failures;
+the new source flow avoids the withdrawn edges and refuses their emission in
+new checkpoints. This resolves those two measured compact-image failures,
+not general vendor-level density or timing. Compaction remains explicit.
+See [repair and qualification scope](ROUTING_SELECTOR_WITHDRAWAL.md).
 
 Mixed ordinary/native and two-native-group clock sharing have conditional
 implementations and fresh source builds that reproduce their silicon-passing

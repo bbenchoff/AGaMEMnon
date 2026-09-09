@@ -1,6 +1,6 @@
 # Supported feature matrix
 
-## Main after v0.4.0 — 2026-09-08
+## Main after v0.4.0 — 2026-09-09
 
 Ordinary `build --uarch` now uses native positive-edge, active-high register
 enables on line 0, with ordinary and differently enabled registers placed in
@@ -24,10 +24,12 @@ do not justify making either the default.
 
 Routing-aware development now has a six-tile regbank16 image (68 slices)
 that passes its silicon contract 3/3, versus the default's sixteen tiles and
-the vendor's five. Compaction remains explicit: compact addsub16 (151 slices,
-12 tiles) and util20 (434 slices, 39 tiles) route and emit but fail silicon;
-their noncompact controls pass at 26 and 41 tiles respectively. These newer
-results supersede the older no-image frontier for the development engine.
+the vendor's five. After the boundary-selector repair, fresh compact addsub16
+(151 slices, 12 tiles) and util20 (434 slices, 39 tiles) also pass their full
+silicon contracts 3/3; their noncompact controls pass at 26 and 41 tiles.
+Compaction remains explicit. These results supersede the older compact-image
+failures for the repaired source flow, while the original failing images
+remain rejected. See [selector repair and scope](ROUTING_SELECTOR_WITHDRAWAL.md).
 
 Both experimental local-clock sharing compositions now reproduce their
 silicon-passing diagnostic images through full ordinary-source builds on the
