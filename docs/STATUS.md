@@ -22,6 +22,22 @@ physical speed or general width improvement is established. ABC9 LUT timing
 mapping and directed route bounds are available explicitly; their comparisons
 do not justify making either the default.
 
+Routing-aware development now has a six-tile regbank16 image (68 slices)
+that passes its silicon contract 3/3, versus the default's sixteen tiles and
+the vendor's five. Compaction remains explicit: compact addsub16 (151 slices,
+12 tiles) and util20 (434 slices, 39 tiles) route and emit but fail silicon;
+their noncompact controls pass at 26 and 41 tiles respectively. These newer
+results supersede the older no-image frontier for the development engine.
+
+Both experimental local-clock sharing compositions now reproduce their
+silicon-passing diagnostic images through full ordinary-source builds on the
+same native binary. The mixed fixture uses 69 slices in 14 tiles versus its
+isolated reference's 69 in 16. The 58 retained images remain byte-identical.
+Mixed/dual options remain explicit pending broader supported admission; reset
+recovery exposes a separate fixed-MCU-input placement restriction. See
+[local clock sharing](LOCAL_CLOCK_SHARING.md). No physical speed improvement
+or fence closure is claimed.
+
 ## v0.4.0 supported scope — 2026-09-07
 
 [v0.4.0 is published](https://github.com/bbenchoff/AGaMEMnon/releases/tag/v0.4.0). Tagged CI and SDK workflows pass,
@@ -301,15 +317,15 @@ not merely missing one last selector table: user and structural rewrites often
 have very different feasibility, and apparently modest width/density changes
 can exhaust the current graph or placement policy.
 
-The wide MCU frontier is bounded as follows:
+The current development-engine wide MCU frontier is bounded as follows:
 
 - the ingress / X13Y12 coverage problem has exact solutions;
-- fresh ordinary-source `regbank16` emits a 16-tile image and passes its
-  sampled odd-slice silicon contract 3/3; all-site/general admission remains
-  open;
-- `util20` passes its sampled contract in a 102-tile image, while the compact
-  42-tile placement still times out; a wide `addsub16` has no emitted candidate
-  and remains a placement/density blocker;
+- fresh ordinary-source `regbank16` passes both the default 16-tile and
+  experimental compact six-tile contracts, with 68 slices in each;
+- `util20` passes at 434 slices/41 tiles; its 39-tile compact image emits but
+  fails silicon. `addsub16` passes at 151 slices/26 tiles; its 12-tile compact
+  image also emits but fails silicon. Their older placement/no-image outcomes
+  no longer describe these current builds;
 - a 256-bit user state vehicle routes only after 12 failures and is then wrong
   on silicon, while its structural counterpart does not route.
 

@@ -7,6 +7,26 @@ sequential tiles, line 1, combined controls and broader site qualification
 remain open. [Scope and fallback](NATIVE_CLOCK_ENABLE_EXPERIMENT.md).
 No new release was published; the v0.4.0 record below is unchanged.
 
+## Development update — routing-aware packing
+
+The current engine supersedes several width outcomes in the historical release
+table below. Regbank16 now has a compact 68-slice/six-tile source build that
+passes silicon 3/3 (default 68/16; vendor 69/5). Addsub16 passes at 151/26 and
+util20 at 434/41. Their compact 151/12 and 434/39 images route and emit but fail
+silicon. The remaining blocker is physical correctness of those compact
+compositions, not absence of an emitted image. Compaction remains explicit.
+
+Mixed ordinary/native and two-native-group clock sharing have conditional
+implementations and fresh source builds that reproduce their silicon-passing
+images exactly. The mixed fixture reduces 69 slices/16 tiles to 69/14.
+General supported admission remains open; these options are experimental.
+Reset recovery on the mixed fixture separately exposes fixed MCU `hwrite`
+ingress placement restrictions. The retained58 byte gate passes and fences
+remain **74 -> 74**. See [scope and evidence](LOCAL_CLOCK_SHARING.md).
+
+The following sections describe the published v0.4.0 snapshot. Worktrees and
+branches have subsequently been created for the development work above.
+
 [v0.4.0 is published](https://github.com/bbenchoff/AGaMEMnon/releases/tag/v0.4.0). Its release gates are complete.
 The functional limitations below remain explicit boundaries of this incremental
 release; universal vendor parity is still a longer-term objective.
