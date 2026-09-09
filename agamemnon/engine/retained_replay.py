@@ -22,8 +22,10 @@ REGISTRY_SHA256 = "1115d38a900f328b8e1f1a89f767296b26db8f54f5aea5299148d974944c0
 def _selected_profile(options):
     if options is None:
         return None
-    value = options.raw(OPTION)
-    qualified = options.raw(QUALIFIED_OPTION)
+    # Clock validation also accepts a plain options mapping.
+    read = options.raw if hasattr(options, "raw") else options.get
+    value = read(OPTION)
+    qualified = read(QUALIFIED_OPTION)
     if value not in (None, "") and qualified not in (None, ""):
         raise ValueError("legacy and qualified retained replay modes are mutually exclusive")
     if qualified not in (None, ""):

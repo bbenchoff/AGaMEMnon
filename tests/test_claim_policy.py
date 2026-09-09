@@ -60,9 +60,12 @@ def test_native_enable_claim_is_bounded_and_newly_approved():
     decision = evaluate_policy(options_from({}))
     claim = next(row for row in decision.selected if row["name"] == "shared_control_graph")
     assert claim["approval_state"] == "approved"
-    assert claim["review_date"] == "2026-09-08"
-    assert "line 0" in claim["claim_scope"]
-    assert "mixed sequential tiles and line 1 excluded" in claim["claim_scope"]
+    assert claim["review_date"] == "2026-09-09"
+    assert "MCU bus clock" in claim["claim_scope"]
+    assert "one-native-group mixed" in claim["claim_scope"]
+    assert "two-native-group dual" in claim["claim_scope"]
+    assert "dual tiles exclude ordinary FFs" in claim["claim_scope"]
+    assert "mixed/dual profiles are never combined" in claim["claim_scope"]
     recorded = next(row for row in manifest()["features"] if row["name"] == "shared_control_graph")
     for key in ("claim_scope", "approval_state", "review_date"):
         assert recorded[key] == claim[key]

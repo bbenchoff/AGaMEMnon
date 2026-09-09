@@ -43,6 +43,20 @@ def test_default_and_unknown_version():
         replay.enabled(EngineOptions({"AGAMEMNON_RETAINED_REPLAY":"anything"}))
 
 
+@pytest.mark.parametrize("wrap", [dict, EngineOptions])
+def test_clock_replay_selection_accepts_mapping_and_engine_options(wrap):
+    assert replay._selected_profile(None) is None
+    assert replay._selected_profile(wrap({})) is None
+    assert replay._selected_profile(wrap({replay.OPTION: replay.PROFILE})) == replay.PROFILE
+    profile = "mcu-ahb-bank16-read-word0"
+    assert replay._selected_profile(wrap({replay.QUALIFIED_OPTION: profile})) == profile
+    with pytest.raises(ValueError, match="unknown qualified"):
+        replay._selected_profile(wrap({replay.QUALIFIED_OPTION: "unknown"}))
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        replay._selected_profile(wrap({replay.OPTION: replay.PROFILE,
+                                       replay.QUALIFIED_OPTION: profile}))
+
+
 @pytest.mark.parametrize("profile,routed", [
     ("mcu-ahb-bank16-read-word0",
      "qualification/mcu_ahb_register_bank16_read_word0_gated_routed.json"),
