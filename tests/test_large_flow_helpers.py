@@ -891,6 +891,20 @@ def test_default_carry_fallback_is_implicit_uarch_only():
     assert not allowed(qualified_bram_write="registered")
 
 
+def test_carry_resynthesis_discards_incompatible_native_snapshot():
+    from agamemnon import cli
+    args = SimpleNamespace(no_hard_carry=False, no_native_clock_enable=False,
+        _native_enable_snapshot='original-hardware-carry.preqin',
+        _native_enable_excluded_group_ids=('0123456789abcdef',),
+        _fallback_stages=('selective_data_logic_enable',))
+    cli._restart_with_lut_carry(args)
+    assert args.no_hard_carry
+    assert not hasattr(args, '_native_enable_snapshot')
+    assert not hasattr(args, '_native_enable_excluded_group_ids')
+    assert not args.no_native_clock_enable
+    assert args._fallback_stages == ('selective_data_logic_enable',)
+
+
 def test_pack_research_unsafe_sets_explicit_policy_and_removes_strict_gate(
         monkeypatch, tmp_path):
     from agamemnon import cli

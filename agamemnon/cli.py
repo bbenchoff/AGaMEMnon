@@ -1813,6 +1813,17 @@ def _default_carry_fallback_allowed(a):
             not getattr(a, "qualified_bram_write", None))
 
 
+def _restart_with_lut_carry(a):
+    """A different arithmetic mapping requires fresh synthesis and group IDs."""
+    a.no_hard_carry = True
+    # The cached pre-Qin document still contains AG32_FA cells. Reusing it
+    # silently defeats LUT-carry fallback, and its enable IDs cannot select
+    # groups in the newly synthesized document.
+    for key in ("_native_enable_snapshot", "_native_enable_excluded_group_ids"):
+        if hasattr(a, key):
+            delattr(a, key)
+
+
 def _native_enable_fallback_allowed(native_enable, document, records):
     """Retry an exhausted placement ladder only when native enables are present.
 
@@ -2930,6 +2941,18 @@ def _cmd_build_once(a):
                 record = _attempt_ladder.AttemptRecord(attempt_no, cap, seed, fo, outcome, rlog)
                 attempt_records.append(record)
                 _attempt_ladder.write_attempt_log(attempts_dir, record)
+                if (outcome != _attempt_ladder.ABORTED and run.returncode and
+                        re.search(r"^ERROR: agrv2k: CARRY_GRAPH_INFEASIBLE:", rlog, re.MULTILINE)):
+                    if _default_carry_fallback_allowed(a):
+                        print("[build] no carry footprint has all required graph ingress; "
+                              "resynthesizing once with LUT carry fallback")
+                        print("[build] carry feasibility evidence retained at %s" % tmp)
+                        _restart_with_lut_carry(a)
+                        a._fallback_stages = (*getattr(a, "_fallback_stages", ()), "lut_carry_graph_infeasible")
+                        return _cmd_build_once(a)
+                    print(rlog[-4000:])
+                    print("error: requested hard-carry mapping has no feasible graph footprint")
+                    sys.exit(1)
                 if outcome == _attempt_ladder.ABORTED:
                     print(rlog[-4000:])
                     print("error: nextpnr aborted; placement/routing retries are unsafe for this failure")
@@ -3047,7 +3070,7 @@ def _cmd_build_once(a):
                 # ladder. Preserve them across recursive fallback; deleting
                 # them here erased the evidence behind the first failure.
                 print("[build] dedicated-carry diagnostics retained at %s" % tmp)
-                a.no_hard_carry = True
+                _restart_with_lut_carry(a)
                 a._fallback_stages = (*getattr(a, "_fallback_stages", ()), "lut_carry")
                 return _cmd_build_once(a)
             # G10 -- report across every attempt, not just the last: which failure signature

@@ -9475,7 +9475,7 @@ struct AgrvImpl : ViaductAPI
     // footprint.  N5.6A relative-z clusters admit only local typed CARRY PIPs;
     // legacy absolute-z long profiles retain their exact CARRY_SEAM edges.
     bool carry_cluster_footprint_valid(CellInfo *cell, BelId candidate,
-                                       bool explain_invalid) const
+                                       bool explain_invalid, bool ignore_occupancy = false) const
     {
         if (cell->cluster == ClusterId())
             return true;
@@ -9530,13 +9530,14 @@ struct AgrvImpl : ViaductAPI
                 return false;
             }
             CellInfo *occupant = ctx->getBoundBelCell(bel);
-            if (occupant != nullptr && occupant != member) {
+            if (!ignore_occupancy && occupant != nullptr && occupant != member) {
                 if (explain_invalid)
                     log_info("agrv2k validity: carry cluster member '%s' requires occupied %s\n",
                              ctx->nameOf(member), ctx->nameOfBel(bel));
                 return false;
             }
             for (auto &reservation_entry : ctx->cells) {
+                if (ignore_occupancy) break;
                 CellInfo *reserved_by = reservation_entry.second.get();
                 if (reserved_by->cluster == cell->cluster)
                     continue;
@@ -15131,6 +15132,7 @@ struct AgrvImpl : ViaductAPI
             if (cell->bel != BelId())
                 continue;
             int of_type = 0, taken = 0, outside_region = 0, valid = 0, invalid = 0;
+            std::set<BelId> individually_valid;
             BelId first_invalid;
             for (BelId bel : all) {
                 if (ctx->getBelType(bel) != cell->type)
@@ -15142,7 +15144,7 @@ struct AgrvImpl : ViaductAPI
                 ctx->bindBel(bel, cell, STRENGTH_WEAK);
                 const bool ok = ctx->isBelLocationValid(bel);
                 ctx->unbindBel(bel);
-                if (ok) ++valid;
+                if (ok) { ++valid; individually_valid.insert(bel); }
                 else { ++invalid; if (first_invalid == BelId()) first_invalid = bel; }
             }
             log_info("place-diag '%s' type %s: %d bel(s) of type, %d taken, "
@@ -15178,9 +15180,16 @@ struct AgrvImpl : ViaductAPI
                                                      : rl.z + child->constr_z);
                     BelId cb = ctx->getBelByLocation(want_loc);
                     if (cb == BelId() || ctx->getBelType(cb) != child->type) {
+                        if (individually_valid.count(root))
+                            log_info("place-diag individually valid root %s requires missing/wrong-type child %s at X%dY%dZ%d\n",
+                                     ctx->nameOfBel(root), ctx->nameOf(child), want_loc.x, want_loc.y, want_loc.z);
                         shape_ok = false; ++rej_no_bel; break;
                     }
                     if (!ctx->checkBelAvail(cb)) {
+                        if (individually_valid.count(root))
+                            log_info("place-diag individually valid root %s child %s competes for %s owned by %s\n",
+                                     ctx->nameOfBel(root), ctx->nameOf(child), ctx->nameOfBel(cb),
+                                     ctx->nameOf(ctx->getBoundBelCell(cb)));
                         shape_ok = false; ++rej_taken; break;
                     }
                     ctx->bindBel(cb, child, STRENGTH_WEAK);
@@ -15189,7 +15198,8 @@ struct AgrvImpl : ViaductAPI
                 if (shape_ok)
                     for (BelId b : bound)
                         if (!ctx->isBelLocationValid(b)) {
-                            if (getenv("AGRV2K_PLACE_DIAG_EXPLAIN") != nullptr && explained++ < 8) {
+                            if (getenv("AGRV2K_PLACE_DIAG_EXPLAIN") != nullptr &&
+                                (individually_valid.count(root) || explained++ < 8)) {
                                 log_info("place-diag root %s member %s at %s rejected:\n",
                                          ctx->nameOfBel(root), ctx->nameOf(ctx->getBoundBelCell(b)),
                                          ctx->nameOfBel(b));
@@ -15514,6 +15524,39 @@ struct AgrvImpl : ViaductAPI
                       first_infeasible.c_str());
     }
 
+    void preflight_carry_graph()
+    {
+        const char *option = std::getenv("AGRV2K_CARRY_GRAPH_PREFLIGHT");
+        if (!option || std::string(option) == "0") return;
+        if (std::string(option) != "1")
+            log_error("agrv2k: AGRV2K_CARRY_GRAPH_PREFLIGHT must be 0 or 1\n");
+        for (auto &entry : ctx->cells) {
+            CellInfo *root = entry.second.get();
+            if (root->cluster != root->name || root->constr_children.empty() ||
+                root->getPort(ctx->id("COUT")) == nullptr) continue;
+            int footprints = 0, with_ingress = 0;
+            for (BelId candidate : ctx->getBels()) {
+                if (ctx->getBelType(candidate) != root->type ||
+                    !carry_cluster_footprint_valid(root, candidate, false, true)) continue;
+                ++footprints;
+                const Loc origin = ctx->getBelLocation(candidate);
+                bool valid = slice_data_inputs_have_ingress(ctx, root, candidate);
+                for (CellInfo *member : root->constr_children) {
+                    const Loc loc(origin.x + member->constr_x, origin.y + member->constr_y,
+                                  member->constr_abs_z ? member->constr_z : origin.z + member->constr_z);
+                    BelId bel = ctx->getBelByLocation(loc);
+                    valid &= bel != BelId() && slice_data_inputs_have_ingress(ctx, member, bel);
+                }
+                if (valid) ++with_ingress;
+            }
+            log_info("agrv2k: carry graph preflight '%s': %d typed footprints, %d with all connected input ingress\n",
+                     ctx->nameOf(root), footprints, with_ingress);
+            if (!with_ingress)
+                log_error("agrv2k: CARRY_GRAPH_INFEASIBLE: cluster '%s' has no typed footprint with all connected input ingress (occupancy ignored)\n",
+                          ctx->nameOf(root));
+        }
+    }
+
     void prePlace() override
     {
         diagnose_placement_feasibility();
@@ -15531,6 +15574,7 @@ struct AgrvImpl : ViaductAPI
         refresh_global_clock_owner("pre-place", false);
         refresh_mcu_endpoint_owner("pre-place", false);
         prepare_shared_ingress_checks();
+        preflight_carry_graph();
         prepare_control_placements();
     }
 
