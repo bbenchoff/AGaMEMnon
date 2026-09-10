@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "44780e673f120252d4fedf2c9593ee78d1780752a12a6c5b3fe8be24c745734f",
+  "fingerprint_sha256": "bd66f6d148d1309c8b3d9d1750d650e01d204f8e8a971efdb9dd18535f634331",
   "file_count": 265,
   "pinned_date": "2026-09-06",
-  "reason": "pinned 2026-09-10: chipdb/selector_alias_repair.csv refreshed to 4767 rows. Still INERT by default (features/routing.py reads it only under AGAMEMNON_ALIAS_REPAIR=1), so the default graph, admission and every codeword are byte unchanged. Attribution now ranks evidence physical-selector-observation > selector-delivery-on-silicon > vendor-corpus-usage, and no longer lets a CONDUCTION row confer ownership: conduction proves the wire carries, not that a codeword selects it. That correction makes the table independently reproduce conclusions previously reached only by silicon campaigns -- it now convicts X14Y11_RMUX87 -> X14Y12_RMUX59 (BLOCKERS.md #2 / VP-AGM-001, where [2,9] selects X14Y8_RMUX39) and 132 instances of two of the three hand-withdrawn NONPORTABLE_RELATIVE_KEYS, while still keeping X15Y4_RMUX68 -> X14Y4_RMUX85, which a board watched deliver. Enabling the repair remains outside this pin: it drops ~4.8k rows and moves graph_pip_count. Evidence: AG32-Docs docs/BRAM_SELECTOR_ALIASING_ROOTCAUSE_20260909.md and docs/AGAMEMNON_PERFECTION_PLAN.md."
+  "reason": "pinned 2026-09-10b: selector_alias_repair.csv refreshed to 4768 rows after withdrawing one hil_positive_edges entry. That entry claimed X15Y4_RMUX68 -> X14Y4_RMUX85 was board-proven, but the witness was a $PACKER_GND branch reading 0, which cannot distinguish 'my signal arrived' from 'something else that is also 0 arrived'. [1,8] at that destination is physically owned by X18Y4_RMUX20. Selector evidence must be a toggling witness, never a constant. Repair remains inert by default."
 }

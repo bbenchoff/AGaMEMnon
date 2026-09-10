@@ -3369,6 +3369,7 @@ rrg_edges_full.csv,RMUX68,15,2,RMUX85,14,2,1;8,X18Y2_RMUX20,52,codeword attribut
 rrg_edges_full.csv,RMUX68,15,3,RMUX80,14,3,1;8,X18Y3_RMUX20,107,codeword attributed to a uniquely vendor-used member
 rrg_edges_full.csv,RMUX68,15,3,RMUX85,14,3,1;8,X18Y3_RMUX20,43,codeword attributed to a uniquely vendor-used member
 rrg_edges_full.csv,RMUX68,15,4,RMUX80,14,4,1;8,X18Y4_RMUX20,115,codeword attributed to a uniquely vendor-used member
+rrg_edges_full.csv,RMUX68,15,4,RMUX85,14,4,1;8,X18Y4_RMUX20,42,codeword attributed to a uniquely vendor-used member
 rrg_edges_full.csv,RMUX68,15,5,RMUX80,14,5,1;8,X18Y5_RMUX20,85,codeword attributed to a uniquely vendor-used member
 rrg_edges_full.csv,RMUX68,15,5,RMUX85,14,5,1;8,X18Y5_RMUX20,66,codeword attributed to a uniquely vendor-used member
 rrg_edges_full.csv,RMUX68,15,6,RMUX80,14,6,1;8,X18Y6_RMUX20,50,codeword attributed to a uniquely vendor-used member

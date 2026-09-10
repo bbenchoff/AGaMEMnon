@@ -376,6 +376,36 @@ class SelectorCertainty:
         for (dx, dy, df, di, sf, sx, sy, si) in self.clean_edge:
             if closed_form_selector(df, di, sf, si, dx - sx, dy - sy) is not None:
                 self.closed_form_support[(df, sf)] += 1
+        #: (dx, dy, dfam, didx, pair) -> the sources PHYSICALLY observed using it.
+        #: A codeword at a destination belongs to whoever was actually seen using
+        #: it there. An inference that hands the same codeword to someone else is
+        #: contradicted by observation, however unanimous the inference looks.
+        self._owner = collections.defaultdict(set)
+        for (dx, dy, df, di, sf, sx, sy, si), pair in self.clean_edge.items():
+            self._owner[(dx, dy, df, di, tuple(pair))].add((sf, sx, sy, si))
+
+    def physically_owned_by_other(self, dx, dy, df, di, pair, source):
+        """True when this destination's codeword was physically seen used by a
+        DIFFERENT source.
+
+        This is the rule that separates observation from inference. A relative
+        key is unanimous by construction -- ``relative_edges`` deletes it on the
+        first disagreement -- so unanimity says nothing about whether it is right
+        at a coordinate it was never observed at. Where a physical observation
+        exists for that (destination, codeword) and names someone else, the
+        inference is simply contradicted.
+
+        Found the hard way three times before this check existed. At X14Y12 the
+        pair 2/9 into RMUX46 has exact evidence for X14Y8_RMUX55, yet the
+        row-3-derived key handed it to X14Y11_RMUX07; the same shape convicted
+        X14Y11_RMUX87 -> X14Y12_RMUX59 (VP-AGM-001, where 2/9 selects
+        X14Y8_RMUX39). Each was withdrawn by hand after a board failure. This
+        derives all three from data instead.
+        """
+        owners = self._owner.get((dx, dy, df, di, tuple(pair)))
+        if not owners:
+            return False
+        return source not in owners
 
     def closed_form(self, df, di, sf, si, dx, dy):
         if not self._allow_closed_form:
@@ -426,6 +456,9 @@ class SelectorCertainty:
             }
         relative_key = (df, di, sf, si, dx - sx, dy - sy)
         pair = self.relative_edge.get(relative_key)
+        if pair is not None and self.physically_owned_by_other(dx, dy, df, di, pair,
+                                                              (sf, sx, sy, si)):
+            return None
         if pair is not None:
             return {
                 "basis": BASIS_RELATIVE,
@@ -442,6 +475,8 @@ class SelectorCertainty:
             return None
         pair = self.closed_form(df, di, sf, si, dx - sx, dy - sy)
         if pair is None:
+            return None
+        if self.physically_owned_by_other(dx, dy, df, di, pair, (sf, sx, sy, si)):
             return None
         return {
             "basis": BASIS_CLOSED_FORM,

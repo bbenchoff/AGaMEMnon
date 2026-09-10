@@ -1499,10 +1499,10 @@
       "sha256": "f8d01f0b535c262bb3d4b8521ea35a93e2fab9896af5c7dfcd219f1de1109678"
     },
     {
-      "bytes": 552325,
-      "data_rows": 4767,
+      "bytes": 552441,
+      "data_rows": 4768,
       "path": "agamemnon/chipdb/selector_alias_repair.csv",
-      "sha256": "0c03489e9462b96a0b6b45281da913cc3077b86a0ec1dcfbeca0a222202b1eb1"
+      "sha256": "04bbc2fc5978203f7689c14fc148f77551deeac2cba356f14921dd2be9f77b36"
     },
     {
       "bytes": 764210,
