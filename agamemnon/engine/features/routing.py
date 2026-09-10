@@ -802,6 +802,7 @@ class RoutingFeature:
             "sel_edge_pairs.agdb", "sel_tables.agdb", "train_lut.agdb",
             "selector_conflict_atlas.agdb", "research_knowledge_manifest.json",
             "routing_selector_admission.json",
+            "selector_alias_repair.csv",
             "rrg_edges_full.csv", "rrg_omux_imux_full.csv",
             "rrg_rmux_imux_full.csv", "dead_edges_silicon.csv",
             "exit_feeder_whitelist.csv", "master_conduction.csv",
@@ -1433,6 +1434,41 @@ class RoutingFeature:
         # consistent across every observation.  In strict mode, prune uncertain mesh edges before nextpnr sees
         # them, so the router finds another route instead of bitgen silently using an 84--98% predictor.
         CLEAN_SEL_GATE = bool(os.environ.get("AGAMEMNON_CLEAN_SEL_GATE"))
+        # DECODE-UNIQUENESS GATE (AGAMEMNON_DECODE_UNIQUE_GATE=1).  CLEAN_SEL_GATE
+        # above answers "which bits does this edge need"; it never asks whether those
+        # bits uniquely NAME this source among the destination's fan-in.  Several
+        # fan-in sources of one node can share one codeword, and then the emitted
+        # image does not determine which of them silicon selects; when the selection
+        # lands on an undriven node the input reads 1.  That is the tier-3 criterion
+        # as routing_tiers states it -- emission could write a codeword that selects
+        # the WRONG source -- but no gate here was testing for it.
+        #
+        # Deliberately independent of the admission model: the two silicon-proven
+        # instances (AG32-Docs 2026-09-09 BRAM address defect) were in a
+        # research-unsafe build, where the tier machinery never runs.  Refuses only
+        # aliased edges with no per-position vendor witness: 6,237 edges (2.13%),
+        # starving zero destination nodes, mean fan-in cost 1.38%.
+        DECODE_UNIQUE_GATE = bool(os.environ.get("AGAMEMNON_DECODE_UNIQUE_GATE"))
+        DECODE_UNIQUE = (routing_tiers.DecodeUniqueness.from_chipdb(DATA)
+                         if DECODE_UNIQUE_GATE else None)
+        # SELECTOR-ALIAS REPAIR (AGAMEMNON_ALIAS_REPAIR=1; OPT-IN for now).
+        # Drops rows whose recorded codeword was attributed to another source of
+        # the same mux. Unlike the gate above this is not a precaution: a mux has
+        # one input per code, so a contested row's codeword is known-wrong, and
+        # keeping it lets the router program the mux to select a DIFFERENT input
+        # -- undriven in most designs, and an undriven node reads 1.
+        #
+        # Opt-in rather than default DESPITE being a correctness fix: it removes
+        # ~7k rows, which moves graph_pip_count and so trips the D0 route-invariance
+        # check that binds every retained qualified artifact to an exact graph.
+        # Those artifacts must be re-qualified before this can become the default;
+        # flipping it silently would invalidate their evidence. See
+        # AG32-Docs docs/BRAM_SELECTOR_ALIASING_ROOTCAUSE_20260909.md.
+        ALIAS_REPAIR = (routing_tiers.SelectorAliasRepair.from_chipdb(DATA)
+                        if os.environ.get("AGAMEMNON_ALIAS_REPAIR") == "1" else None)
+        if ALIAS_REPAIR is not None and len(ALIAS_REPAIR):
+            print("AGRV2K arch: selector-alias repair active (%d contested rows)"
+                  % len(ALIAS_REPAIR))
         CLEAN_SEL_PREFER = bool(os.environ.get("AGAMEMNON_CLEAN_SEL_PREFER"))
         CLEAN_SEL_PENALTY_NS = OPTIONS.number("AGAMEMNON_CLEAN_SEL_PENALTY")
         CLEAN_SEL_EDGE = {}
@@ -1482,8 +1518,11 @@ class RoutingFeature:
             SELECTOR_CERTAINTY = routing_tiers.SelectorCertainty(
                 CLEAN_SEL_EDGE, CLEAN_SEL_REL, _csr_conflict,
                 allow_closed_form=ADMISSION == "tiered")
+
         _tier2_rows = []
         _tier2_seen = set()
+        _decode_ambiguous = 0
+        _alias_repaired = 0
         _witnessed_pips = set()
         _tier_counts = collections.Counter()
         def _clean_sel_encodable(r):
@@ -1867,6 +1906,10 @@ class RoutingFeature:
                     skipped += 1; continue
                 if CLEAN_SEL_GATE and not _clean_sel_encodable(r):
                     _sel_pruned += 1; continue
+                if ALIAS_REPAIR is not None and fn == "rrg_edges_full.csv"                         and ALIAS_REPAIR.should_refuse(r):
+                    _alias_repaired += 1; continue
+                if DECODE_UNIQUE is not None and DECODE_UNIQUE.should_refuse(r):
+                    _decode_ambiguous += 1; continue
                 # AGAMEMNON_OBS_IMUX: LUT-input crossbar (x->IMUX) only from OBSERVED edges — the RMUX->IMUX
                 # sel-encoding is table-coverage-limited, so enumerated guesses drop the signal before the LUT.
                 if os.environ.get("AGAMEMNON_OBS_IMUX") and fam(r["dst_res"]) == "IMUX" \
@@ -1991,6 +2034,9 @@ class RoutingFeature:
                  "tier_3_refused_at_clean_sel_prune": _sel_pruned,
                  "tier_3_refused_at_admission_gate":
                      _tier_counts[routing_tiers.TIER_AMBIGUOUS],
+                 "tier_3_refused_at_decode_uniqueness": _decode_ambiguous,
+                 "rows_dropped_by_selector_alias_repair": _alias_repaired,
+                 "decode_uniqueness_gate": bool(DECODE_UNIQUE_GATE),
                  "clean_sel_physical_keys": len(CLEAN_SEL_EDGE),
                  "clean_sel_unanimous_relative_keys": len(CLEAN_SEL_REL),
                  "clean_sel_conflicting_relative_keys": len(_csr_conflict),

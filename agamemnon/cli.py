@@ -2799,6 +2799,13 @@ def _cmd_build_once(a):
             default_devdb += "_x15y8s12exp"
         if env.get("AGAMEMNON_DIRECT_D_X14Y11_S8_EXPERIMENT"):
             default_devdb += "_x14y11s8exp"
+        # A decode-uniqueness-gated graph is a DIFFERENT graph. It must not share a
+        # cache entry with an ungated one, or the very next build silently reuses the
+        # graph whose aliased edges this gate exists to remove.
+        if env.get("AGAMEMNON_ALIAS_REPAIR") == "1":
+            default_devdb += "_aliasrepair"
+        if env.get("AGAMEMNON_DECODE_UNIQUE_GATE"):
+            default_devdb += "_decodeunique"
         custom_devdb = os.environ.get("AGAMEMNON_DEVDB")
         if native_enable:
             default_devdb += "_native_enable"
@@ -2842,6 +2849,16 @@ def _cmd_build_once(a):
             emit_env.append("AGAMEMNON_DIRECT_D_X15Y8_S12_EXPERIMENT=1")
         if env.get("AGAMEMNON_DIRECT_D_X14Y11_S8_EXPERIMENT"):
             emit_env.append("AGAMEMNON_DIRECT_D_X14Y11_S8_EXPERIMENT=1")
+        if env.get("AGAMEMNON_DECODE_UNIQUE_GATE"):
+            # Refuse edges whose selector codeword is shared by several fan-in
+            # sources of the destination, unless a vendor route witnesses this
+            # exact edge at this exact position. Silicon-confirmed root cause of
+            # the 2026-09-09 BRAM address defect.
+            emit_env.append("AGAMEMNON_DECODE_UNIQUE_GATE=1")
+        if env.get("AGAMEMNON_ALIAS_REPAIR") == "1":
+            # Retire rows whose selector codeword was attributed to another
+            # source of the same mux (chipdb/selector_alias_repair.csv).
+            emit_env.append("AGAMEMNON_ALIAS_REPAIR=1")
         if env.get("AGAMEMNON_DUAL_LUT_CONST"):
             emit_env.append("AGAMEMNON_DUAL_LUT_CONST=%s" %
                             env["AGAMEMNON_DUAL_LUT_CONST"])

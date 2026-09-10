@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "de1268369611a77ec649b6f09934a1b4280a958052c287782b9be8e818f662db",
-  "file_count": 264,
+  "fingerprint_sha256": "89cced91a4ff1edae2f045409a43cfeb2c824e39b2b81187bbe9422f36daa336",
+  "file_count": 265,
   "pinned_date": "2026-09-06",
-  "reason": "Added only authenticated retained_pre_owner_v1.json and its research inventory entry. No routing data or admission changed. Current emitter reproduces all 58 migrated pins; explicit pre-owner-v1 research replay reproduces all 58 unchanged original pins. Both terminal audits precede this update: AG32-Docs tools/vendor_parity/gpt6_xbar_default_after_replay_20260906 and gpt6_xbar_pre_owner_replay_final_20260906. This pins data inventory, not fresh-route or silicon qualification."
+  "reason": "pinned 2026-09-09: Added only chipdb/selector_alias_repair.csv and its research inventory entry. INERT by default -- features/routing.py reads it only under AGAMEMNON_ALIAS_REPAIR=1 -- so the default graph, admission and every codeword are byte unchanged, and Rule 2 confirms every included retained artifact still rebuilds byte-identical. It lists 6,189 rows whose selector codeword was attributed to another fan-in source of the same mux. Attribution precedence is observed-codeword (sel_edge_pairs.agdb, from real vendor images), then silicon, then corpus usage; a row a vendor image or a board shows carrying that codeword is NEVER retired. 604 groups where two or more members are observed carrying the same codeword are deliberately left alone and recorded as codeword-incomplete: our two-bit codeword is a projection of a wider selector there, so the rows are right and the MODEL is short. Enabling the repair is NOT covered by this pin -- it removes ~6k rows, moves graph_pip_count and needs retained artifacts re-qualified, which is why it ships opt-in. Evidence: AG32-Docs docs/BRAM_SELECTOR_ALIASING_ROOTCAUSE_20260909.md and tools/vendor_parity/bram_alias_repair_planes_20260909. This pins data inventory, not fresh-route or silicon qualification of the enabled repair."
 }

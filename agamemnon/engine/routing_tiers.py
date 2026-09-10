@@ -165,6 +165,173 @@ def closed_form_is_legal_fanin(dst_fam, dst_idx, pair):
     return all(block + local in legal for local in pair)
 
 
+class SelectorAliasRepair:
+    """Rows whose recorded selector codeword cannot be theirs.
+
+    A physical mux has ONE input per select code.  Our chipdb contains groups
+    where several sources claim the same (destination, codeword).  That is not a
+    property of the silicon -- 853 such groups contain two or more edges the
+    vendor router itself used, and af.exe cannot drive two sources into one mux
+    on one code -- so at most one row per group carries the true codeword.
+
+    ``chipdb/selector_alias_repair.csv`` names the rows that lost attribution.
+    Ownership is decided silicon-first, then by vendor-corpus usage; a group
+    containing a board-proven row is never resolved against that row.  Groups
+    the evidence cannot settle are NOT listed here: they stay in the graph and
+    remain covered by ``AGAMEMNON_DECODE_UNIQUE_GATE``.
+
+    A listed row means "this row's CODEWORD is not trustworthy", NOT "this wire
+    does not exist".  The edge may be real with a codeword we never recovered;
+    what the evidence supports is retiring the claim, not the wire.
+    """
+
+    FILENAME = "selector_alias_repair.csv"
+
+    def __init__(self, contested=()):
+        self.contested = frozenset(contested)
+
+    @classmethod
+    def from_chipdb(cls, data_dir, filename=None):
+        path = os.path.join(data_dir, filename or cls.FILENAME)
+        if not os.path.exists(path):
+            return cls(())
+        contested = set()
+        with open(path, newline="", encoding="utf-8") as handle:
+            for row in csv.DictReader(handle):
+                if row.get("table") != "rrg_edges_full.csv":
+                    continue
+                contested.add((row["src_res"], row["src_x"], row["src_y"],
+                               row["dst_res"], row["dst_x"], row["dst_y"]))
+        return cls(contested)
+
+    def should_refuse(self, row):
+        return (row["src_res"], row["src_x"], row["src_y"],
+                row["dst_res"], row["dst_x"], row["dst_y"]) in self.contested
+
+    def __len__(self):
+        return len(self.contested)
+
+
+class DecodeUniqueness:
+    """Decides whether an edge's selector codeword *uniquely names its source*.
+
+    `SelectorCertainty` above answers the encode question -- "do we
+    unambiguously know which config bits this edge needs".  This answers the
+    decode question -- "do those bits uniquely identify this source among the
+    destination node's fan-in".  They are different, and only the first was ever
+    tested.  An edge can be conflict-free, unanimous and well-supported and
+    still be non-deterministic on silicon, because several fan-in sources of the
+    same node share one codeword.  Selector *conflict* is not selector
+    *aliasing*; nothing in this module looked for the latter.
+
+    That is the tier-3 criterion as this module already states it: emission
+    could write a codeword that selects the WRONG source.  The failure mode is
+    the project's characteristic one -- a plausible bitstream that
+    config-accepts and misbehaves.  When the selection lands on an undriven
+    node, the input reads 1.
+
+    Silicon-confirmed on 2026-09-09: the AG32-Docs BRAM address defect was two
+    aliased hops feeding a synchronous clear and a ground branch, proven by a
+    clear-polarity crossover (bits 0 and 2 came alive, bit 1 went stuck, exactly
+    as registered beforehand).  Within the same ground net, 23 branches share
+    one driver, exactly one rides an aliased hop, and that is the one branch
+    that fails -- while branches of 10 and 11 hops deliver.
+
+    A per-position vendor *witness* is what distinguishes a dangerous alias from
+    a harmless one: it is evidence that the shared codeword does select this
+    source here, which is why `is_trusted` already admits such an edge as
+    tier 1.  So this predicate only ever fires on tier-2 candidates, which by
+    construction have no such witness.  Of the seven observable aliased hops
+    across two independent datasets, the six that failed were all unwitnessed.
+
+    Scope honestly: aliasing is a strong risk factor, not a complete theory of
+    tier-2 unreliability.  It explains 4 of the 13 known boundary-lane failures;
+    the rest ride long chains this predicate calls clean and need a separate
+    cause.  Do not read a refusal as "this edge is dead" -- read it as "these
+    bits do not say which source, so do not gamble the image on it".
+    """
+
+    #: Tables carrying per-position vendor evidence that an edge was really used.
+    WITNESS_FILES = ("pip_usage.csv", "corpus_conduction.csv")
+
+    def __init__(self, fanin=None, witnessed=None):
+        #: (dst_x, dst_y, dst_res) -> codeword -> number of sources sharing it
+        self.fanin = fanin or {}
+        #: (src_res, sx, sy, dst_res, dx, dy) seen in a real vendor route
+        self.witnessed = witnessed or frozenset()
+
+    @classmethod
+    def from_chipdb(cls, data_dir, filename="rrg_edges_full.csv"):
+        """Build from the same tables that supply the codewords and the witnesses.
+
+        Deliberately self-contained: it reads chipdb directly rather than
+        depending on which admission flags happen to be enabled, so the same
+        predicate means the same thing in every build mode -- including
+        ``research-unsafe``, where nothing else is gating.
+        """
+        path = os.path.join(data_dir, filename)
+        if not os.path.exists(path):
+            return cls({}, frozenset())
+        fanin = collections.defaultdict(lambda: collections.defaultdict(int))
+        with open(path, newline="", encoding="utf-8") as handle:
+            for row in csv.DictReader(handle):
+                code = cls.codeword(row.get("cfg"))
+                if code is None:
+                    continue
+                fanin[(row["dst_x"], row["dst_y"], row["dst_res"])][code] += 1
+        witnessed = set()
+        for name in cls.WITNESS_FILES:
+            witness_path = os.path.join(data_dir, name)
+            if not os.path.exists(witness_path):
+                continue
+            with open(witness_path, newline="", encoding="utf-8") as handle:
+                for row in csv.DictReader(handle):
+                    witnessed.add((row["src_res"], row["src_x"], row["src_y"],
+                                   row["dst_res"], row["dst_x"], row["dst_y"]))
+        return cls({key: dict(codes) for key, codes in fanin.items()},
+                   frozenset(witnessed))
+
+    def is_witnessed(self, row):
+        """True when a vendor route used this exact edge at this exact position."""
+        if row.get("source") == "observed":
+            return True
+        return (row["src_res"], row["src_x"], row["src_y"],
+                row["dst_res"], row["dst_x"], row["dst_y"]) in self.witnessed
+
+    def should_refuse(self, row):
+        """The gate: codeword does not name the source, and nothing witnesses it.
+
+        A witness is what separates a dangerous alias from a harmless one -- it
+        is positive evidence that the shared codeword selects THIS source at
+        THIS position.  Refusing witnessed aliases too would cost 9,118 further
+        edges to protect against a case no observation supports.
+        """
+        return self.is_ambiguous(row) and not self.is_witnessed(row)
+
+    @staticmethod
+    def codeword(cfg):
+        """``CFG_RMUX0[6,9]`` -> ``(6, 9)``; None when the row carries no codeword."""
+        if not cfg or "[" not in cfg or not cfg.endswith("]"):
+            return None
+        try:
+            return tuple(sorted(int(v) for v in
+                                cfg[cfg.index("[") + 1:-1].split(",")))
+        except ValueError:
+            return None
+
+    def sharing(self, row):
+        """How many fan-in sources of this destination share this codeword."""
+        code = self.codeword(row.get("cfg"))
+        if code is None:
+            return 1
+        return self.fanin.get(
+            (row["dst_x"], row["dst_y"], row["dst_res"]), {}).get(code, 1)
+
+    def is_ambiguous(self, row):
+        """True when this edge's codeword does not uniquely name its source."""
+        return self.sharing(row) > 1
+
+
 class SelectorCertainty:
     """Decides whether an edge's selector codeword is *unambiguously known*.
 
