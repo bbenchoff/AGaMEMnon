@@ -507,7 +507,7 @@ def test_codeword_ownership_refuses_only_what_observation_convicts():
     from agamemnon.engine import routing_selectors
 
     clean = routing_selectors.load_clean_edges(str(CHIPDB))
-    owner = routing_tiers.CodewordOwnership.from_clean_edges(clean)
+    owner = routing_tiers.CodewordOwnership.from_chipdb(str(CHIPDB), clean)
 
     def row(src, sx, sy, dst, dx, dy, cfg):
         return {"src_res": src, "src_x": sx, "src_y": sy,
@@ -515,7 +515,9 @@ def test_codeword_ownership_refuses_only_what_observation_convicts():
 
     refuse = [
         row("RMUX27", "18", "2", "RMUX20", "18", "5", "CFG_RMUX3[2,9]"),
-        row("RMUX27", "18", "3", "RMUX20", "18", "6", "CFG_RMUX3[2,9]"),
+        # X15Y7_RMUX25 -> X15Y4_RMUX00 over [6,9] was proven NOT to deliver by a
+        # clear-polarity crossover on silicon: the strongest case in the set.
+        row("RMUX25", "15", "7", "RMUX00", "15", "4", "CFG_RMUX0[6,9]"),
         row("RMUX87", "14", "11", "RMUX59", "14", "12", "CFG_RMUX11[2,9]"),
         row("RMUX07", "14", "11", "RMUX46", "14", "12", "CFG_RMUX7[2,9]"),
     ]
@@ -525,6 +527,20 @@ def test_codeword_ownership_refuses_only_what_observation_convicts():
     keep = [
         row("RMUX07", "15", "8", "RMUX24", "15", "4", "CFG_RMUX4[6,9]"),
         row("RMUX75", "18", "1", "RMUX20", "18", "5", "CFG_RMUX3[2,9]"),
+        # THE COUNTEREXAMPLE to this gate's own premise. The shipped
+        # serv_rv32i_smoke_L48 carries mem_rdt[6] over this hop and passes on
+        # hardware; bit 6 of that program's instruction words is 1 in five and 0
+        # in six, so the net must toggle and a stuck net would misdecode. Yet
+        # [2,9] here is physically observed for X18Y2_RMUX75. Two sources, one
+        # codeword, both working. Keep this case: if a future refinement starts
+        # refusing it, the refinement is wrong.
+        row("RMUX27", "18", "3", "RMUX20", "18", "6", "CFG_RMUX3[2,9]"),
+        # Used by the shipped serial_mux / mcu_ahb / serv_blinky qualification
+        # artifacts, which have their own physical observation of (4,7); the
+        # table's codeword is simply mis-recorded for them.
+        row("RMUX33", "10", "3", "RMUX35", "10", "3", "CFG_RMUX5[4,8]"),
+        row("RMUX80", "14", "12", "RMUX82", "14", "12", "CFG_RMUX13[1,9]"),
+        row("RMUX75", "19", "4", "RMUX77", "19", "4", "CFG_RMUX12[5,9]"),
     ]
     for item in keep:
         assert not owner.should_refuse(item), item

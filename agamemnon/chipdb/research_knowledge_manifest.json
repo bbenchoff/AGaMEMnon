@@ -361,6 +361,12 @@
       "sha256": "0166c3d2eaec1bc7e2832b33d6e7d9afcfb79d23c5d4f185762bf6356d53b1cd"
     },
     {
+      "bytes": 551,
+      "data_rows": 1,
+      "path": "agamemnon/chipdb/codeword_board_witness.csv",
+      "sha256": "ba19518ab48ac1f39c73b65b7e5fc862934dd27fa755cf1ea28d7f014f857192"
+    },
+    {
       "bytes": 9769984,
       "data_rows": 258014,
       "path": "agamemnon/chipdb/corpus_conduction.csv",

@@ -802,7 +802,7 @@ class RoutingFeature:
             "sel_edge_pairs.agdb", "sel_tables.agdb", "train_lut.agdb",
             "selector_conflict_atlas.agdb", "research_knowledge_manifest.json",
             "routing_selector_admission.json",
-            "selector_alias_repair.csv",
+            "selector_alias_repair.csv", "codeword_board_witness.csv",
             "rrg_edges_full.csv", "rrg_omux_imux_full.csv",
             "rrg_rmux_imux_full.csv", "dead_edges_silicon.csv",
             "exit_feeder_whitelist.csv", "master_conduction.csv",
@@ -1502,7 +1502,7 @@ class RoutingFeature:
         # that path by refusing any edge whose codeword a different real driver was
         # physically observed using -- including witnessed ones.
         OWNERSHIP_GATE = os.environ.get("AGAMEMNON_OWNERSHIP_GATE") == "1"
-        CODEWORD_OWNER = (routing_tiers.CodewordOwnership.from_clean_edges(CLEAN_SEL_EDGE)
+        CODEWORD_OWNER = (routing_tiers.CodewordOwnership.from_chipdb(DATA, CLEAN_SEL_EDGE)
                           if OWNERSHIP_GATE else None)
         if CODEWORD_OWNER is not None:
             if not CLEAN_SEL_EDGE:

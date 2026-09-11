@@ -1,0 +1,2 @@
+src_res,src_x,src_y,dst_res,dst_x,dst_y,codeword,evidence
+RMUX27,18,3,RMUX20,18,6,2;9,"serv_rv32i_smoke_L48 carries mem_rdt[6] over this hop and passes on hardware (serv_compliance_evidence.jsonl, PIN_25/Pico GP12, 12000/12000 high). bit 6 of the program's instruction words is 1 in five and 0 in six, so the net MUST toggle; an undriven node reads 1, so a stuck net would misdecode the opcodes and never produce signature 19. A physical observation of X18Y2_RMUX75 using [2,9] at this destination therefore does NOT prove RMUX27 cannot also use it."

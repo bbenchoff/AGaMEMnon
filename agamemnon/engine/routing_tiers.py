@@ -186,28 +186,69 @@ class CodewordOwnership:
     ownership as well as from holding it -- an IMUX co-sink recorded by path
     adjacency must not be able to evict a real driver.
 
-    Blast radius on the shipped table: 5,912 edges (2.02%), two destination nodes
-    left without fan-in. It only ever refuses.
+    Blast radius on the shipped table: 5,767 edges, two destination nodes left
+    without fan-in. It only ever refuses.
+
+    **This is a hazard heuristic, not a proof, and it has a known false
+    positive.** The premise "a mux has one input per select code, so an
+    observation of A using C proves B cannot" is NOT universally true here.
+    `X18Y3_RMUX27 -> X18Y6_RMUX20` carries `mem_rdt[6]` in the shipped
+    `serv_rv32i_smoke_L48`, which passes on hardware, and bit 6 of that program's
+    instruction words is 1 in five and 0 in six -- so the net must toggle, and a
+    stuck net (an undriven node reads 1) would misdecode the opcodes. Yet [2,9]
+    at that destination is physically observed for `X18Y2_RMUX75`. Both sources
+    evidently work over the same codeword.
+
+    Meanwhile the opposite is equally well established: `X15Y7_RMUX25 ->
+    X15Y4_RMUX00` over [6,9] was proven on silicon NOT to deliver, by a
+    clear-polarity crossover. So a shared codeword sometimes delivers and
+    sometimes does not, and nothing in the tables currently distinguishes the two
+    cases. That is why this gate ships opt-in and why board witnesses are honoured
+    as exemptions rather than being argued away.
     """
 
     #: Families that cannot drive a routing mux, so cannot own a codeword.
     NON_DRIVING = frozenset({"IMUX", "TileSyncMUX"})
 
-    def __init__(self, owners=None):
+    #: Edges a board has watched DELIVER A TOGGLING signal over this codeword.
+    #: These are exemptions, and they exist because the exclusivity premise is
+    #: not universally true -- see the class docstring.
+    WITNESS_FILE = "codeword_board_witness.csv"
+
+    def __init__(self, owners=None, observed=None):
         self.owners = owners or {}
+        #: every edge that has a physical observation OF ITS OWN, whatever
+        #: codeword the table records for it.
+        self.observed = observed or {}
+        #: edges exempted by a board-witnessed toggling delivery
+        self.witnessed = set()
 
     @staticmethod
     def family(res):
         return res.rstrip("0123456789")
 
     @classmethod
+    def from_chipdb(cls, data_dir, clean_edge):
+        """Build with the board-witness exemptions loaded from `data_dir`."""
+        gate = cls.from_clean_edges(clean_edge)
+        path = os.path.join(data_dir, cls.WITNESS_FILE)
+        if os.path.exists(path):
+            with open(path, newline="", encoding="utf-8") as handle:
+                for row in csv.DictReader(handle):
+                    gate.witnessed.add((row["src_res"], row["src_x"], row["src_y"],
+                                        row["dst_res"], row["dst_x"], row["dst_y"]))
+        return gate
+
+    @classmethod
     def from_clean_edges(cls, clean_edge):
         owners = collections.defaultdict(set)
+        observed = {}
         for (dx, dy, df, di, sf, sx, sy, si), pair in (clean_edge or {}).items():
+            observed[(dx, dy, df, di, sf, sx, sy, si)] = tuple(pair)
             if sf in cls.NON_DRIVING:
                 continue
             owners[(dx, dy, df, di, tuple(pair))].add((sf, sx, sy, si))
-        return cls({key: frozenset(value) for key, value in owners.items()})
+        return cls({key: frozenset(value) for key, value in owners.items()}, observed)
 
     def should_refuse(self, row):
         cfg = row.get("cfg") or ""
@@ -224,8 +265,20 @@ class CodewordOwnership:
                     int(row["src_res"][len(sf):]))
         except (TypeError, ValueError):
             return False
-        observed = self.owners.get(key)
-        return bool(observed) and mine not in observed
+        # An edge with a physical observation OF ITS OWN is not an ownership
+        # conflict, however the table labels it. It is a MIS-RECORDED codeword,
+        # and the repair emits those as corrections. Refusing them would throw
+        # away real, observed routing capacity -- and it did: this check was
+        # added after the gate refused 145 edges used by the shipped SERV,
+        # serial-mux and MCU-AHB qualification artifacts, whose own observations
+        # read (4,7) where the table claimed something else.
+        if (row["src_res"], row["src_x"], row["src_y"],
+                row["dst_res"], row["dst_x"], row["dst_y"]) in self.witnessed:
+            return False
+        if (key[0], key[1], key[2], key[3]) + mine in self.observed:
+            return False
+        holders = self.owners.get(key)
+        return bool(holders) and mine not in holders
 
     def __len__(self):
         return len(self.owners)

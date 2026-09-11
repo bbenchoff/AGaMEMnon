@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "bd66f6d148d1309c8b3d9d1750d650e01d204f8e8a971efdb9dd18535f634331",
-  "file_count": 265,
+  "fingerprint_sha256": "02e09b43de60ec91357b169f73576f03d1bc0dfdc3aafc76eb2803012e45af4e",
+  "file_count": 266,
   "pinned_date": "2026-09-06",
-  "reason": "pinned 2026-09-10b: selector_alias_repair.csv refreshed to 4768 rows after withdrawing one hil_positive_edges entry. That entry claimed X15Y4_RMUX68 -> X14Y4_RMUX85 was board-proven, but the witness was a $PACKER_GND branch reading 0, which cannot distinguish 'my signal arrived' from 'something else that is also 0 arrived'. [1,8] at that destination is physically owned by X18Y4_RMUX20. Selector evidence must be a toggling witness, never a constant. Repair remains inert by default."
+  "reason": "pinned 2026-09-10c: adds chipdb/codeword_board_witness.csv, read only by the opt-in AGAMEMNON_OWNERSHIP_GATE, so the default graph is unchanged. It records a COUNTEREXAMPLE to that gate's premise: X18Y3_RMUX27 -> X18Y6_RMUX20 carries mem_rdt[6] in the shipped serv_rv32i_smoke_L48, which passes on hardware, and bit 6 of that program's words is 1 in five and 0 in six so the net must toggle -- yet [2,9] at that destination is physically observed for X18Y2_RMUX75. Both sources work over one codeword, while X15Y7_RMUX25 -> X15Y4_RMUX00 over [6,9] was proven NOT to deliver. Shared codewords sometimes deliver and sometimes do not, and the tables do not yet distinguish them."
 }
