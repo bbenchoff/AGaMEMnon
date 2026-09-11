@@ -3961,9 +3961,43 @@ static void pack_bram_localize_const(Context *ctx)
                 unused_data.push_back(p.first);
                 continue;
             }
+            // Classify by identity of the SHARED constant nets first (the
+            // default flow, byte-identical), then by what actually DRIVES the
+            // net. AGRV2K_LOCAL_CONSTANTS moves every consumer but the first
+            // onto a private $PACKER_{GND,VCC}_LOCAL_n net before this pass
+            // runs; comparing net pointers alone then sees no constant at all,
+            // so AGRV2K_BRAM_HARDCONST can never hard-default those pins and
+            // ClkEn/ByteEn/Re/We become routed fabric constants competing for
+            // the single CtrlMUX ingress (X14Y4_RMUX84). A constant is a
+            // GENERIC_SLICE driving from F with no FF whose INIT is fully
+            // defined and entirely 0 or entirely 1, exactly as pack_constants
+            // builds $PACKER_GND / $PACKER_VCC.
+            int const_value = -1;
             if (p.second.net == gnd)
-                pins.push_back({p.first, false});
+                const_value = 0;
             else if (p.second.net == vcc)
+                const_value = 1;
+            else if (p.second.net->driver.cell != nullptr &&
+                     p.second.net->driver.cell->type == ctx->id("GENERIC_SLICE") &&
+                     p.second.net->driver.port == ctx->id("F")) {
+                CellInfo *drv = p.second.net->driver.cell;
+                auto init = drv->params.find(ctx->id("INIT"));
+                auto ff = drv->params.find(ctx->id("FF_USED"));
+                const int width = 1 << ctx->args.K;
+                if (init != drv->params.end() && init->second.is_fully_def() &&
+                        int(init->second.size()) == width &&
+                        ff != drv->params.end() && ff->second.is_fully_def() &&
+                        ff->second.as_int64() == 0) {
+                    if (init->second == Property(0, width))
+                        const_value = 0;
+                    else if (init->second ==
+                             Property(Property::S1).extract(0, width, Property::S1))
+                        const_value = 1;
+                }
+            }
+            if (const_value == 0)
+                pins.push_back({p.first, false});
+            else if (const_value == 1)
                 pins.push_back({p.first, true});
         }
         bool port_b_read_used = false;
@@ -4584,6 +4618,57 @@ static void lock_bram_portb_corridors(Context *ctx,
             }
         }
     }
+    // An exact SERV write witness (bram_serv_write_paths.csv) is locked later
+    // in port order, AFTER the flexible Port-B searches.  Its wires are as
+    // necessary as a sole-predecessor chain: the witness is the only route
+    // this flow will accept for that pin.  Left unregistered, AddressB[11]'s
+    // generic search took X16Y4_RMUX20 first and the later WeA lock could
+    // only collide with it.  Register the witness wires up front so every
+    // generic search routes around them; a genuine double claim is refused
+    // here by name, exactly like the chains above.
+    for (auto &entry : ctx->cells) {
+        CellInfo *bram = entry.second.get();
+        if (bram->type != ctx->id("ALTA_BRAM9K"))
+            continue;
+        BelId bel = assigned_or_requested_bram_bel(ctx, bram);
+        if (bel == BelId())
+            bel = ctx->getBelByNameStr("X13Y4_BRAM");
+        if (bel == BelId())
+            continue;
+        for (auto &port : bram->ports) {
+            NetInfo *net = port.second.net;
+            if (port.second.type != PORT_IN || net == nullptr || net->driver.cell == nullptr ||
+                    net->driver.cell->bel == BelId())
+                continue;
+            // Mirror the lock below: a scoped x18 profile owns WeA, and a
+            // site-read profile prefers its own four-site witness for We/Re.
+            if (tmux9_source && port.first == ctx->id("WeA"))
+                continue;
+            if (site_read_profile && (port.first == ctx->id("WeA") || port.first == ctx->id("ReA")) &&
+                    site_read_exact.count("mem_ahb_hwrite"))
+                continue;
+            auto serv_path = serv_write_exact.find(port.first.str(ctx));
+            if (serv_path == serv_write_exact.end() || serv_path->second.empty())
+                continue;
+            WireId source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
+            WireId target = ctx->getBelPinWire(bel, port.first);
+            if (source == WireId() || target == WireId() ||
+                    serv_path->second.front().first != ctx->getWireName(source).str(ctx) ||
+                    serv_path->second.back().second != ctx->getWireName(target).str(ctx))
+                continue;
+            for (const auto &edge : serv_path->second) {
+                PipId pip = saved_pip(edge.first, edge.second);
+                if (pip == PipId())
+                    break; // the lock below reports the missing edge
+                WireId dst = ctx->getPipDstWire(pip);
+                auto prior = mandatory_bram_wires.emplace(dst.index, net);
+                if (!prior.second && prior.first->second != net)
+                    log_error("agrv2k: exact SERV %s witness wire %s is required by both '%s' and '%s'\n",
+                              port.first.c_str(ctx), ctx->getWireName(dst).str(ctx).c_str(),
+                              prior.first->second->name.c_str(ctx), net->name.c_str(ctx));
+            }
+        }
+    }
     // Output single-successor chains are equally necessary resources. Address
     // and constant paths must not occupy a live output's only escape. Stop at
     // a consumer: wires beyond an already reached sink are not mandatory.
@@ -4604,13 +4689,41 @@ static void lock_bram_portb_corridors(Context *ctx,
                 if (sink == WireId()) { resolved = false; break; }
                 sinks.insert(sink);
             }
-            // Placement must establish consumers before a mandatory-chain
-            // claim can safely include wires which might themselves be sinks.
-            if (!resolved) continue;
-            // This first experiment handles one physical sink. Reachability
-            // to the union of multiple sinks is insufficient to prove a
-            // mandatory branch for each consumer of a multi-sink net.
-            if (sinks.size() != 1) continue;
+            // A live output whose consumers are not placed yet, or which fans
+            // out, still has a sink-INDEPENDENT necessary prefix: every wire
+            // with exactly one downhill pip in the loaded graph must carry
+            // this net no matter where its consumers land.  Seen for real:
+            // X13Y4_BufMUX01 (DataOutA[1]) has the single escape X14Y4_RMUX20;
+            // AddressB[8]'s generic constant corridor took it first and router2
+            // failed the live output's only arc in every attempt.  Claim the
+            // chain up to (not including) the first slice input, so an
+            // unplaced consumer is never pinned by a routing reservation.
+            if (!resolved || sinks.size() != 1) {
+                WireId cursor = ctx->getBelPinWire(bel, port.first);
+                std::vector<PipId> prefix;
+                pool<WireId> visited;
+                while (cursor != WireId() && visited.insert(cursor).second) {
+                    auto prior = mandatory_bram_wires.emplace(cursor.index, net);
+                    if (!prior.second && prior.first->second != net)
+                        log_error("agrv2k: mandatory BRAM output %s is required by both '%s' and '%s'\n",
+                                  ctx->getWireName(cursor).str(ctx).c_str(),
+                                  prior.first->second->name.c_str(ctx), net->name.c_str(ctx));
+                    if (sinks.count(cursor)) break;
+                    PipId sole;
+                    int count = 0;
+                    for (PipId pip : ctx->getPipsDownhill(cursor)) {
+                        sole = pip;
+                        if (++count > 1) break;
+                    }
+                    if (count != 1) break;
+                    WireId next = ctx->getPipDstWire(sole);
+                    if (ctx->getWireName(next).str(ctx).find("_IMUX") != std::string::npos) break;
+                    prefix.push_back(sole);
+                    cursor = next;
+                }
+                if (!prefix.empty()) output_prefixes.emplace_back(net, std::move(prefix));
+                continue;
+            }
             pool<WireId> reaches_sink;
             std::vector<WireId> backwards;
             for (WireId sink : sinks) {
@@ -4684,10 +4797,22 @@ static void lock_bram_portb_corridors(Context *ctx,
     if (output_prefix_pips)
         log_info("agrv2k: bound %d mandatory BRAM output-prefix pip(s) for ordinary routing\n",
                  output_prefix_pips);
+    // checkPipAvailForNet() inspects the PIP binding only.  The generic arch
+    // then installs the binding over whatever net still holds the destination
+    // WIRE (no ownership assertion), leaving that net's wires map pointing at
+    // a wire it no longer owns; nextpnr's post-pack check reports the VICTIM
+    // ("net ... not bound to wire ... in wires map") and never the culprit.
+    // Seen for real: AddressB[11]'s generic search took X16Y4_RMUX20, then the
+    // exact SERV WeA witness was locked straight over it.  An exact witness
+    // may only be locked onto wires that are free or already its own.
+    auto wire_free_for = [&](PipId pip, NetInfo *net) {
+        NetInfo *owner = ctx->getBoundWireNet(ctx->getPipDstWire(pip));
+        return owner == nullptr || owner == net;
+    };
     auto corridor_available = [&](PipId pip, NetInfo *net) {
         auto owner = mandatory_bram_wires.find(ctx->getPipDstWire(pip).index);
         return (owner == mandatory_bram_wires.end() || owner->second == net) &&
-               ctx->checkPipAvailForNet(pip, net);
+               ctx->checkPipAvailForNet(pip, net) && wire_free_for(pip, net);
     };
     int locked = 0;
     // Negotiate complete recorded generic trees. Exact paths, other owners
@@ -5171,7 +5296,8 @@ static void lock_bram_portb_corridors(Context *ctx,
                             head < queue.size() && !previous.count(target_name); ++head) {
                         for (const auto &step : adjacency[queue[head]]) {
                             if (previous.count(step.first) ||
-                                    !ctx->checkPipAvailForNet(step.second, read_data))
+                                    !ctx->checkPipAvailForNet(step.second, read_data) ||
+                                    !wire_free_for(step.second, read_data))
                                 continue;
                             previous[step.first] = {queue[head], step.second};
                             queue.push_back(step.first);
@@ -5227,7 +5353,7 @@ static void lock_bram_portb_corridors(Context *ctx,
                 }
                 if (!found) continue;
                 for (PipId pip : route) {
-                    if (!ctx->checkPipAvailForNet(pip, net))
+                    if (!ctx->checkPipAvailForNet(pip, net) || !wire_free_for(pip, net))
                         log_error("agrv2k: exact split x9 AddressA[%d] prefix conflict at %s\n",
                                   entry.first, ctx->getPipName(pip).str(ctx).c_str());
                     ctx->bindPip(pip, net, STRENGTH_LOCKED); ++locked;
@@ -5280,7 +5406,7 @@ static void lock_bram_portb_corridors(Context *ctx,
             if (pip == PipId())
                 log_error("agrv2k: simultaneous x9 q4 pip absent: %s -> %s\n",
                           edge.first.c_str(), edge.second.c_str());
-            if (!ctx->checkPipAvailForNet(pip, q4))
+            if (!ctx->checkPipAvailForNet(pip, q4) || !wire_free_for(pip, q4))
                 log_error("agrv2k: simultaneous x9 q4 corridor conflict at %s -> %s\n",
                           edge.first.c_str(), edge.second.c_str());
             ctx->bindPip(pip, q4, STRENGTH_LOCKED);
@@ -16426,6 +16552,22 @@ struct AgrvImpl : ViaductAPI
 
     void notifyWireChange(WireId wire, NetInfo *net) override
     {
+        // The generic arch installs a wire binding without checking the
+        // current owner: bindPip()/bindWire() over a wire another net still
+        // holds leaves that net's wires map pointing at a wire it no longer
+        // owns.  nextpnr's post-pack check() then fails with "net ... not
+        // bound to wire ... in wires map", naming the VICTIM, never the
+        // culprit.  router2 never binds over a foreign owner (bind_and_check
+        // rips first), so the only source is a uarch pre-route; refuse it
+        // here, at the moment it happens, with both names attached.
+        if (net != nullptr) {
+            NetInfo *prior = ctx->getBoundWireNet(wire);
+            if (prior != nullptr && prior != net)
+                log_error("agrv2k: net '%s' would rebind wire %s still owned by '%s' "
+                          "(silent wires-map corruption refused)\n",
+                          ctx->nameOf(net), ctx->getWireName(wire).str(ctx).c_str(),
+                          ctx->nameOf(prior));
+        }
         if (net != nullptr && mcu_endpoint_profile.owner != nullptr &&
             (wire == mcu_endpoint_profile.root ||
              wire == mcu_endpoint_profile.after_first_hop) &&
