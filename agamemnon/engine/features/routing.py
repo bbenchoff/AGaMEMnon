@@ -1466,23 +1466,6 @@ class RoutingFeature:
         # AG32-Docs docs/BRAM_SELECTOR_ALIASING_ROOTCAUSE_20260909.md.
         ALIAS_REPAIR = (routing_tiers.SelectorAliasRepair.from_chipdb(DATA)
                         if os.environ.get("AGAMEMNON_ALIAS_REPAIR") == "1" else None)
-        # CODEWORD-OWNERSHIP GATE (AGAMEMNON_OWNERSHIP_GATE=1; OPT-IN).
-        # SelectorCertainty already applies this to INFERRED selectors, but a
-        # tier-1 edge never reaches it: is_trusted grants tier 1 on a vendor route
-        # occupancy witness, and occupancy is topology, not selection. This closes
-        # that path by refusing any edge whose codeword a different real driver was
-        # physically observed using -- including witnessed ones.
-        OWNERSHIP_GATE = os.environ.get("AGAMEMNON_OWNERSHIP_GATE") == "1"
-        CODEWORD_OWNER = (routing_tiers.CodewordOwnership.from_clean_edges(CLEAN_SEL_EDGE)
-                          if OWNERSHIP_GATE else None)
-        if CODEWORD_OWNER is not None:
-            if not CLEAN_SEL_EDGE:
-                raise ValueError(
-                    "AGAMEMNON_OWNERSHIP_GATE needs the clean-sel corpus "
-                    "(AGAMEMNON_CLEAN_SEL_GATE or AGAMEMNON_CLEAN_SEL_PREFER); "
-                    "without observations there is no ownership to enforce")
-            print("AGRV2K arch: codeword-ownership gate ON (%d observed owners)"
-                  % len(CODEWORD_OWNER))
         if ALIAS_REPAIR is not None and len(ALIAS_REPAIR):
             print("AGRV2K arch: selector-alias repair active (%d contested rows)"
                   % len(ALIAS_REPAIR))
@@ -1512,6 +1495,23 @@ class RoutingFeature:
             # corpus_conduction.csv: topology evidence is not a codeword.
             EXACT_HARD_BOUNDARY = MCU_AHB_FEATURE.load_routing_metadata(
                 context.chipdb_root, OPTIONS).exact_pips
+        # CODEWORD-OWNERSHIP GATE (AGAMEMNON_OWNERSHIP_GATE=1; OPT-IN).
+        # SelectorCertainty already applies this to INFERRED selectors, but a
+        # tier-1 edge never reaches it: is_trusted grants tier 1 on a vendor route
+        # occupancy witness, and occupancy is topology, not selection. This closes
+        # that path by refusing any edge whose codeword a different real driver was
+        # physically observed using -- including witnessed ones.
+        OWNERSHIP_GATE = os.environ.get("AGAMEMNON_OWNERSHIP_GATE") == "1"
+        CODEWORD_OWNER = (routing_tiers.CodewordOwnership.from_clean_edges(CLEAN_SEL_EDGE)
+                          if OWNERSHIP_GATE else None)
+        if CODEWORD_OWNER is not None:
+            if not CLEAN_SEL_EDGE:
+                raise ValueError(
+                    "AGAMEMNON_OWNERSHIP_GATE needs the clean-sel corpus "
+                    "(AGAMEMNON_CLEAN_SEL_GATE or AGAMEMNON_CLEAN_SEL_PREFER); "
+                    "without observations there is no ownership to enforce")
+            print("AGRV2K arch: codeword-ownership gate ON (%d observed owners)"
+                  % len(CODEWORD_OWNER))
         # Tier 2 rests on the SAME two tables the clean-sel gate already trusts for emission, and on
         # nothing else: an exact conflict-free physical observation, or a tile-relative key that every
         # physical occurrence agrees on. Majority votes, mesh-template predictions, trained predictions

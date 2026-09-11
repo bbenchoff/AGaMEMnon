@@ -493,3 +493,56 @@ def test_the_diagnostic_line_every_replay_script_parses_is_unchanged_when_idle()
     assert '"%d legacy-abs, %s%d predicted), %d unmapped -> %d bits"' in source
     assert ('_closed_form_note = ("%d closed-form, " % closed_form_count) '
             "if closed_form_count else """) in source
+
+
+def test_codeword_ownership_refuses_only_what_observation_convicts():
+    """The ownership predicate on the six cases evidence has already decided.
+
+    Three of these were each withdrawn by hand after a board failure; the fourth
+    (X18Y6) is the same shape one row over and was never named anywhere. All four
+    must be refused on observation alone. The last two must survive: one is an
+    edge silicon watched deliver, the other is the true owner of its codeword, and
+    a gate that cannot tell those apart is useless.
+    """
+    from agamemnon.engine import routing_selectors
+
+    clean = routing_selectors.load_clean_edges(str(CHIPDB))
+    owner = routing_tiers.CodewordOwnership.from_clean_edges(clean)
+
+    def row(src, sx, sy, dst, dx, dy, cfg):
+        return {"src_res": src, "src_x": sx, "src_y": sy,
+                "dst_res": dst, "dst_x": dx, "dst_y": dy, "cfg": cfg}
+
+    refuse = [
+        row("RMUX27", "18", "2", "RMUX20", "18", "5", "CFG_RMUX3[2,9]"),
+        row("RMUX27", "18", "3", "RMUX20", "18", "6", "CFG_RMUX3[2,9]"),
+        row("RMUX87", "14", "11", "RMUX59", "14", "12", "CFG_RMUX11[2,9]"),
+        row("RMUX07", "14", "11", "RMUX46", "14", "12", "CFG_RMUX7[2,9]"),
+    ]
+    for item in refuse:
+        assert owner.should_refuse(item), item
+
+    keep = [
+        row("RMUX07", "15", "8", "RMUX24", "15", "4", "CFG_RMUX4[6,9]"),
+        row("RMUX75", "18", "1", "RMUX20", "18", "5", "CFG_RMUX3[2,9]"),
+    ]
+    for item in keep:
+        assert not owner.should_refuse(item), item
+
+    # A family that cannot drive a routing mux must neither hold nor confer
+    # ownership: an IMUX recorded by path adjacency must not evict a real driver.
+    assert not owner.should_refuse(
+        row("IMUX43", "18", "5", "RMUX20", "18", "5", "CFG_RMUX3[2,9]"))
+
+
+def test_ownership_gate_emits_a_graph(tmp_path):
+    """Emit with the gate ON.
+
+    Regression for a real bug: the gate was first written above the line that
+    loads the clean-sel corpus, so it raised UnboundLocalError -- but ONLY with
+    the gate enabled, which no test exercised, so the whole suite passed while the
+    gate was broken. Any opt-in switch needs at least one test that turns it on.
+    """
+    out = tmp_path / "devdb_ownership"
+    _emit(out, ("AGAMEMNON_ROUTING_ADMISSION=tiered", "AGAMEMNON_OWNERSHIP_GATE=1"))
+    assert (out / "dev_pips.csv").exists()
