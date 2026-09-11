@@ -265,11 +265,22 @@ module ALTA_BRAM9K #(parameter [9215:0] INIT_VAL = 0,
                      parameter PORTA_CLKIN_EN = 0, parameter PORTA_CLKOUT_EN = 0,
                      parameter PORTA_RSTIN_EN = 0, parameter PORTA_RSTOUT_EN = 0,
                      parameter PORTB_CLKIN_EN = 0, parameter PORTB_CLKOUT_EN = 0,
-                     parameter PORTB_RSTIN_EN = 0, parameter PORTB_RSTOUT_EN = 0) (
+                     parameter PORTB_RSTIN_EN = 0, parameter PORTB_RSTOUT_EN = 0,
+                     // Experimental mode fields. Declared so an instantiation that sets them
+                     // survives synthesis and reaches bitgen, where bram_emit.EXPERIMENTAL_FIELDS
+                     // REFUSES them unless AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG is set. Declaring
+                     // them here admits nothing: default 0 is byte-identical, and a non-zero
+                     // value still fails closed at bitgen without the flag.
+                     parameter PORTA_OUTREG = 0, parameter PORTB_OUTREG = 0,
+                     parameter PORTA_WRITETHRU = 0, parameter PORTB_WRITETHRU = 0) (
 	input [12:0] AddressA, input [17:0] DataInA, output [17:0] DataOutA,
 	input WeA, input ReA, input [1:0] ByteEnA,
 	input [12:0] AddressB, input [17:0] DataInB, output [17:0] DataOutB,
 	input WeB, input ReB, input [1:0] ByteEnB,
 	input Clk0, input Clk1, input ClkEn0, input ClkEn1,
-	input AsyncReset0);
+	input AsyncReset0,
+	// Vendor-primitive ports the open packer does not model. Accepted so the
+	// board-proven BRAM oracles (which tie them to constants) synthesize; the
+	// packer ignores them, which is only correct when they are tied inactive.
+	input AsyncReset1, input AddressStallA, input AddressStallB);
 endmodule
