@@ -1515,16 +1515,21 @@ class RoutingFeature:
         # UNMODELLED-ADJACENT-ROW GATE (AGAMEMNON_ADJACENT_ROW_GATE=1; OPT-IN).
         # DistanceEncoding EXCLUDES |dy|==1 because a hidden variable governs its
         # low sel (~11% second mode). That exclusion admits a class the model
-        # cannot predict, which is inference. This refuses it instead. Blast
-        # radius measured before shipping: 41,793/550,664 edges (7.59%), 38
-        # destination nodes starved -- which is why it is opt-in and off by
-        # default. Validated against the standing regression set with ZERO fatal
-        # over-refusals; see routing_tiers.UnmodelledAdjacentRow.
+        # cannot predict, which is inference. This refuses it instead.
+        # NOT RECOMMENDED: it refuses 23,524 of 296,711 distinct edges, which is
+        # 41% of all same-column inter-tile RMUX hops -- the commonest routing
+        # class on the chip. (An earlier comment here said 41,793/550,664; that
+        # double-counted corpus_conduction.csv against rrg_edges_full.csv.)
+        # Opt-in, off by default, kept as a documented negative result; see
+        # routing_tiers.UnmodelledAdjacentRow.
         ADJACENT_ROW_GATE = os.environ.get("AGAMEMNON_ADJACENT_ROW_GATE") == "1"
-        ADJACENT_ROW = routing_tiers.UnmodelledAdjacentRow() if ADJACENT_ROW_GATE else None
+        ADJACENT_ROW = (routing_tiers.UnmodelledAdjacentRow(
+                            routing_tiers.MandatoryPips.from_chipdb(DATA))
+                        if ADJACENT_ROW_GATE else None)
         if ADJACENT_ROW is not None:
             print("AGRV2K arch: unmodelled-adjacent-row gate ON "
-                  "(refuses dx=0, |dy|=1 RMUX->RMUX)")
+                  "(refuses dx=0, |dy|=1 RMUX->RMUX; %d architecture-mandated "
+                  "pips exempt)" % len(ADJACENT_ROW.mandatory))
         OWNERSHIP_GATE = os.environ.get("AGAMEMNON_OWNERSHIP_GATE") == "1"
         CODEWORD_OWNER = (routing_tiers.CodewordOwnership.from_chipdb(DATA, CLEAN_SEL_EDGE)
                           if OWNERSHIP_GATE else None)

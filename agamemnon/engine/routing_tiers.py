@@ -73,6 +73,7 @@ import collections
 import csv
 import json
 import os
+import re
 
 from agamemnon.engine import mesh_template
 
@@ -165,6 +166,73 @@ def closed_form_is_legal_fanin(dst_fam, dst_idx, pair):
     return all(block + local in legal for local in pair)
 
 
+class MandatoryPips:
+    """Pips the ARCHITECTURE requires, which no gate may refuse.
+
+    The uarch hard-requires specific pip sequences for hard-block connectivity --
+    BRAM write-enable, x9 address entry, site reads, portb corridors. It reads
+    them from chipdb CSVs and errors out if one is missing::
+
+        ERROR: agrv2k: SERV WeA pip absent: X15Y4_RMUX02 -> X15Y5_RMUX08
+
+    Refusing such a pip is not failing closed. There is no alternative for it, so
+    the part simply stops working: the packer aborts before routing is reached.
+
+    **This exists because node-starvation is the WRONG safety metric and every
+    gate on this project had been validated with it.** The pip above did not
+    starve its destination -- X15Y5_RMUX08 has 23 drivers and 18 survived the
+    refusal -- and the build still failed 40/40 attempts. Damage is not
+    proportional to edges dropped: one mandatory pip is fatal and 41,792 optional
+    ones are survivable. A blast-radius count cannot see that; this can.
+
+    Read from the SAME files the uarch reads, so the list is sourced from the
+    architecture rather than from whatever the last failing build happened to
+    name. Fitting an exemption list to the failing test would leave the next
+    mandatory pip to fail the same way.
+    """
+
+    FILES = ("bram_serv_write_paths.csv", "bram_x9_haddr_paths.csv",
+             "bram_portb_entry_corridors.csv", "bram_x9_data4_simultaneous_paths.csv",
+             "bram_site_read_paths.csv", "bram_portb_corridors.csv",
+             "bram_portb_exit_corridors.csv", "bram_tmux9_source_paths.csv")
+
+    WIRE = re.compile(r"X(\d+)Y(\d+)_([A-Za-z]+\d+)")
+
+    def __init__(self, pips=()):
+        self.pips = frozenset(pips)
+
+    @classmethod
+    def from_chipdb(cls, data_dir):
+        found = set()
+        for name in cls.FILES:
+            path = os.path.join(data_dir, name)
+            if not os.path.exists(path):
+                continue
+            with open(path, newline="", encoding="utf-8") as handle:
+                for row in csv.DictReader(handle):
+                    wires = [cls.WIRE.fullmatch(v.strip())
+                             for v in row.values() if isinstance(v, str)]
+                    wires = [w for w in wires if w]
+                    for a, b in zip(wires, wires[1:]):
+                        found.add(((int(a.group(1)), int(a.group(2)), a.group(3)),
+                                   (int(b.group(1)), int(b.group(2)), b.group(3))))
+        return cls(found)
+
+    def contains(self, src_x, src_y, src_res, dst_x, dst_y, dst_res):
+        return ((int(src_x), int(src_y), src_res),
+                (int(dst_x), int(dst_y), dst_res)) in self.pips
+
+    def covers_row(self, row):
+        try:
+            return self.contains(row["src_x"], row["src_y"], row.get("src_res", ""),
+                                 row["dst_x"], row["dst_y"], row.get("dst_res", ""))
+        except (KeyError, TypeError, ValueError):
+            return False
+
+    def __len__(self):
+        return len(self.pips)
+
+
 class UnmodelledAdjacentRow:
     """Refuses same-column adjacent-row RMUX hops, the class we admit but cannot predict.
 
@@ -213,8 +281,27 @@ class UnmodelledAdjacentRow:
     the failing chain's third hop (0,-2). A gate that under-refuses is safe; one
     that over-refuses destroys real capacity.
 
-    BLAST RADIUS, measured before shipping: 41,793 of 550,664 edges (7.59%) and
-    38 destination nodes starved. That is real and is why this is OPT-IN.
+    BLAST RADIUS. **The figure first published here, "41,793 of 550,664 edges
+    (7.59%)", was WRONG**: it summed rrg_edges_full.csv and corpus_conduction.csv
+    without deduplicating, and 253,953 of the corpus file's 258,014 rows are
+    duplicates of the first. Corrected: **23,524 of 296,711 distinct edges**, 38
+    destination nodes starved. The percentage barely moved (7.6% -> 7.9%), which
+    is exactly why the error survived review -- the ratio looked stable so the
+    absolutes went unquestioned.
+
+    **And the percentage was the wrong framing entirely.** Against the class it
+    actually cuts:
+
+        same-column inter-tile RMUX->RMUX edges, by dy
+        -4: 4,140   -3: 5,341   -2: 6,633   -1: 12,139
+        +1: 11,385  +2: 7,173   +3: 5,685   +4: 4,369
+
+    ``|dy| == 1`` is **23,524 of 56,865 -- 41% of all same-column inter-tile
+    routing**, the single most populous hop class on the chip. A fabric has far
+    more short local connections than long ones, so this was never a narrow gate:
+    it deletes the commonest routing primitive the part has. "7.59%, 38 starved"
+    made it sound surgical. "41% of same-column inter-tile hops" is what it does,
+    and that framing would have stopped it shipping.
 
     **DO NOT ENABLE THIS YET. IT FAILS ITS FIRST FUNCTIONAL TEST.**
 
@@ -242,8 +329,18 @@ class UnmodelledAdjacentRow:
     whatever the last failing build named -- that would be fitting the gate to
     the test rather than to the chip.
 
-    Kept in the tree, opt-in and off, as a documented negative result.
+    **RECOMMENDATION: do not pursue this rule.** It refuses 41% of the fabric's
+    commonest hop class to catch a failure whose mechanism is still unknown, and
+    no exemption list repairs that -- ``MandatoryPips`` removes one failure mode,
+    not the amputation. Kept in the tree, opt-in and off, as a documented
+    negative result; ``MandatoryPips`` and the audit it enables are the parts
+    worth keeping.
     """
+
+    def __init__(self, mandatory=None):
+        # 24 of the 587 architecture-mandated pips fall in this class. Without the
+        # exemption the gate refuses them and the packer aborts before routing.
+        self.mandatory = mandatory if mandatory is not None else MandatoryPips()
 
     @staticmethod
     def refuses(src_x, src_y, dst_x, dst_y, src_res, dst_res):
@@ -253,11 +350,13 @@ class UnmodelledAdjacentRow:
 
     def should_refuse(self, row):
         try:
-            return self.refuses(int(row["src_x"]), int(row["src_y"]),
+            if not self.refuses(int(row["src_x"]), int(row["src_y"]),
                                 int(row["dst_x"]), int(row["dst_y"]),
-                                row.get("src_res", ""), row.get("dst_res", ""))
+                                row.get("src_res", ""), row.get("dst_res", "")):
+                return False
         except (KeyError, TypeError, ValueError):
             return False
+        return not self.mandatory.covers_row(row)
 
 
 class DistanceEncoding:

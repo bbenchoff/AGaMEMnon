@@ -7,6 +7,7 @@ that sentence is only true until the corpus changes. So it is re-derived from
 the shipped ``sel_edge_pairs.agdb`` on every run, and a single counterexample
 fails the suite rather than quietly widening the graph.
 """
+import os
 import collections
 import csv
 import json
@@ -675,3 +676,39 @@ def test_unmodelled_adjacent_row_is_scoped_to_rmux_pairs():
     assert not gate.should_refuse({**base, "src_res": "RMUX80", "dst_res": "IMUX03"})
     # malformed rows must not raise
     assert not gate.should_refuse({"src_res": "RMUX80", "dst_res": "RMUX27"})
+
+
+def test_mandatory_pips_are_loaded_from_the_files_the_uarch_reads():
+    mandatory = routing_tiers.MandatoryPips.from_chipdb(CHIPDB)
+    assert len(mandatory) > 500, "architecture-mandated pip set looks empty"
+    # the exact pip whose refusal aborted the packer 40/40 attempts
+    assert mandatory.contains(15, 4, "RMUX02", 15, 5, "RMUX08")
+
+
+def test_no_gate_may_refuse_an_architecture_mandated_pip():
+    """Node-starvation is not a sufficient safety metric for a refusal gate.
+
+    X15Y5_RMUX08 had 23 drivers and 18 survived the adjacent-row refusal, so
+    nothing was starved -- and the build still failed 40/40 in the packer,
+    because the uarch requires that ONE pip. Damage is not proportional to edges
+    dropped. This pins the stronger check for every gate that can refuse.
+    """
+    mandatory = routing_tiers.MandatoryPips.from_chipdb(CHIPDB)
+    gate = routing_tiers.UnmodelledAdjacentRow(mandatory)
+    for (sx, sy, sres), (dx, dy, dres) in mandatory.pips:
+        row = {"src_x": sx, "src_y": sy, "src_res": sres,
+               "dst_x": dx, "dst_y": dy, "dst_res": dres}
+        assert not gate.should_refuse(row), (
+            f"adjacent-row gate refuses architecture-mandated pip "
+            f"X{sx}Y{sy}_{sres} -> X{dx}Y{dy}_{dres}")
+
+
+def test_shipped_alias_repair_refuses_no_mandatory_pip():
+    """The audit that motivated MandatoryPips, pinned so it stays true."""
+    import csv as _csv
+    mandatory = routing_tiers.MandatoryPips.from_chipdb(CHIPDB)
+    path = os.path.join(CHIPDB, "selector_alias_repair.csv")
+    with open(path, newline="", encoding="utf-8") as handle:
+        for row in _csv.DictReader(handle):
+            assert not mandatory.covers_row(row), (
+                f"alias repair contests architecture-mandated pip {row}")
