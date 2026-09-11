@@ -1835,13 +1835,17 @@ def cmd_verify(a):
     the AHB read-values it will produce. With --observed, compare a silicon-observed value set (SOUND/COVER
     + MCU_DOUT bind). See engine/verify_netlist.py."""
     from .engine import verify_netlist as V
-    stimulus = V.load_stimulus(a.stimulus) if getattr(a, "stimulus", None) else None
-    trace = [t for t in (getattr(a, "trace", None) or "").split(",") if t] or None
-    if a.observed is not None:
-        obs = [int(x, 0) for x in a.observed.split(",") if x.strip() != ""]
-        ok = V.verify(a.input, obs, a.cycles, stimulus=stimulus)
-        sys.exit(0 if ok else 1)
-    ok = V.summary(a.input, a.cycles, stimulus=stimulus, trace=trace)
+    try:
+        stimulus = V.load_stimulus(a.stimulus) if getattr(a, "stimulus", None) else None
+        trace = [t for t in (getattr(a, "trace", None) or "").split(",") if t] or None
+        if a.observed is not None:
+            obs = [int(x, 0) for x in a.observed.split(",") if x.strip() != ""]
+            ok = V.verify(a.input, obs, a.cycles, stimulus=stimulus)
+            sys.exit(0 if ok else 1)
+        ok = V.summary(a.input, a.cycles, stimulus=stimulus, trace=trace)
+    except (ValueError, KeyError) as exc:
+        print("error: verify refused: %s" % exc)
+        sys.exit(1)
     sys.exit(0 if ok else 1)
 
 
@@ -3677,9 +3681,14 @@ def _cmd_build_once(a):
         # the design will produce on silicon over AHB 0x60000000, plus the MCU_DOUT bind soundness.
         from .engine import verify_netlist as V
         print("[build] verify:")
-        if not V.summary(
-                routed_json, cycles=a.verify_cycles,
-                document=final_snapshot.document):
+        try:
+            sound = V.summary(routed_json, cycles=a.verify_cycles,
+                              document=final_snapshot.document)
+        except (ValueError, KeyError) as exc:
+            # e.g. a LUT whose INIT depends on an unconnected input, or an
+            # unmodelled BRAM width: the routed netlist is not predictable.
+            print("error: verify refused the routed netlist: %s" % exc); sys.exit(1)
+        if not sound:
             print("error: MCU_DOUT readout bind is SCRAMBLED (h<k> not mapped to AHB bit k)"); sys.exit(1)
     if project is not None:
         mcu_output = PJ.build_mcu(project)

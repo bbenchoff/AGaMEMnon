@@ -140,3 +140,15 @@ def test_malformed_stimulus_file_is_refused(tmp_path):
     bad.write_text(json.dumps({"schema": 1, "events": [[0, 1]]}), encoding="utf-8")
     with pytest.raises(ValueError, match="malformed event"):
         load_stimulus(str(bad))
+
+
+def test_cli_verify_reports_a_refusal_instead_of_a_traceback(tmp_path, capsys):
+    import argparse
+    from agamemnon import cli
+    routed = tmp_path / "bad.json"
+    routed.write_text(json.dumps(_slice_document(0x8888, [2, 900, "0", "0"])), encoding="utf-8")
+    args = argparse.Namespace(input=str(routed), observed=None, cycles=2, stimulus=None, trace=None)
+    with pytest.raises(SystemExit) as exc:
+        cli.cmd_verify(args)
+    assert exc.value.code == 1
+    assert "verify refused" in capsys.readouterr().out
