@@ -916,15 +916,21 @@ def test_current_physical_touching_pip_role_matrix_is_exhaustive(
         edge not in catalog.edges
     )
     canonical = "".join("%s,%s\n" % edge for edge in touching).encode("utf-8")
-    assert len(touching) == 772
+    # 2026-09-11: 772 -> 788. The BramTILE input crossbar was widened from 61
+    # directed af.exe builds, so 16 more catalogued wires now feed a BramTILE
+    # input. All 16 land in `outgoing` (513 -> 529); `incoming` (269) and
+    # `internal` (10) are unchanged, which is the shape a BRAM-input widening
+    # must have -- a change to either of those would mean something other than
+    # the crossbar moved.
+    assert len(touching) == 788
     assert hashlib.sha256(canonical).hexdigest() == (
-        "416af74746576261409807b851cc7fd67bd8fedee112994cf3a77430019fdb52"
+        "d184d5693b12479cc80be7a06aaadb2be0cb68c96587a167c3c3799e5d42d769"
     )
     incoming = [edge for edge in touching if edge[1] in catalog.wires]
     outgoing = [edge for edge in touching if edge[0] in catalog.wires]
     internal = [edge for edge in touching
                 if edge[0] in catalog.wires and edge[1] in catalog.wires]
-    assert (len(incoming), len(outgoing), len(internal)) == (269, 513, 10)
+    assert (len(incoming), len(outgoing), len(internal)) == (269, 529, 10)
 
     # The census above binds the exact current physical graph.  Avoid 7,656
     # redundant catalog reads while still exercising the public validator for
@@ -1930,6 +1936,50 @@ def test_local_qin_addition_preserves_exact_legacy_graph_replay(tmp_path):
     path = devdb / "dev_pips.csv"
     raw = path.read_bytes()
     lines = raw.splitlines(keepends=True)
+    # Step back through the 2026-09-11 graph change first. That change ADDED 168
+    # LogicTile edges (relative keys previously rejected as conflicted only
+    # because a BramTILE observation disagreed with the LogicTiles) and REMOVED
+    # the two instances of the silicon-refuted RMUX87->RMUX59 dy=1 translation
+    # restored from 96c73ca. Net +166.
+    #
+    # This test used to derive the historical snapshot as "the live graph plus
+    # three withdrawn rows", an identity that only held while the live graph was
+    # exactly history-minus-those-rows. Once the graph legitimately moved that
+    # broke, and the tempting repair -- restating the historical hash -- would
+    # falsify the very record this test exists to preserve. So the delta is
+    # carried as an explicit fixture and the historical hash is untouched.
+    delta = (Path(__file__).parent / "fixtures"
+             / "legacy_graph_delta_20260911.csv").read_bytes()
+    added, restored, tail, tail_at = [], [], [], None
+    for entry in delta.splitlines(keepends=True):
+        if entry.startswith(b"#") or entry.startswith(b"sign,"):
+            continue
+        sign, _, rest = entry.partition(b",")
+        index, _, row = rest.partition(b",")
+        if sign == b"+":
+            added.append(row)
+        elif sign == b"T":
+            tail.append(row)
+        elif sign == b"tail_at":
+            tail_at = int(index)
+        else:
+            restored.append((int(index), row))
+    drop = set(added)
+    before = len(lines)
+    lines = [line for line in lines if line not in drop]
+    assert before - len(lines) == len(added), (
+        "the live graph is missing rows the delta records as added")
+    for index, row in sorted(restored):
+        lines.insert(index, row)
+    # Content is now exact, but the emitter's row ORDER inside the BramTILE
+    # section changed when the crossbar was widened, so the final 151 lines come
+    # back in a different sequence. Assert the content first -- that is the real
+    # claim -- then restore the recorded order so the predecessor reproduces byte
+    # for byte. Substituting without the set check would let a content error hide
+    # behind the recorded tail.
+    assert set(lines[tail_at:]) == set(tail), (
+        "reconstructed tail content differs from the recorded predecessor tail")
+    lines[tail_at:] = tail
     # Reconstruct the exact pre-withdrawal snapshot before testing its older
     # LOCAL_QIN predecessor. These are historical graph rows, not permission
     # to emit their withdrawn selectors in a new checkpoint.

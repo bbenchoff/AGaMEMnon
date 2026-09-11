@@ -39,7 +39,15 @@ def test_vendor_route_corpus_is_reference_only_not_production_admission():
     )
     # Two exact TILE-form hops were added from the simultaneous x9
     # AddressB[7]/DataInA[2] vendor oracle on 2026-08-22.
-    assert len(corpus) == 2114
+    #
+    # 2026-09-11: the corpus grew 2,114 -> 6,059 when 61 directed af.exe builds
+    # (a 1-BRAM design driving every BRAM input from a distinct fabric signal,
+    # and a 4-BRAM design placing one per BramTILE) were harvested. Those routes
+    # are vendor-observed BRAM-site edges, which is exactly what this file
+    # records. The invariant this test protects is unchanged and still asserted
+    # below: production is a STRICT subset, so corpus membership alone never
+    # amounts to production admission.
+    assert len(corpus) == 6059
     assert known_static in corpus
     assert known_static not in production
     assert production < corpus
@@ -90,8 +98,8 @@ def test_full_depth_read_corpus_has_all_sensitized_bus_trees():
 
 def test_full_depth_read_selector_table_owns_complete_fields():
     fields = rows("bram_site_read_pip_cfg.csv")
-    assert len(fields) == 409
-    assert len({(row["src_wire"], row["dst_wire"]) for row in fields}) == 409
+    assert len(fields) == 408
+    assert len({(row["src_wire"], row["dst_wire"]) for row in fields}) == 408
     fixed_clock_hops = [row for row in fields if not row["clear_selectors"]]
     assert len(fixed_clock_hops) == 8
     assert all(row["cfg_group"] == "CFG_SeamMUX" for row in fixed_clock_hops)
@@ -102,7 +110,11 @@ def test_full_depth_read_selector_table_owns_complete_fields():
     )
     assert control["cfg_group"] == "CFG_CTRLMUX"
     assert control["clear_selectors"] == ";".join(map(str, range(24, 48)))
-    assert control["set_selectors"] == "28;32"
+    # 31;32 is what vendor images paired with their routes actually emit for
+    # X14Y4_RMUX84 -> X13Y4_CtrlMUX02 (oracle_bram_rw). The former 28;32 was
+    # shared with an unattested X14Y4_RMUX00 row, which a mux cannot do; that
+    # row is withdrawn and 28;32 matches no observed source.
+    assert control["set_selectors"] == "31;32"
 
     cells = load_cells(CHIPDB / "pips_full.csv")
     x, y, cfg, selectors = destination_field(control["dst_wire"], cells)

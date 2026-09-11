@@ -161,32 +161,21 @@ def _alias_group_for(sources):
 # The defects that ship today.  Read the module docstring before adding one.
 # --------------------------------------------------------------------------
 
+# RETIRED 2026-09-11, against its own stated retire_when. The CtrlMUX02
+# duplicate-codeword defect was:
+#   duplicate-codeword|bram_site_read_pip_cfg.csv|
+#   X13Y4_CtrlMUX02/fabric/CFG_CTRLMUX|28;32|X14Y4_RMUX00,X14Y4_RMUX84
+# Its retire_when read "one reference build routes X14Y4_RMUX84 ->
+# X13Y4_CtrlMUX02 and gives line 248 its own codeword, or the row is deleted".
+# BOTH halves are now satisfied: vendor images paired with their routes show
+# X14Y4_RMUX84 -> X13Y4_CtrlMUX02 emitting 31;32 (oracle_bram_rw), which is its
+# own codeword and not RMUX00's word, and the unattested X14Y4_RMUX00 row was
+# withdrawn (no vendor route and no build routes it; 0 of 9,015 images emit
+# 28;32, so removing it has zero blast radius). The audit no longer reproduces
+# the signature, and this file's own contract says a quarantine entry that stops
+# reproducing must be deleted rather than left stale.
+
 KNOWN_DEFECTS = (
-    Defect(
-        signature=(
-            "duplicate-codeword|bram_site_read_pip_cfg.csv|"
-            "X13Y4_CtrlMUX02/fabric/CFG_CTRLMUX|28;32|"
-            "X14Y4_RMUX00,X14Y4_RMUX84"
-        ),
-        summary=(
-            "Two real pips share one CtrlMUX codeword.  X14Y4_RMUX00 is "
-            "corroborated by bram_site_read_paths.csv:475 and by the same "
-            "codeword at the sibling instance X13Y3_CtrlMUX02 (line 191), which "
-            "is the tile-class source law; the X14Y4_RMUX84 row at line 248 "
-            "appears in no path table and duplicates RMUX00's word."
-        ),
-        citation="AG32-Docs/docs/GOAL_VENDOR_PARITY.md G25",
-        refusal=(
-            "features/mcu_ahb.py drops the uncorroborated member of the "
-            "colliding group from the exact-field map, so a route through "
-            "X14Y4_RMUX84 -> X13Y4_CtrlMUX02 reports UNMAPPED and bitgen fails "
-            "closed instead of writing RMUX00's terminal."
-        ),
-        retire_when=(
-            "one reference build routes X14Y4_RMUX84 -> X13Y4_CtrlMUX02 and gives "
-            "line 248 its own codeword, or the row is deleted"
-        ),
-    ),
     Defect(
         signature=(
             "duplicate-codeword|bram_site_read_pip_cfg.csv+corridor merge|"

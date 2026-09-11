@@ -109,13 +109,22 @@ def test_the_arbitration_keeps_the_corroborated_member():
     """Observation decides: only the member with no path witness is withdrawn.
 
     Refusing both members of every collision would be a false refusal that
-    breaks working corridors. ``X14Y4_RMUX00 -> X13Y4_CtrlMUX02`` is recorded in
-    bram_site_read_paths.csv and carries the same word at the sibling instance
-    X13Y3_CtrlMUX02, so it keeps its codeword; X14Y4_RMUX84 does not and loses
-    it.
+    breaks working corridors. At ``X14Y12_RMUX49`` the codeword 12;19 is claimed
+    by both X14Y11_RMUX37 and X14Y8_RMUX85; only X14Y8_RMUX85 is corroborated by
+    a path table, so it keeps the word and X14Y11_RMUX37 loses it.
+
+    This used to be asserted on X13Y4_CtrlMUX02 (X14Y4_RMUX00 corroborated,
+    X14Y4_RMUX84 not). That collision was REPAIRED on 2026-09-11 -- vendor
+    images paired with their routes give X14Y4_RMUX84 its own codeword 31;32,
+    and the unattested X14Y4_RMUX00 row was withdrawn -- so there is no longer
+    an ambiguity there to arbitrate. The principle is unchanged; only the
+    example moved to a collision that still exists.
     """
     refused = SI.ambiguous_exact_pips(str(CHIPDB))
-    assert ("X14Y4_RMUX84", "X13Y4_CtrlMUX02") in refused
+    assert ("X14Y11_RMUX37", "X14Y12_RMUX49") in refused
+    assert ("X14Y8_RMUX85", "X14Y12_RMUX49") not in refused
+    # the repaired collision is gone entirely
+    assert ("X14Y4_RMUX84", "X13Y4_CtrlMUX02") not in refused
     assert ("X14Y4_RMUX00", "X13Y4_CtrlMUX02") not in refused
 
 

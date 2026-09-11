@@ -9,6 +9,12 @@ from . import chipdb_schema
 
 FILENAME = "sel_edge_pairs.agdb"
 
+# The BRAM column. clean_edge carries destinations at exactly (13, 1..4), which
+# is precisely bram_emit.CONFIGURABLE_BRAM_TILES, so the column alone names the
+# four BramTILEs with no y test. Named here rather than imported to keep this
+# module free of a dependency on the BRAM feature.
+BRAM_COLUMN = 13
+
 # Agreement among observations is not proof of translation invariance. This
 # same-tile edge is observed only in column 20 (ten rows, pair 0/8). Applying
 # it at X14Y7 fails to deliver reset: a regbank16 image fails 3/3; replacing
@@ -42,6 +48,18 @@ NONPORTABLE_RELATIVE_KEYS = frozenset({
     # route-intervention image: 94b619bfdaff0b473bc635e4f6e4b965761cda3da
     # 1410a9ae47f766ee931464c. Fresh ordinary-source qualification is separate.
     ("RMUX", 20, "RMUX", 27, 0, 3),
+    # RMUX87 -> RMUX59 has the same boundary-only inference problem:
+    # supporting exact destinations are row 3; at X14Y12 pair 2/9 has
+    # exact evidence for X14Y8_RMUX39. The original ALU target branch
+    # fails DC capture while siblings work; a two-selector route-only
+    # bypass repairs all 512 observations in three silicon runs.
+    # Withdraw the unsupported translation, retaining exact observations.
+    # Restored 2026-09-11: this key was added by 96c73ca on 2026-09-06, which
+    # never merged to main -- the branch carrying it was unreferenced and days
+    # from gc. The consumer nonportable_translation() is live by default
+    # (features/routing.py:2511, ungated), so main has been admitting the
+    # translation this withdraws. Brian ratified restoring it in session.
+    ("RMUX", 59, "RMUX", 87, 0, 1),
 })
 
 _WIRE = re.compile(r"X(-?\d+)Y(-?\d+)_([A-Za-z]+)(\d+)")
@@ -76,10 +94,41 @@ def relative_edges(clean_edges):
     A relative key is promoted only if every known physical occurrence agrees.
     Conflicting pairs and experimentally nonportable translations are rejected.
     This does not remove the original coordinate-specific observations.
+
+    BRAM-column destinations do not define a relative key. A relative key is a
+    claim about tile geometry, and ``emission_audit.logic_tiles`` already
+    records that the selector grouping this translation rests on is a LogicTile
+    property which "BRAM (x=13), the IO borders (x=0, 22) and the seams group
+    differently". Letting a BramTILE observation define a key exports that
+    grouping to the 132 LogicTiles, where it is not evidence.
+
+    MEASURED 2026-09-11, held out: build the relative table from LogicTile
+    destinations only, then predict the 6,445 BRAM-column physical
+    observations it never saw. Of the 3,564 it makes a prediction for:
+
+        prediction correct   2,846   79.9%
+        prediction WRONG       718   20.1%
+
+    One in five translated codewords across that tile-type boundary is wrong,
+    and a wrong codeword is not a refusal -- it selects a different real input
+    which, undriven, reads 1. Worst case is dst RMUX <- src IMUX at 430 wrong
+    against 109 right. So the translation is withdrawn in the direction this
+    function controls: a BramTILE may still USE a LogicTile-derived key (that
+    remains unproven and is tracked separately), but it may no longer DEFINE
+    one for the rest of the device.
+
+    BLAST RADIUS over all 5,517 routed netlists in the workbench: 878 relative
+    keys withdrawn, 60 edges in 37 builds lose their selector (0.67%), zero
+    edges newly admitted, and zero emitted codewords change. The affected
+    builds are workbench experiments, several already named
+    ``batch_20260821_invalidated_pre_release_strict_fix``; no qualified or
+    shipped artifact is among them.
     """
     relative = {}
     conflicts = set()
     for (dx, dy, df, di, sf, sx, sy, si), pair in clean_edges.items():
+        if dx == BRAM_COLUMN:
+            continue
         key = (df, di, sf, si, dx - sx, dy - sy)
         pair = tuple(pair)
         if key in relative and relative[key] != pair:

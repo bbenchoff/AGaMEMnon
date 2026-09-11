@@ -36,7 +36,7 @@ def test_shipped_runtime_databases_have_expected_schema(tmp_path):
     tables, _ = chipdb_schema.load(
         root / "sel_tables.agdb", expected=("geom_rmux", "absolute", "group_context")
     )
-    assert len(exact["clean_edge"]) == 659759
+    assert len(exact["clean_edge"]) == 660543
     assert len(train["train_lut"]) == 14237
     assert tuple(len(tables[name]) for name in ("geom_rmux", "absolute", "group_context")) == (
         330, 153080, 532558
