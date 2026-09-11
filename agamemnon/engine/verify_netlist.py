@@ -295,15 +295,78 @@ def _bram_clock(bram, value, nxt):
          "q_b", "q_b_reg", bram["outreg_b"], bram["out_b"])
 
 
-def summary(routed_json, cycles=96, document=None):
+def load_stimulus(path):
+    """Read a stimulus file: {"schema": 1, "events": [[cycle, {"mcu_cell": 0|1, ...}], ...]}.
+    Returns the callable sim_routed() expects. Cycles are absolute; an input holds its last value."""
+    doc = json.load(open(path, encoding="utf-8"))
+    if doc.get("schema") != 1 or not isinstance(doc.get("events"), list):
+        raise ValueError("stimulus %s: expected {\"schema\": 1, \"events\": [[cycle, {cell: bit}], ...]}" % path)
+    by_cycle = {}
+    for item in doc["events"]:
+        if not (isinstance(item, list) and len(item) == 2 and isinstance(item[1], dict)):
+            raise ValueError("stimulus %s: malformed event %r" % (path, item))
+        by_cycle.setdefault(int(item[0]), {}).update({str(k): int(v) & 1 for k, v in item[1].items()})
+    return lambda cycle, reads: by_cycle.get(cycle, {})
+
+
+def _canonical_net_names(document, names):
+    """Map user-facing net names to the canonical name sim_routed() keys values by."""
+    top = document["modules"]["top"]
+    nid = {}
+    for nm, ni in top["netnames"].items():
+        for b in ni.get("bits", []):
+            nid[b] = nm
+    out = {}
+    for name in names:
+        ni = top["netnames"].get(name)
+        if ni is None or not ni.get("bits"):
+            raise KeyError("trace: no net named %r in the routed JSON" % name)
+        out[name] = nid[ni["bits"][0]]
+    return out
+
+
+def _run_length(values):
+    parts, prev, count = [], None, 0
+    for v in values:
+        if v == prev:
+            count += 1
+        else:
+            if prev is not None:
+                parts.append("%dx%d" % (prev, count))
+            prev, count = v, 1
+    if prev is not None:
+        parts.append("%dx%d" % (prev, count))
+    return " ".join(parts)
+
+
+def summary(routed_json, cycles=96, document=None, stimulus=None, trace=None):
     """Print the read-values a routed design will produce on silicon + the bind check. Returns True if the
-    MCU_DOUT bind is sound (h<k> -> AHB bit k). Hardware-free."""
-    reads, bind = sim_routed(routed_json, cycles, document=document)
+    MCU_DOUT bind is sound (h<k> -> AHB bit k). Hardware-free. With `stimulus` (see load_stimulus) the
+    per-cycle read sequence is printed run-length encoded; `trace` names nets whose values are printed
+    whenever one of them changes."""
+    if document is None:
+        document = json.load(open(routed_json, encoding="utf-8"))
+    rows = []
+    probe = None
+    if trace:
+        canon = _canonical_net_names(document, trace)
+        last = [None]
+
+        def probe(cycle, value):
+            vals = tuple(value(canon[t]) for t in trace)
+            if vals != last[0]:
+                rows.append((cycle, vals))
+                last[0] = vals
+    reads, bind = sim_routed(routed_json, cycles, document=document, stimulus=stimulus, probe=probe)
     simset = sorted(set(reads))
     bind_ok = all(k == bit for (k, bit) in bind.values())
     nff = "?"
-    print("verify: routed-netlist sim over %d cycles" % cycles)
+    print("verify: routed-netlist sim over %d cycles%s" % (cycles, " with stimulus" if stimulus else ""))
     print("  MCU read-values the design will produce (AHB 0x60000000): %s" % (simset,))
+    if stimulus is not None:
+        print("  read sequence (value x cycles): %s" % _run_length(reads))
+    for cycle, vals in rows:
+        print("  trace @%-6d %s" % (cycle, " ".join("%s=%d" % (t, v) for t, v in zip(trace, vals))))
     if bind:
         print("  MCU_DOUT bind (h<k> -> AHB bit k): %s %s"
               % ("OK" if bind_ok else "SCRAMBLED", {c: b for c, (k, b) in bind.items()}))
@@ -315,9 +378,9 @@ def summary(routed_json, cycles=96, document=None):
     return bind_ok
 
 
-def verify(routed_json, observed, cycles=96):
+def verify(routed_json, observed, cycles=96, stimulus=None):
     """Compare a silicon-observed value set to the sim's reachable set (SOUND + COVER + BIND)."""
-    reads, bind = sim_routed(routed_json, cycles)
+    reads, bind = sim_routed(routed_json, cycles, stimulus=stimulus)
     simset = set(reads)
     obs = set(observed)
     bind_ok = all(k == bit for (k, bit) in bind.values())

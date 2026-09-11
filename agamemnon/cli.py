@@ -1835,11 +1835,13 @@ def cmd_verify(a):
     the AHB read-values it will produce. With --observed, compare a silicon-observed value set (SOUND/COVER
     + MCU_DOUT bind). See engine/verify_netlist.py."""
     from .engine import verify_netlist as V
+    stimulus = V.load_stimulus(a.stimulus) if getattr(a, "stimulus", None) else None
+    trace = [t for t in (getattr(a, "trace", None) or "").split(",") if t] or None
     if a.observed is not None:
         obs = [int(x, 0) for x in a.observed.split(",") if x.strip() != ""]
-        ok = V.verify(a.input, obs, a.cycles)
+        ok = V.verify(a.input, obs, a.cycles, stimulus=stimulus)
         sys.exit(0 if ok else 1)
-    ok = V.summary(a.input, a.cycles)
+    ok = V.summary(a.input, a.cycles, stimulus=stimulus, trace=trace)
     sys.exit(0 if ok else 1)
 
 
@@ -4268,6 +4270,9 @@ def main(argv=None):
     vf.add_argument("input", help="routed nextpnr 'generic' --write JSON")
     vf.add_argument("--observed", help="comma-separated silicon-observed read values to check (SOUND/COVER)")
     vf.add_argument("--cycles", type=int, default=96, help="cycles to simulate")
+    vf.add_argument("--stimulus", help="JSON {\"schema\":1,\"events\":[[cycle,{\"mcu_cell\":bit}],...]} driving "
+                                       "MCU_DIN/MCU cells by name; without it the sim is stimulus-free")
+    vf.add_argument("--trace", help="comma-separated net names to print whenever one changes")
     vf.set_defaults(fn=cmd_verify)
 
     # ---- chip (SWD; the open programmer, agamemnon/program.py) ----

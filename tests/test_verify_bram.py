@@ -114,3 +114,29 @@ def test_carry_seed_unconnected_c_and_d_inputs_are_by_construction():
     doc["modules"]["top"]["netnames"]["cout"] = {"bits": [5]}
     reads, _ = sim_routed(None, cycles=1, document=doc)   # must not raise
     assert len(reads) == 1
+
+
+def test_cli_verify_accepts_a_stimulus_file_and_trace(tmp_path, capsys):
+    import argparse
+    from agamemnon import cli
+    routed = tmp_path / "wr.json"
+    routed.write_text(json.dumps(_document(0)), encoding="utf-8")
+    stim = tmp_path / "stim.json"
+    stim.write_text(json.dumps({"schema": 1, "events": [[0, {"mcu_din": 1, "mcu_we": 1}], [1, {"mcu_we": 0}]]}),
+                    encoding="utf-8")
+    args = argparse.Namespace(input=str(routed), observed=None, cycles=6, stimulus=str(stim), trace="q0,din")
+    with pytest.raises(SystemExit) as exc:
+        cli.cmd_verify(args)
+    assert exc.value.code == 0
+    out = capsys.readouterr().out
+    assert "with stimulus" in out
+    assert "read sequence (value x cycles): 0x2 1x4" in out
+    assert "trace @0" in out and "din=1" in out
+
+
+def test_malformed_stimulus_file_is_refused(tmp_path):
+    from agamemnon.engine.verify_netlist import load_stimulus
+    bad = tmp_path / "bad.json"
+    bad.write_text(json.dumps({"schema": 1, "events": [[0, 1]]}), encoding="utf-8")
+    with pytest.raises(ValueError, match="malformed event"):
+        load_stimulus(str(bad))
