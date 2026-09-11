@@ -916,21 +916,21 @@ def test_current_physical_touching_pip_role_matrix_is_exhaustive(
         edge not in catalog.edges
     )
     canonical = "".join("%s,%s\n" % edge for edge in touching).encode("utf-8")
-    # 2026-09-11: 772 -> 788. The BramTILE input crossbar was widened from 61
-    # directed af.exe builds, so 16 more catalogued wires now feed a BramTILE
-    # input. All 16 land in `outgoing` (513 -> 529); `incoming` (269) and
+    # 2026-09-11: 772 -> 790. The BramTILE input crossbar was widened from 101
+    # directed af.exe builds, so 18 more catalogued wires now feed a BramTILE
+    # input. All 18 land in `outgoing` (513 -> 531); `incoming` (269) and
     # `internal` (10) are unchanged, which is the shape a BRAM-input widening
     # must have -- a change to either of those would mean something other than
     # the crossbar moved.
-    assert len(touching) == 788
+    assert len(touching) == 790
     assert hashlib.sha256(canonical).hexdigest() == (
-        "d184d5693b12479cc80be7a06aaadb2be0cb68c96587a167c3c3799e5d42d769"
+        "17b87d2b19163f71049786c14261b1013479f5d225e9f0f314ca748831081bb7"
     )
     incoming = [edge for edge in touching if edge[1] in catalog.wires]
     outgoing = [edge for edge in touching if edge[0] in catalog.wires]
     internal = [edge for edge in touching
                 if edge[0] in catalog.wires and edge[1] in catalog.wires]
-    assert (len(incoming), len(outgoing), len(internal)) == (269, 529, 10)
+    assert (len(incoming), len(outgoing), len(internal)) == (269, 531, 10)
 
     # The census above binds the exact current physical graph.  Avoid 7,656
     # redundant catalog reads while still exercising the public validator for

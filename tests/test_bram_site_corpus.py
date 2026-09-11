@@ -40,14 +40,14 @@ def test_vendor_route_corpus_is_reference_only_not_production_admission():
     # Two exact TILE-form hops were added from the simultaneous x9
     # AddressB[7]/DataInA[2] vendor oracle on 2026-08-22.
     #
-    # 2026-09-11: the corpus grew 2,114 -> 6,059 when 61 directed af.exe builds
+    # 2026-09-11: the corpus grew 2,114 -> 7651 when 101 directed af.exe builds
     # (a 1-BRAM design driving every BRAM input from a distinct fabric signal,
     # and a 4-BRAM design placing one per BramTILE) were harvested. Those routes
     # are vendor-observed BRAM-site edges, which is exactly what this file
     # records. The invariant this test protects is unchanged and still asserted
     # below: production is a STRICT subset, so corpus membership alone never
     # amounts to production admission.
-    assert len(corpus) == 6059
+    assert len(corpus) == 7651
     assert known_static in corpus
     assert known_static not in production
     assert production < corpus
