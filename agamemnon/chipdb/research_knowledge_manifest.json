@@ -1490,9 +1490,9 @@
       "sha256": "2bb7e107c05b3127aa8a566b201753c5ee16a7f335b26e67c248f598b8791e0d"
     },
     {
-      "bytes": 2580182,
+      "bytes": 2593660,
       "path": "agamemnon/chipdb/sel_edge_pairs.agdb",
-      "sha256": "7777db088e24f723049a15817a77f0e410d71db74631a5a7dece887aa5ad8ebc"
+      "sha256": "2aae89420809f723d4a2177bc6551aebbfbdd5514ab6493ebc34c1521f1b14c8"
     },
     {
       "bytes": 758,
