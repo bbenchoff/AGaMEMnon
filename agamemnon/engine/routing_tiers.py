@@ -215,6 +215,34 @@ class UnmodelledAdjacentRow:
 
     BLAST RADIUS, measured before shipping: 41,793 of 550,664 edges (7.59%) and
     38 destination nodes starved. That is real and is why this is OPT-IN.
+
+    **DO NOT ENABLE THIS YET. IT FAILS ITS FIRST FUNCTIONAL TEST.**
+
+    Building the BRAM design with the gate on fails in the PACKER, 40/40
+    attempts, before routing is even reached::
+
+        ERROR: agrv2k: SERV WeA pip absent: X15Y4_RMUX02 -> X15Y5_RMUX08
+
+    That pip is ``dx=0, dy=+1`` -- squarely in the refused class -- and the
+    packer structurally REQUIRES it for BRAM write-enable. There is no
+    alternative route for it, so refusing it does not fail closed, it makes the
+    part unusable.
+
+    The lesson is about the validation, not the rule. "Zero fatal over-refusals"
+    was true of the seven hand-picked regression edges and FALSE of the chip: the
+    regression set contained no architecturally-required pip, so it could not
+    have caught this. A blast-radius count (7.59%, 38 starved) also could not
+    catch it, because the damage is not proportional to the count -- one
+    mandatory pip is fatal and 41,792 optional ones are survivable.
+
+    What a usable version of this needs is a category distinction the current
+    rule lacks: **a gate may only refuse where an ALTERNATIVE EXISTS.** Pips the
+    architecture mandates are not router inferences and must be exempt, and that
+    exemption list has to come from the architecture itself, not from adding
+    whatever the last failing build named -- that would be fitting the gate to
+    the test rather than to the chip.
+
+    Kept in the tree, opt-in and off, as a documented negative result.
     """
 
     @staticmethod
