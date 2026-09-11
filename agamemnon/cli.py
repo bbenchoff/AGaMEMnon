@@ -2495,6 +2495,18 @@ def _cmd_build_once(a):
             evaluate_policy(engine_options_from(env))
         except ClaimPolicyError as exc:
             print(str(exc))
+            # Name the option WE set, so the refusal is actionable. Without this
+            # the user is told an option they never passed was rejected: the
+            # --pcf path enables AGAMEMNON_NO_FFBRIDGE above (the legacy Python
+            # physical-PCF placer needs the narrower graph), and that option is
+            # registered `experimental`, which release-strict refuses. A user
+            # cannot resolve that from the message alone.
+            if "AGAMEMNON_NO_FFBRIDGE" in str(exc) and not a.uarch:
+                print("note: --pcf without --uarch enables AGAMEMNON_NO_FFBRIDGE "
+                      "internally, because the legacy physical-PCF placer needs "
+                      "the narrower graph; release-strict refuses it as "
+                      "experimental maturity. You did not set this option.")
+                print("note: --uarch does not take that path and is unaffected.")
             print("error: build claim-policy preflight failed before synthesis")
             sys.exit(1)
     if getattr(a, "internal_ports", False):
