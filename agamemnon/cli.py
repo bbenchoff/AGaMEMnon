@@ -51,6 +51,7 @@ CHIPDB = os.path.join(HERE, "chipdb")        # the shipped device database
 SYNTH = os.path.join(HERE, "synth")          # yosys synth scripts (prims/cells_map + tcl)
 from .engine import lzw_codec as L             # noqa: E402
 from .engine import physmap                     # noqa: E402
+from .engine import emission_audit               # noqa: E402
 from .engine import pll_emit as PLL             # noqa: E402
 from . import __version__                      # noqa: E402
 from . import program as P                     # noqa: E402  (the SWD programmer / open flasher)
@@ -3600,6 +3601,27 @@ def _cmd_build_once(a):
                 or "wrote" in line or "AGAMEMNON WARNING" in line
                 or "refusing ambiguous" in line):
             print("        " + line.strip())
+    # EMISSION AUDIT (AGAMEMNON_VERIFY_EMISSION=1; OPT-IN). Re-reads the route
+    # back out of the image just written and compares it against the netlist that
+    # produced it. Nothing else checks this: a silent codeword mis-resolution, or
+    # two nets assigned one node, yields a well-formed CRC-valid WRONG image, and
+    # every other gate reasons about the graph BEFORE emission so none can see it.
+    # Blast radius on a faithful image is measured at exactly zero, so it can only
+    # refuse a build, never admit one.
+    if emission_audit.enabled():
+        try:
+            missing, unresolvable, malformed = emission_audit.run(
+                out, bitgen_input, data)
+        except Exception as exc:                      # noqa: BLE001
+            print("error: emission audit could not run: %s" % exc)
+            sys.exit(1)
+        for line in emission_audit.describe(
+                missing, unresolvable, malformed).splitlines():
+            print("        " + line)
+        if missing or malformed:
+            print("error: the emitted image does not contain the route the router "
+                  "produced; refusing to ship it")
+            sys.exit(1)
     exact_output_profile = qualified_profile or qualified_bram_source
     if exact_output_profile:
         produced = {

@@ -152,3 +152,61 @@ def describe(missing, unresolvable, malformed, limit=10):
         lines.append("  MALFORMED X%dY%d_%s%02d: %d sels set %s"
                      % (key[0], key[1], key[2], key[3], len(on), on))
     return "\n".join(lines)
+
+def logic_tiles():
+    """The 132 LogicTile coordinates, in closed form.
+
+    The 10/12-slot selector grouping this module relies on is a LogicTile
+    property. BRAM (x=13), the IO borders (x=0, 22) and the seams group
+    differently, and auditing them with this grouping manufactures failures: on a
+    faithfully-emitted control, scoping by slot-count instead of by tile gives 17
+    MISSING and 32 MALFORMED where the correct scope gives 0 and 0.
+
+    Derived from the per-tile geometry fit and verified to reproduce the 132
+    exactly-fitting tiles with no difference either way.
+    """
+    tiles = set()
+    for y in range(1, 5):                       # rows 1-4 are the full-width rows
+        for x in list(range(1, 13)) + list(range(14, 21)):
+            tiles.add((x, y))
+    for y in range(5, 13):                      # rows 5-12 carry the right-hand block
+        for x in range(14, 21):
+            tiles.add((x, y))
+    return tiles
+
+
+NODE_NAME = re.compile(r"X(\d+)Y(\d+)_([A-Za-z]+)(\d+)")
+
+
+def routed_pips(routed_json_path):
+    """Every (src, dst) node pair the router committed to, from nextpnr output."""
+    import json
+    blob = json.dumps(json.loads(open(routed_json_path, encoding="utf-8").read()))
+    pips = set()
+    for chunk in re.findall(r'"[^"]{20,}"', blob):
+        for part in chunk.strip('"').split(";"):
+            if "." not in part:
+                continue
+            left, _, right = part.partition(".")
+            a, b = NODE_NAME.fullmatch(left.strip()), NODE_NAME.fullmatch(right.strip())
+            if a and b:
+                pips.add(((int(a.group(1)), int(a.group(2)), a.group(3), int(a.group(4))),
+                          (int(b.group(1)), int(b.group(2)), b.group(3), int(b.group(4)))))
+    return pips
+
+
+def run(image_path, routed_json_path, chipdb_root):
+    """Audit an emitted image against the route that produced it.
+
+    Returns (missing, unresolvable, malformed). Resolution uses the SAME
+    authority emission uses -- block-clean physical observations plus the
+    unanimous tile-relative fallback -- because resolving through the rrg `cfg`
+    column instead reports ~100 false MISSING on a faithful image.
+    """
+    from agamemnon.engine import routing_selectors
+    clean = routing_selectors.load_clean_edges(str(chipdb_root))
+    relative, _ = routing_selectors.relative_edges(clean)
+    nodes = node_bits(chipdb_root)
+    image = open(image_path, "rb").read()
+    return audit(image, routed_pips(routed_json_path), nodes, clean, relative,
+                 tiles=logic_tiles())

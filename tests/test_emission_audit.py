@@ -6,6 +6,7 @@ image (6 MISSING, naming the hijacked node). Those are 100 KB binaries and do no
 belong in this repo, so the properties they established are pinned here against
 synthetic images built from the real chipdb.
 """
+import json
 import os
 import pathlib
 
@@ -128,3 +129,34 @@ def test_audit_is_off_by_default(monkeypatch):
     assert not emission_audit.enabled()
     monkeypatch.setenv("AGAMEMNON_VERIFY_EMISSION", "1")
     assert emission_audit.enabled()
+
+
+def test_logic_tiles_closed_form_is_the_132():
+    """The scope is derived, not a magic list.
+
+    Scoping by slot-count instead gives 17 MISSING and 32 MALFORMED on a
+    faithfully-emitted image where this scope gives 0 and 0 -- nearly every node
+    has the full slot count, so it does not discriminate.
+    """
+    tiles = emission_audit.logic_tiles()
+    assert len(tiles) == 132
+    # rows 1-4 are full width minus the BRAM column; rows 5-12 are the right block
+    assert (13, 2) not in tiles, "x=13 is the BRAM column, not a LogicTile"
+    assert (0, 2) not in tiles and (22, 2) not in tiles, "IO borders are not LogicTiles"
+    assert (1, 4) in tiles and (20, 12) in tiles
+    assert (1, 5) not in tiles, "rows 5-12 do not extend to the left block"
+
+
+def test_routed_pips_parses_node_pairs(tmp_path):
+    routed = tmp_path / "r.json"
+    routed.write_text(json.dumps({"nets": [
+        "X15Y8_RMUX80;X15Y8_RMUX80.X15Y7_RMUX27;1;X15Y7_RMUX27;padding-to-length"]}),
+        encoding="utf-8")
+    pips = emission_audit.routed_pips(routed)
+    assert ((15, 8, "RMUX", 80), (15, 7, "RMUX", 27)) in pips
+
+
+def test_audit_is_off_unless_requested(monkeypatch):
+    """A gate that runs by surprise is not opt-in."""
+    monkeypatch.delenv("AGAMEMNON_VERIFY_EMISSION", raising=False)
+    assert not emission_audit.enabled()
