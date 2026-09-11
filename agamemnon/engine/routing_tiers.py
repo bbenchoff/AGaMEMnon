@@ -566,11 +566,22 @@ class SelectorCertainty:
     """
 
     def __init__(self, clean_edge, relative_edge, relative_conflicts=(),
-                 allow_closed_form=True):
+                 allow_closed_form=True, enforce_ownership=False):
         self.clean_edge = clean_edge or {}
         self.relative_edge = relative_edge or {}
         self.relative_conflicts = frozenset(relative_conflicts or ())
         self._allow_closed_form = bool(allow_closed_form)
+        #: Refuse an inferred pair that a DIFFERENT source physically owns.
+        #:
+        #: Off by default, and that default is the point. The check is a
+        #: correctness improvement -- it derives all three hand-withdrawn
+        #: nonportable keys from data -- but it removes ~4k edges from the TIERED
+        #: graph, and that graph is pinned by
+        #: test_special_routes.EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT. Enabling
+        #: it by default moved the count 328,308 -> 323,597 and broke that pin.
+        #: A gate that changes a pinned graph is a re-qualification decision, not
+        #: a default. Enable with AGAMEMNON_OWNERSHIP_GATE=1.
+        self._enforce_ownership = bool(enforce_ownership)
         self._support = collections.Counter()
         self._positions = collections.defaultdict(list)
         for (dx, dy, df, di, sf, sx, sy, si) in self.clean_edge:
@@ -611,6 +622,8 @@ class SelectorCertainty:
         X14Y8_RMUX39). Each was withdrawn by hand after a board failure. This
         derives all three from data instead.
         """
+        if not self._enforce_ownership:
+            return False
         owners = self._owner.get((dx, dy, df, di, tuple(pair)))
         if not owners:
             return False

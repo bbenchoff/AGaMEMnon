@@ -1545,7 +1545,8 @@ class RoutingFeature:
                 )
             SELECTOR_CERTAINTY = routing_tiers.SelectorCertainty(
                 CLEAN_SEL_EDGE, CLEAN_SEL_REL, _csr_conflict,
-                allow_closed_form=ADMISSION == "tiered")
+                allow_closed_form=ADMISSION == "tiered",
+                enforce_ownership=OWNERSHIP_GATE)
 
         _tier2_rows = []
         _tier2_seen = set()
