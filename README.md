@@ -115,6 +115,13 @@ a board or FPGA toolchain:
 agamemnon verify tests/fixtures/counter_ahb_routed.json --cycles 8
 ```
 
+`verify` simulates the routed netlist itself: LUT masks, flip-flops, carry,
+MCU read taps, and x18 block RAM. An unconnected input reads high, as it does
+on silicon, and a mask that still depends on one is refused. With
+`--stimulus schedule.json` (`{"schema": 1, "events": [[cycle, {"mcu_cell":
+bit}], ...]}`) MCU inputs are driven by name so a bus protocol can be replayed
+offline; `--trace net,net` prints named nets whenever one changes.
+
 Create the fabric-free starting project:
 
 ```sh
