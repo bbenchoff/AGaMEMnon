@@ -1941,7 +1941,13 @@ class RoutingFeature:
                     _distance_refused += 1; continue
                 if CODEWORD_OWNER is not None and CODEWORD_OWNER.should_refuse(r):
                     _owner_refused += 1; continue
-                if ALIAS_REPAIR is not None and fn == "rrg_edges_full.csv"                         and ALIAS_REPAIR.should_refuse(r):
+                # Deliberately NOT restricted to rrg_edges_full.csv. The same pip is
+                # often supplied by corpus_conduction.csv as well, and `seen_pip`
+                # dedup means whichever file is read first wins -- so filtering only
+                # the primary table let 12 contested edges back into the graph while
+                # the repair reported them retired. A silent partial refusal is worse
+                # than none, because it is invisible in the counts.
+                if ALIAS_REPAIR is not None and ALIAS_REPAIR.should_refuse(r):
                     _alias_repaired += 1; continue
                 if DECODE_UNIQUE is not None and DECODE_UNIQUE.should_refuse(r):
                     _decode_ambiguous += 1; continue
