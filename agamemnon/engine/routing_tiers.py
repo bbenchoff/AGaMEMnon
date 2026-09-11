@@ -205,6 +205,19 @@ class CodewordOwnership:
     sometimes does not, and nothing in the tables currently distinguishes the two
     cases. That is why this gate ships opt-in and why board witnesses are honoured
     as exemptions rather than being argued away.
+
+    What the conflicts ARE, structurally: of the 5,767 claimant/owner pairs,
+    **98.7% have |idx(owner) - idx(claimant)| == 48**, and 48 is exactly half the
+    0..95 RMUX index space. Decomposed, that is *the same group offset in an
+    instance 8 higher or lower* -- with 16 instances, two banks of 8. Every one of
+    the four cases evidence has decided fits it: 27/75, 25/73, 87/39, 7/55, all
+    with matching group offset.
+
+    So this gate is really detecting **bank twins claiming one destination
+    codeword**, which is consistent with the destination input being a track both
+    twins can drive: your signal arrives if yours is the twin currently driving
+    it. That is a hypothesis, not a finding -- but it is the shape the data has,
+    and it predicts exactly the mixed outcomes observed.
     """
 
     #: Families that cannot drive a routing mux, so cannot own a codeword.
