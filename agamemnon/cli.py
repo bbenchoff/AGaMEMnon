@@ -2804,6 +2804,8 @@ def _cmd_build_once(a):
         # graph whose aliased edges this gate exists to remove.
         if env.get("AGAMEMNON_ALIAS_REPAIR") == "1":
             default_devdb += "_aliasrepair"
+        if env.get("AGAMEMNON_OWNERSHIP_GATE") == "1":
+            default_devdb += "_ownership"
         if env.get("AGAMEMNON_DECODE_UNIQUE_GATE"):
             default_devdb += "_decodeunique"
         custom_devdb = os.environ.get("AGAMEMNON_DEVDB")
@@ -2859,6 +2861,8 @@ def _cmd_build_once(a):
             # Retire rows whose selector codeword was attributed to another
             # source of the same mux (chipdb/selector_alias_repair.csv).
             emit_env.append("AGAMEMNON_ALIAS_REPAIR=1")
+        if env.get("AGAMEMNON_OWNERSHIP_GATE") == "1":
+            emit_env.append("AGAMEMNON_OWNERSHIP_GATE=1")
         if env.get("AGAMEMNON_DUAL_LUT_CONST"):
             emit_env.append("AGAMEMNON_DUAL_LUT_CONST=%s" %
                             env["AGAMEMNON_DUAL_LUT_CONST"])

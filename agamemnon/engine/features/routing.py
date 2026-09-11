@@ -1466,6 +1466,23 @@ class RoutingFeature:
         # AG32-Docs docs/BRAM_SELECTOR_ALIASING_ROOTCAUSE_20260909.md.
         ALIAS_REPAIR = (routing_tiers.SelectorAliasRepair.from_chipdb(DATA)
                         if os.environ.get("AGAMEMNON_ALIAS_REPAIR") == "1" else None)
+        # CODEWORD-OWNERSHIP GATE (AGAMEMNON_OWNERSHIP_GATE=1; OPT-IN).
+        # SelectorCertainty already applies this to INFERRED selectors, but a
+        # tier-1 edge never reaches it: is_trusted grants tier 1 on a vendor route
+        # occupancy witness, and occupancy is topology, not selection. This closes
+        # that path by refusing any edge whose codeword a different real driver was
+        # physically observed using -- including witnessed ones.
+        OWNERSHIP_GATE = os.environ.get("AGAMEMNON_OWNERSHIP_GATE") == "1"
+        CODEWORD_OWNER = (routing_tiers.CodewordOwnership.from_clean_edges(CLEAN_SEL_EDGE)
+                          if OWNERSHIP_GATE else None)
+        if CODEWORD_OWNER is not None:
+            if not CLEAN_SEL_EDGE:
+                raise ValueError(
+                    "AGAMEMNON_OWNERSHIP_GATE needs the clean-sel corpus "
+                    "(AGAMEMNON_CLEAN_SEL_GATE or AGAMEMNON_CLEAN_SEL_PREFER); "
+                    "without observations there is no ownership to enforce")
+            print("AGRV2K arch: codeword-ownership gate ON (%d observed owners)"
+                  % len(CODEWORD_OWNER))
         if ALIAS_REPAIR is not None and len(ALIAS_REPAIR):
             print("AGRV2K arch: selector-alias repair active (%d contested rows)"
                   % len(ALIAS_REPAIR))
@@ -1523,6 +1540,7 @@ class RoutingFeature:
         _tier2_seen = set()
         _decode_ambiguous = 0
         _alias_repaired = 0
+        _owner_refused = 0
         _witnessed_pips = set()
         _tier_counts = collections.Counter()
         def _clean_sel_encodable(r):
@@ -1906,6 +1924,8 @@ class RoutingFeature:
                     skipped += 1; continue
                 if CLEAN_SEL_GATE and not _clean_sel_encodable(r):
                     _sel_pruned += 1; continue
+                if CODEWORD_OWNER is not None and CODEWORD_OWNER.should_refuse(r):
+                    _owner_refused += 1; continue
                 if ALIAS_REPAIR is not None and fn == "rrg_edges_full.csv"                         and ALIAS_REPAIR.should_refuse(r):
                     _alias_repaired += 1; continue
                 if DECODE_UNIQUE is not None and DECODE_UNIQUE.should_refuse(r):
@@ -2036,6 +2056,7 @@ class RoutingFeature:
                      _tier_counts[routing_tiers.TIER_AMBIGUOUS],
                  "tier_3_refused_at_decode_uniqueness": _decode_ambiguous,
                  "rows_dropped_by_selector_alias_repair": _alias_repaired,
+                 "rows_refused_by_codeword_ownership": _owner_refused,
                  "decode_uniqueness_gate": bool(DECODE_UNIQUE_GATE),
                  "clean_sel_physical_keys": len(CLEAN_SEL_EDGE),
                  "clean_sel_unanimous_relative_keys": len(CLEAN_SEL_REL),

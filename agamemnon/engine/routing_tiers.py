@@ -165,6 +165,72 @@ def closed_form_is_legal_fanin(dst_fam, dst_idx, pair):
     return all(block + local in legal for local in pair)
 
 
+class CodewordOwnership:
+    """Refuses any edge whose codeword a DIFFERENT real driver was observed using.
+
+    `SelectorCertainty` applies this test to inferred selectors, but an edge
+    admitted as tier 1 never reaches it: `is_trusted` grants tier 1 on a vendor
+    route occupancy witness, and occupancy is topology. A vendor route proves the
+    wire was used; it does not prove which codeword selected it. So an edge can be
+    routed today whose codeword provably belongs to someone else.
+
+    That is not hypothetical. `X18Y2_RMUX27 -> X18Y5_RMUX20` and
+    `X18Y3_RMUX27 -> X18Y6_RMUX20` are used by seven retained designs, and the
+    pair 2/9 at those destinations is physically observed for `X18Y1_RMUX75` and
+    `X18Y2_RMUX75`. The first is the case `routing_selectors` already documents
+    in NONPORTABLE_RELATIVE_KEYS; the second is the same shape one row over and
+    is not named anywhere. Withdrawing the relative KEY does not stop either,
+    because both are admitted on the witness.
+
+    Sources that cannot drive a routing mux are excluded from conferring
+    ownership as well as from holding it -- an IMUX co-sink recorded by path
+    adjacency must not be able to evict a real driver.
+
+    Blast radius on the shipped table: 5,912 edges (2.02%), two destination nodes
+    left without fan-in. It only ever refuses.
+    """
+
+    #: Families that cannot drive a routing mux, so cannot own a codeword.
+    NON_DRIVING = frozenset({"IMUX", "TileSyncMUX"})
+
+    def __init__(self, owners=None):
+        self.owners = owners or {}
+
+    @staticmethod
+    def family(res):
+        return res.rstrip("0123456789")
+
+    @classmethod
+    def from_clean_edges(cls, clean_edge):
+        owners = collections.defaultdict(set)
+        for (dx, dy, df, di, sf, sx, sy, si), pair in (clean_edge or {}).items():
+            if sf in cls.NON_DRIVING:
+                continue
+            owners[(dx, dy, df, di, tuple(pair))].add((sf, sx, sy, si))
+        return cls({key: frozenset(value) for key, value in owners.items()})
+
+    def should_refuse(self, row):
+        cfg = row.get("cfg") or ""
+        if "[" not in cfg or not cfg.endswith("]"):
+            return False
+        try:
+            pair = tuple(sorted(int(v) for v in cfg[cfg.index("[") + 1:-1].split(",")))
+            df, sf = self.family(row["dst_res"]), self.family(row["src_res"])
+            if sf in self.NON_DRIVING:
+                return False
+            key = (int(row["dst_x"]), int(row["dst_y"]), df,
+                   int(row["dst_res"][len(df):]), pair)
+            mine = (sf, int(row["src_x"]), int(row["src_y"]),
+                    int(row["src_res"][len(sf):]))
+        except (TypeError, ValueError):
+            return False
+        observed = self.owners.get(key)
+        return bool(observed) and mine not in observed
+
+    def __len__(self):
+        return len(self.owners)
+
+
 class SelectorAliasRepair:
     """Rows whose recorded selector codeword cannot be theirs.
 
