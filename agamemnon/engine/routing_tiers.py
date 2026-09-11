@@ -291,10 +291,15 @@ class CodewordOwnership:
     with matching group offset.
 
     So this gate is really detecting **bank twins claiming one destination
-    codeword**, which is consistent with the destination input being a track both
-    twins can drive: your signal arrives if yours is the twin currently driving
-    it. That is a hypothesis, not a finding -- but it is the shape the data has,
-    and it predicts exactly the mixed outcomes observed.
+    codeword**, not arbitrary collisions. That is the shape of the data.
+
+    A tempting reading -- that the destination input is a track either twin can
+    drive, so your signal arrives only if yours is the twin currently driving it
+    -- was tested and does NOT survive as stated. Counting nodes whose bank twin
+    is used by a DIFFERENT net: a working image had 48 such pairs and a broken one
+    36. If twin co-use were harmful per se, that ordering would be reversed. So
+    the mechanism behind the mixed outcomes is still unknown, and this docstring
+    should not imply otherwise.
     """
 
     #: Families that cannot drive a routing mux, so cannot own a codeword.
