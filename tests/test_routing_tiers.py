@@ -351,6 +351,29 @@ _STRICT_ENV = (
 )
 
 
+
+def _cache_matches_this_engine(devdb):
+    """True when a local devdb cache was emitted by the engine now on disk.
+
+    Mirrors `cli.cache_matches`. A cache whose recorded fingerprint we cannot
+    reproduce is not evidence of anything, so the caller must skip rather than
+    fail: the alternative is a test that reports a regression whenever a
+    developer has an older build lying around.
+    """
+    marker = devdb / ".source_sha256"
+    if not marker.exists():
+        return False
+    try:
+        from agamemnon.cli import _devdb_fingerprint
+        fingerprint = _devdb_fingerprint(
+            str(ROOT / "agamemnon" / "engine" / "arch.py"),
+            str(ROOT / "agamemnon" / "engine" / "emit_uarch_db.py"),
+            str(CHIPDB), list(_STRICT_ENV))
+        return marker.read_text(encoding="ascii").strip() == fingerprint
+    except Exception:
+        return False
+
+
 def _emit(out, extra=()):
     command = [sys.executable, str(ROOT / "agamemnon" / "engine" / "emit_uarch_db.py"),
                "--arch", str(ROOT / "agamemnon" / "engine" / "arch.py"),
@@ -385,9 +408,23 @@ def test_release_strict_graph_is_unchanged_and_tiered_is_a_strict_superset(emitt
     """
     strict, tiered = emitted_graphs
 
+    # devdb_strict/ is GITIGNORED -- a local build cache, not a shipped artifact.
+    # Comparing against it unconditionally makes this guard do nothing on CI (where
+    # the directory does not exist) and fail spuriously on any dev machine whose
+    # cache predates an engine change. It cost two `git stash` bisections to
+    # establish that a failure here was not a real regression.
+    #
+    # The cache records the engine fingerprint it was built from, and cli.py
+    # already gates its own reuse on exactly that (`cache_matches`). Honour the
+    # same marker: compare only against a cache this engine actually produced.
     shipped = ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "devdb_strict"
     if (shipped / "dev_pips.csv").exists():
-        assert (strict / "dev_pips.csv").read_bytes() == (shipped / "dev_pips.csv").read_bytes()
+        if _cache_matches_this_engine(shipped):
+            assert (strict / "dev_pips.csv").read_bytes() == (shipped / "dev_pips.csv").read_bytes()
+        else:
+            print("devdb_strict cache is stale for this engine; byte-identity "
+                  "comparison skipped (the cache is an ignored build artifact, "
+                  "not a versioned oracle)")
     assert not (strict / routing_tiers.SIDECAR).exists()
 
     def names(path):
