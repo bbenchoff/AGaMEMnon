@@ -165,6 +165,83 @@ def closed_form_is_legal_fanin(dst_fam, dst_idx, pair):
     return all(block + local in legal for local in pair)
 
 
+class DistanceEncoding:
+    """Refuses an INFERRED selector that contradicts the observed distance encoding.
+
+    Derived from the observation corpus, not assumed. For inter-tile RMUX->RMUX
+    edges the LOW sel is determined by ``dy = dst_y - src_y``::
+
+        dy   -4  -3  -2  -1 |  +1  +2  +3  +4
+        lo    6   5   4   3 |   6   0   1   2
+            100% 99% 99% 88%| 87% 99% 98% 100%
+
+    i.e. ``lo = |dy| + 2`` one way and ``(|dy| - 2) mod 7`` the other. 90.1% of
+    56,493 inter-tile rows obey it, and 98-100% for every ``|dy| >= 2``.
+
+    **A regularity, not a law**, so the scope is deliberately narrow:
+
+    * ``dy == 0`` is excluded: a same-tile low sel must encode WHICH of many
+      intra-tile sources, so it spreads across all values.
+    * ``|dy| == 1`` is excluded: there is a genuine second mode (``lo=3`` 10,019
+      times vs ``lo=6`` 1,238) that is NOT explained by dx offset, the high sel,
+      ``src_idx % 6`` or ``dst_idx % 6``. Some hidden variable governs it.
+    * Boundary rows are excluded. Destinations in the top IO row obey the rule
+      **6.2% of the time** (1 of 16) -- that row simply encodes differently.
+      Ignoring this flagged all 16 shipped pad-qualification artifacts, every one
+      of them wrongly.
+    * A PHYSICAL observation always wins. It outranks a derived regularity, so an
+      edge observed at its own coordinate is never refused whatever the rule says.
+
+    That leaves exactly one target: a selector emission would resolve by
+    *relative translation*, contradicted by the encoding the observations
+    themselves exhibit. 824 edges (0.28%), **zero** destination nodes starved.
+
+    It flags both halves of the 2026-09-09 BRAM defect -- the crossover-proven
+    `hwdata[5]` hop and the word-bit-6 ground branch -- while respecting the
+    codeword's true owner. Word bit 6 is the notable one: the crossover could not
+    prove it and that prediction is recorded as refuted, so this is independent
+    support from data the board never touched.
+
+    It does NOT subsume `CodewordOwnership`: VP-AGM-001 sits at ``|dy| == 1``, in
+    the excluded zone. The two cover different ground and agree where they meet.
+    """
+
+    #: tile grid is y=1..13; rows 1 and 13 are IO and encode differently.
+    INTERIOR = range(2, 13)
+
+    def __init__(self, clean_edge=None, relative_edge=None):
+        self.clean_edge = clean_edge or {}
+        self.relative_edge = relative_edge or {}
+
+    @staticmethod
+    def expected_low(dy):
+        """The low sel the corpus associates with this signed distance."""
+        if dy == 0 or abs(dy) < 2:
+            return None
+        return (abs(dy) + 2) if dy < 0 else ((abs(dy) - 2) % 7)
+
+    def should_refuse(self, row):
+        if not (row["src_res"].startswith("RMUX") and row["dst_res"].startswith("RMUX")):
+            return False
+        try:
+            sx, sy = int(row["src_x"]), int(row["src_y"])
+            dx, dy = int(row["dst_x"]), int(row["dst_y"])
+            si, di = int(row["src_res"][4:]), int(row["dst_res"][4:])
+        except (TypeError, ValueError):
+            return False
+        if sy not in self.INTERIOR or dy not in self.INTERIOR:
+            return False
+        expected = self.expected_low(dy - sy)
+        if expected is None:
+            return False
+        if self.clean_edge.get((dx, dy, "RMUX", di, "RMUX", sx, sy, si)) is not None:
+            return False                      # observation outranks the regularity
+        pair = self.relative_edge.get(("RMUX", di, "RMUX", si, dx - sx, dy - sy))
+        if pair is None:
+            return False                      # unresolved: emission refuses anyway
+        return min(pair) != expected
+
+
 class CodewordOwnership:
     """Refuses any edge whose codeword a DIFFERENT real driver was observed using.
 

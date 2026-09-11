@@ -599,3 +599,41 @@ def test_ownership_gate_emits_a_graph(tmp_path):
     out = tmp_path / "devdb_ownership"
     _emit(out, ("AGAMEMNON_ROUTING_ADMISSION=tiered", "AGAMEMNON_OWNERSHIP_GATE=1"))
     assert (out / "dev_pips.csv").exists()
+
+
+def test_distance_encoding_flags_both_bram_defects_and_spares_the_owner():
+    """The scoped distance rule against cases evidence has decided.
+
+    Word bit 6 is the one that matters here. The 2026-09-09 clear-polarity
+    crossover could NOT prove it -- that prediction is recorded as refuted and the
+    branch left unexplained -- so flagging it from the corpus alone is independent
+    support from data no board touched.
+    """
+    from agamemnon.engine import routing_selectors
+
+    clean = routing_selectors.load_clean_edges(str(CHIPDB))
+    relative, _conflicts = routing_selectors.relative_edges(clean)
+    gate = routing_tiers.DistanceEncoding(clean, relative)
+
+    def row(src, sx, sy, dst, dx, dy):
+        return {"src_res": src, "src_x": str(sx), "src_y": str(sy),
+                "dst_res": dst, "dst_x": str(dx), "dst_y": str(dy)}
+
+    # crossover-proven broken, and the branch the crossover could not settle
+    assert gate.should_refuse(row("RMUX25", 15, 7, "RMUX00", 15, 4))
+    assert gate.should_refuse(row("RMUX55", 14, 6, "RMUX24", 14, 4))
+    # the codeword's true owner has its own physical observation and must survive
+    assert not gate.should_refuse(row("RMUX73", 15, 8, "RMUX00", 15, 4))
+    # |dy| == 1 is the bimodal zone and is deliberately out of scope, so this
+    # gate does NOT subsume CodewordOwnership -- VP-AGM-001 lives here
+    assert not gate.should_refuse(row("RMUX87", 14, 11, "RMUX59", 14, 12))
+    # the top IO row encodes differently; ignoring that wrongly flagged all 16
+    # shipped pad-qualification artifacts
+    assert not gate.should_refuse(row("RMUX55", 19, 9, "RMUX08", 19, 13))
+
+
+def test_distance_gate_emits_a_graph(tmp_path):
+    """Emit with the gate ON -- the shape of test that caught the last ordering bug."""
+    out = tmp_path / "devdb_distance"
+    _emit(out, ("AGAMEMNON_ROUTING_ADMISSION=tiered", "AGAMEMNON_DISTANCE_GATE=1"))
+    assert (out / "dev_pips.csv").exists()

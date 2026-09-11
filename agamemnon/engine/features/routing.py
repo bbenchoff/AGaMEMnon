@@ -1501,6 +1501,17 @@ class RoutingFeature:
         # occupancy witness, and occupancy is topology, not selection. This closes
         # that path by refusing any edge whose codeword a different real driver was
         # physically observed using -- including witnessed ones.
+        # DISTANCE-ENCODING GATE (AGAMEMNON_DISTANCE_GATE=1; OPT-IN). Refuses an
+        # inferred selector that contradicts the distance encoding the observations
+        # exhibit. Narrowly scoped: interior rows only, |dy| >= 2, and a physical
+        # observation always wins. 824 edges, zero nodes starved.
+        DISTANCE_GATE = os.environ.get("AGAMEMNON_DISTANCE_GATE") == "1"
+        DISTANCE = (routing_tiers.DistanceEncoding(CLEAN_SEL_EDGE, CLEAN_SEL_REL)
+                    if DISTANCE_GATE else None)
+        if DISTANCE is not None and not CLEAN_SEL_EDGE:
+            raise ValueError(
+                "AGAMEMNON_DISTANCE_GATE needs the clean-sel corpus; without "
+                "observations there is no encoding to compare against")
         OWNERSHIP_GATE = os.environ.get("AGAMEMNON_OWNERSHIP_GATE") == "1"
         CODEWORD_OWNER = (routing_tiers.CodewordOwnership.from_chipdb(DATA, CLEAN_SEL_EDGE)
                           if OWNERSHIP_GATE else None)
@@ -1541,6 +1552,7 @@ class RoutingFeature:
         _decode_ambiguous = 0
         _alias_repaired = 0
         _owner_refused = 0
+        _distance_refused = 0
         _witnessed_pips = set()
         _tier_counts = collections.Counter()
         def _clean_sel_encodable(r):
@@ -1924,6 +1936,8 @@ class RoutingFeature:
                     skipped += 1; continue
                 if CLEAN_SEL_GATE and not _clean_sel_encodable(r):
                     _sel_pruned += 1; continue
+                if DISTANCE is not None and DISTANCE.should_refuse(r):
+                    _distance_refused += 1; continue
                 if CODEWORD_OWNER is not None and CODEWORD_OWNER.should_refuse(r):
                     _owner_refused += 1; continue
                 if ALIAS_REPAIR is not None and fn == "rrg_edges_full.csv"                         and ALIAS_REPAIR.should_refuse(r):
@@ -2057,6 +2071,7 @@ class RoutingFeature:
                  "tier_3_refused_at_decode_uniqueness": _decode_ambiguous,
                  "rows_dropped_by_selector_alias_repair": _alias_repaired,
                  "rows_refused_by_codeword_ownership": _owner_refused,
+                 "rows_refused_by_distance_encoding": _distance_refused,
                  "decode_uniqueness_gate": bool(DECODE_UNIQUE_GATE),
                  "clean_sel_physical_keys": len(CLEAN_SEL_EDGE),
                  "clean_sel_unanimous_relative_keys": len(CLEAN_SEL_REL),
