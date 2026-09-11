@@ -409,7 +409,19 @@ def test_quad_link_input_corridors_and_hse_boundary_are_fail_closed():
     assert (hse["pad_x"], hse["pad_y"], hse["inputmux"],
             hse["dst_x"], hse["dst_y"], hse["dst_rmux"]) == \
            ("14", "13", "1", "14", "12", "8")
-    assert hse["cfg"] == "CFG_RMUX1[3,9]"
+    # Repaired 2026-09-11 from CFG_RMUX1[3,9]. RMUX8 is CFG_RMUX1's 20..29
+    # block; [3,9] is the 0..9 block, which is RMUX6 -- so the old value emitted
+    # onto the neighbouring node and left RMUX8 unprogrammed. Confirmed by
+    # reading node_pinout_quad_open.bin: X14Y12_RMUX08 is empty there while
+    # X14Y12_RMUX06 carries (3,9).
+    #
+    # The previous assertion pinned the row's original contents rather than any
+    # silicon evidence -- row and assertion were added together in 9a1ccc3
+    # (2026-08-12), the same way PIN_10's wrong indices were pinned before the
+    # 2026-09-05 RMUX20 repair. The local codeword (3,9) is block-clean physical
+    # observation; only the block was wrong. This pad is NOT silicon-qualified
+    # at the new codeword; it was simply unreachable at the old one.
+    assert hse["cfg"] == "CFG_RMUX1[23,29]"
     assert hse["set_cells"] == "-"
 
     uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(encoding="utf-8")
@@ -607,6 +619,40 @@ def test_top_input_table_has_stable_optional_exact_pin_schema():
     pin10_routes = {int(row["dst_rmux"]): row["cfg"] for row in rows
                     if row["verified_pin"] == "PIN_10"}
     assert pin10_routes == {20: "CFG_RMUX3[23,29]", 15: "CFG_RMUX2[33,39]"}
+
+    # EVERY row must write the node it names, not only PIN_10's.
+    #
+    # The 2026-09-05 repair fixed the RMUX20 row and asserted it by name. The
+    # rule behind it was never enforced, so two rows carrying the identical
+    # defect survived six more days: PIN_HSE wrote RMUX6 while naming RMUX8, and
+    # PIN_16 wrote RMUX0 while naming RMUX3. Both were found on 2026-09-11 by
+    # reading the codewords back out of emitted images -- the intended node was
+    # empty and its neighbour carried (3,9).
+    #
+    # Within CFG_RMUXn the selector slots are blocked ten to a node: sels 0-9
+    # drive node 6n+0, 10-19 drive 6n+1, 20-29 drive 6n+2. A row whose cfg block
+    # disagrees with its dst_rmux emits onto a neighbouring node, leaving the
+    # intended one unprogrammed. The image is well formed, the CRC is valid,
+    # every other gate passes, and the pad never reaches the fabric.
+    #
+    # This asserts the invariant for all rows so the class cannot come back.
+    for row in rows:
+        match = re.fullmatch(r"CFG_RMUX(\d+)\[(\d+),\s*(\d+)\]", row["cfg"])
+        assert match, "unparsable pad_input cfg: %r" % row["cfg"]
+        instance = int(match.group(1))
+        blocks = {int(match.group(2)) // 10, int(match.group(3)) // 10}
+        assert len(blocks) == 1, (
+            "%s cfg %s straddles two nodes"
+            % (row["verified_pin"], row["cfg"]))
+        assert instance * 6 + blocks.pop() == int(row["dst_rmux"]), (
+            "%s: cfg %s does not write the node it names (RMUX%s)"
+            % (row["verified_pin"], row["cfg"], row["dst_rmux"]))
+
+    # The two rows repaired on 2026-09-11, pinned against regression.
+    repaired = {row["verified_pin"]: row["cfg"] for row in rows
+                if row["verified_pin"] in ("PIN_HSE", "PIN_16")}
+    assert repaired == {"PIN_HSE": "CFG_RMUX1[23,29]",
+                        "PIN_16": "CFG_RMUX0[33,39]"}
 
     pin12 = next(row for row in rows if row["verified_pin"] == "PIN_12")
     assert pin12["target_pin"] == "2"
