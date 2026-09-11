@@ -94,3 +94,23 @@ def test_unconnected_lut_input_the_init_depends_on_is_refused():
     # INIT = I0 & I1: the unconnected I1 would read 1 on silicon and 0 in a naive sim
     with pytest.raises(ValueError, match="unconnected but INIT"):
         sim_routed(None, cycles=1, document=_slice_document(0x8888, [2, 900, "0", "0"]))
+
+
+def test_carry_slice_unconnected_c_input_is_by_construction():
+    doc = _slice_document(0x3cc0, [2, "0", 900, "0"])
+    cell = doc["modules"]["top"]["cells"]["lut"]
+    cell["connections"]["CIN"] = ["0"]
+    cell["connections"]["COUT"] = [5]
+    doc["modules"]["top"]["netnames"]["cout"] = {"bits": [5]}
+    reads, _ = sim_routed(None, cycles=1, document=doc)   # must not raise
+    assert len(reads) == 1
+
+
+def test_carry_seed_unconnected_c_and_d_inputs_are_by_construction():
+    # the packer's $CARRY_SEED: INIT 0x00AA, COUT only, I[1..3] unconnected
+    doc = _slice_document(0x00AA, [2, 900, 901, 902])
+    cell = doc["modules"]["top"]["cells"]["lut"]
+    cell["connections"]["COUT"] = [5]
+    doc["modules"]["top"]["netnames"]["cout"] = {"bits": [5]}
+    reads, _ = sim_routed(None, cycles=1, document=doc)   # must not raise
+    assert len(reads) == 1

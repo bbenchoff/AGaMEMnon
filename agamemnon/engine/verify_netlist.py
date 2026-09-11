@@ -89,7 +89,13 @@ def sim_routed(routed_json, cycles=96, document=None, stimulus=None, probe=None)
             cout = c["connections"].get("COUT", [])
             ffu = int(c["parameters"].get("FF_USED", "0"), 2)
             init = int(c["parameters"]["INIT"], 2)
+            carry_mode = bool(cin) or bool(cout)
             for k, net in enumerate(I):
+                # A carry slice replaces physical input C (I[2]) with Cin and
+                # its D (I[3]) selects the COUT (D=0) / F (D=1) halves of the
+                # mask, so unconnected I[2]/I[3] there are by construction.
+                if carry_mode and k in (2, 3):
+                    continue
                 if net == "__unconnected__" and _init_depends_on(init, k, len(I)):
                     raise ValueError(
                         "verify: slice %s input I[%d] is unconnected but INIT %04x depends on it; "
