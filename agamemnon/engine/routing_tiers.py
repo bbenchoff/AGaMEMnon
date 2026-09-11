@@ -165,6 +165,73 @@ def closed_form_is_legal_fanin(dst_fam, dst_idx, pair):
     return all(block + local in legal for local in pair)
 
 
+class UnmodelledAdjacentRow:
+    """Refuses same-column adjacent-row RMUX hops, the class we admit but cannot predict.
+
+    ``DistanceEncoding`` documents why it EXCLUDES ``|dy| == 1``: the low sel has
+    a genuine second mode (``lo=3`` 10,019 times against ``lo=6`` 1,238, ~11%)
+    that is "NOT explained by dx offset, the high sel, ``src_idx % 6`` or
+    ``dst_idx % 6``. Some hidden variable governs it."
+
+    That exclusion is an ADMISSION: for this class the model has no prediction,
+    and the gate therefore lets the edge through. Admitting what we cannot
+    predict is inference. This refuses it instead.
+
+    Scope is deliberately the narrowest cut that covers the class:
+
+    * ``dx == 0`` only. A hop with ``dx != 0`` is governed by the horizontal
+      encoding, not this one -- and the board-proven working route's second hop
+      is ``dx=-1, dy=0``, which must survive.
+    * ``|dy| == 1`` only. ``dy == 0`` is the intra-tile crossbar, an entirely
+      different mechanism; three shipped qualification artifacts are same-tile
+      hops and refusing them would be a fatal over-refusal.
+    * RMUX -> RMUX only.
+
+    WHAT THIS IS NOT. It is not a claim that these edges are dead, nor that their
+    codewords are wrong -- the failing chain's hops each carry the codeword the
+    vendor itself uses, verified against 21M corpus rows. It is a refusal to ROUTE
+    through a class whose selector encoding has a known unmodelled discriminator.
+    Admission is a separate axis from selector attribution, so this does not let a
+    closed form overrule a physical observation; an observed edge keeps its
+    codeword, it simply is not chosen.
+
+    Validated against the standing regression set, which is what matters -- a
+    refusal rule tested only on known failures confirms whatever you already
+    believe:
+
+        refuses  BROKEN h1/h2 (0,-1)      the failing write_pending hops
+        refuses  RMUX87->RMUX59 (0,+1)    VP-AGM-001
+        refuses  RMUX07->RMUX46 (0,+1)    hand-withdrawn
+        keeps    RMUX80->RMUX43 (0,-4)    board-proven working route
+        keeps    RMUX43->RMUX95 (-1,0)    board-proven working route
+        keeps    RMUX27->RMUX20 (0,+3)    SERV smoke, toggling board witness
+        keeps    three same-tile (0,0)    shipped qualification artifacts
+
+        ZERO fatal over-refusals.
+
+    It is INCOMPLETE, not wrong: it does not catch ``RMUX25->RMUX00`` (0,-3) or
+    the failing chain's third hop (0,-2). A gate that under-refuses is safe; one
+    that over-refuses destroys real capacity.
+
+    BLAST RADIUS, measured before shipping: 41,793 of 550,664 edges (7.59%) and
+    38 destination nodes starved. That is real and is why this is OPT-IN.
+    """
+
+    @staticmethod
+    def refuses(src_x, src_y, dst_x, dst_y, src_res, dst_res):
+        if not (str(src_res).startswith("RMUX") and str(dst_res).startswith("RMUX")):
+            return False
+        return (dst_x - src_x) == 0 and abs(dst_y - src_y) == 1
+
+    def should_refuse(self, row):
+        try:
+            return self.refuses(int(row["src_x"]), int(row["src_y"]),
+                                int(row["dst_x"]), int(row["dst_y"]),
+                                row.get("src_res", ""), row.get("dst_res", ""))
+        except (KeyError, TypeError, ValueError):
+            return False
+
+
 class DistanceEncoding:
     """Refuses an INFERRED selector that contradicts the observed distance encoding.
 

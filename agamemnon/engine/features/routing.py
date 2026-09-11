@@ -1512,6 +1512,19 @@ class RoutingFeature:
             raise ValueError(
                 "AGAMEMNON_DISTANCE_GATE needs the clean-sel corpus; without "
                 "observations there is no encoding to compare against")
+        # UNMODELLED-ADJACENT-ROW GATE (AGAMEMNON_ADJACENT_ROW_GATE=1; OPT-IN).
+        # DistanceEncoding EXCLUDES |dy|==1 because a hidden variable governs its
+        # low sel (~11% second mode). That exclusion admits a class the model
+        # cannot predict, which is inference. This refuses it instead. Blast
+        # radius measured before shipping: 41,793/550,664 edges (7.59%), 38
+        # destination nodes starved -- which is why it is opt-in and off by
+        # default. Validated against the standing regression set with ZERO fatal
+        # over-refusals; see routing_tiers.UnmodelledAdjacentRow.
+        ADJACENT_ROW_GATE = os.environ.get("AGAMEMNON_ADJACENT_ROW_GATE") == "1"
+        ADJACENT_ROW = routing_tiers.UnmodelledAdjacentRow() if ADJACENT_ROW_GATE else None
+        if ADJACENT_ROW is not None:
+            print("AGRV2K arch: unmodelled-adjacent-row gate ON "
+                  "(refuses dx=0, |dy|=1 RMUX->RMUX)")
         OWNERSHIP_GATE = os.environ.get("AGAMEMNON_OWNERSHIP_GATE") == "1"
         CODEWORD_OWNER = (routing_tiers.CodewordOwnership.from_chipdb(DATA, CLEAN_SEL_EDGE)
                           if OWNERSHIP_GATE else None)
@@ -1554,6 +1567,7 @@ class RoutingFeature:
         _alias_repaired = 0
         _owner_refused = 0
         _distance_refused = 0
+        _adjacent_row_refused = 0
         _witnessed_pips = set()
         _tier_counts = collections.Counter()
         def _clean_sel_encodable(r):
@@ -1939,6 +1953,8 @@ class RoutingFeature:
                     _sel_pruned += 1; continue
                 if DISTANCE is not None and DISTANCE.should_refuse(r):
                     _distance_refused += 1; continue
+                if ADJACENT_ROW is not None and ADJACENT_ROW.should_refuse(r):
+                    _adjacent_row_refused += 1; continue
                 if CODEWORD_OWNER is not None and CODEWORD_OWNER.should_refuse(r):
                     _owner_refused += 1; continue
                 # Deliberately NOT restricted to rrg_edges_full.csv. The same pip is
@@ -2079,6 +2095,7 @@ class RoutingFeature:
                  "rows_dropped_by_selector_alias_repair": _alias_repaired,
                  "rows_refused_by_codeword_ownership": _owner_refused,
                  "rows_refused_by_distance_encoding": _distance_refused,
+                 "rows_refused_by_adjacent_row": _adjacent_row_refused,
                  "decode_uniqueness_gate": bool(DECODE_UNIQUE_GATE),
                  "clean_sel_physical_keys": len(CLEAN_SEL_EDGE),
                  "clean_sel_unanimous_relative_keys": len(CLEAN_SEL_REL),

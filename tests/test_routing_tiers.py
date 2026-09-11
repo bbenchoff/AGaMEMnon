@@ -637,3 +637,41 @@ def test_distance_gate_emits_a_graph(tmp_path):
     out = tmp_path / "devdb_distance"
     _emit(out, ("AGAMEMNON_ROUTING_ADMISSION=tiered", "AGAMEMNON_DISTANCE_GATE=1"))
     assert (out / "dev_pips.csv").exists()
+
+
+def test_unmodelled_adjacent_row_matches_the_standing_regression_set():
+    """The gate must refuse the failing hops AND keep every board-proven one.
+
+    A refusal rule validated only against known failures confirms whatever you
+    already believe; this project has caught two over-refusals precisely by
+    checking the successes, so both halves are pinned here.
+    """
+    gate = routing_tiers.UnmodelledAdjacentRow()
+
+    def refuses(sx, sy, dx, dy):
+        return gate.should_refuse({"src_x": sx, "src_y": sy, "dst_x": dx, "dst_y": dy,
+                                   "src_res": "RMUX01", "dst_res": "RMUX02"})
+
+    # the two failing write_pending hops, and two independently convicted edges
+    assert refuses(15, 8, 15, 7)          # BROKEN h1
+    assert refuses(15, 7, 15, 6)          # BROKEN h2
+    assert refuses(14, 11, 14, 12)        # VP-AGM-001 and the hand-withdrawn edge
+
+    # MUST KEEP -- any of these firing is a fatal over-refusal
+    assert not refuses(15, 8, 15, 4)      # board-proven working route, dy=-4
+    assert not refuses(15, 4, 14, 4)      # board-proven working route, dx=-1
+    assert not refuses(18, 3, 18, 6)      # SERV smoke, toggling board witness
+    assert not refuses(10, 3, 10, 3)      # shipped qualification artifact, same tile
+    assert not refuses(14, 12, 14, 12)    # shipped qualification artifact, same tile
+    assert not refuses(19, 4, 19, 4)      # shipped qualification artifact, same tile
+
+
+def test_unmodelled_adjacent_row_is_scoped_to_rmux_pairs():
+    gate = routing_tiers.UnmodelledAdjacentRow()
+    base = {"src_x": 15, "src_y": 8, "dst_x": 15, "dst_y": 7}
+    assert gate.should_refuse({**base, "src_res": "RMUX80", "dst_res": "RMUX27"})
+    # a non-RMUX endpoint is a different mechanism and must not be touched
+    assert not gate.should_refuse({**base, "src_res": "OMUX02", "dst_res": "RMUX27"})
+    assert not gate.should_refuse({**base, "src_res": "RMUX80", "dst_res": "IMUX03"})
+    # malformed rows must not raise
+    assert not gate.should_refuse({"src_res": "RMUX80", "dst_res": "RMUX27"})

@@ -2808,6 +2808,8 @@ def _cmd_build_once(a):
             default_devdb += "_ownership"
         if env.get("AGAMEMNON_DISTANCE_GATE") == "1":
             default_devdb += "_distance"
+        if env.get("AGAMEMNON_ADJACENT_ROW_GATE") == "1":
+            default_devdb += "_adjrow"
         if env.get("AGAMEMNON_DECODE_UNIQUE_GATE"):
             default_devdb += "_decodeunique"
         custom_devdb = os.environ.get("AGAMEMNON_DEVDB")
@@ -2867,6 +2869,8 @@ def _cmd_build_once(a):
             emit_env.append("AGAMEMNON_OWNERSHIP_GATE=1")
         if env.get("AGAMEMNON_DISTANCE_GATE") == "1":
             emit_env.append("AGAMEMNON_DISTANCE_GATE=1")
+        if env.get("AGAMEMNON_ADJACENT_ROW_GATE") == "1":
+            emit_env.append("AGAMEMNON_ADJACENT_ROW_GATE=1")
         if env.get("AGAMEMNON_DUAL_LUT_CONST"):
             emit_env.append("AGAMEMNON_DUAL_LUT_CONST=%s" %
                             env["AGAMEMNON_DUAL_LUT_CONST"])
