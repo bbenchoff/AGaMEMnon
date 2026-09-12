@@ -816,6 +816,21 @@ class BramFeature:
         print("loaded %d field-local BRAM control codeword(s)" % len(seen))
 
     @staticmethod
+    def _resolve_level(state, df, di, sf, si, delta_x, delta_y):
+        """Which resolver level names this pip (debug/evidence accounting only)."""
+        resolver = state.resolver
+        if resolver is None or df in BRAM_CONTROL_FAMILIES or df not in resolver["NPI"]:
+            return None
+        group = di % resolver["NPI"][df]
+        exact = "|".join(map(str, (df, di, sf, si, delta_x, delta_y)))
+        local = "|".join(map(str, (df, group, sf, si, delta_x, delta_y)))
+        family = "|".join(map(str, (df, sf, delta_x, delta_y, si % 16)))
+        for level, key in (("L0", exact), ("L1", local), ("L2", family)):
+            if resolver[level].get(key):
+                return level
+        return None
+
+    @staticmethod
     def _resolve(state, destination_family, destination_index, source_family,
                  source_index, delta_x, delta_y):
         resolver = state.resolver
@@ -912,9 +927,15 @@ class BramFeature:
         # byte into another array.
         exact = state.exact_pips.get(key) if (dx, dy) == (13, 4) else None
         if exact:
+            if debug:
+                print("  BRAM-PIP %s%d <- %s%d @(%d,%d) via exact-X13Y4-bits" % (df, di, sf, si, dx, dy))
             route_sets.extend(exact)
             return True
         selectors = self._resolve(state, df, di, sf, si, dx - sx, dy - sy)
+        if debug and selectors:
+            print("  BRAM-PIP %s%d <- %s%d @(%d,%d) via resolver-%s sel=%s" % (
+                df, di, sf, si, dx, dy, self._resolve_level(state, df, di, sf, si, dx - sx, dy - sy),
+                tuple(selectors)))
         config = "CFG_%s" % df if df in BRAM_FLAT_FAMILIES else "CFG_%s%d" % (
             df, di // mux_groups[df]
         )
