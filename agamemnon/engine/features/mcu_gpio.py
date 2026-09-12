@@ -188,8 +188,12 @@ class McuGpioFeature:
         # route-invariance identity pins do not move.  This mirrors the BRAM
         # site-read corridor (AGAMEMNON_BRAM_SITE_READ_PATHS).  The corridor is
         # measured (vendor route + codewords triangulated across the mine build
-        # and four ahbrwide corpus builds) but silicon-unproven, so it ships
-        # opt-in until a board witness clears the open handshake.
+        # and four ahbrwide corpus builds) and BOARD-WITNESSED 2026-09-12: forced
+        # through BufMUX10->InputMUX10->RMUX81 it delivers a TOGGLING MCU-GPIO4->
+        # fabric request on silicon (controls PASS both sides).  The delivering hop
+        # is InputMUX10; the generic BufMUX10->InputMUX11 exit does NOT deliver a
+        # faithful request, so when this corridor drives a request the router must
+        # be kept off InputMUX11 (ban it) -- InputMUX10 is the only witnessed entry.
         _gpio4_enabled = context.options.enabled("AGAMEMNON_MCU_GPIO4_REQUEST_PATHS")
         _gpio4_path_name = "mcu_gpio4_request_paths.csv"
         _gpio4_path_csv = os.path.join(DATA, _gpio4_path_name)
