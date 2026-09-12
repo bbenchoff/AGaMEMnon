@@ -30,8 +30,11 @@ reference write/read design this yields 651 data pips, 640 mapped, 0 predicted,
 experimental-strict with one admitted B4 row. The B4 pair `PORTA_OUTREG` +
 `PORTB_WRITETHRU` and any initialised writable x18 BRAM remain refused; the
 release-strict graph cannot route BRAM ingress at all (it needs tier-2 edges).
-No silicon claim is made: the corresponding board session is preregistered and
-not yet run.
+The corresponding attended board session ran on 2026-09-11: the vendor image of
+the same core passed 64/64 before and after, and all three open images failed
+before their first BRAM transaction (a register reads high straight after
+reset, differently on each route). No BRAM silicon claim is made; the failure
+is route-dependent and not yet localised.
 
 `verify` now simulates the routed netlist including x18 block RAM and
 MCU-bus stimulus (`--stimulus`, `--trace`), reads an unconnected input as

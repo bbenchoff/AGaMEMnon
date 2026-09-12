@@ -27,6 +27,35 @@ BASE_SHA256 = "97f164a72b22ea2f076f889ee771b577f482384469266dc489e0b2f243590610"
 PUBLIC_SHA256 = "2eaaff39770df92f42da8e4498437ab415e90a904fb9d5381542452e5548894b"
 OUTPUT_SHA256 = "aa7ff307b6d59035928bf79306a3e55a69434e9458672a36ed51a7abe162c5fe"
 
+# Reviewed routes for the two nets whose BFS result moved when the strict graph
+# was widened on 2026-09-11 (BramTILE crossbar evidence, LogicTile relative keys
+# un-conflicted).  The reviewed artifact is the silicon-qualified one; a graph
+# gaining a legal edge must not silently re-route it (see Router.extend_exact).
+REVIEWED_HWDATA0_EXTENSION = (
+        ('X14Y10_RMUX15', 'X13Y10_InputMUX02.X14Y10_RMUX15', '1'),
+        ('X18Y10_RMUX62', 'X14Y10_RMUX15.X18Y10_RMUX62', '1'),
+        ('X18Y12_RMUX67', 'X18Y10_RMUX62.X18Y12_RMUX67', '1'),
+        ('X18Y11_RMUX79', 'X18Y12_RMUX67.X18Y11_RMUX79', '1'),
+        ('X15Y11_RMUX25', 'X18Y11_RMUX79.X15Y11_RMUX25', '1'),
+        ('X15Y12_RMUX00', 'X15Y11_RMUX25.X15Y12_RMUX00', '1'),
+        ('X14Y12_IMUX56', 'X15Y12_RMUX00.X14Y12_IMUX56', '1'),
+    )
+REVIEWED_STATUS_STORAGE_ROOT = 'X14Y12_OMUX29'
+REVIEWED_STATUS_STORAGE_PATH = (
+        ('X14Y12_RMUX50', 'X14Y12_OMUX29.X14Y12_RMUX50', '1'),
+        ('X14Y11_RMUX09', 'X14Y12_RMUX50.X14Y11_RMUX09', '1'),
+        ('X14Y12_RMUX38', 'X14Y11_RMUX09.X14Y12_RMUX38', '1'),
+        ('X15Y12_RMUX67', 'X14Y12_RMUX38.X15Y12_RMUX67', '1'),
+        ('X15Y11_RMUX89', 'X15Y12_RMUX67.X15Y11_RMUX89', '1'),
+        ('X15Y11_IMUX27', 'X15Y11_RMUX89.X15Y11_IMUX27', '1'),
+        ('X17Y12_RMUX51', 'X14Y12_RMUX38.X17Y12_RMUX51', '1'),
+        ('X18Y12_RMUX20', 'X17Y12_RMUX51.X18Y12_RMUX20', '1'),
+        ('X17Y12_RMUX74', 'X18Y12_RMUX20.X17Y12_RMUX74', '1'),
+        ('X18Y12_RMUX13', 'X17Y12_RMUX74.X18Y12_RMUX13', '1'),
+        ('X14Y12_RMUX70', 'X18Y12_RMUX13.X14Y12_RMUX70', '1'),
+        ('X14Y12_IMUX38', 'X14Y12_RMUX70.X14Y12_IMUX38', '1'),
+    )
+
 COUNTER_BELS = {
     "X15Y3_SLICE0", "X15Y3_SLICE2", "X19Y1_SLICE0",
     "X15Y1_SLICE0", "X15Y1_SLICE1", "X15Y1_SLICE2",
@@ -446,6 +475,14 @@ def compose() -> bytes:
         if len(outputs) != 1:
             raise SystemExit(f"bit {bit} has {len(outputs)} producers")
         net_name = find_net(top, bit)
+        if net_name == "public_status_storage":
+            source = pin_for(outputs[0])
+            if source != REVIEWED_STATUS_STORAGE_ROOT:
+                raise SystemExit(f"public_status_storage root moved: {source}")
+            top["netnames"][net_name].setdefault("attributes", {})["ROUTING"] =                 encode_route([(source, "", "1")])
+            router._claim(net_name, source)
+            router.extend_exact(net_name, REVIEWED_STATUS_STORAGE_PATH)
+            continue
         router.route_new(net_name, pin_for(outputs[0]),
                          [pin_for(ep) for ep in inputs])
 
@@ -456,6 +493,9 @@ def compose() -> bytes:
         shared_name = find_net(top, shared_bit)
         sinks = [pin_for(ep) for ep in bit_endpoints[shared_bit]
                  if ep[3] == "input"]
+        if shared_name == "hwdata[0]":
+            router.extend_exact(shared_name, REVIEWED_HWDATA0_EXTENSION)
+            continue
         router.extend(shared_name, sinks)
 
     # Final ownership and placement audit.

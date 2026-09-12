@@ -333,15 +333,27 @@ def test_x9_dataina2_vendor_conflict_route_is_exact_and_reserved():
 
     with open(os.path.join(CHIPDB, "bram_pip_cfg.csv"), newline="") as handle:
         cfg = list(csv.DictReader(handle))
-    expected = {
-        ("IMUX28", "RMUX82", "0", "0"): {(69239, 1), (69240, 64)},
-        ("RMUX82", "RMUX93", "-1", "0"): {(71446, 32), (71562, 128)},
-    }
-    for key, codeword in expected.items():
-        rows = [row for row in cfg if tuple(
-            row[name] for name in ("dst_res", "src_res", "ddx", "ddy")
-        ) == key]
-        assert {(int(row["byte"]), int(row["mask"])) for row in rows} == codeword
+    by_key = {}
+    for row in cfg:
+        by_key.setdefault(tuple(row[name] for name in ("dst_res", "src_res", "ddx", "ddy")),
+                          set()).add((int(row["byte"]), int(row["mask"])))
+    assert by_key[("IMUX28", "RMUX82", "0", "0")] == {(69239, 1), (69240, 64)}
+    # The RMUX82 <- X14Y4_RMUX93 hop used to be pinned here to the bits
+    # (71446,32),(71562,128).  Those are RMUX64's cells (CFG_RMUX10 selectors
+    # 47/45): 52 of 52 vendor builds that route this hop configure RMUX82 at
+    # CFG_RMUX13 45/47 and leave RMUX64 to its own source, and every image
+    # that carried the old rows left RMUX82 blank.  The rows are withdrawn;
+    # the hop's codeword is the exact clean_edge observation (5, 7) in
+    # RMUX82's own block, which the BRAM feature now emits ahead of the
+    # resolver.  (AG32-Docs docs/BRAM_PIP_CFG_DEFECT_20260911.md)
+    assert ("RMUX82", "RMUX93", "-1", "0") not in by_key
+    from agamemnon.engine import routing_selectors
+    clean = routing_selectors.load_clean_edges(CHIPDB)
+    assert tuple(clean[(13, 4, "RMUX", 82, "RMUX", 14, 4, 93)]) == (5, 7)
+    with open(os.path.join(CHIPDB, "bram_cell.csv"), newline="") as handle:
+        cells = {(int(r["x"]), int(r["y"]), r["mux"], int(r["sel"])): (int(r["byte"]), int(r["mask"]))
+                 for r in csv.DictReader(handle)}
+    assert {cells[(13, 4, "CFG_RMUX13", 45)], cells[(13, 4, "CFG_RMUX13", 47)]} != {(71446, 32), (71562, 128)}
 
     uarch = open(os.path.join(
         ROOT, "agamemnon", "engine", "uarch", "agrv2k", "agrv2k.cc"),
