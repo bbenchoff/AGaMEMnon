@@ -704,6 +704,68 @@ class BramFeature:
         self._load_routing(state, chipdb_root, options)
         return state
 
+    @staticmethod
+    def _selector_cells(chipdb_root):
+        """(x, y, mux, sel) -> (byte, mask) from bram_cell.csv."""
+        cells = {}
+        with (chipdb_root / "bram_cell.csv").open(newline="", encoding="utf-8") as stream:
+            for row in csv.DictReader(stream):
+                cells[(int(row["x"]), int(row["y"]), row["mux"], int(row["sel"]))] = (
+                    int(row["byte"]), int(row["mask"]))
+        return cells
+
+    @staticmethod
+    def inconsistent_exact_pips(exact_pips, cells, npi=None, bs=None):
+        """bram_pip_cfg.csv rows whose bits are not selector cells of their own destination.
+
+        A row is keyed (dst_res, src_res, ddx, ddy) and its bits are absolute X13Y4
+        cells.  For a mesh destination <fam><n> the codeword must live in
+        CFG_<fam><n // NPI> selectors [(n % NPI) * BS, +BS): that block IS the mux the
+        destination wire reads from.  A bit anywhere else drives a different mux and
+        leaves the destination unconfigured, which is exactly what rows 506-507
+        (RMUX82 <- RMUX93, ddx -1) did until 2026-09-11: they carried RMUX64's cells
+        (CFG_RMUX10 sels 45/47) under RMUX82's key, and every image that routed that
+        pip left RMUX82 blank and put a third bit on RMUX64.  A BufMUX-source row with
+        a non-zero offset is a LogicTile exit whose cells live in pips_full.csv, not
+        bram_cell.csv, and is not judged here; every other row (including the 52
+        BufMUX -> X13Y4 rows) is.  Returns [((dst, src, ddx, ddy), (byte, mask), owners), ...].
+        """
+        npi = npi or {"RMUX": 6, "IMUX": 4}
+        bs = bs or {"RMUX": 10, "IMUX": 12}
+        owner = {}
+        for (x, y, mux, sel), bit in cells.items():
+            if (x, y) == (13, 4):
+                owner.setdefault(tuple(bit), []).append((mux, sel))
+        rejected = []
+        for (dst, src, ddx, ddy), bits in exact_pips.items():
+            match = re.match(r"(RMUX|IMUX)(\d+)$", dst)
+            if not match:
+                continue
+            if src.startswith("BufMUX") and (ddx, ddy) != (0, 0):
+                continue  # a LogicTile exit: its cells are not in bram_cell.csv
+            family, index = match.group(1), int(match.group(2))
+            config = "CFG_%s%d" % (family, index // npi[family])
+            block = (index % npi[family]) * bs[family]
+            for bit in bits:
+                owners = owner.get(tuple(bit), [])
+                if not any(mux == config and block <= sel < block + bs[family]
+                           for mux, sel in owners):
+                    rejected.append(((dst, src, ddx, ddy), tuple(bit), owners))
+        return rejected
+
+    def _refuse_inconsistent_exact_pips(self, state, chipdb_root):
+        """Fail closed: a table row on the wrong mux would config-accept and silently
+        misroute a BRAM pin, so refuse every BRAM route instead of emitting one."""
+        rejected = self.inconsistent_exact_pips(
+            state.exact_pips, self._selector_cells(chipdb_root))
+        if rejected:
+            (dst, src, ddx, ddy), bit, owners = rejected[0]
+            raise ValueError(
+                "bram_pip_cfg.csv: %d row(s) write config cells outside the destination "
+                "node's own selector block at X13Y4 (first: %s <- %s d=(%d,%d) bit %s is "
+                "owned by %s); refusing BRAM routing rather than drive the wrong mux"
+                % (len(rejected), dst, src, ddx, ddy, bit, owners or "no BramTILE cell"))
+
     def _load_routing(self, state, chipdb_root, options):
         # BramTILE routing remains part of the device graph even when the RTL
         # does not instantiate a BRAM.  Ordinary fabric nets can therefore use
@@ -718,6 +780,7 @@ class BramFeature:
                 key = (row["dst_res"], row["src_res"], int(row["ddx"]), int(row["ddy"]))
                 state.exact_pips.setdefault(key, []).append((int(row["byte"]), int(row["mask"])))
         print("loaded %d exact BRAM routing pip(s) (bram_pip_cfg.csv)" % len(state.exact_pips))
+        self._refuse_inconsistent_exact_pips(state, chipdb_root)
         codewords = chipdb_root / "bram_route_codewords.csv"
         if not codewords.exists():
             raise ValueError("bram requires chipdb/bram_route_codewords.csv when BRAM is used")

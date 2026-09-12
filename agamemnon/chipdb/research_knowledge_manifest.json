@@ -161,10 +161,10 @@
       "sha256": "d57d9361ff7b6491cd313c0e20aa1235a9ae98241dfe09f453bf7387460a77f5"
     },
     {
-      "bytes": 14959,
-      "data_rows": 552,
+      "bytes": 14902,
+      "data_rows": 550,
       "path": "agamemnon/chipdb/bram_pip_cfg.csv",
-      "sha256": "48342e57acdf612fe03e73d102fed24efa2253209c2500429213c7f5c56e3227"
+      "sha256": "e94fabdb5db76fd7f6f52d3069c29a7bb5cba4a2f444093c21263b1675b2482f"
     },
     {
       "bytes": 2809,

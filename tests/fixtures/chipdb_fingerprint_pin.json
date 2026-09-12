@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "01c34bfeacb0423f5f9a045df71209a7bb636b4ffed710fddba29f31e2628221",
+  "fingerprint_sha256": "b07237d0a31d11ada2d2ae191ab4891257e65f6ba273efbf8344a884fdfeab78",
   "file_count": 266,
   "pinned_date": "2026-09-11",
-  "reason": "bram_resolver.json: withdraw the 37 L0 / 7 L1 / 9 L2 entries contradicted by an exact clean_edge observation at a BramTILE coordinate (docs/BRAM_RESOLVER_VS_EXACT_20260911.md); zero routed pips in the workbench corpus lose their codeword"
+  "reason": "bram_pip_cfg.csv: withdraw the two X13Y4 RMUX82<-RMUX93 (ddx -1) rows whose bits are CFG_RMUX10 cells (node RMUX64), not CFG_RMUX13; 52/52 ensemble observations put RMUX82's codeword at (5,7) in CFG_RMUX13 as clean_edge records (docs/BRAM_PIP_CFG_DEFECT_20260911.md)"
 }

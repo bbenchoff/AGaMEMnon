@@ -101,3 +101,7 @@ tools/import_rmux30_routing_admission.py text eol=lf
 agamemnon/engine/status_overlay_dev_pips.csv.gz binary
 agamemnon/engine/status_overlay_dev_belpins.csv.gz binary
 agamemnon/engine/status_overlay_devdb_manifest.json text eol=lf
+
+# Graph-row deltas carry the emitter's CRLF row terminators as DATA; normalizing them
+# breaks the byte-exact historical reconstruction on a fresh clone.
+tests/fixtures/legacy_graph_delta_20260911.csv -text
