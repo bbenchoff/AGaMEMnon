@@ -91,18 +91,38 @@ def test_route_emission_preserves_current_pass_and_historical_refusal(tmp_path, 
     assert "0 legacy-abs, 0 predicted), 0 unmapped" in combined
 
 
-def test_frozen_route_passes_offline_routed_netlist_validation():
-    routed = ROOT / RESULT["place_route"]["default"]["routed_path"]
+def _verify(routed, cycles):
     completed = subprocess.run(
-        [sys.executable, "-m", "agamemnon.cli", "verify", str(routed),
-         "--cycles", str(RESULT["offline_validator"]["cycles"])],
+        [sys.executable, "-m", "agamemnon.cli", "verify", str(routed), "--cycles", str(cycles)],
         cwd=ROOT,
         env=_clean_engine_environment(),
         capture_output=True,
         text=True,
     )
-    combined = completed.stdout + completed.stderr
-    assert completed.returncode == 0, combined
+    return completed.returncode, completed.stdout + completed.stderr
+
+
+def test_frozen_route_is_refused_by_offline_validation_for_uncofactored_luts():
+    """The frozen 2026-08-28 route predates the zero-cofactor packer fix: fourteen
+    three-input LUTs (reset_commit_lut, read_muxes[*], page_advance_lut) carry a
+    mask that still depends on an unconnected D input. An undriven LUT input reads
+    HIGH on silicon, so the old validator's "reads 0" pass was not a prediction of
+    the chip; verify now refuses the netlist by name. The frozen route is kept
+    for placement/route identity only ("desk-pass-bounded"), never as a
+    behavioural claim."""
+    routed = ROOT / RESULT["place_route"]["default"]["routed_path"]
+    code, combined = _verify(routed, RESULT["offline_validator"]["cycles"])
+    assert code == 1, combined
+    assert "verify refused" in combined
+    assert "core_i.reset_commit_lut.s input I[3] is unconnected but INIT 0080 depends on it" in combined
+
+
+def test_current_silicon_witnessed_route_passes_offline_validation():
+    """The current (post-fix, silicon-witnessed) route has the same LUTs cofactored
+    (reset_commit_lut INIT 0x8080) and no mask depending on an unconnected input."""
+    routed = ROOT / CURRENT["routed_path"]
+    code, combined = _verify(routed, RESULT["offline_validator"]["cycles"])
+    assert code == 0, combined
     assert "AHB 0x60000000): [0]" in combined
     assert "MCU_DOUT bind" in combined and ": OK" in combined
 
