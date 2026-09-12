@@ -342,7 +342,8 @@ class BramFeature:
                 if (BRAM_COV_ONLY and _BRES and r["dst_tile"] == "BramTILE"
                         and _re.match(r"(IMUX|RMUX)\d+$", r["dst_res"])
                         and not _bram_resolvable(r["dst_res"], r["src_res"], int(r["dst_x"]) - int(r["src_x"]),
-                                                 int(r["dst_y"]) - int(r["src_y"]))):
+                                                 int(r["dst_y"]) - int(r["src_y"]),
+                                                 (int(r["dst_x"]), int(r["dst_y"])), (int(r["src_x"]), int(r["src_y"])))):
                     b_prune += 1; continue          # crossbar edge the resolver can't emit -> prune
                 # SILICON-PROVEN final-hop restriction: a characterized (13,4) address IMUX is fed ONLY by its
                 # conduction-proven feeder (bram_wl.csv) -> drop dead entry pips (e.g. RMUX58->IMUX06) so nextpnr
@@ -890,7 +891,8 @@ class BramFeature:
         exact = "|".join(map(str, (df, di, sf, si, delta_x, delta_y)))
         local = "|".join(map(str, (df, group, sf, si, delta_x, delta_y)))
         family = "|".join(map(str, (df, sf, delta_x, delta_y, si % 16)))
-        for level, key in (("L0", exact), ("L1", local), ("L2", family)):
+        del family  # L2 never names a codeword (see _resolve)
+        for level, key in (("L0", exact), ("L1", local)):
             if resolver[level].get(key):
                 return level
         return None
@@ -915,10 +917,17 @@ class BramFeature:
         family = "|".join(map(str, (
             destination_family, source_family, delta_x, delta_y, source_index % 16,
         )))
-        selectors = (
-            resolver["L0"].get(exact) or resolver["L1"].get(local) or
-            resolver["L2"].get(family)
-        )
+        # L2 (family key: dst family, src family, offset, src index mod 16) is an
+        # inference across a class, not an observation: at X13Y4 the class
+        # IMUX<-IMUX(si%16==12, same tile) holds (4,11), (5,11) and (6,9) among five
+        # exact rows, and IMUX<-RMUX(si%16==3) holds three different codewords.
+        # No routed pip in the 4,023 tracked netlists ever took its codeword from
+        # L2 (every L2-admitted edge that is used has an exact clean_edge row, which
+        # resolve_route now prefers).  Refuse rather than infer: L2 keys admit an
+        # edge to the graph only where it was observed (routing._bram_resolvable),
+        # and never name a codeword.
+        del family
+        selectors = resolver["L0"].get(exact) or resolver["L1"].get(local)
         return None if selectors is None else [block + selector for selector in selectors]
 
     def resolve_route(self, state, source, destination, cell_map, mux_groups, route_sets,

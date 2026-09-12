@@ -2,6 +2,21 @@
 
 ## Main after v0.4.0 — 2026-09-11
 
+Three BramTILE selector defects were found by cross-checking the evidence
+sources against each other, and each is closed by a correction plus a gate that
+refuses its recurrence. The BRAM feature consulted the coordinate-free resolver
+key before the exact `clean_edge` observation at the tile; the observation now
+wins and a disagreeing key is reported and counted (60 contradicted keys
+withdrawn). Two `bram_pip_cfg.csv` rows carried RMUX64's config cells under
+RMUX82's key, so every image routing `X14Y4_RMUX93 -> X13Y4_RMUX82` left
+RMUX82 unconfigured; the rows are withdrawn (52/52 vendor builds refute them)
+and loading the table now refuses any mesh row whose cells are not selectors
+of its own destination. The resolver's family-level L2 tier is a class average
+and never names a codeword any more; its keys admit a graph edge only where
+the edge was observed at that coordinate. Measured over 4,023 workbench routed
+netlists no emitted codeword changes; the base graph loses four unused edges.
+All three exact BRAM tables now carry table-level consistency tests.
+
 BRAM designs with a dynamic write-enable now build through the ordinary
 `build --uarch` flow. Four packer defects were removed, each as a reservation
 or a refusal: constant BRAM pins are classified by their driver (so

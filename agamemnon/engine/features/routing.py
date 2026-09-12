@@ -1723,13 +1723,26 @@ class RoutingFeature:
         _brj4 = os.path.join(DATA, "bram_resolver.json")
         if BRAM_COV_ONLY and os.path.exists(_brj4):
             _BRES = _json.load(open(_brj4))
+        # Observations at the exact coordinate, for the L2 admission rule below.  The
+        # clean-selector gate loads the same table when it is on; load it here too so
+        # the rule does not depend on which gate profile built the graph.
+        _BRAM_OBS = CLEAN_SEL_EDGE
+        if _BRES is not None and not _BRAM_OBS and os.path.exists(_cse):
+            from agamemnon.engine import routing_selectors as _rsel
+            _BRAM_OBS = _rsel.load_clean_edges(DATA)
         _BRAM_EXACT_CFG = set()
         _bpc_exact = os.path.join(DATA, "bram_pip_cfg.csv")
         if os.path.exists(_bpc_exact):
             for _r in csv.DictReader(open(_bpc_exact)):
                 _BRAM_EXACT_CFG.add((_r["dst_res"], _r["src_res"], int(_r["ddx"]), int(_r["ddy"])))
-        def _bram_resolvable(dres, sres, ddx, ddy):
-            """True if the BramTile sel resolver can emit config for this edge (else prune so nextpnr reroutes)."""
+        def _bram_resolvable(dres, sres, ddx, ddy, dst=None, src=None):
+            """True if the BramTile sel resolver can emit config for this edge (else prune so nextpnr reroutes).
+
+            ``dst``/``src`` are the (x, y) of the two wires.  A family-level L2 key is an
+            inference and never names a codeword (bram._resolve); it admits an edge only
+            where that edge was OBSERVED at this exact coordinate (clean_edge), which is
+            also the row bitgen will emit from.  Without coordinates an L2-only edge is
+            refused."""
             dm = re.match(r"(IMUX|RMUX)(\d+)", dres); sm = re.match(r"([A-Za-z]+)(\d+)", sres)
             if dm and sm and ((dm.group(1) + str(int(dm.group(2))), sm.group(1) + str(int(sm.group(2))),
                                ddx, ddy) in _BRAM_EXACT_CFG):
@@ -1744,10 +1757,13 @@ class RoutingFeature:
             if not (dm and sm): return True
             dfam, didx, sfam, sidx = dm.group(1), int(dm.group(2)), sm.group(1), int(sm.group(2))
             go = didx % _BRES["NPI"][dfam]
-            for k in ("|".join(map(str, (dfam, didx, sfam, sidx, ddx, ddy))),
-                      "|".join(map(str, (dfam, go, sfam, sidx, ddx, ddy))),
-                      "|".join(map(str, (dfam, sfam, ddx, ddy, sidx % 16)))):
-                if k in _BRES["L0"] or k in _BRES["L1"] or k in _BRES["L2"]: return True
+            if ("|".join(map(str, (dfam, didx, sfam, sidx, ddx, ddy))) in _BRES["L0"]
+                    or "|".join(map(str, (dfam, go, sfam, sidx, ddx, ddy))) in _BRES["L1"]):
+                return True
+            if "|".join(map(str, (dfam, sfam, ddx, ddy, sidx % 16))) in _BRES["L2"]:
+                if dst is None or src is None:
+                    return False
+                return (dst[0], dst[1], dfam, didx, sfam, src[0], src[1], sidx) in _BRAM_OBS
             return False
         # Port B has multiple graph-adjacent choices for some terminal muxes, but only
         # one route has been exercised with a dynamic, address-swept x2 vendor image.
@@ -1884,7 +1900,8 @@ class RoutingFeature:
                 if (BRAM_COV_ONLY and _BRES and r["dst_x"] == "13" and r["dst_y"] == "4"
                         and fam(r["dst_res"]) in ("IMUX", "RMUX")
                         and not _bram_resolvable(r["dst_res"], r["src_res"], int(r["dst_x"]) - int(r["src_x"]),
-                                                 int(r["dst_y"]) - int(r["src_y"]))):
+                                                 int(r["dst_y"]) - int(r["src_y"]),
+                                                 (int(r["dst_x"]), int(r["dst_y"])), (int(r["src_x"]), int(r["src_y"])))):
                     _bram_epr += 1; continue          # BramTile edge the resolver can't emit -> prune (reroute)
                 _bnd = (r["dst_x"], r["dst_y"], r["dst_res"])   # BRAM address-approach whitelist
                 if _bnd in _bram_bnd_rmux and (r["src_x"], r["src_y"], r["src_res"]) not in _BAP_ALLOWED.get(_bnd, ()):
