@@ -928,14 +928,14 @@ class BramFeature:
         exact = state.exact_pips.get(key) if (dx, dy) == (13, 4) else None
         if exact:
             if debug:
-                print("  BRAM-PIP %s%d <- %s%d @(%d,%d) via exact-X13Y4-bits" % (df, di, sf, si, dx, dy))
+                print("  BRAM-PIP %s%d@(%d,%d) <- %s%d@(%d,%d) via exact-X13Y4-bits" % (df, di, dx, dy, sf, si, sx, sy))
             route_sets.extend(exact)
             return True
         selectors = self._resolve(state, df, di, sf, si, dx - sx, dy - sy)
         if debug and selectors:
-            print("  BRAM-PIP %s%d <- %s%d @(%d,%d) via resolver-%s sel=%s" % (
-                df, di, sf, si, dx, dy, self._resolve_level(state, df, di, sf, si, dx - sx, dy - sy),
-                tuple(selectors)))
+            print("  BRAM-PIP %s%d@(%d,%d) <- %s%d@(%d,%d) via resolver-%s sel=%s" % (
+                df, di, dx, dy, sf, si, sx, sy,
+                self._resolve_level(state, df, di, sf, si, dx - sx, dy - sy), tuple(selectors)))
         config = "CFG_%s" % df if df in BRAM_FLAT_FAMILIES else "CFG_%s%d" % (
             df, di // mux_groups[df]
         )

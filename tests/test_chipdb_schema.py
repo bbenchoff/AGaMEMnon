@@ -40,7 +40,7 @@ def test_shipped_runtime_databases_have_expected_schema(tmp_path):
     # full 101-build directed af.exe harvest (0 ambiguous, 0 clashes, 33 alias-group rows
     # refused). Needed because an RMUX->RMUX hop BETWEEN BramTILEs is bitgen'd by the
     # general data-pip path, which reads clean_edge and never consults bram_resolver.json.
-    assert len(exact["clean_edge"]) == 664468
+    assert len(exact["clean_edge"]) == 665112
     assert len(train["train_lut"]) == 14237
     assert tuple(len(tables[name]) for name in ("geom_rmux", "absolute", "group_context")) == (
         330, 153080, 532558

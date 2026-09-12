@@ -197,9 +197,9 @@
       "sha256": "4c7ae523d93622900ccc5ae4d2ed92cdcf126238d4a0394d9387e502c778c969"
     },
     {
-      "bytes": 121527,
+      "bytes": 121361,
       "path": "agamemnon/chipdb/bram_resolver.json",
-      "sha256": "e3b96c762ed64d4b511ff483c6f264e339c0a4e5bd8217e6d466304c5ffee0b2"
+      "sha256": "42dd842b720f20871012bbea69c528719e7a20fe404d8ee74d233f8e8552bbdf"
     },
     {
       "bytes": 104,
@@ -1490,9 +1490,9 @@
       "sha256": "2bb7e107c05b3127aa8a566b201753c5ee16a7f335b26e67c248f598b8791e0d"
     },
     {
-      "bytes": 2593660,
+      "bytes": 2595150,
       "path": "agamemnon/chipdb/sel_edge_pairs.agdb",
-      "sha256": "2aae89420809f723d4a2177bc6551aebbfbdd5514ab6493ebc34c1521f1b14c8"
+      "sha256": "786f54a4486085e61a543992d6e2fbfcbcd688404ea6e8ac2788fc6ad1874b2f"
     },
     {
       "bytes": 758,
