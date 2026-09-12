@@ -765,10 +765,16 @@ class SelectorCertainty:
     """
 
     def __init__(self, clean_edge, relative_edge, relative_conflicts=(),
-                 allow_closed_form=True, enforce_ownership=False):
+                 allow_closed_form=True, enforce_ownership=False,
+                 relative_edge_bram=None, relative_conflicts_bram=(), tile_typed=False):
         self.clean_edge = clean_edge or {}
         self.relative_edge = relative_edge or {}
         self.relative_conflicts = frozenset(relative_conflicts or ())
+        # Opt-in tile-typed keying: a BramTILE destination consults only the
+        # BRAM-derived relative table (routing_selectors.bram_relative_edges).
+        self.relative_edge_bram = relative_edge_bram or {}
+        self.relative_conflicts_bram = frozenset(relative_conflicts_bram or ())
+        self.tile_typed = bool(tile_typed)
         self._allow_closed_form = bool(allow_closed_form)
         #: Refuse an inferred pair that a DIFFERENT source physically owns.
         #:
@@ -876,7 +882,10 @@ class SelectorCertainty:
                 "positions": ["X%dY%d" % (dx, dy)],
             }
         relative_key = (df, di, sf, si, dx - sx, dy - sy)
-        pair = self.relative_edge.get(relative_key)
+        bram_scoped = self.tile_typed and routing_selectors.is_bram_destination(dx, dy)
+        relative_table = self.relative_edge_bram if bram_scoped else self.relative_edge
+        relative_conflicts = self.relative_conflicts_bram if bram_scoped else self.relative_conflicts
+        pair = relative_table.get(relative_key)
         if pair is not None and self.physically_owned_by_other(dx, dy, df, di, pair,
                                                               (sf, sx, sy, si)):
             return None
@@ -887,7 +896,7 @@ class SelectorCertainty:
                 "support": int(self._support.get(relative_key, 0)),
                 "positions": list(self._positions.get(relative_key, ())),
             }
-        if relative_key in self.relative_conflicts:
+        if relative_key in relative_conflicts:
             # Explicitly do NOT fall through to the closed form here. A key the
             # corpus disagrees with itself about is the one place a tidy formula
             # is most tempting and least trustworthy: the observations say the

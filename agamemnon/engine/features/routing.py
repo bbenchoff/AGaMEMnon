@@ -365,6 +365,14 @@ class RoutingSelectorTables:
     geom_rmux: dict | None = None
     absolute: dict | None = None
     group_context: dict | None = None
+    # Opt-in AGAMEMNON_TILE_TYPED_RELATIVE: BramTILE destinations resolve
+    # relative selectors from BramTILE observations only.
+    relative_edge_bram: dict = field(default_factory=dict)
+    tile_typed: bool = False
+
+    def relative_for(self, dx, dy):
+        return routing_selectors.relative_table_for(
+            self.relative_edge, self.relative_edge_bram, dx, dy, self.tile_typed)
 
     @classmethod
     def load(cls, chipdb_root, options):
@@ -386,6 +394,13 @@ class RoutingSelectorTables:
         relative_edge, conflicts = routing_selectors.relative_edges(clean_edge)
         print("derived %d unanimous tile-relative sel pairs (%d conflicting keys rejected)"
               % (len(relative_edge), len(conflicts)))
+        tile_typed = routing_selectors.tile_typed_enabled()
+        relative_edge_bram = {}
+        if tile_typed:
+            relative_edge_bram, bram_conflicts = routing_selectors.bram_relative_edges(clean_edge)
+            print("tile-typed relative keying ON: BramTILE destinations use %d BRAM-derived keys "
+                  "(%d conflicting), never the %d LogicTile keys"
+                  % (len(relative_edge_bram), len(bram_conflicts), len(relative_edge)))
         try:
             admitted_edge = routing_admission.selected_edge_map(options, chipdb_root)
             admission_binding = routing_admission.selected_binding(
@@ -415,6 +430,8 @@ class RoutingSelectorTables:
             dir_bank=dir_bank,
             clean_edge=clean_edge,
             relative_edge=relative_edge,
+            relative_edge_bram=relative_edge_bram,
+            tile_typed=tile_typed,
             admitted_edge=admitted_edge,
             admission_binding=admission_binding,
             lut=SB.train_lut("__none__", chipdb_root),
@@ -1482,6 +1499,13 @@ class RoutingFeature:
             from agamemnon.engine import routing_selectors
             CLEAN_SEL_EDGE = routing_selectors.load_clean_edges(DATA)
             CLEAN_SEL_REL, _csr_conflict = routing_selectors.relative_edges(CLEAN_SEL_EDGE)
+            CLEAN_SEL_TYPED = routing_selectors.tile_typed_enabled()
+            CLEAN_SEL_REL_BRAM, _csr_conflict_bram = (
+                routing_selectors.bram_relative_edges(CLEAN_SEL_EDGE) if CLEAN_SEL_TYPED
+                else ({}, frozenset()))
+            if CLEAN_SEL_TYPED:
+                print("AGRV2K arch: tile-typed relative keying ON (%d BRAM-derived keys, %d conflicting)"
+                      % (len(CLEAN_SEL_REL_BRAM), len(_csr_conflict_bram)))
             _csm = "gate" if CLEAN_SEL_GATE else "prefer +%.1f ns" % CLEAN_SEL_PENALTY_NS
             print("AGRV2K arch: CLEAN-SEL encoding %s ON (%d physical + %d unanimous relative keys; "
                   "%d conflicting relative keys rejected)"
@@ -1564,7 +1588,10 @@ class RoutingFeature:
             SELECTOR_CERTAINTY = routing_tiers.SelectorCertainty(
                 CLEAN_SEL_EDGE, CLEAN_SEL_REL, _csr_conflict,
                 allow_closed_form=ADMISSION == "tiered",
-                enforce_ownership=OWNERSHIP_GATE)
+                enforce_ownership=OWNERSHIP_GATE,
+                relative_edge_bram=CLEAN_SEL_REL_BRAM,
+                relative_conflicts_bram=_csr_conflict_bram,
+                tile_typed=CLEAN_SEL_TYPED)
 
         _tier2_rows = []
         _tier2_seen = set()
@@ -1591,7 +1618,9 @@ class RoutingFeature:
             if key in CLEAN_SEL_EDGE:
                 return True
             if (df, di, sf, si, int(r["dst_x"]) - int(r["src_x"]),
-                    int(r["dst_y"]) - int(r["src_y"])) in CLEAN_SEL_REL:
+                    int(r["dst_y"]) - int(r["src_y"])) in routing_selectors.relative_table_for(
+                        CLEAN_SEL_REL, CLEAN_SEL_REL_BRAM, int(r["dst_x"]), int(r["dst_y"]),
+                        CLEAN_SEL_TYPED):
                 return True
             # Two byte-exact closed forms remain safe outside the corpus table.
             if df == "RMUX" and sf == "OMUX":
@@ -2885,7 +2914,7 @@ class RoutingFeature:
         for (dx, dy, cfg, df), edges in general.items():
             all_block_clean = not tables.archival_legacy and all(
                 ((dx, dy, df, di, sf, sx, sy, si) in tables.clean_edge or
-                 (df, di, sf, si, dx - sx, dy - sy) in tables.relative_edge)
+                 (df, di, sf, si, dx - sx, dy - sy) in tables.relative_for(dx, dy))
                 for di, sf, sx, sy, si in edges
             )
             if not all_block_clean:
@@ -2916,7 +2945,7 @@ class RoutingFeature:
                     clean_count += 1
                     source_class = "conflict-free-physical-observation"
                 else:
-                    pair = None if tables.archival_legacy else tables.relative_edge.get(relative_key)
+                    pair = None if tables.archival_legacy else tables.relative_for(dx, dy).get(relative_key)
                     if pair is not None:
                         relative_count += 1
                         source_class = "unanimous-relative-observation"
@@ -2966,7 +2995,7 @@ class RoutingFeature:
                               (df, di, sf, si, dx - sx, dy - sy))
                     continue
                 if (edge_key not in tables.clean_edge and
-                        relative_key not in tables.relative_edge and
+                        relative_key not in tables.relative_for(dx, dy) and
                         edge_key not in tables.absolute and
                         source_class != routing_tiers.BASIS_CLOSED_FORM):
                     state.predicted += 1

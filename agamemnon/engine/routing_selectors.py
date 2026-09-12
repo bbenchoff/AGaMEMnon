@@ -14,6 +14,11 @@ FILENAME = "sel_edge_pairs.agdb"
 # four BramTILEs with no y test. Named here rather than imported to keep this
 # module free of a dependency on the BRAM feature.
 BRAM_COLUMN = 13
+CONFIGURABLE_BRAM_ROWS = range(1, 5)
+# Opt-in: a BramTILE destination resolves its tile-relative selector ONLY from
+# BramTILE observations (see bram_relative_edges); off by default because it
+# ADMITS BRAM-derived keys as well as refusing LogicTile-derived ones.
+TILE_TYPED_ENV = "AGAMEMNON_TILE_TYPED_RELATIVE"
 
 # Agreement among observations is not proof of translation invariance. This
 # same-tile edge is observed only in column 20 (ten rows, pair 0/8). Applying
@@ -86,6 +91,54 @@ def load_clean_edges(data_dir):
     path = os.path.join(data_dir, FILENAME)
     datasets, _ = chipdb_schema.load(path, expected=("clean_edge",))
     return datasets["clean_edge"]
+
+
+def is_bram_destination(dx, dy):
+    """The four configurable BramTILEs, (13, 1..4)."""
+    return dx == BRAM_COLUMN and dy in CONFIGURABLE_BRAM_ROWS
+
+
+def tile_typed_enabled(environ=None):
+    environ = os.environ if environ is None else environ
+    return environ.get(TILE_TYPED_ENV) == "1"
+
+
+def bram_relative_edges(clean_edges, min_tiles=2):
+    """Unanimous tile-relative selectors derived from BramTILE destinations only.
+
+    The reverse of the withdrawal in relative_edges(): a BramTILE may not USE a
+    LogicTile-derived key either, because 20.1% of such translations were wrong
+    on held-out BRAM observations. This table is the BRAM-scoped replacement.
+    It is stricter than the LogicTile table in one way: the same key must be
+    observed at ``min_tiles`` distinct BramTILEs and agree, because the BRAM
+    resolver reconciliation found 60 keys that vary per tile -- one tile's
+    observation is exact evidence at its own coordinate (clean_edge) and no
+    evidence for the other three. Nonportable keys stay withdrawn.
+    """
+    relative, tiles, conflicts = {}, {}, set()
+    for (dx, dy, df, di, sf, sx, sy, si), pair in clean_edges.items():
+        if not is_bram_destination(dx, dy):
+            continue
+        key = (df, di, sf, si, dx - sx, dy - sy)
+        pair = tuple(pair)
+        if key in relative and relative[key] != pair:
+            conflicts.add(key)
+        else:
+            relative[key] = pair
+        tiles.setdefault(key, set()).add((dx, dy))
+    conflicts.update(NONPORTABLE_RELATIVE_KEYS.intersection(relative))
+    for key in conflicts:
+        relative.pop(key, None)
+    for key in list(relative):
+        if len(tiles.get(key, ())) < min_tiles:
+            relative.pop(key)
+    return relative, frozenset(conflicts)
+
+
+def relative_table_for(logic, bram, dx, dy, typed):
+    """The relative table a destination may consult: BRAM-scoped when tile-typed
+    keying is on and the destination is a BramTILE, otherwise the LogicTile table."""
+    return bram if (typed and is_bram_destination(dx, dy)) else logic
 
 
 def relative_edges(clean_edges):
