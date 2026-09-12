@@ -197,9 +197,9 @@
       "sha256": "4c7ae523d93622900ccc5ae4d2ed92cdcf126238d4a0394d9387e502c778c969"
     },
     {
-      "bytes": 121361,
+      "bytes": 119104,
       "path": "agamemnon/chipdb/bram_resolver.json",
-      "sha256": "42dd842b720f20871012bbea69c528719e7a20fe404d8ee74d233f8e8552bbdf"
+      "sha256": "715b5de252dcded1ab82c3b92e684460daeb6da11f223f555f30ee40bab3f8cc"
     },
     {
       "bytes": 104,

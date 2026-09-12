@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "b0f59bdada6e1ac8800da366d6204b9649696b1776065b65157a75fdd1385234",
+  "fingerprint_sha256": "01c34bfeacb0423f5f9a045df71209a7bb636b4ffed710fddba29f31e2628221",
   "file_count": 266,
   "pinned_date": "2026-09-11",
-  "reason": "round-2 BRAM evidence from 40 more directed four-BRAM vendor builds (101 -> 141): resolver L0 keys withdrawn where tiles disagree and added only with >=2-tile agreement; clean_edge BramTILE rows admitted one codeword per exact coordinate, alias-refused; tile-relative table verified unchanged"
+  "reason": "bram_resolver.json: withdraw the 37 L0 / 7 L1 / 9 L2 entries contradicted by an exact clean_edge observation at a BramTILE coordinate (docs/BRAM_RESOLVER_VS_EXACT_20260911.md); zero routed pips in the workbench corpus lose their codeword"
 }
