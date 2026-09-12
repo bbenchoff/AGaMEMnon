@@ -76,6 +76,7 @@ import os
 import re
 
 from agamemnon.engine import mesh_template
+from agamemnon.engine import routing_selectors
 
 
 TIER_WITNESSED = "witnessed"
