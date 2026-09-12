@@ -1,5 +1,38 @@
 # Supported feature matrix
 
+## Main after v0.4.0 — 2026-09-11
+
+BRAM designs with a dynamic write-enable now build through the ordinary
+`build --uarch` flow. Four packer defects were removed, each as a reservation
+or a refusal: constant BRAM pins are classified by their driver (so
+hard-defaulting works under local constant replication), a pre-route may no
+longer bind a pip over a wire another net still owns (the generic arch has no
+ownership assertion; this is now refused by name), exact SERV write-witness
+wires are reserved before any generic Port-B search, and a live BRAM output's
+sole-successor chain is claimed before a constant corridor can take it. On the
+reference write/read design this yields 651 data pips, 640 mapped, 0 predicted,
+0 unmapped, 99,944-byte images under the default tiered policy and under
+experimental-strict with one admitted B4 row. The B4 pair `PORTA_OUTREG` +
+`PORTB_WRITETHRU` and any initialised writable x18 BRAM remain refused; the
+release-strict graph cannot route BRAM ingress at all (it needs tier-2 edges).
+No silicon claim is made: the corresponding board session is preregistered and
+not yet run.
+
+`verify` now simulates the routed netlist including x18 block RAM and
+MCU-bus stimulus (`--stimulus`, `--trace`), reads an unconnected input as
+HIGH as the chip does, and refuses any slice whose mask still depends on such
+an input. A census over 4,021 workbench routed netlists flags 44, all built
+before the 2026-09-03 cofactoring fix, none since; the frozen addsub16
+placement keystone is among the refused and its silicon-witnessed current
+route passes. This check runs only under `--verify` until a board session
+confirms nothing else changed.
+
+`AGAMEMNON_TILE_TYPED_RELATIVE=1` (opt-in) makes a BramTILE destination
+consult a BRAM-scoped relative selector table only. Measured with bitgen's
+precedence over the same corpus it changes no emitted codeword (every
+BramTILE pip resolves through the BRAM feature's exact bits or resolver
+first); it guards the arch admission gate. Fences remain 74.
+
 ## Main after v0.4.0 — 2026-09-09
 
 Ordinary `build --uarch` uses positive-edge, active-high native enables.
