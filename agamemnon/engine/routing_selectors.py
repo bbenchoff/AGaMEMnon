@@ -114,6 +114,15 @@ def bram_relative_edges(clean_edges, min_tiles=2):
     resolver reconciliation found 60 keys that vary per tile -- one tile's
     observation is exact evidence at its own coordinate (clean_edge) and no
     evidence for the other three. Nonportable keys stay withdrawn.
+
+    Measured 2026-09-11 with bitgen's real precedence (features/bram.py claims
+    every BramTILE pip first: exact X13Y4 bits, then the bram_resolver L0/L1/L2
+    levels; only the remainder reaches clean_edge and then this table): over
+    4,021 workbench routed netlists, 10,119 BramTILE-destination pips, ZERO
+    reach the relative table. So this is an admission-side guard (the arch
+    gate can still admit a BramTILE edge through a LogicTile key), not a
+    change to any emitted codeword. The "321 differ" figure in the commit
+    that introduced it was a precedence-blind table lookup and is withdrawn.
     """
     relative, tiles, conflicts = {}, {}, set()
     for (dx, dy, df, di, sf, sx, sy, si), pair in clean_edges.items():

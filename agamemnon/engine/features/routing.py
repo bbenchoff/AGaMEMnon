@@ -3004,6 +3004,9 @@ class RoutingFeature:
                               (df, di, sf, si, dx, dy, dx - sx, dy - sy,
                                source_class))
                 provenance[source_class] += 1
+                if debug and routing_selectors.is_bram_destination(dx, dy):
+                    print("  BRAM-DEST %s%d <- %s%d @(%d,%d) d=(%d,%d) sel=%s via %s" %
+                          (df, di, sf, si, dx, dy, dx - sx, dy - sy, tuple(pair), source_class))
                 # The hot path for ordinary RTL. ``if found:`` called a half
                 # codeword mapped, and found==0 fell through counting NOTHING,
                 # so an edge with no cells at all bypassed the unmapped gate.
