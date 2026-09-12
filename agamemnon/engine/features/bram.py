@@ -221,6 +221,8 @@ class BramState:
     control_owners: dict = field(default_factory=dict)
     resolver: Optional[dict] = None
     qualified_profile: Optional[str] = None
+    #: resolver keys overruled by an exact clean_edge observation at the coordinate
+    overruled: int = 0
 
 
 class BramFeature:
@@ -857,7 +859,16 @@ class BramFeature:
         return None if selectors is None else [block + selector for selector in selectors]
 
     def resolve_route(self, state, source, destination, cell_map, mux_groups, route_sets,
-                      route_clears=None, debug=False):
+                      route_clears=None, debug=False, exact_pair=None):
+        """Emit the BramTILE codeword for one routed pip.
+
+        ``exact_pair`` is the routing feature's block-local clean_edge observation
+        at this exact coordinate, if it has one. It outranks the resolver: a
+        resolver key carries no tile coordinate and is therefore a translation
+        across the four BramTILEs, which the 2026-09-11 reconciliations found
+        wrong per tile for dozens of keys, while a clean_edge row is a physical
+        observation of this very edge at this very tile.
+        """
         sx, sy, sf, si = source
         dx, dy, df, di = destination
         if (source, destination) == BRAM_FIXED_PRESENTATION:
@@ -932,10 +943,25 @@ class BramFeature:
             route_sets.extend(exact)
             return True
         selectors = self._resolve(state, df, di, sf, si, dx - sx, dy - sy)
+        level = (self._resolve_level(state, df, di, sf, si, dx - sx, dy - sy)
+                 if selectors else None)
+        resolver = state.resolver
+        if (exact_pair is not None and resolver is not None and df in resolver.get("NPI", {})
+                and df not in BRAM_CONTROL_FAMILIES):
+            block = (di % resolver["NPI"][df]) * resolver["BS"][df]
+            exact_sel = [block + int(selector) for selector in exact_pair]
+            if selectors and list(selectors) != exact_sel:
+                # Rank: physical observation at the coordinate beats the
+                # coordinate-less key. Say so on every build, not only in debug.
+                print("  BRAM resolver %s overruled by the exact observation at X%dY%d for "
+                      "%s%d <- %s%d@(%d,%d): resolver %s, exact %s"
+                      % (level, dx, dy, df, di, sf, si, sx, sy, tuple(selectors), tuple(exact_sel)))
+                state.overruled += 1
+            selectors, level = exact_sel, "exact-clean_edge"
         if debug and selectors:
-            print("  BRAM-PIP %s%d@(%d,%d) <- %s%d@(%d,%d) via resolver-%s sel=%s" % (
+            print("  BRAM-PIP %s%d@(%d,%d) <- %s%d@(%d,%d) via %s sel=%s" % (
                 df, di, dx, dy, sf, si, sx, sy,
-                self._resolve_level(state, df, di, sf, si, dx - sx, dy - sy), tuple(selectors)))
+                level if level == "exact-clean_edge" else "resolver-%s" % level, tuple(selectors)))
         config = "CFG_%s" % df if df in BRAM_FLAT_FAMILIES else "CFG_%s%d" % (
             df, di // mux_groups[df]
         )

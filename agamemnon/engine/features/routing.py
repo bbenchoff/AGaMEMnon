@@ -2687,9 +2687,17 @@ class RoutingFeature:
 
             if sf == "OMUX" and si % 3 != 2:
                 present(sx, sy, si)
+            # The exact clean_edge observation at a BramTILE coordinate outranks
+            # the BRAM resolver's coordinate-less key; hand it over so the BRAM
+            # feature cannot emit a translation over an observation.
+            exact_pair = None
+            if (routing_selectors.is_bram_destination(dx, dy)
+                    and not getattr(tables, "archival_legacy", False)
+                    and isinstance(getattr(tables, "clean_edge", None), dict)):
+                exact_pair = tables.clean_edge.get((dx, dy, df, di, sf, sx, sy, si))
             bram_mapped = bram_feature.resolve_route(
                 bram_state, source, destination, cell, NPG, state.sets,
-                route_clears=state.clears, debug=debug
+                route_clears=state.clears, debug=debug, exact_pair=exact_pair,
             )
             if bram_mapped is not None:
                 if bram_mapped:
