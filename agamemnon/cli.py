@@ -2840,6 +2840,38 @@ def _cmd_build_once(a):
             custom_devdb = custom_devdb + "_data_logic_enable"
         devdb = custom_devdb or os.path.join(udir, default_devdb)
         uarch_devdb = devdb
+        # One tool that just works: auto-activate the board-witnessed GPIO4
+        # request corridor when the design instantiates the typed
+        # MCU_GPIO4_OUT_DATA1 cell -- no user-facing flag. Board R6 (2026-09-12)
+        # witnessed that BufMUX10->InputMUX10->RMUX81 delivers a toggling request
+        # while the generic BufMUX10->InputMUX11 exit does not, so also keep the
+        # router on the witnessed InputMUX10 entry by banning InputMUX11. Both are
+        # folded into env here (forwarded to the device-graph emit and its
+        # fingerprint), so a design without the cell stays byte-identical.
+        _uses_gpio4_req = False
+        try:
+            _sj = json.load(open(synth_json, encoding="utf-8"))
+            _uses_gpio4_req = any(
+                c.get("type") == "MCU_GPIO4_OUT_DATA1"
+                for _m in _sj.get("modules", {}).values()
+                for c in _m.get("cells", {}).values())
+        except Exception:
+            _uses_gpio4_req = False
+        if not _uses_gpio4_req:
+            for _src in sources:
+                try:
+                    if "MCU_GPIO4_OUT_DATA1" in open(_src, encoding="utf-8", errors="ignore").read():
+                        _uses_gpio4_req = True
+                        break
+                except Exception:
+                    pass
+        if _uses_gpio4_req:
+            env["AGAMEMNON_MCU_GPIO4_REQUEST_PATHS"] = "1"
+            _g4_ban = "BufMUX10@11,5->InputMUX11@11,5"
+            _g4_bl = env.get("AGAMEMNON_EDGE_BLACKLIST", "").strip()
+            env["AGAMEMNON_EDGE_BLACKLIST"] = (_g4_bl + " " + _g4_ban).strip() if _g4_bl else _g4_ban
+            print("[build] GPIO4 request corridor auto-enabled (MCU_GPIO4_OUT_DATA1 "
+                  "present); router kept on the witnessed InputMUX10 entry (InputMUX11 banned)")
         emitter = os.path.join(engine, "emit_uarch_db.py")
         arch_source = os.path.join(engine, "arch.py")
         if research_unsafe:
