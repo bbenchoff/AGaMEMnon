@@ -1376,6 +1376,7 @@ class McuAhbFeature:
             293: "MCU_UART1_TXD_OE",
             294: "MCU_UART2_TXD_DATA",
             295: "MCU_UART2_TXD_OE",
+            296: "MCU_GPIO4_OUT_DATA1",
             134: "MCU_SLAVE_AHB_HRDATA1",
             135: "MCU_SLAVE_AHB_HRDATA2",
             136: "MCU_SLAVE_AHB_HRDATA3",

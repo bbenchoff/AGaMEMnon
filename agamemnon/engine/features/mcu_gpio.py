@@ -13,6 +13,7 @@ from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, Writab
 
 
 CFG_FILES = (
+    "mcu_gpio4_request_pip_cfg.csv",
     "mcu_gpio5_loop_pip_cfg.csv",
     "mcu_gpio5_loop_l48_pip_cfg.csv",
     "mcu_gpio5_lane0_l48_pip_cfg.csv",
@@ -28,6 +29,7 @@ CFG_FILES = (
 )
 
 PATH_FILES = (
+    "mcu_gpio4_request_paths.csv",
     "mcu_gpio5_loop_paths.csv",
     "mcu_gpio5_loop_l48_paths.csv",
     "mcu_gpio5_lane0_l48_paths.csv",
@@ -165,6 +167,59 @@ class McuGpioFeature:
                 _gpio5_skip += 1
             print("AGRV2K arch: loaded %d GPIO5 boundary hop(s) from %s (%d skipped)"
                   % (_n_gpio5, _gpio5_path_name, _gpio5_skip))
+
+        # One independently recovered GPIO4 output-register boundary unit: bit 1,
+        # the vendor AHB "request" input (firmware drives GPIO4 bit 1 at
+        # 0x40018400/0x40018008).  It enters the fabric at X11Y5_BufMUX10 ->
+        # X11Y5_InputMUX10 and bridges the peripheral row into standard fabric
+        # routing at X11Y4_RMUX81 -- the single novel, non-generic hop (the
+        # InputMUX10->RMUX81 edge is in no generic pip table; its codeword is
+        # corroborated by four ahbrwide corpus builds).  The open BRAM-collision
+        # witness previously bound request_async to a generic MCU0.DIN at X10Y5
+        # that carries no GPIO register, so the handshake never reached the
+        # fabric.  This table holds only the measured, seed-invariant entry
+        # prefix (BufMUX boundary + the one fabric bridge); everything downstream
+        # of X11Y4_RMUX81 is ordinary fabric the router places freely.  The bit
+        # 296 lane's type is MCU_GPIO4_OUT_DATA1 (see mcu_ahb _typed_mcu); it is
+        # additive and never loosens the gpio5/HWDATA25 paths.
+        # OPT-IN (default OFF): gating the two novel pips behind an env flag keeps
+        # the default/release device graph byte-identical, so every qualified
+        # image still rebuilds unchanged (zero blast radius) and the D0
+        # route-invariance identity pins do not move.  This mirrors the BRAM
+        # site-read corridor (AGAMEMNON_BRAM_SITE_READ_PATHS).  The corridor is
+        # measured (vendor route + codewords triangulated across the mine build
+        # and four ahbrwide corpus builds) but silicon-unproven, so it ships
+        # opt-in until a board witness clears the open handshake.
+        _gpio4_enabled = context.options.enabled("AGAMEMNON_MCU_GPIO4_REQUEST_PATHS")
+        _gpio4_path_name = "mcu_gpio4_request_paths.csv"
+        _gpio4_path_csv = os.path.join(DATA, _gpio4_path_name)
+        _n_gpio4 = 0; _gpio4_skip = 0
+        if _gpio4_enabled:
+            if not os.path.exists(_gpio4_path_csv):
+                raise ValueError("mcu_gpio requires chipdb/%s" % _gpio4_path_name)
+            _gpio4_paths = collections.defaultdict(list)
+            for _r in csv.DictReader(open(_gpio4_path_csv)):
+                _gpio4_paths[_r["signal"]].append(_r)
+                _src = _r["src_wire"]; _dst = _r["dst_wire"]
+                _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
+                if _src not in wireset or _dst not in wireset or not _dm:
+                    _gpio4_skip += 1
+                    continue
+                _nm = "%s.%s" % (_src, _dst)
+                if _nm not in seen_pip:
+                    if _add_pip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                                delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                                loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0),
+                                exact_composition=True):
+                        seen_pip.add(_nm); n_mpip += 1
+                _n_gpio4 += 1
+            _gpio4_data = _gpio4_paths.get("gpio4_io_out_data", [])
+            if _gpio4_data and _gpio4_data[0]["src_wire"] in wireset:
+                bit_entry[296] = _gpio4_data[0]["src_wire"]
+            else:
+                _gpio4_skip += 1
+            print("AGRV2K arch: loaded %d GPIO4 request boundary hop(s) from %s (%d skipped)"
+                  % (_n_gpio4, _gpio4_path_name, _gpio4_skip))
 
         # A second L48-only GPIO5 lane is retained separately so the hard-boundary
         # source identity can be tested without implying a generic GPIO matrix.

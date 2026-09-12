@@ -1,0 +1,3 @@
+src_wire,dst_wire,cell_table,x,y,cfg_group,clear_selectors,set_selectors,evidence
+X11Y5_BufMUX10,X11Y5_InputMUX10,mcu,11,5,InputMUX10,0,,vendor-gpio4-request-mine-20260912
+X11Y5_InputMUX10,X11Y4_RMUX81,fabric,11,4,CFG_RMUX13,30;31;32;33;34;35;36;37;38;39,33;39,vendor-gpio4-request-mine-20260912

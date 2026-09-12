@@ -621,6 +621,18 @@
       "sha256": "4b4400fa04e56ad6f98ea449466e0d00e483db9843b6f828affdecf18444edb5"
     },
     {
+      "bytes": 227,
+      "data_rows": 2,
+      "path": "agamemnon/chipdb/mcu_gpio4_request_paths.csv",
+      "sha256": "1e7429ce203bd127790bba8bf42157fd84c55ff3dd29573191a5789a64e889ff"
+    },
+    {
+      "bytes": 296,
+      "data_rows": 2,
+      "path": "agamemnon/chipdb/mcu_gpio4_request_pip_cfg.csv",
+      "sha256": "6f7cc39e4d166011a68698fab7506e40c6bf9b2cd2aacc6a57c75dc0cfc74b09"
+    },
+    {
       "bytes": 691,
       "data_rows": 9,
       "path": "agamemnon/chipdb/mcu_gpio5_lane0_l48_paths.csv",

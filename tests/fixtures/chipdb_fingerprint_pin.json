@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "15de88f724913f90da7ac483c3ad3b7a422982a61ef8c953f78d4521d05a01ac",
-  "file_count": 266,
-  "pinned_date": "2026-09-11",
-  "reason": "bram_pip_cfg.csv: withdraw rows 506-507 (RMUX82<-RMUX93 ddx -1) that carried RMUX64's CFG_RMUX10 cells; bram_resolver.json: withdraw the L0 key RMUX|22|RMUX|25|0|-1 contradicted at X13Y3 by the site-read observation; the 72 family-level L2 keys stay as an admission whitelist only (the engine no longer names a codeword from L2: inference over classes shown non-uniform at X13Y4, used by 0 routed pips in 4,023 tracked netlists) (docs/BRAM_PIP_CFG_DEFECT_20260911.md, docs/BRAM_RESOLVER_L2_WITHDRAWN_20260911.md)"
+  "fingerprint_sha256": "77f9b0cb637258fc3f8080a831d5d72512ab2000497a3824ebdf6bd53059aa28",
+  "file_count": 268,
+  "pinned_date": "2026-09-12",
+  "reason": "Add the measured GPIO4 bit-1 (AHB 'request') MCU-output->fabric-input entry corridor as two new chipdb datasets: mcu_gpio4_request_paths.csv (BufMUX10 boundary + the one novel X11Y4_RMUX81 fabric bridge) and mcu_gpio4_request_pip_cfg.csv (their exact codewords: InputMUX10 default-input, CFG_RMUX13 set 33;39). Harvested from the vendor route of the gpio4 mine build (tools/agamemnon/harvest_gpio4_request.py); the bridge codeword is triangulated against four ahbrwide corpus builds in sel_dataset.csv. The corridor is loaded only under the new opt-in flag AGAMEMNON_MCU_GPIO4_REQUEST_PATHS (default off), so the default device graph is byte-unchanged and Rule 2 rebuilds the entire retained qualified corpus byte-identical (zero blast radius). Fixes the open BRAM-collision witness handshake root cause: request_async was bound to a generic MCU0.DIN at X10Y5 carrying no GPIO register (docs/GPIO4_REQUEST_CORRIDOR_PROGRESS_20260912.md, memory ag32-bram-open-write-handshake-binding-rootcause-2026-09-12). Opt-in and silicon-unproven until an attended board witness."
 }

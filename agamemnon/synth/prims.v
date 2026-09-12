@@ -95,6 +95,12 @@ endmodule
 (* blackbox *) module MCU_GPIO5_IN2 (input DOUT); endmodule
 (* blackbox *) module MCU_GPIO5_OUT_DATA0 (output DIN); endmodule
 (* blackbox *) module MCU_GPIO5_OUT_EN0 (output DIN); endmodule
+// One independently recovered GPIO4 output-register boundary unit: bit 1, the
+// vendor AHB "request" input (firmware drives GPIO4 bit 1 at 0x40018008). Typed
+// distinctly so placement cannot substitute the generic MCU0 DIN at X10Y5 that
+// carries no GPIO register; it enters the fabric at X11Y5_BufMUX10. This name
+// encodes the exact hard signal and bit; it does not imply general GPIO support.
+(* blackbox *) module MCU_GPIO4_OUT_DATA1 (output DIN); endmodule
 // Exact L48 hard-UART0 transmit boundary. DATA and output-enable remain
 // separate so an ordinary tri-state top preserves the vendor macro ABI.
 (* blackbox *) module MCU_UART0_TXD_DATA (output DIN); endmodule

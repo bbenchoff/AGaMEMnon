@@ -151,7 +151,10 @@ def test_mcu_ahb_feature_owns_exact_selector_loading():
     # The SRAM-base HADDR[29] branch adds three fields, one identical to the
     # existing HSEL source field, for two additional unique physical keys.
     # Nine are new to the merged resolver; one already existed in a supplement.
-    assert len(metadata.exact_pips) == 905
+    # The opt-in GPIO4 bit-1 request corridor supplement contributes its two
+    # exact fields (BufMUX10 boundary + X11Y4_RMUX81 bridge), both new physical
+    # keys, so the merged aggregate is two higher than the GPIO5-only era.
+    assert len(metadata.exact_pips) == 907
     site_metadata = MCU_AHB_FEATURE.load_routing_metadata(
         ROOT / "agamemnon" / "chipdb",
         options_from({"AGAMEMNON_BRAM_SITE_READ_PATHS": "1"}),
@@ -160,9 +163,9 @@ def test_mcu_ahb_feature_owns_exact_selector_loading():
         ),),
     )
     # The optional site profile adds 392 unique fields over the current
-    # 905-field release aggregate; overlaps remain deduplicated by exact
+    # 907-field release aggregate; overlaps remain deduplicated by exact
     # edge key and the ambiguous CtrlMUX row above is still refused.
-    assert len(site_metadata.exact_pips) == 1297
+    assert len(site_metadata.exact_pips) == 1299
     assert len(metadata.exit_pairs) == 168
     assert all(CHIPDB_OWNERS[name] == "mcu_ahb" for name in CORRIDOR_PIP_CFG_FILES)
     bitgen = (ROOT / "agamemnon" / "engine" / "bitgen.py").read_text(
@@ -554,8 +557,11 @@ def test_mcu_gpio_feature_owns_exact_fields_and_inactive_defaults():
     # compositions. UART1 adds seventeen ordinary selector fields; its two
     # source-dependent top-pad feeders are owned by physical_io. UART2 adds
     # fourteen unique ordinary selector fields; its two terminal feeders are
-    # likewise owned by physical_io.
-    assert len(fields) == 198
+    # likewise owned by physical_io. The opt-in GPIO4 bit-1 request corridor
+    # adds two exact fields (the InputMUX10 boundary and the CFG_RMUX13 bridge);
+    # they load unconditionally here but only emit when a route uses those wires,
+    # which happens only under AGAMEMNON_MCU_GPIO4_REQUEST_PATHS.
+    assert len(fields) == 200
     module = {"cells": {"source": {"type": "MCU_GPIO5_OUT_DATA0"}}}
     mcu_cells = {
         (9, 5, "BBMUXS%d" % mux, 8): (100 + mux, 1)
