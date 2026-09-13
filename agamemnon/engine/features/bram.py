@@ -28,6 +28,31 @@ BRAM_FLAT_FAMILIES = {
 }
 BRAM_CONTROL_FAMILIES = {"KMUX", "TMUX"}
 BRAM_CONTROL_FIELD_WIDTHS = {"KMUX": 9, "TMUX": 8}
+
+# P0 fail-closed: a narrow Port-A WRITE is a silently-wrong image. A narrow
+# PORTA_WIDTH packs several logical words into one 18-bit physical row (x9=2,
+# x4=4, x2=9, x1=18 words/row) and nextpnr's BRAM packer (agrv2k.cc active_width)
+# drives only the lowest active_width DataInA lanes, so a WRITE can only store the
+# packed sub-word those lanes reach; every other address silently keeps its old
+# value -- no error, no unmapped pip. PROVEN for x9 against the vendor alta_bram9k
+# model: odd addresses (upper 9 bits) never store (AG32-Docs
+# tools/vendor_parity/bram_x9_write_multibit_20260913: iverilog even 4/4 OK, odd
+# 4/4 read-0). The disconnect is internal to nextpnr and is NOT visible in the
+# routed netlist -- the broken x9 image and the working x2 SERV register file both
+# present all 18 DataInA lanes -- so the only netlist-visible signal is the width
+# code. The silicon-qualified writable widths are x18 (00000; R9 single-bit +
+# x18h 2-bit sim) and x2 (01110; the shipped dual-port SERV register file), so
+# those alone are exempt; x9 is proven-broken, x4/x1 are unqualified/unverified.
+QUALIFIED_WRITE_WIDTHS = frozenset((0b00000, 0b01110))  # x18, x2
+
+
+def narrow_write_silently_wrong(width, wea_connection):
+    """True if a Port-A write at PORTA_WIDTH ``width`` silently drops packed
+    sub-words. Write-enabled iff WeA carries a real net bit (dynamically driven);
+    a constant or empty WeA is read-only/ROM (handled elsewhere) and never trips
+    this. See the module-level comment above for the full derivation."""
+    write_enabled = any(isinstance(bit, int) for bit in (wea_connection or ()))
+    return write_enabled and width not in QUALIFIED_WRITE_WIDTHS
 # Fixed, zero-bit source presentation used by the individually qualified
 # registered-source same-Port-A write checkpoints. This stays emitter-only:
 # the ordinary architecture does not advertise the corridor or generalize
@@ -641,6 +666,20 @@ class BramFeature:
                     "initialized BRAM Port-A width code %d is unqualified: "
                     "VP-AGM-006 requires broader initialized-read qualification after "
                     "clock-source and constant-input repairs" % width
+                )
+            if (narrow_write_silently_wrong(
+                    width, cell.get("connections", {}).get("WeA"))
+                    and not options.enabled("AGAMEMNON_RESEARCH_UNSAFE")):
+                raise SystemExit(
+                    "narrow BRAM Port-A width code %s (%d) with a dynamic WeA is a "
+                    "silently-wrong write: nextpnr packs multiple logical words per "
+                    "18-bit physical row and drives only the low DataInA lanes, so "
+                    "writes to every packed sub-word except the lowest are silently "
+                    "dropped. x9 is proven to drop all odd addresses against the "
+                    "vendor alta_bram9k model; x4/x1 writes are unqualified. Use x18 "
+                    "(00000) or x2 (01110, the silicon-proven SERV register-file "
+                    "width) for writable BRAM, or --research-unsafe for the "
+                    "documented negative." % (format(width, "05b"), width)
                 )
             experimental_enabled = options.enabled("AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG")
             if experimental_enabled:
