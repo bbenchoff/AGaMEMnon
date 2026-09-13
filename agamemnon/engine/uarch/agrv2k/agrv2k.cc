@@ -5034,6 +5034,8 @@ static void lock_bram_portb_corridors(Context *ctx,
                 continue;
             if (tmux9_source && port == ctx->id("WeA"))
                 continue; // scoped graph plus post-route tree owns qualified WeA
+            if (net->driver.cell->bel == BelId())
+                continue; // driver unplaced (deferred cluster): router2 negotiates it, not a crash
             WireId source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
             // The newly qualified RMUX82 ingress is source-dependent.  The
             // four blocked x9 probes all drive DataInA[2] from OMUX29; older
@@ -14470,6 +14472,8 @@ struct AgrvImpl : ViaductAPI
             if (net == nullptr || net->driver.cell == nullptr)
                 log_error("agrv2k: characterized route-through %s has no driven input net\n",
                           ctx->nameOf(cell));
+            if (net->driver.cell->bel == BelId())
+                continue; // route-through input driver unplaced (deferred): router2 negotiates it, not a crash
             WireId source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
             const bool experimental_control =
                     std::getenv("AGAMEMNON_BRAM_SITE_READ_PATHS") != nullptr &&
