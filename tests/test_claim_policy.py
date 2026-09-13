@@ -349,3 +349,31 @@ def test_experimental_sidecar_accepts_parent_validated_routed_snapshot_digest(tm
         routed_sha256=snapshot_digest,
     )
     assert payload["bindings"]["routed_sha256"] == snapshot_digest
+
+
+def test_no_ffbridge_registered_experimental_so_exemption_is_load_bearing():
+    # If it were release maturity the exemption would be unnecessary; it is
+    # experimental, so the generic release-strict gate would block it and the
+    # exemption is what admits the CLI's own --pcf auto-set option.
+    from agamemnon.engine.registry import OPTIONS
+    assert OPTIONS["AGAMEMNON_NO_FFBRIDGE"].maturity == "experimental"
+
+
+def test_no_ffbridge_is_exempt_under_release_strict():
+    # `build --pcf` without `--uarch` sets AGAMEMNON_NO_FFBRIDGE itself (the legacy
+    # Python physical-PCF placer needs the narrower graph); release-strict must not
+    # refuse the CLI's own auto-set option. NO_FFBRIDGE only skips ADDING the
+    # unwitnessed OMUX[3z+2]->OMUX[3z+1] FF bridge -- surface-narrowing, worst case
+    # unroutable, never silently-wrong -- so it is exempt like DIRECT_D_EXTRA_SITES.
+    decision = evaluate_policy(options_from({"AGAMEMNON_NO_FFBRIDGE": "1"}))
+    assert decision.policy == "release-strict"
+    row = next(r for r in decision.selected if r.get("name") == "AGAMEMNON_NO_FFBRIDGE")
+    assert row["maturity"] == "experimental"   # admitted WITHOUT being promoted
+
+
+def test_a_non_exempted_experimental_flag_still_fails_release_strict():
+    # Guard the guard: the exemption is specific (NO_FFBRIDGE + DIRECT_D_EXTRA_SITES),
+    # not a blanket experimental pass. Another arch flag of the same maturity still
+    # hard-blocks under release-strict.
+    with pytest.raises(ClaimPolicyError, match="release-strict requires release maturity"):
+        evaluate_policy(options_from({"AGAMEMNON_NO_INTRA_RMUX": "1"}))

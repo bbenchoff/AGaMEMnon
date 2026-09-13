@@ -435,6 +435,24 @@ def evaluate_policy(options, features=FEATURES, include_constants=True):
             # check here; _direct_d_sites_error is the complete, sufficient
             # gate for it.
             error = None
+        elif name == "AGAMEMNON_NO_FFBRIDGE" and policy == "release-strict":
+            # Registered ``experimental`` maturity, but ``build --pcf`` WITHOUT
+            # ``--uarch`` sets this option ITSELF (cli.py: the legacy Python
+            # physical-PCF placer needs the narrower graph), so the generic
+            # maturity gate below made that build refuse the CLI's own auto-set
+            # option -- a build that refuses itself, open since 2026-08-18. It is
+            # safe to exempt because AGAMEMNON_NO_FFBRIDGE has exactly two engine
+            # uses -- a name in the routing feature's option tuple, and an
+            # ``if not os.environ.get(...)`` guarding the ADDITION of the
+            # OMUX[3z+2]->OMUX[3z+1] FF-bridge pips -- so setting it can only
+            # REMOVE edges, never widen the release routing or emission surface.
+            # Its worst case is an unroutable build (fail-closed), never a
+            # silently-wrong image; and the bridge it removes is the UNWITNESSED
+            # hop release-strict admits by default, one instance of which was
+            # silicon-wrong (compare_1_2_4). Same surface-narrowing class as
+            # AGAMEMNON_DIRECT_D_EXTRA_SITES above; every other release-strict gate
+            # (routing/conduction admission, strict selector gate) is untouched.
+            error = None
         else:
             error = _permission_error(policy_name, spec.maturity, claim, policy, explicit)
         if error:
