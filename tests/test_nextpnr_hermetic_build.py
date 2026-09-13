@@ -113,3 +113,26 @@ def test_uarch_registration_probe_requires_expected_sentinel_and_exact_enumerati
         assert "verified agrv2k uarch registration" in completed.stdout
     else:
         assert "verified agrv2k uarch registration" not in completed.stdout
+
+
+def test_bram_corridor_lookups_fail_closed_on_unplaced_drivers():
+    """Both BRAM-corridor source-wire lookups must guard against an unplaced
+    driver before calling getBelPinWire(net->driver.cell->bel, ...).
+
+    Under constrained routing (route restricted to harvested edges, or a
+    congested multi-bit BRAM write) the placer legitimately leaves a
+    Port-A / route-through ingress driver in a deferred, unplaced state. An
+    unguarded lookup then indexes bels[-1] and aborts the whole run with
+    std::out_of_range -- a raw C++ crash instead of a clean "cannot route".
+    The guards convert that to a fail-closed skip (router2 negotiates the
+    lane). This test locks them in so a future edit cannot silently remove
+    them and reintroduce the crash (regression for commit e8cf131)."""
+    src = (UARCH / "agrv2k.cc").read_text(encoding="utf-8")
+    # lock_bram_portb_corridors ingress guard
+    assert "driver unplaced (deferred cluster): router2 negotiates it, not a crash" in src
+    # route-through input-lock guard
+    assert "route-through input driver unplaced (deferred): router2 negotiates it, not a crash" in src
+    # every driver-bel source lookup in these paths must be preceded by the BelId() guard:
+    # there must be at least as many unplaced-driver guards as there are guarded lookup sites.
+    guard = src.count("if (net->driver.cell->bel == BelId())")
+    assert guard >= 2, f"expected >=2 unplaced-driver guards, found {guard}"
