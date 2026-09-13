@@ -56,6 +56,32 @@ def test_supplemental_paths_cannot_restore_withdrawn_translations():
     assert not nonportable_translation(clean, "special", "X14Y12_IMUX00")
 
 
+def test_row_three_rmux87_alu_target_translation_is_not_exported():
+    # VP-AGM-001: RMUX87 -> RMUX59 (dy 1) is a row-3 boundary observation. At
+    # X14Y12 pair 2/9 has exact evidence for a DIFFERENT driver, X14Y8_RMUX39,
+    # so translating the row-3 relative key into the interior silently selects
+    # the wrong source -- the original ALU target branch fails DC capture while
+    # siblings work. The key was restored to NONPORTABLE_RELATIVE_KEYS on
+    # 2026-09-11 (04e789a6, ratified in session) after 96c73ca never merged;
+    # this pins its withdrawal so the just-ratified P0 fix has explicit coverage
+    # alongside the other three keys.
+    clean = {(x, 3, "RMUX", 59, "RMUX", x, 2, 87): (2, 9)
+             for x in (2, 3, 4, 10, 14, 20)}
+    clean[(14, 12, "RMUX", 59, "RMUX", 14, 8, 39)] = (2, 9)
+    original = dict(clean)
+    relative, rejected = relative_edges(clean)
+    key = ("RMUX", 59, "RMUX", 87, 0, 1)
+    assert key not in relative
+    assert key in rejected
+    assert relative[("RMUX", 59, "RMUX", 39, 0, 4)] == (2, 9)
+    assert clean == original
+    # The withdrawn interior instance is refused; the exact row-3 observation
+    # and the legitimate different-driver edge both remain authoritative.
+    assert nonportable_translation(clean, "X14Y11_RMUX87", "X14Y12_RMUX59")
+    assert not nonportable_translation(clean, "X14Y2_RMUX87", "X14Y3_RMUX59")
+    assert not nonportable_translation(clean, "X14Y8_RMUX39", "X14Y12_RMUX59")
+
+
 def test_relative_selector_promotion_is_unanimous_and_fail_closed():
     common = ("RMUX", 3, "OMUX", 7)
     clean = {
