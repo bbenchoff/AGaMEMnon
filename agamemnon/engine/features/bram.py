@@ -43,7 +43,14 @@ BRAM_CONTROL_FIELD_WIDTHS = {"KMUX": 9, "TMUX": 8}
 # code. The silicon-qualified writable widths are x18 (00000; R9 single-bit +
 # x18h 2-bit sim) and x2 (01110; the shipped dual-port SERV register file), so
 # those alone are exempt; x9 is proven-broken, x4/x1 are unqualified/unverified.
-QUALIFIED_WRITE_WIDTHS = frozenset((0b00000, 0b01110))  # x18, x2
+# The x2 exemption rests on SERV being DUAL-PORT (write Port A / read Port B),
+# silicon-proven; a future SINGLE-PORT x2 (write AND read on Port A) is NOT proven
+# and shares x9's packing hazard (maskA_x2 selects a 2-lane window by block address;
+# with the upper lanes dangling, a non-lowest window silently drops). SERV is the
+# only x2 anywhere qualified, so the width-only exemption is zero-blast-radius today;
+# if a single-port x2 write design ever appears, tighten by conditioning the x2
+# exemption on dual-port (the `portb_read` signal computed below).
+QUALIFIED_WRITE_WIDTHS = frozenset((0b00000, 0b01110))  # x18, x2 (see note above)
 
 
 def narrow_write_silently_wrong(width, wea_connection):
