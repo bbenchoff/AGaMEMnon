@@ -63,6 +63,7 @@ Policy version: `D0-v1`.
 | `AGAMEMNON_LEDPADS` | release | individually_qualified | electrical | preexisting_v4 | preexisting V4 release scope | qualification/io_evidence.jsonl |
 | `AGAMEMNON_LEFT_PAD_OUT` | release | individually_qualified | electrical | preexisting_v4 | preexisting V4 release scope | qualification/left_edge_output_evidence.jsonl |
 | `AGAMEMNON_MCU_ENTRY` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/pips_mcuedge.csv |
+| `AGAMEMNON_MCU_GPIO4_REQUEST_PATHS` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/mcu_gpio4_request_paths.csv |
 | `AGAMEMNON_MCU_XY` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | agamemnon/chipdb/pips_mcuedge.csv |
 | `AGAMEMNON_MESH_TEMPLATE` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/engine/mesh_template.py |
 | `AGAMEMNON_NGCLK` | experimental | decoded | timing | unapproved | inventory only | agamemnon/chipdb/clk0_spine.json |
