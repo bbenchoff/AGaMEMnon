@@ -31,12 +31,35 @@ BS = {"RMUX": 10, "IMUX": 12}   # selectors per group block
 WIRE = re.compile(r"X(\d+)Y(\d+)_([A-Za-z]+?)(\d+)$")
 
 
-def _fabric_cells():
+def _cells(name, selcol):
     cells = set()
-    with (CHIPDB / "pips_full.csv").open(newline="", encoding="utf-8") as stream:
-        for r in csv.DictReader(stream):
-            cells.add((int(r["x"]), int(r["y"]), r["mux"], int(r["sel"])))
+    path = CHIPDB / name
+    if path.exists():
+        with path.open(newline="", encoding="utf-8") as stream:
+            for r in csv.DictReader(stream):
+                if selcol in r and r.get(selcol, "").strip():
+                    cells.add((int(r["x"]), int(r["y"]), r["mux"], int(r[selcol])))
     return cells
+
+
+def _fabric_cells():
+    return _cells("pips_full.csv", "sel")
+
+
+# Cell maps per cell_table column. 'io' border cells live in a different schema
+# (border_edge_partial_cells.csv: resource/word_row/bank_col), so the universal
+# cell-existence layer below skips cell_table='io' (documented gap).
+def _cell_maps():
+    return {"fabric": _cells("pips_full.csv", "sel"),
+            "bram":   _cells("bram_cell.csv", "sel"),
+            "mcu":    _cells("pips_mcuedge.csv", "sel_index")}
+
+
+def _family(name):
+    """Letter-prefix family of a mux/cfg_group name (minus a CFG_ prefix)."""
+    core = name[4:] if name.startswith("CFG_") else name
+    m = re.match(r"([A-Za-z]+?)\d+$", core)
+    return m.group(1) if m else None
 
 
 def _rank1_tables():
@@ -101,4 +124,63 @@ def test_every_rank1_table_writes_its_own_destination_block():
     assert not violations, (
         "wrong-node rank-1 rows (VP-AGM-018 class) -- would silently drive the wrong mux:\n"
         + "\n".join("  %s: %s (%s)" % v for v in violations[:30])
+    )
+
+
+def test_no_rank1_row_names_a_config_group_of_a_different_family():
+    """Family-agnostic wrong-node guard: a row's cfg_group must be the SAME mux
+    family as its destination wire (e.g. dst ...RMUX8 -> CFG_RMUX*, dst ...InputMUX01
+    -> InputMUX*). A cross-family group programs an unrelated mux. Covers ALL families
+    (RMUX/IMUX/OMUX/KMUX/BufMUX/InputMUX/BBMUX*/SeamMUX/IOMUX...), 0 as of 2026-09-13."""
+    tables = _rank1_tables()
+    violations = []
+    for name in tables:
+        with (CHIPDB / name).open(newline="", encoding="utf-8") as stream:
+            for row in csv.DictReader(stream):
+                match = WIRE.match(row.get("dst_wire", ""))
+                cfg = row.get("cfg_group", "")
+                if not match or not cfg:
+                    continue
+                dst_fam = match.group(3)
+                cfg_fam = _family(cfg)
+                if cfg_fam and cfg_fam != dst_fam:
+                    violations.append((name, row["dst_wire"], cfg,
+                                       "dst family %s != cfg family %s" % (dst_fam, cfg_fam)))
+    assert not violations, (
+        "cross-family rank-1 rows (would drive an unrelated mux family):\n"
+        + "\n".join("  %s: %s cfg=%s (%s)" % v for v in violations[:30])
+    )
+
+
+def test_every_rank1_selector_has_a_cell(cell_table_maps=None):
+    """Universal: every set/clear selector in a rank-1 row must correspond to a real
+    config cell at (x,y,cfg_group,sel) in the destination's cell map. A selector with
+    no cell references a config position that does not exist for that group -> a bad
+    codeword. Runs for cell_table in {fabric,mcu,bram}; 'io' border cells use a
+    different schema (border_edge_partial_cells.csv) and are a documented gap. 0 as of 2026-09-13."""
+    maps = cell_table_maps or _cell_maps()
+    tables = _rank1_tables()
+    checked = 0
+    violations = []
+    for name in tables:
+        with (CHIPDB / name).open(newline="", encoding="utf-8") as stream:
+            for row in csv.DictReader(stream):
+                match = WIRE.match(row.get("dst_wire", ""))
+                cfg = row.get("cfg_group", "")
+                if not match or not cfg:
+                    continue
+                x, y = int(match.group(1)), int(match.group(2))
+                cell_table = row.get("cell_table", "fabric") or "fabric"
+                cells = maps.get(cell_table)
+                if cells is None:          # 'io' etc.: different-schema map, skip (gap)
+                    continue
+                selectors = _sels(row.get("set_selectors")) + _sels(row.get("clear_selectors"))
+                for s in selectors:
+                    checked += 1
+                    if (x, y, cfg, s) not in cells:
+                        violations.append((name, cell_table, row["dst_wire"], cfg, s))
+    assert checked >= 1000, "expected to cell-check the rank-1 selectors"
+    assert not violations, (
+        "rank-1 selectors with no config cell (bad codeword / wrong node):\n"
+        + "\n".join("  %s [%s]: %s cfg=%s sel=%s" % v for v in violations[:30])
     )
