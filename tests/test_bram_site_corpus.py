@@ -177,9 +177,13 @@ def test_fresh_site_read_evidence_qualifies_y3_and_y4_only():
     ledger = ROOT / "qualification" / "bram_site_read_evidence.jsonl"
     records = [json.loads(line) for line in ledger.read_text().splitlines()]
     results = {record["result"] for record in records}
+    # The four-site x18 reads (Y3/Y4) plus the 2026-09-14 multi-lane read and the
+    # first multi-bit (2-bit) writable, all under the opt-in site-read profile.
     assert results == {
         "pass_x13y3_fresh_source_full_depth_x18_porta_read",
         "pass_x13y4_fresh_source_full_depth_x18_porta_read",
+        "pass_multilane_porta_read_up_to_six_lanes",
+        "pass_two_bit_writable_porta_bram_over_mcu",
     }
     y3 = next(record for record in records if "x13y3" in record["result"])
     assert y3["build"]["image_sha256"] == (
