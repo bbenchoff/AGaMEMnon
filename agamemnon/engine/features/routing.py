@@ -84,6 +84,27 @@ def mcu_entry_first_hops(chipdb_root):
                 source, destination = row["src_wire"], row["dst_wire"]
                 if source in constraints:
                     add(source, destination)
+    # Four-site x18 BRAM read oracle (512/512 addresses observed on silicon):
+    # its hready/hwrite ClkEn-gating control enters the SAME X13Y12 boundary
+    # BufMUX as the AHB controls, but takes a DIFFERENT, equally silicon-proven
+    # first hop (hready BufMUX00->InputMUX00) toward the BramTILE ClkEn corridor
+    # rather than the AHB-sink InputMUX01. Admit these measured entry hops as
+    # bounded alternates for roots that already have a base mapping, so the
+    # (option-gated) four-site read-path pip admission is not denied its
+    # silicon-witnessed entry. Widens only already-constrained sources; adds no
+    # generic-graph edge (no generic corpus edge uses these pairs), so a default
+    # build without AGAMEMNON_BRAM_SITE_READ_PATHS is byte-unchanged.
+    site_read = os.path.join(str(chipdb_root), "bram_site_read_paths.csv")
+    if os.path.exists(site_read):
+        with open(site_read, newline="", encoding="utf-8") as stream:
+            for row in csv.DictReader(stream):
+                if row.get("class") not in ("hready", "hwrite"):
+                    continue
+                if int(row["segment"]) != 0 or int(row["hop"]) != 0:
+                    continue
+                source, destination = row["src_wire"], row["dst_wire"]
+                if source in constraints:
+                    add(source, destination)
     # Typed hard-peripheral outputs use full wire names rather than the AHB
     # tables' split entry columns.  Step zero is nevertheless the same
     # source-specific hard-boundary choice and must be exclusive.  This also
