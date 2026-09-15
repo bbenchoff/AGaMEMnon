@@ -112,6 +112,23 @@ board-proven `CtrlMUX02` delivery. Finishing the fresh open read = harvest that 
 an X13Y4 vendor build that routes it, or retarget the open ClkEn0 terminal to the board-proven
 `CtrlMUX02`; then board-qualify. Corridor is board-proven; the residual is one BRAM-control-terminal
 codeword.
+**Update 2026-09-15 (open read emit reconciled to ONE codeword; candidate emits a full image).** The
+`RMUX53->CtrlMUX03` residual above was an artifact of the *scratch2/bramh* profile (bramh's corridor uses
+`RMUX72`, which collides with the open flow's mandatory BRAM `DataOut` egress reservation, so nextpnr
+free-routed and diverged to a codeword-less `CtrlMUX03`). Built against the **shipped** chipdb instead,
+the site-read pre-route follows `bram_site_read_paths.csv` **segment 3** -- the *disjoint* four-site
+corridor `X14Y8_RMUX73->X14Y4_RMUX00->X13Y4_CtrlMUX02->TileClkEnMUX00` (no `RMUX72`, no collision). The
+route completes; bitgen fails on **exactly one** unmapped pip, `X13Y4_CtrlMUX02 <- X14Y4_RMUX00` -- the
+same 24-selector `CFG_CTRLMUX` field flagged above. Adding one candidate codeword
+(`CtrlMUX,2,RMUX,0,-1,0` = set `{28,32}`) resolves it: `62 data pips, 0 unmapped`, and a complete
+**99944-byte image emits** (CRC-verified). Evidence tier of that codeword: dest-selector `32` is
+physical@coordinate (13,4) (from the vendor-observed `RMUX84->CtrlMUX02={31,32}` row -- and `{28,32}` is
+distinct from it, so no source-aliasing); source-selector `28` is **tile-relative** (route-corroborated at
+(13,3); tile-invariance witnessed by `RMUX06->CtrlMUX03={40,44}` identical at (13,1) and (13,2)). This is
+rank-4, **not** a silicon claim: the emission audit does not cover `CtrlMUX`, so an emit-clean codeword can
+still mis-select the mux. The candidate image + codeword + full derivation are staged in
+`AG32-Docs .../bram_width_matrix_20260915/OPEN_WIDE_READ_EMIT_CANDIDATE_20260915.md`; promotion into the
+integrity-bound shipped chipdb waits on attended board qualification (or a direct (13,4) `RMUX00` witness).
 The `ByteEn` config family is now **recovered and board-proven**: per-byte write masking is a `CFG_KMUX`
 local-gnd tie (position 8 of each nine-selector lane), *not* a routed net -- `ByteEnA[1]`->gnd = `CFG_KMUX`
 sel26 (vendor `bytee.bin`), `ByteEnA[0]`->gnd = `CFG_KMUX` sel17 (board-proven 2026-09-15 on AGaMEMnon's own
