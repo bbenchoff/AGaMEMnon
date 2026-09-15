@@ -77,9 +77,13 @@ vendor routes every BRAM pin over the full conducting graph. AGaMEMnon's open fl
 `[0]/[2]/[4]` by an INIT=1/write-0 direct-output 1->0 mutation, and the two new lanes `[3]/[6]` (2026-09-15,
 `w356`) by a two-word distinct-value readback (word0=`0b011`, word1=`0b100`) that rules out a global
 set-only latch. All 5 DataIn bind to real routed nets; `[3]/[6]` are board-witnessed but not yet promoted
-in the emitter. The read-egress ceiling is ~6 lanes (lane 7 sink-assignment fails; lanes 1/5 float) and
-the high-byte DataOut lanes (bits 9-17) are not in the measured site-read corridor set, so full 18-bit
-*read* needs new high-lane egress corridors and full 18-bit *write* needs the remaining ingress lanes.
+in the emitter. The board-proven simultaneous read set is ~6 low-byte lanes (lane 7 sink-assignment
+fails; lanes 1/5 float). The blocker for the high byte is **per-bit read-path conduction, not corridors**:
+a probe (`hbread`, 2026-09-15) shows the open flow *routes and emits* high-byte lanes `DataOutA[9]`/`[14]`
+to distinct `hrdata` sinks via freely-routed paths, but silicon conduction of the high lanes is unproven
+and prior board evidence for `DataOutA[14]` was negative (per-bit `BufMUX` read path). So full 18-bit
+*read* needs the per-bit high-lane read-path resolved (a fresh board test of the open-flow high-lane
+route would settle it), and full 18-bit *write* needs the remaining ingress lanes.
 The `ByteEn` config family is now **recovered and board-proven**: per-byte write masking is a `CFG_KMUX`
 local-gnd tie (position 8 of each nine-selector lane), *not* a routed net -- `ByteEnA[1]`->gnd = `CFG_KMUX`
 sel26 (vendor `bytee.bin`), `ByteEnA[0]`->gnd = `CFG_KMUX` sel17 (board-proven 2026-09-15 on AGaMEMnon's own

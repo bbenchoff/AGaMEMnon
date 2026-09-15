@@ -11,8 +11,11 @@
 # characterized DataIn ingress -- and the vendor flow board-proved a full 18-bit write (72/72) plus per-byte
 # ByteEn masking -- so the silicon supports the whole write surface. Two things are still open in the OPEN
 # flow: (1) ROUTING breadth -- only DataInA[0]/[2]/[4] ingress corridors are promoted in the emitter so far;
-# {3,6} are board-witnessed but not yet promoted, and wider widths need the remaining lanes' conducting
-# corridors + the high-byte read-egress corridors (bits 9-17 are not in the measured site-read corridor set).
+# {3,6} are board-witnessed but not yet promoted, and wider WRITE widths need the remaining DataIn ingress
+# lanes. For wider READ: the high-byte lanes route+emit (a probe routes DataOutA[9]/[14] to distinct hrdata
+# sinks via free routing -- corridors are NOT the blocker), but per-bit high-lane read-path CONDUCTION is
+# unproven on silicon (DataOutA[14] was board-negative; per-bit BufMUX read path). That conduction, not a
+# corridor, is what full 18-bit read needs; a fresh board test of an open-flow high-lane route would settle it.
 # (2) ByteEn EMISSION -- per-byte masking is a CFG_KMUX local-gnd tie (pos-8 per lane; sel17=ByteEnA[0],
 # sel26=ByteEnA[1], both board-proven), a control-routing config the emitter does not yet drive from the
 # ByteEnA pin; wiring it up (a scoped, board-qualified change) is what unblocks correct native narrow
