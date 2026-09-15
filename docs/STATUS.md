@@ -1,5 +1,30 @@
 # Supported feature matrix
 
+## BRAM read/write width matrix (open flow) — 2026-09-15
+
+Precise, honest state of the AGRV2K BRAM (X13Y4) read/write surface in the open flow. "Emit" = the open
+flow produces a complete, config-valid bitstream (routes + all pips encoded). "Silicon" = witnessed on
+the board. Emit-verified ≠ silicon-proven: a built route can float until witnessed.
+
+| Width | Read emit | Write emit | Silicon |
+|---|---|---|---|
+| x18 | **PROMOTED** (default; hready-gated corridor via board-proven `RMUX84→CtrlMUX02={31,32}`) | emits (default; `w18write` 272 pips, 0 unmapped) | read: board-witness-pending for the composed open image (bramh vendor image board-proved the x18 read *capability* at X13Y4; the four-site oracle proved the corridor); write: 5 of 18 DataInA lanes board-witnessed, rest emit-only |
+| x9 / x4 / x2 / x1 | emits (default; byte-distinct per-width configs) | **native narrow width refused** by the P0 silently-wrong guard (packer `active_width` sub-word window); byte-granular masking available instead via **ByteEn** | read: board-witness-pending; write: via ByteEn only |
+| x36 | emits (opt-in `AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG`) | experimental / untested | board-witness-pending |
+| ByteEn per-byte masking (on x18) | n/a | **SHIPPED + board-proven** (`CFG_KMUX` pos-8 gnd tie; `test_bram_byteen_emission`) | board-proven (obs 0xE4→0xFF) |
+
+**Shipped/promoted to this deliverable:** the hready read corridor + board-proven CtrlMUX02 terminal
+(`bram_site_read_paths.csv`), all `PORTA_WIDTH` configs (admitted, per-width distinct), ByteEn native
+emission. Read emit therefore covers the full single-port width surface (x1..x36) with no further chipdb
+change; x18 write + ByteEn masking emit with shipped tables.
+
+**Not yet complete (both require the board / human review):** (1) **native narrow-width writes**
+(x1/x2/x4/x9 `PORTA_WIDTH`) are behind a P0 guard because the packer emits them silently-wrong — lifting
+that guard needs the `active_width` sub-word packer change *and board qualification*, not an autonomous
+edit past a safety guard; (2) **per-width/per-lane SILICON witnessing** of the composed open images
+(SRAM-only, control-first, attended). Board-ready artifact for the read: `AG32-Docs
+.../bram_width_matrix_20260915/image_hbread10_rmux84_boardready.bin`.
+
 ## Main after v0.4.0 — 2026-09-11
 
 Three BramTILE selector defects were found by cross-checking the evidence
