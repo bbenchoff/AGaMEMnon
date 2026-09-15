@@ -393,6 +393,17 @@ readings are inferences from a field the vendor never exercised. Two of them
 (`CFG_SELOUT_A` and `CFG_PACKEDMODE`) are exercised by *our own*
 images — see the measured behaviour below.
 
+**`ByteEnA` byte-lane masking is board-refuted (2026-09-15) [S].** A controlled
+single-variable board test routed `ByteEnA` through its characterized corridor
+(`SLICE.F→OMUX→RMUX60/RMUX24→TMUX10/TMUX04→KMUX02/KMUX01`; the `TMUX→KMUX` hops are
+silicon-qualified) so that two images differed *only* in the routed ByteEn value.
+`ByteEnA=2'b10` (low byte "protected") and `=2'b01` (low byte enabled) wrote
+**identically** — writing 0 cleared the low-byte bits either way. So byte-lane
+write masking does not take effect on silicon through the open flow (confirming the
+vendor ByteEn cube's `behavior_claimed=false`). Consequence: native narrow-mode
+*packing* writes (multiple sub-words per 18-bit row) are not achievable, because
+sparing a row-mate requires the byte/sub-word mask ByteEn was the only lever for.
+
 Separately, **39 configuration rows across `X13Y1` … `X13Y4`** are admitted only
 under the `experimental-strict` policy, and are **denied under the default
 `release-strict` policy**. **[R]** The admissions themselves are
