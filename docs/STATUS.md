@@ -98,6 +98,20 @@ placement-dependent family of MCU-boundary corridor codewords that the pip-cfg h
 `X14Y4_RMUX00->X13Y4_CtrlMUX02` is a 24-selector field needing direct vendor bits), pending a
 vendor-decode re-harvest (the on-workbench `af.exe` flow) or a retained-checkpoint capture, then
 attended board qualification. Full 18-bit *write* needs the remaining ingress lanes.
+**Update 2026-09-15 (board-proven corridor + open-emit blocker):** an attended, control-first,
+SRAM-only board run (28/28 audit PASS, board clean) of a fresh vendor `af.exe` image `bramh` (x18 BRAM
+ROM at X13Y4, `ClkEn0=mem_ahb_hready`, INIT=0) **board-proved the full hready->X13Y4 ClkEn corridor
+conducts and all 18 `DataOutA` lanes deliver, including `DataOutA[14]`** (mailbox `out[5]=0`, `out[6]=0`;
+`AG32-Docs .../bram_width_matrix_20260915/BRAMH_BOARD_RESULT_20260915.md`). Its corridor
+(`BufMUX00->InputMUX01->X15Y12_RMUX03->X14Y12_RMUX14->X14Y8_RMUX67->X14Y4_RMUX72->CtrlMUX02->
+TileClkEnMUX00`) and per-hop codewords were decoded (`tx_decode`) and harvested (payload offset). With
+those promoted into a scratch site-read profile, the fresh open-flow read (`hbread10`, `ClkEn0=hready`
+direct) now routes+maps all but ONE pip: `X13Y4 RMUX53->CtrlMUX03` -- the open BRAM emitter's ClkEn0
+control INPUT TERMINAL, which has no codeword (not in `bram_pip_cfg.csv`) and differs from bramh's
+board-proven `CtrlMUX02` delivery. Finishing the fresh open read = harvest that terminal codeword from
+an X13Y4 vendor build that routes it, or retarget the open ClkEn0 terminal to the board-proven
+`CtrlMUX02`; then board-qualify. Corridor is board-proven; the residual is one BRAM-control-terminal
+codeword.
 The `ByteEn` config family is now **recovered and board-proven**: per-byte write masking is a `CFG_KMUX`
 local-gnd tie (position 8 of each nine-selector lane), *not* a routed net -- `ByteEnA[1]`->gnd = `CFG_KMUX`
 sel26 (vendor `bytee.bin`), `ByteEnA[0]`->gnd = `CFG_KMUX` sel17 (board-proven 2026-09-15 on AGaMEMnon's own
