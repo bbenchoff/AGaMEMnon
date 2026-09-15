@@ -45,11 +45,25 @@ boundary, each matching a distinct swept pattern 8/8 (controls pass both sides),
 and a **two-bit writable** image wrote `DataInA[0]` (SERV ingress) + `DataInA[2]`
 (the X14Y4 OMUX29 ingress, driven from a buffer slice pinned at X14Y4 SLICE9) and
 read both back correctly — the first multi-bit writable BRAM-over-MCU in the open
-flow (`qualification/bram_site_read_evidence.jsonl`). Scope is the pure-wire read
-lanes only: lanes 1 and 5 pass through `alta_slice` route-throughs whose
-conducting selectors are uncharacterized (a LUT-INIT-only footprint built but
-floated on silicon and was reverted), and wider writes need more `DataInA`
-ingress corridors. This is experimental/research-unsafe, not release-strict.
+flow (`qualification/bram_site_read_evidence.jsonl`). On 2026-09-15 this was
+extended to a **three-bit writable** image (`DataInA[0]`/`[2]`/`[4]` → `DataOutA[0]`/
+`[2]`/`[4]`, 6/6 across two words, controls pass) by characterizing the
+`DataInA[4]` ingress (`RMUX00@(14,4)→IMUX26`), and the same-day W2Ei INIT=1 test
+proved the x18 write is genuine array mutation — an INIT-1 cell driven to 0 on the
+direct hard output, which no read-first/transparency path can produce
+(`qualification/bram_write_ingress_evidence.jsonl`). Writable data **width** is
+bounded by the number of characterized `DataInA` ingress lanes (independent RMUX
+feeders exist for `DataInA[0]`/`[1]`/`[4]`/`[10]`; `[2]` via OMUX29), not by width
+mode. Scope is the pure-wire read lanes only: lanes 1 and 5 pass through
+`alta_slice` route-throughs whose conducting selectors are uncharacterized (a
+LUT-INIT-only footprint built but floated on silicon and was reverted). **Narrow
+BRAM writes (native sub-word packing) are NOT achievable in the open flow**: a
+controlled single-variable board test (2026-09-15) proved `ByteEnA` byte-lane
+masking is non-functional on silicon — two images differing only in routed ByteEn
+wrote identically — so packed narrow words cannot be updated without clobbering
+their row-mates (confirms the vendor cube's `behavior_claimed=false`). A narrow-
+*width* memory ≤512 words is instead writable by x18 mapping (one word per row).
+This is experimental/research-unsafe, not release-strict.
 
 `verify` now simulates the routed netlist including x18 block RAM and
 MCU-bus stimulus (`--stimulus`, `--trace`), reads an unconnected input as
