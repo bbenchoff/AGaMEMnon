@@ -397,13 +397,22 @@ images — see the measured behaviour below.
 vendor-flow bitstream (x18, INIT=all-1, `ByteEnA=2'b01`) held the **high** byte at
 INIT-1 across all 8 words while the **low** byte tracked the commanded write — a
 clean per-byte write mask (`vbram` with `ByteEnA=2'b11` had the same lane follow the
-write, so it is not a stuck lane). An earlier *open-flow* attempt routed `ByteEnA`
-through `SLICE.F→OMUX→RMUX60/RMUX24→TMUX10/TMUX04→KMUX02/KMUX01` and saw `=2'b10` vs
-`=2'b01` write **identically** — but that was an AGaMEMnon routing/delivery failure
-of that corridor (the routed value did not conduct to the pin), **not** a silicon
-limit; the earlier "board-refuted" reading here is withdrawn. Consequence: native
-narrow-mode *packing* writes (multiple sub-words per 18-bit row) **are** achievable
-on silicon; the open-flow gap is to route the ByteEn pin the way the vendor does.
+write, so it is not a stuck lane). **The config family is now recovered (2026-09-15):**
+per-byte write-enable is a **`CFG_KMUX` local-gnd tie** at the BRAM tile — position 8
+of each nine-selector KMUX lane selects that lane's local gnd terminal (default = vcc =
+enabled). `ByteEnA[0]`=KMUX01 lane → sel 17 (byte 65990, mask 0x02); `ByteEnA[1]`=KMUX02
+lane → sel 26 (byte 66454, mask 0x02). Both are board-proven: sel26 by the vendor
+`ByteEnA=01` image above, and **sel17 on AGaMEMnon's own open-flow image** — a
+single-config-bit A/B (`image_w2ei` vs `image_w2ei_be0`, differing only in byte 65990
+|= 0x02 + CRC) flipped the low-byte observation `0xE4`→`0xFF` with reads stuck at INIT-1.
+So the earlier open-flow attempt saw `=2'b10` vs `=2'b01` write **identically** because
+it tried to *route* a LUT constant through `SLICE.F→OMUX→RMUX→TMUX→KMUX` (a routing/
+delivery gap that did not conduct), **not** because ByteEn is unreachable — the vendor
+does not route it at all, it sets the KMUX local-gnd config. That "board-refuted"
+reading is withdrawn. Consequence: native narrow-mode *packing* writes (multiple
+sub-words per 18-bit row) **are** achievable on silicon; the open-flow work is to drive
+the `CFG_KMUX` pos-8 gnd tie from the `ByteEnA` pin constant (a scoped, board-qualified
+routing-emitter change), not to route the pin.
 
 Separately, **39 configuration rows across `X13Y1` … `X13Y4`** are admitted only
 under the `experimental-strict` policy, and are **denied under the default

@@ -72,16 +72,24 @@ unsafe, not release-strict.
 The AG32 silicon supports the *complete* BRAM write surface: a headless vendor (`af.exe`) bitstream
 wrote a **full 18-bit word** over the MCU/External-AHB boundary to 4 distinct addresses and read every
 bit back (72/72, control_before clean), and a companion image proved per-byte `ByteEn` masking. The
-vendor routes every BRAM pin over the full conducting graph. AGaMEMnon's open flow board-proved **3 writable+readable bits** (`DataInA[0]/[2]/[4]`) and now
-**routes+emits 5** (`DataInA[0]/[2]/[3]/[4]/[6]` -> the matching DataOutA site-read lanes, image builds
-clean, all 5 DataIn bound to real routed nets) -- so the router+emitter handle lanes 3/6 too
-(conduction of the 2 new lanes is board-pending, not yet silicon-proven). The read-egress ceiling is
-~6 lanes (lane 7 sink-assignment fails; lanes 1/5 float), so full 18-bit still needs high-lane read
-egress plus the remaining write corridors.
-The generalization to all widths is therefore a **routing-promotion** task, not a silicon question:
-decode the vendor `vfull2.bin`/`bytee.bin` routing to extract each `DataInA` lane's corridor + the
-`ByteEn` KMUX config, add them to `bram_site_read_paths.csv` (the same table the read side uses), and
-register them in `agrv2k.cc`'s BRAM pre-routing (the exact mechanism already proven for `DataInA[4]`).
+vendor routes every BRAM pin over the full conducting graph. AGaMEMnon's open flow now board-witnessed
+**5 writable+readable bits** (`DataInA[0]/[2]/[3]/[4]/[6]` -> matching DataOutA site-read lanes):
+`[0]/[2]/[4]` by an INIT=1/write-0 direct-output 1->0 mutation, and the two new lanes `[3]/[6]` (2026-09-15,
+`w356`) by a two-word distinct-value readback (word0=`0b011`, word1=`0b100`) that rules out a global
+set-only latch. All 5 DataIn bind to real routed nets; `[3]/[6]` are board-witnessed but not yet promoted
+in the emitter. The read-egress ceiling is ~6 lanes (lane 7 sink-assignment fails; lanes 1/5 float) and
+the high-byte DataOut lanes (bits 9-17) are not in the measured site-read corridor set, so full 18-bit
+*read* needs new high-lane egress corridors and full 18-bit *write* needs the remaining ingress lanes.
+The `ByteEn` config family is now **recovered and board-proven**: per-byte write masking is a `CFG_KMUX`
+local-gnd tie (position 8 of each nine-selector lane), *not* a routed net -- `ByteEnA[1]`->gnd = `CFG_KMUX`
+sel26 (vendor `bytee.bin`), `ByteEnA[0]`->gnd = `CFG_KMUX` sel17 (board-proven 2026-09-15 on AGaMEMnon's own
+open-flow image via a single-config-bit A/B, obs `0xE4`->`0xFF`). So the earlier "route the ByteEn pin like
+the vendor" framing is corrected: the vendor does *not* route it, it ties the KMUX local-gnd terminal.
+The generalization to all widths is therefore a **routing-promotion + config-emission** task, not a silicon
+question: promote each `DataInA` lane's corridor into `bram_site_read_paths.csv` and register it in
+`agrv2k.cc`'s BRAM pre-routing (the mechanism already proven for `DataInA[4]`), and drive the `CFG_KMUX`
+pos-8 gnd tie from the `ByteEnA` pin constant for native narrow-mode masking (a scoped emitter change,
+board-qualified before it ships).
 That is scoped, de-risked, multi-session engine work; the board results and corridor sources live in
 `AG32-Docs/tools/vendor_parity/bram_vendor_fullwidth_20260915/` and `.../bram_vendor_byteen_20260915/`.
 
