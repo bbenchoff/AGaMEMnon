@@ -85,8 +85,19 @@ and prior board evidence for `DataOutA[14]` was negative (per-bit `BufMUX` read 
 *read* needs the per-bit high-lane read-path resolved: a first board attempt (`hbread2`, 2026-09-15)
 was inconclusive -- an x18 ROM read did not vary with the addressed word, so it matched neither a
 conducting nor a floating profile and settled nothing; a cleaner test (AHB-`HADDR`-driven address, a
-confirmed-live low-byte control lane in the same image) is still needed. Full 18-bit *write* needs the
-remaining ingress lanes.
+confirmed-live low-byte control lane in the same image) is still needed. **Update 2026-09-15:** that
+cleaner addressed-read test's blocker was root-caused *not* to conduction but to a single missing
+routing-graph pip `X13Y12_BufMUX00 -> X13Y12_InputMUX00` (the hready global-buffer->tile-input entry),
+denied at admission by the MCU-entry single-first-hop constraint (an earlier "placer/packing fix"
+framing is withdrawn). `routing.py mcu_entry_first_hops` now admits the four-site oracle's
+silicon-witnessed hready/hwrite entry hops as bounded first-hop alternates -- default device graph
+byte-unchanged, 1219 tests green -- so the hready-gated `ClkEn0` route-through now **packs and routes
+end-to-end in the fresh flow** (the former 40/40 wall is gone). Fresh *emission* remains blocked on a
+placement-dependent family of MCU-boundary corridor codewords that the pip-cfg harvester's regex omits
+(`InputMUX`/`BufMUX` hops; `BufMUX00->InputMUX00` is a deducible 2:1-complement, but e.g.
+`X14Y4_RMUX00->X13Y4_CtrlMUX02` is a 24-selector field needing direct vendor bits), pending a
+vendor-decode re-harvest (the on-workbench `af.exe` flow) or a retained-checkpoint capture, then
+attended board qualification. Full 18-bit *write* needs the remaining ingress lanes.
 The `ByteEn` config family is now **recovered and board-proven**: per-byte write masking is a `CFG_KMUX`
 local-gnd tie (position 8 of each nine-selector lane), *not* a routed net -- `ByteEnA[1]`->gnd = `CFG_KMUX`
 sel26 (vendor `bytee.bin`), `ByteEnA[0]`->gnd = `CFG_KMUX` sel17 (board-proven 2026-09-15 on AGaMEMnon's own
