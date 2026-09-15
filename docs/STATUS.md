@@ -82,8 +82,11 @@ fails; lanes 1/5 float). The blocker for the high byte is **per-bit read-path co
 a probe (`hbread`, 2026-09-15) shows the open flow *routes and emits* high-byte lanes `DataOutA[9]`/`[14]`
 to distinct `hrdata` sinks via freely-routed paths, but silicon conduction of the high lanes is unproven
 and prior board evidence for `DataOutA[14]` was negative (per-bit `BufMUX` read path). So full 18-bit
-*read* needs the per-bit high-lane read-path resolved (a fresh board test of the open-flow high-lane
-route would settle it), and full 18-bit *write* needs the remaining ingress lanes.
+*read* needs the per-bit high-lane read-path resolved: a first board attempt (`hbread2`, 2026-09-15)
+was inconclusive -- an x18 ROM read did not vary with the addressed word, so it matched neither a
+conducting nor a floating profile and settled nothing; a cleaner test (AHB-`HADDR`-driven address, a
+confirmed-live low-byte control lane in the same image) is still needed. Full 18-bit *write* needs the
+remaining ingress lanes.
 The `ByteEn` config family is now **recovered and board-proven**: per-byte write masking is a `CFG_KMUX`
 local-gnd tie (position 8 of each nine-selector lane), *not* a routed net -- `ByteEnA[1]`->gnd = `CFG_KMUX`
 sel26 (vendor `bytee.bin`), `ByteEnA[0]`->gnd = `CFG_KMUX` sel17 (board-proven 2026-09-15 on AGaMEMnon's own
