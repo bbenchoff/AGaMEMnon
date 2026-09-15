@@ -56,14 +56,17 @@ bounded by the number of characterized `DataInA` ingress lanes (independent RMUX
 feeders exist for `DataInA[0]`/`[1]`/`[4]`/`[10]`; `[2]` via OMUX29), not by width
 mode. Scope is the pure-wire read lanes only: lanes 1 and 5 pass through
 `alta_slice` route-throughs whose conducting selectors are uncharacterized (a
-LUT-INIT-only footprint built but floated on silicon and was reverted). **Narrow
-BRAM writes (native sub-word packing) are NOT achievable in the open flow**: a
-controlled single-variable board test (2026-09-15) proved `ByteEnA` byte-lane
-masking is non-functional on silicon — two images differing only in routed ByteEn
-wrote identically — so packed narrow words cannot be updated without clobbering
-their row-mates (confirms the vendor cube's `behavior_claimed=false`). A narrow-
-*width* memory ≤512 words is instead writable by x18 mapping (one word per row).
-This is experimental/research-unsafe, not release-strict.
+LUT-INIT-only footprint built but floated on silicon and was reverted). **`ByteEnA`
+byte-lane masking IS functional on silicon** (corrected 2026-09-15): a vendor-flow
+bitstream (x18, INIT=1, `ByteEnA=2'b01`) held the high byte at INIT-1 across all 8
+words while the low byte tracked the write — a clean per-byte mask. An earlier
+*open-flow* attempt (two images differing only in routed ByteEn wrote identically)
+was an AGaMEMnon routing/delivery failure of the chosen ByteEn corridor, **not** a
+silicon limit; that "refuted" conclusion is withdrawn. So native narrow-mode
+*packing* writes are achievable — the open flow just needs the vendor's conducting
+ByteEn routing (an AGaMEMnon gap, not a wall). A narrow-*width* memory ≤512 words is
+already writable by x18 mapping (one word per row). This is experimental/research-
+unsafe, not release-strict.
 
 `verify` now simulates the routed netlist including x18 block RAM and
 MCU-bus stimulus (`--stimulus`, `--trace`), reads an unconnected input as
