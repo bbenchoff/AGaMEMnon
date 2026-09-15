@@ -65,8 +65,22 @@ was an AGaMEMnon routing/delivery failure of the chosen ByteEn corridor, **not**
 silicon limit; that "refuted" conclusion is withdrawn. So native narrow-mode
 *packing* writes are achievable — the open flow just needs the vendor's conducting
 ByteEn routing (an AGaMEMnon gap, not a wall). A narrow-*width* memory ≤512 words is
-already writable by x18 mapping (one word per row). This is experimental/research-
+ already writable by x18 mapping (one word per row). This is experimental/research-
 unsafe, not release-strict.
+
+**Full silicon capability confirmed (vendor flow, 2026-09-15) — the open-flow generalization target.**
+The AG32 silicon supports the *complete* BRAM write surface: a headless vendor (`af.exe`) bitstream
+wrote a **full 18-bit word** over the MCU/External-AHB boundary to 4 distinct addresses and read every
+bit back (72/72, control_before clean), and a companion image proved per-byte `ByteEn` masking. The
+vendor routes every BRAM pin over the full conducting graph. AGaMEMnon's open flow currently reaches
+**3 independently-writable-and-readable bits** (`DataInA[0]/[2]/[4]`) because only a few DataIn ingress
+corridors are promoted; the other lanes are daisy-chain-fed and need their conducting corridors added.
+The generalization to all widths is therefore a **routing-promotion** task, not a silicon question:
+decode the vendor `vfull2.bin`/`bytee.bin` routing to extract each `DataInA` lane's corridor + the
+`ByteEn` KMUX config, add them to `bram_site_read_paths.csv` (the same table the read side uses), and
+register them in `agrv2k.cc`'s BRAM pre-routing (the exact mechanism already proven for `DataInA[4]`).
+That is scoped, de-risked, multi-session engine work; the board results and corridor sources live in
+`AG32-Docs/tools/vendor_parity/bram_vendor_fullwidth_20260915/` and `.../bram_vendor_byteen_20260915/`.
 
 `verify` now simulates the routed netlist including x18 block RAM and
 MCU-bus stimulus (`--stimulus`, `--trace`), reads an unconnected input as
