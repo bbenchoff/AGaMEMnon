@@ -5,9 +5,13 @@
 # rdwr = old: read returns the OLD memory content when reading+writing the same address same cycle. This
 # is the common BRAM default and, crucially, lets an inferred single-port RAM (not just a ROM) map here --
 # with `no_change` a read+write RAM falls through to a giant FF array. CAVEAT: the read-during-write policy
-# is NOT yet silicon-verified (the ROM read path IS proven; the WRITE path via KMUX/TMUX is still gated OFF
-# in bitgen, so no RAM reaches silicon yet). Verify `old` vs `new`/`no_change` on hardware when the write
-# path is un-gated. Until then this only broadens synth-level mapping, with no silicon-behavior effect.
+# is NOT yet silicon-verified. BRAM writes DO reach silicon (updated 2026-09-15): the open flow board-proved
+# a genuine 2- and 3-bit x18 write over MCU (INIT=1->0 direct-output mutation) via the site-read profile's
+# characterized DataIn ingress, and the vendor flow board-proved a full 18-bit write (72/72) plus per-byte
+# ByteEn masking -- so the silicon supports the whole write surface. What is still open is OPEN-FLOW ROUTING
+# breadth: only DataInA[0]/[2]/[4] ingress corridors are promoted so far; wider widths need the remaining
+# lanes' conducting corridors added. The `old` vs `new`/`no_change` read-during-write collision policy is
+# still unverified on hardware -- verify it when a read+write-same-cycle image is board-tested.
 ram block $__ALTA_BRAM9K_ {
 	# Maximum address width is for the narrowest mode.  x18 uses nine of
 	# these bits (512 words); narrow modes use progressively more.  Declaring
