@@ -140,6 +140,20 @@ board-proven (13,4) hready->ClkEn0 codeword is bramh's `{31,33}` via RMUX72 — 
 with the mandatory DataOut egress reservation. So the open wide read is not "one known codeword away": it
 needs either relaxing the over-conservative RMUX72 reservation (bramh proves hready+DataOut coexist on
 silicon) to reuse bramh's proven `{31,33}`, or a board/vendor determination of the RMUX00 codeword.
+**Update 2026-09-15 (PROMOTED — open hready read now emits via a board-proven terminal).** The third
+option landed: `X14Y4_RMUX84->X13Y4_CtrlMUX02` is a *board-proven* CtrlMUX02 terminal (`CFG_CTRLMUX` set
+`31;32`, already in the emitter resolver-L0, blessed by `test_bram_site_corpus`, silicon-qualified via the
+`bram-x18-porta-qualified` checkpoint and observed in `oracle_bram_rw`). The shipped site-read hready
+corridor (`bram_site_read_paths.csv` segment 3) is re-routed from the undetermined RMUX00 terminal to this
+board-proven RMUX84 terminal via a 12-hop corridor constructed by BFS over the emitted devdb; `hbread10`
+now emits a full 99944-B image whose `CtrlMUX2@(13,4)` field is the board-proven `31;32` (verified by
+reading it back). The change is loaded only under the opt-in `AGAMEMNON_BRAM_SITE_READ_PATHS` flag
+(default graph byte-unchanged); **Rule 2 rebuilds the entire retained qualified corpus byte-identical
+(zero blast radius, confirmed)** and the full test suite passes. Emit is correct-by-construction with a
+board-proven terminal; the composed fresh image (hready routing + placement) is **opt-in and
+silicon-unproven until an attended board witness** of `image_hbread10_rmux84_boardready.bin`
+(`AG32-Docs .../bram_width_matrix_20260915/OPEN_WIDE_READ_BOARDREADY_20260915.md`). This is the same
+promotion bar the shipped GPIO4-request corridor used (opt-in + Rule-2-clean + board-witness-pending).
 The `ByteEn` config family is now **recovered and board-proven**: per-byte write masking is a `CFG_KMUX`
 local-gnd tie (position 8 of each nine-selector lane), *not* a routed net -- `ByteEnA[1]`->gnd = `CFG_KMUX`
 sel26 (vendor `bytee.bin`), `ByteEnA[0]`->gnd = `CFG_KMUX` sel17 (board-proven 2026-09-15 on AGaMEMnon's own

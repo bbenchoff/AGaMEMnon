@@ -80,12 +80,12 @@ def test_route_parser_does_not_invent_edges_between_flattened_segments(tmp_path)
 
 def test_full_depth_read_corpus_has_all_sensitized_bus_trees():
     paths = rows("bram_site_read_paths.csv")
-    assert len(paths) == 526
+    assert len(paths) == 530
     assert Counter(row["class"] for row in paths) == {
         "address": 227,
         "data": 223,
         "clock": 16,
-        "hready": 25,
+        "hready": 29,
         "hwrite": 35,
     }
     assert {row["net"] for row in paths if row["class"] == "address"} == {
