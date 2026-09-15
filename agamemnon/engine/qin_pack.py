@@ -808,6 +808,34 @@ def permute_pad_inputs_high(json_path):
     return changed
 
 
+def stamp_byteen_mask(json_path):
+    """Record which Port-A byte lane(s) the design ties to a constant gnd (``ByteEnA[k] == '0'``),
+    as a cell parameter that survives nextpnr into the routed netlist.  This is necessary because by
+    bitgen time the constant is net-ified to an anonymous net and the ``'0'`` intent is unrecoverable
+    from the routed connection.  The emitter (features/bram.py) reads this parameter and ties the
+    board-proven CFG_KMUX pos-8 gnd terminal so that byte's writes are masked.  Opt-in
+    (AGAMEMNON_BRAM_BYTEEN) so default builds carry no new parameter and stay byte-identical.  A
+    non-numeric marker value avoids nextpnr reformatting a numeric parameter string."""
+    if not os.environ.get("AGAMEMNON_BRAM_BYTEEN"):
+        return 0
+    design = json.load(open(json_path)); n = 0
+    for module in design.get("modules", {}).values():
+        for cell in module.get("cells", {}).values():
+            if cell.get("type") != "ALTA_BRAM9K":
+                continue
+            be = cell.get("connections", {}).get("ByteEnA", []) or []
+            low = len(be) >= 1 and (not isinstance(be[0], int)) and str(be[0]) == "0"
+            high = len(be) >= 2 and (not isinstance(be[1], int)) and str(be[1]) == "0"
+            marker = {(True, True): "BOTH", (True, False): "LOW",
+                      (False, True): "HIGH"}.get((low, high))
+            if marker:
+                cell.setdefault("parameters", {})["AGM_BYTEEN_A_MASK"] = marker
+                n += 1
+    if n:
+        json.dump(design, open(json_path, "w"))
+    return n
+
+
 if __name__ == "__main__":
     i = expand_uniform_bram_init(sys.argv[1])
     b = split_shared_qualified_bram_inputs(sys.argv[1])
@@ -816,6 +844,7 @@ if __name__ == "__main__":
     n = permute_selffb_to_inputD(sys.argv[1])
     m = permute_reads_to_inputD(sys.argv[1])
     p = permute_pad_inputs_high(sys.argv[1])
+    stamp_byteen_mask(sys.argv[1])
     print("qin_pack: filled %d uniform narrow-BRAM INIT bit(s), split %d "
           "shared qualified BRAM terminal(s), wrapped %d "
           "registered pad input(s), lowered %d internal Qin-to-C feedback "

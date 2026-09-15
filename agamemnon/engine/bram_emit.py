@@ -79,6 +79,50 @@ def load_cells():
 
 CELLS = load_cells()
 
+# Per-byte write-enable (ByteEnA) is a CFG_KMUX *local-gnd tie* at the BRAM tile, NOT a routed net:
+# each nine-selector KMUX lane's position-8 selector ties that lane to local gnd.  Default (no
+# selector) = vcc = byte enabled; asserting the pos-8 selector = gnd = that byte's writes are masked.
+# Board-proven at X13Y4 (2026-09-15): ByteEnA[0]=KMUX01 lane -> CFG_KMUX sel 17, ByteEnA[1]=KMUX02
+# lane -> CFG_KMUX sel 26 (open-flow A/B image_w2ei vs image_w2ei_be0: obs 0xE4->0xFF, low byte held
+# at INIT; vendor bytee.bin proved the high-byte tie).  X13Y1..Y3 are the same pos-8 structure from
+# bram_cell.csv but not independently board-proven.  Loaded from bram_cell.csv so the offsets cannot
+# drift from the device DB.
+_BRAM_CELL = os.path.join(TOOLS, "chipdb", "bram_cell.csv")
+def _load_byteen_gnd_ties():
+    lane_sel = {0: 17, 1: 26}  # ByteEnA[0]->sel17 (low byte), ByteEnA[1]->sel26 (high byte)
+    out = collections.defaultdict(dict)
+    try:
+        rows = list(csv.DictReader(open(_BRAM_CELL)))
+    except OSError:
+        return {}
+    for r in rows:
+        if r.get("mux") != "CFG_KMUX":
+            continue
+        sel = int(r["sel"])
+        for lane, s in lane_sel.items():
+            if sel == s:
+                out[(int(r["x"]), int(r["y"]))][lane] = (int(r["byte"]), int(r["mask"]))
+    return {k: v for k, v in out.items() if len(v) == 2}
+
+BYTEEN_GND_TIE = _load_byteen_gnd_ties()
+BYTEEN_BOARD_PROVEN_TILES = frozenset({(13, 4)})  # only X13Y4 is silicon-qualified
+
+def byteen_gnd_ties(x, y, mask_low, mask_high):
+    """(byte,mask) cells that tie the requested Port-A byte lane(s) to gnd (writes masked).
+    Additive: returns only the gnd-tie selector(s) for the masked lane(s); an enabled byte needs no
+    selector (vcc is the canvas default).  Raises if the tile has no decoded tie (fail closed)."""
+    site = BYTEEN_GND_TIE.get((x, y))
+    if site is None:
+        raise ValueError(
+            "no decoded ByteEn gnd-tie for BramTILE X%dY%d; refusing to emit a byte "
+            "mask that would silently leave both bytes writable" % (x, y))
+    out = set()
+    if mask_low:
+        out.add(site[0])
+    if mask_high:
+        out.add(site[1])
+    return out
+
 # Tiles that have decoded configuration cells here.  This is the CONFIG surface
 # and it covers all four BramTILEs (plus the PLL tile).  The exact structural
 # BEL/cell tables now cover X13Y1..Y4 too, but the production routing graph

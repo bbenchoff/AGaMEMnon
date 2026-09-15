@@ -92,11 +92,15 @@ local-gnd tie (position 8 of each nine-selector lane), *not* a routed net -- `By
 sel26 (vendor `bytee.bin`), `ByteEnA[0]`->gnd = `CFG_KMUX` sel17 (board-proven 2026-09-15 on AGaMEMnon's own
 open-flow image via a single-config-bit A/B, obs `0xE4`->`0xFF`). So the earlier "route the ByteEn pin like
 the vendor" framing is corrected: the vendor does *not* route it, it ties the KMUX local-gnd terminal.
-The generalization to all widths is therefore a **routing-promotion + config-emission** task, not a silicon
-question: promote each `DataInA` lane's corridor into `bram_site_read_paths.csv` and register it in
-`agrv2k.cc`'s BRAM pre-routing (the mechanism already proven for `DataInA[4]`), and drive the `CFG_KMUX`
-pos-8 gnd tie from the `ByteEnA` pin constant for native narrow-mode masking (a scoped emitter change,
-board-qualified before it ships).
+The per-byte `ByteEn` mask is now **natively emitted** (opt-in `AGAMEMNON_BRAM_BYTEEN`) and **board-proven
+natively** (2026-09-15): a constant-0 `ByteEnA` lane is carried from the packer (`qin_pack` stamps
+`AGM_BYTEEN_A_MASK`) into bitgen, which emits the `CFG_KMUX` pos-8 gnd tie; a natively-built A/B
+(`image_w356` vs `image_w356_be10`, one emitted config byte apart) masked the low-byte write on silicon
+(obs `0x23`->`0x00`), with default builds byte-identical. The generalization to all widths is therefore a
+**routing-promotion** task, not a silicon question: promote each `DataInA` lane's corridor into
+`bram_site_read_paths.csv` and register it in `agrv2k.cc`'s BRAM pre-routing (the mechanism already proven
+for `DataInA[4]`); correct native narrow-*width* sub-word writes additionally need the packer's DataIn
+sub-word window on top of the now-shipped ByteEn masking.
 That is scoped, de-risked, multi-session engine work; the board results and corridor sources live in
 `AG32-Docs/tools/vendor_parity/bram_vendor_fullwidth_20260915/` and `.../bram_vendor_byteen_20260915/`.
 

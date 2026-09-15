@@ -263,6 +263,7 @@ class BramFeature:
         options=("AGAMEMNON_BRAM_HSE_INPUT", "AGAMEMNON_X9_Q5_ALT_EXPERIMENT",
                  "AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG",
                  "AGAMEMNON_BRAM_SITE_READ_PATHS",
+                 "AGAMEMNON_BRAM_BYTEEN",
                  "AGAMEMNON_BRAM_TMUX9_SOURCE_PROFILE"),
         chipdb_files=(
             "bram_cell.csv",
@@ -723,6 +724,26 @@ class BramFeature:
                 experimental=experimental,
                 allow_experimental=experimental_enabled,
             ))
+            # Per-byte write-enable (ByteEnA): honour a constant-0 (gnd) ByteEnA lane by emitting the
+            # board-proven CFG_KMUX pos-8 gnd tie so that byte's writes are masked.  The intent is
+            # read from the AGM_BYTEEN_A_MASK parameter that qin_pack stamps at synth time (the
+            # constant is net-ified and unrecoverable from the routed connection by bitgen).  Opt-in
+            # (AGAMEMNON_BRAM_BYTEEN) so default builds stay byte-identical; an enabled byte needs
+            # nothing (vcc is the canvas default).  Only X13Y4 is silicon-qualified.
+            byteen_mask = parameters.get("AGM_BYTEEN_A_MASK")
+            byteen_mask = str(byteen_mask).strip().upper() if byteen_mask is not None else ""
+            if byteen_mask in ("LOW", "HIGH", "BOTH") and options.enabled("AGAMEMNON_BRAM_BYTEEN"):
+                mask_low = byteen_mask in ("LOW", "BOTH")
+                mask_high = byteen_mask in ("HIGH", "BOTH")
+                if ((x, y) not in bram_emit.BYTEEN_BOARD_PROVEN_TILES
+                        and not options.enabled("AGAMEMNON_RESEARCH_UNSAFE")):
+                    raise SystemExit(
+                        "ByteEn write-mask at BramTILE X%dY%d is not silicon-qualified "
+                        "(only X13Y4 is board-proven); use --research-unsafe to emit it "
+                        "as a documented experiment" % (x, y))
+                ties = bram_emit.byteen_gnd_ties(x, y, mask_low, mask_high)
+                state.sets.extend(ties)
+                state.clears.extend(ties)
             state.clears.extend(bram_emit.owned_surface(
                 x, y, experimental=experimental_enabled
             ))

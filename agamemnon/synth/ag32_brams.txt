@@ -16,10 +16,12 @@
 # sinks via free routing -- corridors are NOT the blocker), but per-bit high-lane read-path CONDUCTION is
 # unproven on silicon (DataOutA[14] was board-negative; per-bit BufMUX read path). That conduction, not a
 # corridor, is what full 18-bit read needs; a fresh board test of an open-flow high-lane route would settle it.
-# (2) ByteEn EMISSION -- per-byte masking is a CFG_KMUX local-gnd tie (pos-8 per lane; sel17=ByteEnA[0],
-# sel26=ByteEnA[1], both board-proven), a control-routing config the emitter does not yet drive from the
-# ByteEnA pin; wiring it up (a scoped, board-qualified change) is what unblocks correct native narrow
-# (x1/x2/x4/x9) sub-word writes. The `old` vs `new`/`no_change` read-during-write collision policy is
+# (2) narrow SUB-WORD windowing -- per-byte ByteEn masking is now NATIVELY EMITTED and board-proven: a
+# constant-0 ByteEnA lane (CFG_KMUX pos-8 gnd tie; sel17=ByteEnA[0], sel26=ByteEnA[1]) is carried from
+# qin_pack (AGM_BYTEEN_A_MASK) to bitgen behind opt-in AGAMEMNON_BRAM_BYTEEN; a natively-built A/B masked
+# the low byte on silicon (obs 0x23->0x00), default builds byte-identical. Correct native narrow
+# (x1/x2/x4/x9) sub-word writes still need the packer's DataIn sub-word window on top of ByteEn masking.
+# The `old` vs `new`/`no_change` read-during-write collision policy is
 # still unverified on hardware -- verify it when a read+write-same-cycle image is board-tested.
 ram block $__ALTA_BRAM9K_ {
 	# Maximum address width is for the narrowest mode.  x18 uses nine of
