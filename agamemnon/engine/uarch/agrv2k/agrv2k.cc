@@ -5257,69 +5257,108 @@ static void lock_bram_portb_corridors(Context *ctx,
         // the first hop constrained allowed router2 to choose a nearby but
         // unsensitized middle row (Y8 instead of the observed Y9 at Y1); the
         // image configured successfully but returned a constant zero.
-        NetInfo *read_data = bram->getPort(ctx->id("DataOutA[0]"));
-        if (site_read_profile && read_data != nullptr && !read_data->users.empty()) {
+        // Multi-lane site-read egress (2026-09-14): the four-array oracle
+        // characterized eight wire-DISJOINT DataOutA[b] -> hrdata[base+b]
+        // corridors per site (b in 0..7; base = {y4:0,y1:8,y2:16,y3:24}).
+        // The shipped mechanism previously locked only DataOutA[0]; generalize
+        // to every read lane so a wide BRAM->MCU exit conducts.  Behaviour for a
+        // sole DataOutA[0] read is byte-identical (rb==0, base+0).  Disjoint
+        // corridors cannot collide, and each lane still fails closed if its
+        // measured exit tree cannot be locked.
+        for (int rb = 0; rb <= 7; ++rb) {
+            NetInfo *read_data = bram->getPort(
+                    ctx->id("DataOutA[" + std::to_string(rb) + "]"));
+            if (!(site_read_profile && read_data != nullptr &&
+                    !read_data->users.empty()))
+                continue;
             BelId bram_bel = assigned_or_requested_bram_bel(ctx, bram);
             if (bram_bel == BelId())
                 log_error("agrv2k: site-read output requires an assigned or valid requested BRAM BEL on '%s'\n",
                           bram->name.c_str(ctx));
             Loc bram_loc = ctx->getBelLocation(bram_bel);
-            int hrdata_bit = -1;
+            int base_bit = -1;
             if (bram_loc.x == 13) {
-                if (bram_loc.y == 4) hrdata_bit = 0;
-                if (bram_loc.y == 1) hrdata_bit = 8;
-                if (bram_loc.y == 2) hrdata_bit = 16;
-                if (bram_loc.y == 3) hrdata_bit = 24;
+                if (bram_loc.y == 4) base_bit = 0;
+                if (bram_loc.y == 1) base_bit = 8;
+                if (bram_loc.y == 2) base_bit = 16;
+                if (bram_loc.y == 3) base_bit = 24;
             }
+            if (base_bit < 0)
+                continue;
+            int hrdata_bit = base_bit + rb;
             std::string route_net = "mem_ahb_hrdata[" +
                                     std::to_string(hrdata_bit) + "]";
             auto exact = site_read_exact.find(route_net);
-            if (hrdata_bit >= 0 && exact != site_read_exact.end()) {
+            if (exact == site_read_exact.end())
+                continue;
+            {
+                // Require the lane to actually egress to an MCU_DOUT sink, but
+                // do NOT depend on that sink being PLACED yet: pack() runs
+                // before placement (pack_mcu_edge leaves MCU_DOUT bels free), so
+                // an MCU_DOUT-bel BFS target never resolves here.  Lock the
+                // measured corridor from the BRAM DataOutA[rb] pin to the
+                // corridor's own terminal sink wire (the one dst that is never a
+                // src) -- the hrdata[base+rb] SinkMUX the MCU_DOUT binds to.
+                // This forces router2 onto the exact sensitized tree instead of
+                // letting a free multi-lane route wander onto an unsensitized /
+                // footprint-needing wire (observed: a free route grabbed
+                // X14Y4_OMUX21, an implicit-footprint slice output).
+                bool egresses = false;
+                for (auto &user : read_data->users)
+                    if (user.cell != nullptr &&
+                            user.cell->type == ctx->id("MCU_DOUT")) {
+                        egresses = true;
+                        break;
+                    }
+                if (!egresses)
+                    continue;
                 std::unordered_map<std::string,
                         std::vector<std::pair<std::string, PipId>>> adjacency;
+                std::unordered_set<std::string> srcs, dsts;
                 for (const auto &edge : exact->second) {
                     PipId pip = saved_pip(edge.first, edge.second);
                     if (pip != PipId())
                         adjacency[edge.first].push_back({edge.second, pip});
+                    srcs.insert(edge.first);
+                    dsts.insert(edge.second);
                 }
                 const std::string source_name = ctx->getWireName(
-                        ctx->getBelPinWire(bram_bel, ctx->id("DataOutA[0]"))).str(ctx);
-                for (auto &user : read_data->users) {
-                    if (user.cell == nullptr || user.cell->bel == BelId() ||
-                            user.cell->type != ctx->id("MCU_DOUT"))
-                        continue;
-                    const std::string target_name = ctx->getWireName(
-                            ctx->getBelPinWire(user.cell->bel, user.port)).str(ctx);
-                    std::vector<std::string> queue{source_name};
-                    std::unordered_map<std::string,
-                            std::pair<std::string, PipId>> previous;
-                    previous[source_name] = {"", PipId()};
-                    for (size_t head = 0;
-                            head < queue.size() && !previous.count(target_name); ++head) {
-                        for (const auto &step : adjacency[queue[head]]) {
-                            if (previous.count(step.first) ||
-                                    !ctx->checkPipAvailForNet(step.second, read_data) ||
-                                    !wire_free_for(step.second, read_data))
-                                continue;
-                            previous[step.first] = {queue[head], step.second};
-                            queue.push_back(step.first);
-                        }
+                        ctx->getBelPinWire(bram_bel,
+                                ctx->id("DataOutA[" + std::to_string(rb) + "]"))).str(ctx);
+                std::string target_name;
+                for (const auto &d : dsts)
+                    if (!srcs.count(d)) { target_name = d; break; }
+                if (target_name.empty())
+                    log_error("agrv2k: site-read DataOutA[%d] corridor has no terminal sink\n", rb);
+                std::vector<std::string> queue{source_name};
+                std::unordered_map<std::string,
+                        std::pair<std::string, PipId>> previous;
+                previous[source_name] = {"", PipId()};
+                for (size_t head = 0;
+                        head < queue.size() && !previous.count(target_name); ++head) {
+                    for (const auto &step : adjacency[queue[head]]) {
+                        if (previous.count(step.first) ||
+                                !ctx->checkPipAvailForNet(step.second, read_data) ||
+                                !wire_free_for(step.second, read_data))
+                            continue;
+                        previous[step.first] = {queue[head], step.second};
+                        queue.push_back(step.first);
                     }
-                    if (!previous.count(target_name))
-                        log_error("agrv2k: no exact four-site DataOutA[0] path from %s to %s\n",
-                                  source_name.c_str(), target_name.c_str());
-                    std::vector<PipId> route;
-                    for (std::string cursor = target_name; cursor != source_name;
-                            cursor = previous.at(cursor).first)
-                        route.push_back(previous.at(cursor).second);
-                    std::reverse(route.begin(), route.end());
-                    for (PipId pip : route) {
-                        ctx->bindPip(pip, read_data, STRENGTH_LOCKED);
-                        ++locked;
-                    }
-                    log_info("agrv2k: pre-routed DataOutA[0] over %d exact four-site pip(s)\n",
-                             int(route.size()));
                 }
+                if (!previous.count(target_name))
+                    log_error("agrv2k: no exact four-site DataOutA[%d] path from %s to %s\n",
+                              rb, source_name.c_str(), target_name.c_str());
+                std::vector<PipId> route;
+                for (std::string cursor = target_name; cursor != source_name;
+                        cursor = previous.at(cursor).first)
+                    route.push_back(previous.at(cursor).second);
+                std::reverse(route.begin(), route.end());
+                for (PipId pip : route) {
+                    ctx->bindPip(pip, read_data, STRENGTH_LOCKED);
+                    ++locked;
+                }
+                log_info("agrv2k: pre-routed DataOutA[%d] over %d exact four-site pip(s)\n",
+                         rb, int(route.size()));
             }
         }
     }

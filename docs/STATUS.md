@@ -36,6 +36,21 @@ before their first BRAM transaction (a register reads high straight after
 reset, differently on each route). No BRAM silicon claim is made; the failure
 is route-dependent and not yet localised.
 
+Under the opt-in experimental site-read profile (`AGAMEMNON_BRAM_SITE_READ_PATHS`,
+`--research-unsafe`), the single-lane four-site read pre-routing has been
+generalized to all read lanes, and this is now silicon-proven at X13Y4: on
+2026-09-14 (control-first, SRAM-only, board clean) a fresh open-flow image read
+**six simultaneous `DataOutA` lanes** (0,2,3,4,6,7) back over the External-AHB
+boundary, each matching a distinct swept pattern 8/8 (controls pass both sides),
+and a **two-bit writable** image wrote `DataInA[0]` (SERV ingress) + `DataInA[2]`
+(the X14Y4 OMUX29 ingress, driven from a buffer slice pinned at X14Y4 SLICE9) and
+read both back correctly — the first multi-bit writable BRAM-over-MCU in the open
+flow (`qualification/bram_site_read_evidence.jsonl`). Scope is the pure-wire read
+lanes only: lanes 1 and 5 pass through `alta_slice` route-throughs whose
+conducting selectors are uncharacterized (a LUT-INIT-only footprint built but
+floated on silicon and was reverted), and wider writes need more `DataInA`
+ingress corridors. This is experimental/research-unsafe, not release-strict.
+
 `verify` now simulates the routed netlist including x18 block RAM and
 MCU-bus stimulus (`--stimulus`, `--trace`), reads an unconnected input as
 HIGH as the chip does, and refuses any slice whose mask still depends on such

@@ -489,7 +489,7 @@ class BramFeature:
         # via BramTILE IMUX/KMUX/TileClk wires; DataOut leaves via BufMUX. Guarded: file absent -> skip.
         _BRAM_SCALAR = {
             "WeA", "WeB", "ReA", "ReB", "Clk0", "Clk1", "ClkEn0", "ClkEn1",
-            "AsyncReset0",
+            "AsyncReset0", "AddressStallA", "AddressStallB",
         }
         _BRAM_OUT = {"DataOutA", "DataOutB"}
         bram_bel_csv = os.path.join(DATA, "bram9k_bel.csv")
@@ -663,12 +663,23 @@ class BramFeature:
             # matrix is admitted only after the structure/routes/context checks
             # above; CLI also binds source and final raw/compressed identities.
             # Retained checkpoint and general writable modes remain fenced.
+            # The opt-in four-site read profile (AGAMEMNON_BRAM_SITE_READ_PATHS) is
+            # the mechanism whose PURPOSE is an initialized x18 Port-A read over the
+            # External-AHB boundary; a single DataOutA lane at X13Y3/Y4 is silicon-
+            # qualified (qualification/bram_site_read_evidence.jsonl, 512/512).  Under
+            # --research-unsafe (an experiment, not a release image) admit that exact
+            # profile at the four modeled BRAM sites so the multi-lane read extension
+            # can be exercised and board-qualified.  Release-strict builds stay fenced.
             if (width in {0, 15} and init_value and porta_read and
                     not _initialized_rom_supported(module, cell, options, portb_read) and
                     not (source_profile and state.qualified_profile == source_profile
                          and not portb_read
                          and not options.enabled("AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG")
-                         and not options.enabled("AGAMEMNON_BRAM_SITE_READ_PATHS"))):
+                         and not options.enabled("AGAMEMNON_BRAM_SITE_READ_PATHS")) and
+                    not (options.enabled("AGAMEMNON_BRAM_SITE_READ_PATHS")
+                         and options.enabled("AGAMEMNON_RESEARCH_UNSAFE")
+                         and width == 0 and not portb_read
+                         and x == 13 and y in {1, 2, 3, 4})):
                 raise SystemExit(
                     "initialized BRAM Port-A width code %d is unqualified: "
                     "VP-AGM-006 requires broader initialized-read qualification after "

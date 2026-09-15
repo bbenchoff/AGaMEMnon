@@ -127,10 +127,10 @@ def test_uarch_locks_arbitrary_site_address_and_data_trees():
     )
     assert '"/bram_site_read_paths.csv"' in source
     assert "pre-routed %s over %d exact four-site pip(s)" in source
-    assert "pre-routed DataOutA[0] over %d exact four-site pip(s)" in source
-    assert "if (bram_loc.y == 1) hrdata_bit = 8;" in source
-    assert "if (bram_loc.y == 2) hrdata_bit = 16;" in source
-    assert "if (bram_loc.y == 3) hrdata_bit = 24;" in source
+    assert "pre-routed DataOutA[%d] over %d exact four-site pip(s)" in source
+    assert "if (bram_loc.y == 1) base_bit = 8;" in source
+    assert "if (bram_loc.y == 2) base_bit = 16;" in source
+    assert "if (bram_loc.y == 3) base_bit = 24;" in source
 
 
 def test_site_relative_rom_control_maps_the_same_11_fields_at_every_array():
