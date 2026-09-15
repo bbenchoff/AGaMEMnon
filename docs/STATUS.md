@@ -129,6 +129,17 @@ rank-4, **not** a silicon claim: the emission audit does not cover `CtrlMUX`, so
 still mis-select the mux. The candidate image + codeword + full derivation are staged in
 `AG32-Docs .../bram_width_matrix_20260915/OPEN_WIDE_READ_EMIT_CANDIDATE_20260915.md`; promotion into the
 integrity-bound shipped chipdb waits on attended board qualification (or a direct (13,4) `RMUX00` witness).
+**Correction 2026-09-15 (later):** a raw-field scan of the CtrlMUX2@(13,4) config field across all 6651
+tracked images REFUTES the `{28,32}` decomposition above. `bramh` (board-proven hready read via RMUX72) =
+`{31,33}`; `oracle_bram_rw`/`byteenonly` = `{31,32}`; `weonly` = `{24,35}` — two different sources share
+lo-selector 31 and `32` is absent from several CtrlMUX2 codewords, so "`{src, dst=32}`" is wrong, and
+`{28,32}` has no vendor witness at (13,4) (it appears only in AGaMEMnon's own emitted image). The correct
+`RMUX00->CtrlMUX02 @ (13,4)` codeword is **undetermined from vendor data**; the emitted candidate image
+therefore carries a probably-incorrect codeword and is an emit-path demonstrator only. The one
+board-proven (13,4) hready->ClkEn0 codeword is bramh's `{31,33}` via RMUX72 — the corridor that collides
+with the mandatory DataOut egress reservation. So the open wide read is not "one known codeword away": it
+needs either relaxing the over-conservative RMUX72 reservation (bramh proves hready+DataOut coexist on
+silicon) to reuse bramh's proven `{31,33}`, or a board/vendor determination of the RMUX00 codeword.
 The `ByteEn` config family is now **recovered and board-proven**: per-byte write masking is a `CFG_KMUX`
 local-gnd tie (position 8 of each nine-selector lane), *not* a routed net -- `ByteEnA[1]`->gnd = `CFG_KMUX`
 sel26 (vendor `bytee.bin`), `ByteEnA[0]`->gnd = `CFG_KMUX` sel17 (board-proven 2026-09-15 on AGaMEMnon's own
