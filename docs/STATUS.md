@@ -72,9 +72,12 @@ unsafe, not release-strict.
 The AG32 silicon supports the *complete* BRAM write surface: a headless vendor (`af.exe`) bitstream
 wrote a **full 18-bit word** over the MCU/External-AHB boundary to 4 distinct addresses and read every
 bit back (72/72, control_before clean), and a companion image proved per-byte `ByteEn` masking. The
-vendor routes every BRAM pin over the full conducting graph. AGaMEMnon's open flow currently reaches
-**3 independently-writable-and-readable bits** (`DataInA[0]/[2]/[4]`) because only a few DataIn ingress
-corridors are promoted; the other lanes are daisy-chain-fed and need their conducting corridors added.
+vendor routes every BRAM pin over the full conducting graph. AGaMEMnon's open flow board-proved **3 writable+readable bits** (`DataInA[0]/[2]/[4]`) and now
+**routes+emits 5** (`DataInA[0]/[2]/[3]/[4]/[6]` -> the matching DataOutA site-read lanes, image builds
+clean, all 5 DataIn bound to real routed nets) -- so the router+emitter handle lanes 3/6 too
+(conduction of the 2 new lanes is board-pending, not yet silicon-proven). The read-egress ceiling is
+~6 lanes (lane 7 sink-assignment fails; lanes 1/5 float), so full 18-bit still needs high-lane read
+egress plus the remaining write corridors.
 The generalization to all widths is therefore a **routing-promotion** task, not a silicon question:
 decode the vendor `vfull2.bin`/`bytee.bin` routing to extract each `DataInA` lane's corridor + the
 `ByteEn` KMUX config, add them to `bram_site_read_paths.csv` (the same table the read side uses), and
