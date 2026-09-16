@@ -8,7 +8,7 @@ the board. Emit-verified ≠ silicon-proven: a built route can float until witne
 
 | Width | Read emit | Write emit | Silicon |
 |---|---|---|---|
-| x18 | **PROMOTED** (default; hready-gated corridor via board-proven `RMUX84→CtrlMUX02={31,32}`) | emits (default; `w18write` 272 pips, 0 unmapped) | read: board-witness-pending for the composed open image (bramh vendor image board-proved the x18 read *capability* at X13Y4; the four-site oracle proved the corridor); write: 5 of 18 DataInA lanes board-witnessed, rest emit-only |
+| x18 | **PROMOTED** (default; hready-gated corridor via board-proven `RMUX84→CtrlMUX02={31,32}`) | emits (default; `w18write` 272 pips, 0 unmapped) | read: **composed OPEN image silicon-witnessed** (`hbread10`, 2026-09-15, INIT-0 driven read delivers at X13Y4 over the RMUX84 corridor; independently audited PASS; scope = driven-0 delivery only, NOT driven-1/address-varied — see hbread6, partial); write: 5 of 18 DataInA lanes board-witnessed, rest emit-only |
 | x9 / x4 / x2 / x1 | emits (default; byte-distinct per-width configs) | **native narrow width refused** by the P0 silently-wrong guard (packer `active_width` sub-word window); byte-granular masking available instead via **ByteEn** | read: board-witness-pending; write: via ByteEn only |
 | x36 | emits (opt-in `AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG`) | experimental / untested | board-witness-pending |
 | ByteEn per-byte masking (on x18) | n/a | **SHIPPED + board-proven** (`CFG_KMUX` pos-8 gnd tie; `test_bram_byteen_emission`) | board-proven (obs 0xE4→0xFF) |
@@ -22,8 +22,10 @@ change; x18 write + ByteEn masking emit with shipped tables.
 (x1/x2/x4/x9 `PORTA_WIDTH`) are behind a P0 guard because the packer emits them silently-wrong — lifting
 that guard needs the `active_width` sub-word packer change *and board qualification*, not an autonomous
 edit past a safety guard; (2) **per-width/per-lane SILICON witnessing** of the composed open images
-(SRAM-only, control-first, attended). Board-ready artifact for the read: `AG32-Docs
-.../bram_width_matrix_20260915/image_hbread10_rmux84_boardready.bin`.
+(SRAM-only, control-first, attended) — the x18 read composed open image is now witnessed (`hbread10`,
+driven-0 delivery; independently audited PASS), leaving driven-1/address-varied read (hbread6 partial),
+narrow writes, and non-x18 widths as the open witnesses. Witnessed read artifact: `AG32-Docs
+.../bram_width_matrix_20260915/image_hbread10_rmux84_boardready.bin` + `session_hbread10/RESULT.json`.
 
 ## Main after v0.4.0 — 2026-09-11
 
