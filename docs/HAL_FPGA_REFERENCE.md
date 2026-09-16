@@ -416,7 +416,7 @@ board-qualified routing-emitter change), not to route the pin. Do **not** read t
 native narrow-**width** packing writes (x9/x4/x2/x1, address-selected sub-word windows):
 those are a distinct mechanism, are EMIT-verified only (opt-in `AGAMEMNON_BRAM_NARROW_WRITE`,
 replication fix), and a 2026-09-15 board session found a fresh generic x9 write does **not
-store in the open flow** (silicon capability UNRESOLVED — the vendor x9-write readback floated, so it is unproven either way; the BRAM write-ingress frontier; a 2026-09-15 attempt to transplant the vendor x9 `CFG_KMUX` write-mask lane (sel 62) was refuted — sel 62 breaks the open read egress on silicon, so store remains unobservable — see STATUS.md and
+store in the open flow** (silicon capability UNRESOLVED — the vendor x9-write readback floated, so it is unproven either way; the BRAM write-ingress frontier; a 2026-09-15 attempt to transplant the vendor x9 `CFG_KMUX` write-mask lane (sel 62) was refuted — sel 62 breaks the open read egress on silicon, so store remains unobservable (corrected: sel 62/71 are ReA/ReB read-enable ties per `bram9k_pinmap.csv`, not a write mask — the open x9 write config is already vendor-identical, so x9 non-store is a mode/silicon property, not a config bug) — see STATUS.md and
 `qualification/bram_narrow_write_evidence.jsonl`).
 
 Separately, **39 configuration rows across `X13Y1` … `X13Y4`** are admitted only
