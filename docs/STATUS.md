@@ -18,7 +18,7 @@ the board. Emit-verified ≠ silicon-proven: a built route can float until witne
 emission. Read emit therefore covers the full single-port width surface (x1..x36) with no further chipdb
 change; x18 write + ByteEn masking emit with shipped tables.
 
-**Not yet complete (both require the board / human review):** (1) **native narrow-width writes**
+**Accepted final limitation (closed 2026-09-16, no further RE):** (1) **native narrow-width writes**
 (x1/x2/x4/x9 `PORTA_WIDTH`): the silent-drop mechanism is now FIXED behind opt-in
 `AGAMEMNON_BRAM_NARROW_WRITE` (DataIn replication + `active_width` packer keep-change + self-verifying
 guard; iverilog-verified errors=0, unit-tested, and emit-verified — a clean x9 write builds 0-unmapped
