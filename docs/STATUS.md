@@ -18,6 +18,16 @@ the board. Emit-verified ≠ silicon-proven: a built route can float until witne
 emission. Read emit therefore covers the full single-port width surface (x1..x36) with no further chipdb
 change; x18 write + ByteEn masking emit with shipped tables.
 
+**Auto-enabled from the typed cell (2026-09-16, no user flag):** ordinary non-release-strict
+`build --uarch` now detects the synthesized `ALTA_BRAM9K` cell and sets the two board-witnessed
+surfaces itself, on the GPIO4-request-corridor promotion pattern: a read-ported cell activates the
+site-read pre-route (`AGAMEMNON_BRAM_SITE_READ_PATHS`, hbread10-witnessed corridor), and a grounded
+`ByteEnA` lane activates the mask emission (`AGAMEMNON_BRAM_BYTEEN`, board-proven `CFG_KMUX` tie) so the
+emitted image carries the design's byte mask. Both flags remain the internal mechanism and honor an
+explicit setting; a design without the cell is byte-identical, and release-strict builds are unchanged
+(the options are experimental maturity, which release-strict refuses by design). This changes which
+qualified paths ordinary builds take; it does not change any silicon claim, fence, or write refusal.
+
 **Accepted final limitation (closed 2026-09-16, no further RE):** (1) **native narrow-width writes**
 (x1/x2/x4/x9 `PORTA_WIDTH`): the silent-drop mechanism is now FIXED behind opt-in
 `AGAMEMNON_BRAM_NARROW_WRITE` (DataIn replication + `active_width` packer keep-change + self-verifying

@@ -2192,6 +2192,36 @@ def _native_srst_candidate_options(recovery):
             for key, value in zip(_NATIVE_MAPPING_OPTION_KEYS, defaults)}
 
 
+def _bram_auto_features(synth_json):
+    """Which board-witnessed BRAM surfaces the synthesized netlist calls for.
+
+    ``reads``: an ``ALTA_BRAM9K`` cell has a net-connected ``DataOutA``/
+    ``DataOutB`` bit, so the design reads BRAM and wants the witnessed
+    site-read pre-route.  ``byteen``: a cell ties a ``ByteEnA`` lane to
+    constant ``'0'`` -- the same predicate ``qin_pack`` uses to record the
+    mask intent -- so faithful emission needs the CFG_KMUX tie.  A parse
+    failure reports neither: auto-enable must never be the reason a build
+    changes, only the typed cells can be.
+    """
+    reads = byteen = False
+    try:
+        with open(synth_json, encoding="utf-8") as fh:
+            modules = json.load(fh).get("modules", {})
+        for module in modules.values():
+            for cell in module.get("cells", {}).values():
+                if cell.get("type") != "ALTA_BRAM9K":
+                    continue
+                conns = cell.get("connections", {})
+                for port in ("DataOutA", "DataOutB"):
+                    if any(isinstance(bit, int) for bit in conns.get(port, []) or []):
+                        reads = True
+                if any(bit == "0" for bit in conns.get("ByteEnA", []) or []):
+                    byteen = True
+    except Exception:
+        return {"reads": False, "byteen": False}
+    return {"reads": reads, "byteen": byteen}
+
+
 def _cmd_build_once(a):
     """Single-command open build: Verilog -> yosys synth -> nextpnr place&route -> our bitgen -> .bin,
     entirely from the self-contained package (engine/ + chipdb/ + synth/). No vendor binary. yosys and
@@ -2690,6 +2720,32 @@ def _cmd_build_once(a):
                 sys.exit(1)
             print("[build] native clock-enable selective retry: lowered %d infeasible group(s)" %
                   len(changed))
+    # One tool that just works, part two: auto-activate the board-witnessed
+    # BRAM surfaces from the typed cell -- no user-facing flag, same pattern as
+    # the GPIO4 request corridor below.  Gated to non-release-strict --uarch
+    # builds: both options are registered ``experimental`` maturity, which
+    # release-strict refuses, and auto-setting them there would make a build
+    # refuse the CLI's own option (the AGAMEMNON_NO_FFBRIDGE trap).  An
+    # explicit environment setting, either way, is always respected.
+    if a.uarch and not release_strict:
+        _bram_auto = _bram_auto_features(synth_json)
+        # Site-read pre-route: the X13Y4 read corridor was board-witnessed
+        # 2026-09-15 (hbread10, RMUX84->CtrlMUX02={31,32}) and Rule-2 rebuilds
+        # the retained corpus byte-identical.  A design without a read-ported
+        # ALTA_BRAM9K stays byte-identical (zero blast radius preserved).
+        if _bram_auto["reads"] and "AGAMEMNON_BRAM_SITE_READ_PATHS" not in env:
+            env["AGAMEMNON_BRAM_SITE_READ_PATHS"] = "1"
+            print("[build] BRAM site-read paths auto-enabled (read-ported "
+                  "ALTA_BRAM9K present; board-witnessed X13Y4 corridor)")
+        # ByteEn mask emission: board-proven 2026-09-15.  Without it a
+        # grounded ByteEnA lane loses its CFG_KMUX tie, so the emitted image
+        # would not carry the design's byte mask; qin_pack records the intent
+        # only when this option is set, which is why it is decided here,
+        # before the qin step.
+        if _bram_auto["byteen"] and "AGAMEMNON_BRAM_BYTEEN" not in env:
+            env["AGAMEMNON_BRAM_BYTEEN"] = "1"
+            print("[build] BRAM ByteEn mask emission auto-enabled (grounded "
+                  "ByteEnA lane present; board-proven CFG_KMUX tie)")
     # Ordinary own-Q feedback uses internal Qin on LUT input C. Explicit
     # direct-D checkpoints retain their separate path; remaining cell reads
     # and pad inputs receive the input permutations enforced by qin_pack.

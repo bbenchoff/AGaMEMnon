@@ -7,6 +7,14 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+- BRAM designs now activate their board-witnessed support automatically: an
+  ordinary (non-release-strict) `build --uarch` whose netlist contains a
+  read-ported `ALTA_BRAM9K` gets the silicon-witnessed X13Y4 site-read
+  pre-route, and a grounded `ByteEnA` lane gets the board-proven per-byte
+  write-mask emission — no environment flag needed, following the GPIO4
+  request-corridor auto-enable pattern. Designs without the typed cell build
+  byte-identically; explicit settings of the two internal options are honored;
+  release-strict behavior and every BRAM write refusal are unchanged.
 - Native positive-edge, active-high clock enable is now the default for ordinary
   `build --uarch`, using isolated single-enable tiles on line 0. A fresh source
   image passed update/hold/resume, independent scratch writes and activity checks
