@@ -31,7 +31,7 @@ proving the read delivers — while the written values never appeared — provin
 x18 write stores (w3bit, control-confirmed same session and in the post-x9inf_c health check), so it is
 the **x9 WIDTH MODE that fails to store** in the open flow (matching the single-variable x9w3-vs-w3bit
 isolation). This is the parked-x9 open-flow gap. Whether the **silicon** is intrinsically incapable of a narrow write is UNRESOLVED — the vendor x9-write readback floated, so hardware capability is unproven either way (honest framing: unachievable in our open flow, NOT “the hardware cannot”). The replication fix cures a separate packer window-drop
-but cannot make x9 store while the mode itself does not; x2 dual-port (SERV) write is board-proven.
+but cannot make x9 store while the mode itself does not; x2 dual-port (SERV) write is board-proven. **2026-09-15 config-transplant attempt (refuted):** decoded config shows the vendor x9 write uses `CFG_KMUX` lane 6 (sel 62) where the open flow reuses the x18 lane 7 (sel 71); transplanting sel 62 into the trusted-read x9 images broke the open read egress on silicon in three board tests (up_obs=0x0), so the x9 write-mode config and a delivering MCU read do not coexist in any open or vendor image — the store question is currently unobservable, not a one-bit fix.
 Not the guard;
 (2) **per-width/per-lane SILICON witnessing** of the composed open images
 (SRAM-only, control-first, attended) — the x18 read composed open image is now witnessed (`hbread10`,
