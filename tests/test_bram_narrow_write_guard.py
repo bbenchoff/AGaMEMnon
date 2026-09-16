@@ -64,3 +64,75 @@ def test_read_only_narrow_bram_is_not_refused():
         assert not narrow_write_silently_wrong(width, None)     # absent
         assert not narrow_write_silently_wrong(width, ["0"])    # constant 0
         assert not narrow_write_silently_wrong(width, ["1"])    # constant 1 (ROM-fold, handled upstream)
+
+
+# --- AGAMEMNON_BRAM_NARROW_WRITE: opt-in DataIn-replication path (self-verifying) ---
+from agamemnon.engine.features.bram import (
+    NARROW_WRITE_WINDOWS,
+    _narrow_write_windows_populated,
+)
+from agamemnon.engine import qin_pack
+
+NARROW = (X9, X4, X2, X1)
+# Widths subject to the self-verifying window check: X2 is exempt up front via the
+# SERV dual-port QUALIFIED_WRITE_WIDTHS entry, so it is never refused and never
+# reaches the window-population logic.
+NARROW_REFUSED = (X9, X4, X1)
+
+
+def _populated_datain(width, drop=None):
+    """An 18-entry DataInA where every physical lane the vendor mask can select for
+    ``width`` is a real net (int), except optionally ``drop`` (left constant '0').
+    Non-selectable lanes (8/17 for x4/x2/x1) are constant '0' don't-cares."""
+    w, windows = NARROW_WRITE_WINDOWS[width]
+    needed = {base + j for base in windows for j in range(w)}
+    if drop is not None:
+        needed.discard(drop)
+    return [(1000 + i) if i in needed else "0" for i in range(18)]
+
+
+def test_window_map_matches_qin_pack_transform():
+    # The emitter guard and the qin_pack replication transform MUST agree on the
+    # per-width physical windows, or a replicated write could pass the guard while a
+    # window it left unfilled silently drops (or vice-versa).
+    assert NARROW_WRITE_WINDOWS == qin_pack.NARROW_WRITE_WINDOWS
+
+
+def test_optin_admits_a_fully_replicated_narrow_write():
+    # With the opt-in flag AND every address-selected window populated by a real net
+    # (what the replication transform produces), the write is emit-correct, not
+    # silently-wrong -> admitted.
+    for width in NARROW:
+        assert _narrow_write_windows_populated(width, _populated_datain(width))
+        assert not narrow_write_silently_wrong(
+            width, NET, _populated_datain(width), narrow_write_optin=True)
+
+
+def test_optin_still_refuses_a_partially_replicated_narrow_write():
+    # Self-verifying + fail-closed: if the replication failed to fill even one
+    # address-selected window lane, the write is still silently-wrong and stays
+    # refused EVEN under the opt-in flag.
+    for width in NARROW_REFUSED:
+        w, windows = NARROW_WRITE_WINDOWS[width]
+        # drop the first lane of a NON-lowest window (the exact lane the old packer
+        # dropped) -> not fully populated.
+        drop_lane = windows[1]  # base of the second window
+        datain = _populated_datain(width, drop=drop_lane)
+        assert not _narrow_write_windows_populated(width, datain)
+        assert narrow_write_silently_wrong(
+            width, NET, datain, narrow_write_optin=True)
+
+
+def test_populated_windows_without_optin_still_refused():
+    # The opt-in flag is required: even a fully populated DataInA is refused when the
+    # caller did not opt in (default builds keep the fail-closed P0 refusal).
+    for width in NARROW_REFUSED:
+        assert narrow_write_silently_wrong(
+            width, NET, _populated_datain(width), narrow_write_optin=False)
+
+
+def test_optin_read_only_narrow_bram_still_not_refused():
+    # Opt-in never turns a read-only (no dynamic WeA) narrow BRAM into a refusal.
+    for width in NARROW:
+        assert not narrow_write_silently_wrong(
+            width, [], _populated_datain(width), narrow_write_optin=True)

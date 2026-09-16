@@ -57,6 +57,11 @@
       "prefix_sha256": "4bba97bae86a3e63890794ee0512622677ea3c8771b1ffb10f44dc4522bee2d8",
       "record_policy": "legacy-or-schema-1"
     },
+    "bram_narrow_write_evidence.jsonl": {
+      "prefix_bytes": 2940,
+      "prefix_sha256": "52792723d94ac2412d8a5c7bc68846fc22941cfb1ab84bc5175b8da08e5356c7",
+      "record_policy": "schema-1"
+    },
     "bram_site_read_evidence.jsonl": {
       "prefix_bytes": 3150,
       "prefix_sha256": "1a775f0d6d9bec57245b42fd9f30c5ca9a454506cf0cf821dcbf4621aaa89263",

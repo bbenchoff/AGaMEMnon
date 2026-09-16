@@ -836,18 +836,97 @@ def stamp_byteen_mask(json_path):
     return n
 
 
+# Address-selected narrow-write windows per PORTA_WIDTH code: (logical width W,
+# physical lane bases).  CANONICAL copy lives in features/bram.py NARROW_WRITE_WINDOWS;
+# test_narrow_write_windows asserts these two stay identical.  See that module and
+# AG32-Docs .../bram_x9_write_multibit_20260913/NARROW_WRITE_FIX_SIMVERIFIED_20260915.md
+# (iverilog-verified errors=0 all widths).
+NARROW_WRITE_WINDOWS = {
+    0b01000: (9, (0, 9)),                                       # x9
+    0b01100: (4, (0, 4, 9, 13)),                               # x4
+    0b01110: (2, (0, 2, 4, 6, 9, 11, 13, 15)),                 # x2
+    0b01111: (1, (0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 16)),  # x1
+}
+
+
+def _bram_width_code(value):
+    """Parse a PORTA/PORTB_WIDTH yosys parameter (binary string or int) to an int."""
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str) and value and set(value) <= {"0", "1"}:
+        return int(value, 2)
+    return -1
+
+
+def replicate_narrow_bram_write_datain(json_path):
+    """Fan a narrow Port-A write's logical DataInA across every physical write window.
+
+    The vendor alta_bram9k write mask is ADDRESS-SELECTED: a narrow PORTA_WIDTH packs
+    several logical sub-words per 18-bit physical row and the block address picks which
+    W-lane window is written (shift = blk[hi:lo]*W + blk[3]).  Yosys/nextpnr present the
+    logical data only on the lowest window (lanes 0..W-1), so writes to any non-lowest
+    address silently keep their old value.  Replicate logical DataInA bit j onto physical
+    lane (base+j) for EVERY window base so the address-selected window is always driven by
+    a real net.  This is the pre-nextpnr half of the fix; the agrv2k packer's padded-lane
+    trim must also KEEP these real-driven upper lanes (AGRV2K_BRAM_NARROW_WRITE) and the
+    emitter's self-verifying guard admits the width once every window is populated.
+
+    Opt-in (AGAMEMNON_BRAM_NARROW_WRITE) so default builds are byte-identical.  Only real
+    (net-driven) logical bits are fanned out; a constant/dangling logical lane is left as
+    is (the write stays refused by the guard -- constant narrow writes are out of scope).
+    Scoped to Port A with a dynamically write-enabled WeA.  Returns the number of physical
+    lanes newly driven."""
+    if not os.environ.get("AGAMEMNON_BRAM_NARROW_WRITE"):
+        return 0
+    design = json.load(open(json_path))
+    changed = 0
+    for module in design.get("modules", {}).values():
+        for cell in module.get("cells", {}).values():
+            if cell.get("type") != "ALTA_BRAM9K":
+                continue
+            width = _bram_width_code(cell.get("parameters", {}).get("PORTA_WIDTH"))
+            spec = NARROW_WRITE_WINDOWS.get(width)
+            if spec is None:
+                continue
+            conns = cell.get("connections", {})
+            wea = conns.get("WeA", []) or []
+            if not any(isinstance(bit, int) for bit in wea):
+                continue  # read-only / constant WeA -> no write to correct
+            datain = conns.get("DataInA")
+            if not isinstance(datain, list) or len(datain) < 18:
+                continue
+            w, windows = spec
+            for j in range(w):
+                src = datain[j]
+                if not isinstance(src, int):
+                    continue  # only replicate real logical-data nets
+                for base in windows:
+                    lane = base + j
+                    if lane < len(datain) and datain[lane] != src:
+                        datain[lane] = src
+                        changed += 1
+    if changed:
+        json.dump(design, open(json_path, "w"))
+    return changed
+
+
 if __name__ == "__main__":
     i = expand_uniform_bram_init(sys.argv[1])
     b = split_shared_qualified_bram_inputs(sys.argv[1])
+    # After split_shared has finalized any per-lane DataInA[0]/[1] buffering, so the
+    # replicated upper-window lanes copy the FINAL (definitely-driven) low-lane nets
+    # rather than pre-split nets a later pass might orphan.
+    r = replicate_narrow_bram_write_datain(sys.argv[1])
     w = wrap_pad_dff_inputs(sys.argv[1])
     e = lower_local_qin_feedback(sys.argv[1])
     n = permute_selffb_to_inputD(sys.argv[1])
     m = permute_reads_to_inputD(sys.argv[1])
     p = permute_pad_inputs_high(sys.argv[1])
     stamp_byteen_mask(sys.argv[1])
-    print("qin_pack: filled %d uniform narrow-BRAM INIT bit(s), split %d "
+    print("qin_pack: filled %d uniform narrow-BRAM INIT bit(s), replicated %d "
+          "narrow-write DataInA lane(s), split %d "
           "shared qualified BRAM terminal(s), wrapped %d "
           "registered pad input(s), lowered %d internal Qin-to-C feedback "
           "loop(s), permuted %d self-feedback -> I[3], %d cell-to-cell "
           "reads -> I[3], %d direct-pad input move(s) -> high pins" %
-          (i, b, w, e, n, m, p))
+          (i, r, b, w, e, n, m, p))

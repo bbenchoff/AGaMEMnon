@@ -9,7 +9,7 @@ the board. Emit-verified ≠ silicon-proven: a built route can float until witne
 | Width | Read emit | Write emit | Silicon |
 |---|---|---|---|
 | x18 | **PROMOTED** (default; hready-gated corridor via board-proven `RMUX84→CtrlMUX02={31,32}`) | emits (default; `w18write` 272 pips, 0 unmapped) | read: **composed OPEN image silicon-witnessed** (`hbread10`, 2026-09-15, INIT-0 driven read delivers at X13Y4 over the RMUX84 corridor; independently audited PASS; scope = driven-0 delivery only, NOT driven-1/address-varied — see hbread6, partial); write: 5 of 18 DataInA lanes board-witnessed, rest emit-only |
-| x9 / x4 / x2 / x1 | emits (default; byte-distinct per-width configs) | **native narrow width refused** by the P0 silently-wrong guard (packer `active_width` sub-word window); byte-granular masking available instead via **ByteEn** | read: board-witness-pending; write: via ByteEn only |
+| x9 / x4 / x2 / x1 | emits (default; byte-distinct per-width configs) | default: **native narrow width refused** by the fail-closed P0 guard; opt-in `AGAMEMNON_BRAM_NARROW_WRITE` implements the silent-drop fix (qin_pack DataIn replication across every address-selected window + packer keeps the real-driven upper lanes + self-verifying guard), iverilog-verified against the vendor model (errors=0), unit-tested, and now **EMIT-VERIFIED**: a clean x9 write (`x9write9`) builds 0-unmapped with the upper window correctly populated (all 18 DataIn lanes driven, 9/9 window pairs share a net). byte-granular masking also available via **ByteEn** | read: board-witness-pending; write: silent-drop mechanism FIXED + emit-verified (opt-in); **board qual pending** (write-ingress routing is placement-marginal — some placements hit a withdrawn selector — and a write board-witness needs a trusted x9 read to observe the store); x2 dual-port (SERV) board-proven |
 | x36 | emits (opt-in `AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG`) | experimental / untested | board-witness-pending |
 | ByteEn per-byte masking (on x18) | n/a | **SHIPPED + board-proven** (`CFG_KMUX` pos-8 gnd tie; `test_bram_byteen_emission`) | board-proven (obs 0xE4→0xFF) |
 
@@ -19,9 +19,15 @@ emission. Read emit therefore covers the full single-port width surface (x1..x36
 change; x18 write + ByteEn masking emit with shipped tables.
 
 **Not yet complete (both require the board / human review):** (1) **native narrow-width writes**
-(x1/x2/x4/x9 `PORTA_WIDTH`) are behind a P0 guard because the packer emits them silently-wrong — lifting
-that guard needs the `active_width` sub-word packer change *and board qualification*, not an autonomous
-edit past a safety guard; (2) **per-width/per-lane SILICON witnessing** of the composed open images
+(x1/x2/x4/x9 `PORTA_WIDTH`): the silent-drop mechanism is now FIXED behind opt-in
+`AGAMEMNON_BRAM_NARROW_WRITE` (DataIn replication + `active_width` packer keep-change + self-verifying
+guard; iverilog-verified errors=0, unit-tested, and emit-verified — a clean x9 write builds 0-unmapped
+with the upper window correctly populated; default stays fail-closed and byte-identical). Board
+qualification of a narrow write remains PENDING: x9 write-ingress routing is placement-marginal (some
+placements hit a withdrawn selector edge — the separate write-ingress frontier), and a write
+board-witness needs a trusted x9 read to observe the store (only the x18 read is silicon-witnessed so
+far). Not the guard;
+(2) **per-width/per-lane SILICON witnessing** of the composed open images
 (SRAM-only, control-first, attended) — the x18 read composed open image is now witnessed (`hbread10`,
 driven-0 delivery; independently audited PASS), leaving driven-1/address-varied read (hbread6 partial),
 narrow writes, and non-x18 widths as the open witnesses. Witnessed read artifact: `AG32-Docs

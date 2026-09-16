@@ -758,3 +758,74 @@ def test_shared_qualified_bram_inputs_receive_distinct_identity_drivers(tmp_path
         "I": [5, "0", "0", "0"], "Q": [memory["DataInA"][1]]
     }
     assert split_shared_qualified_bram_inputs(path) == 0
+
+
+# --- narrow-write DataIn replication (AGAMEMNON_BRAM_NARROW_WRITE) ---
+from agamemnon.engine.qin_pack import (
+    replicate_narrow_bram_write_datain,
+    NARROW_WRITE_WINDOWS,
+)
+
+
+def _narrow_write_bram(width_code, wea, datain):
+    return {"modules": {"top": {"cells": {
+        "mem": {"type": "ALTA_BRAM9K",
+                "parameters": {"PORTA_WIDTH": width_code},
+                "connections": {"WeA": list(wea), "DataInA": list(datain)}},
+    }}}}
+
+
+def _run_replicate(tmp_path, data):
+    p = tmp_path / "narrow.json"
+    p.write_text(json.dumps(data))
+    n = replicate_narrow_bram_write_datain(str(p))
+    return n, json.loads(p.read_text())
+
+
+def test_replicate_populates_every_window_all_widths(tmp_path, monkeypatch):
+    # For each native narrow width, the logical DataInA bit j must end up driving
+    # physical lane (base+j) for EVERY address-selected window base, all from the
+    # same net -- exactly the vendor-model-verified fix.
+    monkeypatch.setenv("AGAMEMNON_BRAM_NARROW_WRITE", "1")
+    for code, (w, windows) in NARROW_WRITE_WINDOWS.items():
+        datain = [200 + j if j < w else "0" for j in range(18)]
+        code_str = format(code, "05b")
+        _, out = _run_replicate(tmp_path, _narrow_write_bram(code_str, [7], datain))
+        di = out["modules"]["top"]["cells"]["mem"]["connections"]["DataInA"]
+        for j in range(w):
+            for base in windows:
+                assert di[base + j] == 200 + j, (code_str, j, base)
+
+
+def test_replicate_is_noop_without_optin(tmp_path, monkeypatch):
+    monkeypatch.delenv("AGAMEMNON_BRAM_NARROW_WRITE", raising=False)
+    datain = [200 + j if j < 9 else "0" for j in range(18)]
+    n, out = _run_replicate(tmp_path, _narrow_write_bram("01000", [7], datain))
+    assert n == 0
+    assert out["modules"]["top"]["cells"]["mem"]["connections"]["DataInA"][9:] == ["0"] * 9
+
+
+def test_replicate_skips_read_only_bram(tmp_path, monkeypatch):
+    # A constant WeA is read-only/ROM -> no write to correct, no replication.
+    monkeypatch.setenv("AGAMEMNON_BRAM_NARROW_WRITE", "1")
+    datain = [200 + j if j < 9 else "0" for j in range(18)]
+    n, _ = _run_replicate(tmp_path, _narrow_write_bram("01000", ["0"], datain))
+    assert n == 0
+
+
+def test_replicate_skips_constant_logical_lane(tmp_path, monkeypatch):
+    # Only real (net-driven) logical bits fan out; a constant logical lane is left
+    # as is (constant narrow writes stay refused by the emitter guard).
+    monkeypatch.setenv("AGAMEMNON_BRAM_NARROW_WRITE", "1")
+    datain = ["0"] + [200 + j for j in range(1, 9)] + ["0"] * 9
+    _, out = _run_replicate(tmp_path, _narrow_write_bram("01000", [7], datain))
+    di = out["modules"]["top"]["cells"]["mem"]["connections"]["DataInA"]
+    assert di[9] == "0"     # constant logical bit 0 NOT replicated
+    assert di[10] == 201    # real logical bit 1 replicated to the upper window
+
+
+def test_replicate_skips_wide_x18(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGAMEMNON_BRAM_NARROW_WRITE", "1")
+    datain = [200 + j for j in range(18)]
+    n, _ = _run_replicate(tmp_path, _narrow_write_bram("00000", [7], datain))
+    assert n == 0

@@ -52,14 +52,66 @@ BRAM_CONTROL_FIELD_WIDTHS = {"KMUX": 9, "TMUX": 8}
 # exemption on dual-port (the `portb_read` signal computed below).
 QUALIFIED_WRITE_WIDTHS = frozenset((0b00000, 0b01110))  # x18, x2 (see note above)
 
+# Address-selected write windows per narrow PORTA_WIDTH code: (logical width W,
+# physical lane bases). The vendor alta_bram9k write mask selects a W-lane window
+# by block address, shift = blk[hi:lo]*W + blk[3]; the +blk[3] offset skips
+# physical lanes 8 and 17 for x4/x2/x1. To make a narrow write correct the logical
+# DataIn bit j (0..W-1) must be driven onto physical lane (base+j) for EVERY window
+# base -- otherwise the non-lowest windows keep their old value (silently wrong).
+# Derived + iverilog-verified against the vendor model (errors=0 all widths):
+# AG32-Docs tools/vendor_parity/bram_x9_write_multibit_20260913/
+#   NARROW_WRITE_FIX_SIMVERIFIED_20260915.md.  qin_pack.replicate_narrow_bram_write_datain
+# performs the fan-out; keep that map and this one identical (test_narrow_write_windows).
+NARROW_WRITE_WINDOWS = {
+    0b01000: (9, (0, 9)),                                       # x9
+    0b01100: (4, (0, 4, 9, 13)),                               # x4
+    0b01110: (2, (0, 2, 4, 6, 9, 11, 13, 15)),                 # x2
+    0b01111: (1, (0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 16)),  # x1
+}
 
-def narrow_write_silently_wrong(width, wea_connection):
+
+def _narrow_write_windows_populated(width, datain_a_connection):
+    """True iff every physical DataInA lane the vendor write mask can select for
+    ``width`` is driven by a REAL net (an int bit-ref) in the (post-route) netlist.
+    This is the self-verifying signal that the DataIn replication transform ran and
+    populated all address-selected windows; a constant/dangling lane ("0"/"1"/"x")
+    is not a real driver, so a partially replicated (or unreplicated) write is not
+    considered populated and stays refused."""
+    spec = NARROW_WRITE_WINDOWS.get(width)
+    if spec is None or datain_a_connection is None:
+        return False
+    w, windows = spec
+    needed = {base + j for base in windows for j in range(w)}
+    if any(lane >= len(datain_a_connection) for lane in needed):
+        return False
+    driven = {lane for lane in needed
+              if isinstance(datain_a_connection[lane], int)}
+    return driven == needed
+
+
+def narrow_write_silently_wrong(width, wea_connection, datain_a_connection=None,
+                                narrow_write_optin=False):
     """True if a Port-A write at PORTA_WIDTH ``width`` silently drops packed
     sub-words. Write-enabled iff WeA carries a real net bit (dynamically driven);
     a constant or empty WeA is read-only/ROM (handled elsewhere) and never trips
-    this. See the module-level comment above for the full derivation."""
+    this. See the module-level comment above for the full derivation.
+
+    The opt-in narrow-write replication path (``narrow_write_optin``, set from
+    ``AGAMEMNON_BRAM_NARROW_WRITE``) exempts a narrow width ONLY when the routed
+    netlist actually populates every address-selected write window for it
+    (``_narrow_write_windows_populated``). This is self-verifying and fail-closed:
+    a replication that failed to fill a window is still silently-wrong and stays
+    refused even under the opt-in. Default builds (opt-in off) keep the blanket
+    refusal, byte-identical."""
     write_enabled = any(isinstance(bit, int) for bit in (wea_connection or ()))
-    return write_enabled and width not in QUALIFIED_WRITE_WIDTHS
+    if not write_enabled:
+        return False
+    if width in QUALIFIED_WRITE_WIDTHS:
+        return False
+    if narrow_write_optin and _narrow_write_windows_populated(
+            width, datain_a_connection):
+        return False
+    return True
 # Fixed, zero-bit source presentation used by the individually qualified
 # registered-source same-Port-A write checkpoints. This stays emitter-only:
 # the ordinary architecture does not advertise the corridor or generalize
@@ -687,7 +739,9 @@ class BramFeature:
                     "clock-source and constant-input repairs" % width
                 )
             if (narrow_write_silently_wrong(
-                    width, cell.get("connections", {}).get("WeA"))
+                    width, cell.get("connections", {}).get("WeA"),
+                    cell.get("connections", {}).get("DataInA"),
+                    narrow_write_optin=options.enabled("AGAMEMNON_BRAM_NARROW_WRITE"))
                     and not options.enabled("AGAMEMNON_RESEARCH_UNSAFE")):
                 raise SystemExit(
                     "narrow BRAM Port-A width code %s (%d) with a dynamic WeA is a "
@@ -697,8 +751,10 @@ class BramFeature:
                     "dropped. x9 is proven to drop all odd addresses against the "
                     "vendor alta_bram9k model; x4/x1 writes are unqualified. Use x18 "
                     "(00000) or x2 (01110, the silicon-proven SERV register-file "
-                    "width) for writable BRAM, or --research-unsafe for the "
-                    "documented negative." % (format(width, "05b"), width)
+                    "width) for writable BRAM; or AGAMEMNON_BRAM_NARROW_WRITE with the "
+                    "qin_pack DataIn-replication transform (board qualification still "
+                    "required); or --research-unsafe for the documented negative."
+                    % (format(width, "05b"), width)
                 )
             experimental_enabled = options.enabled("AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG")
             if experimental_enabled:

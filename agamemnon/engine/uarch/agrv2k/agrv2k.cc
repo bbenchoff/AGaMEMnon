@@ -3919,6 +3919,12 @@ static void pack_bram_trim(Context *ctx)
 static void pack_bram_localize_const(Context *ctx)
 {
     bool hardconst = std::getenv("AGRV2K_BRAM_HARDCONST") != nullptr;
+    // AGAMEMNON_BRAM_NARROW_WRITE: keep a padded upper DataIn lane that carries a real
+    // (non-constant) driver -- the replicated narrow-write data for an address-selected
+    // window (qin_pack.replicate_narrow_bram_write_datain) -- instead of trimming it as a
+    // width-padding don't-care. Constant/dangling padded lanes still trim, so the SERV
+    // 512x2 RF (whose upper lanes are constant 0) stays byte-identical. Opt-in.
+    bool narrow_write_optin = std::getenv("AGAMEMNON_BRAM_NARROW_WRITE") != nullptr;
     NetInfo *gnd = nullptr, *vcc = nullptr;
     for (auto &n : ctx->nets) {
         if (n.first == ctx->id("$PACKER_GND_NET"))
@@ -3947,6 +3953,33 @@ static void pack_bram_localize_const(Context *ctx)
         auto suffix_bits = [](int width) {
             return width == 18 ? 4 : (width == 9 ? 3 : (width == 4 ? 2 : (width == 2 ? 1 : 0)));
         };
+        // A padded upper DataIn lane is a genuine width-padding don't-care only when it
+        // carries no real data: a constant (gnd/vcc or an all-0/all-1 GENERIC_SLICE with no
+        // FF, exactly as pack_constants builds $PACKER_GND/$PACKER_VCC) or a dangling net.
+        auto is_dontcare_data = [&](NetInfo *net) -> bool {
+            if (net == nullptr || net == gnd || net == vcc)
+                return true;
+            if (net->driver.cell == nullptr)
+                return true;
+            if (net->driver.cell->type == ctx->id("GENERIC_SLICE") &&
+                    net->driver.port == ctx->id("F")) {
+                CellInfo *drv = net->driver.cell;
+                auto init = drv->params.find(ctx->id("INIT"));
+                auto ff = drv->params.find(ctx->id("FF_USED"));
+                const int width = 1 << ctx->args.K;
+                if (init != drv->params.end() && init->second.is_fully_def() &&
+                        int(init->second.size()) == width &&
+                        ff != drv->params.end() && ff->second.is_fully_def() &&
+                        ff->second.as_int64() == 0) {
+                    if (init->second == Property(0, width))
+                        return true;
+                    if (init->second ==
+                            Property(Property::S1).extract(0, width, Property::S1))
+                        return true;
+                }
+            }
+            return false;
+        };
         for (auto &p : ci->ports) {
             if (p.second.type != PORT_IN || p.second.net == nullptr)
                 continue;
@@ -3954,6 +3987,13 @@ static void pack_bram_localize_const(Context *ctx)
             bool padded_a = std::sscanf(p.first.str(ctx).c_str(), "DataInA[%d]", &dbit) == 1 && dbit >= active_a;
             dbit = -1;
             bool padded_b = std::sscanf(p.first.str(ctx).c_str(), "DataInB[%d]", &dbit) == 1 && dbit >= active_b;
+            if ((padded_a || padded_b) && narrow_write_optin &&
+                    !is_dontcare_data(p.second.net)) {
+                // Replicated narrow-write data for an address-selected upper window: keep it so
+                // nextpnr routes it to the physical BRAM DataIn terminal and that window stores.
+                padded_a = false;
+                padded_b = false;
+            }
             if (padded_a || padded_b) {
                 // Narrow BRAM modes physically ignore the padded upper data pins.  Routing sixteen
                 // constant-zero DataIn bits for a 512x2 SERV RF consumed the entire approach and left
