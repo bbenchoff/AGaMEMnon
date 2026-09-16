@@ -65,6 +65,14 @@ are not established.
 
 ## BRAM and memory
 
+> **Updated 2026-09-15 — the 2026-09-09 text below is superseded on several points; `STATUS.md`
+> holds the authoritative BRAM read/write matrix.** Since this was written: the open **x18 read** is
+> silicon-witnessed (`hbread10`, driven-0); **x2 dual-port (SERV)** write and **x18 + `ByteEn`**
+> per-byte masking are board-proven; and the initialized x18 read-zero escape (`VP-AGM-006`) is
+> superseded by that witnessed read. Native narrow-width **packing** writes (x9/x4/x1) do **not store
+> in the open flow** (hardware capability unresolved — the vendor x9-write readback floated); the
+> broader width/site/mode/collision surface listed below remains unqualified.
+
 The synthesis flow contains an inferred `ALTA_BRAM9K` mapping and a strict
 configuration emitter. The emitter requires a complete decoded configuration
 surface and refuses a tile whose fields would otherwise silently disappear.
