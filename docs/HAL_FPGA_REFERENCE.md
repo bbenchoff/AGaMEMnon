@@ -409,10 +409,15 @@ So the earlier open-flow attempt saw `=2'b10` vs `=2'b01` write **identically** 
 it tried to *route* a LUT constant through `SLICE.F→OMUX→RMUX→TMUX→KMUX` (a routing/
 delivery gap that did not conduct), **not** because ByteEn is unreachable — the vendor
 does not route it at all, it sets the KMUX local-gnd config. That "board-refuted"
-reading is withdrawn. Consequence: native narrow-mode *packing* writes (multiple
-sub-words per 18-bit row) **are** achievable on silicon; the open-flow work is to drive
-the `CFG_KMUX` pos-8 gnd tie from the `ByteEnA` pin constant (a scoped, board-qualified
-routing-emitter change), not to route the pin.
+reading is withdrawn. Consequence: **ByteEn per-byte write masking** (holding one 9-bit
+byte of an 18-bit row while the other is written) is achievable on silicon; the open-flow
+work is to drive the `CFG_KMUX` pos-8 gnd tie from the `ByteEnA` pin constant (a scoped,
+board-qualified routing-emitter change), not to route the pin. Do **not** read this as
+native narrow-**width** packing writes (x9/x4/x2/x1, address-selected sub-word windows):
+those are a distinct mechanism, are EMIT-verified only (opt-in `AGAMEMNON_BRAM_NARROW_WRITE`,
+replication fix), and a 2026-09-15 board session found a fresh generic x9 write does **not
+store on silicon at all** (the BRAM write-ingress frontier — see STATUS.md and
+`qualification/bram_narrow_write_evidence.jsonl`).
 
 Separately, **39 configuration rows across `X13Y1` … `X13Y4`** are admitted only
 under the `experimental-strict` policy, and are **denied under the default
