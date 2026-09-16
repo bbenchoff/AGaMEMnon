@@ -9,7 +9,7 @@ the board. Emit-verified ≠ silicon-proven: a built route can float until witne
 | Width | Read emit | Write emit | Silicon |
 |---|---|---|---|
 | x18 | **PROMOTED** (default; hready-gated corridor via board-proven `RMUX84→CtrlMUX02={31,32}`) | emits (default; `w18write` 272 pips, 0 unmapped) | read: **composed OPEN image silicon-witnessed** (`hbread10`, 2026-09-15, INIT-0 driven read delivers at X13Y4 over the RMUX84 corridor; independently audited PASS; scope = driven-0 delivery only, NOT driven-1/address-varied — see hbread6, partial); write: 5 of 18 DataInA lanes board-witnessed, rest emit-only |
-| x9 / x4 / x2 / x1 | emits (default; byte-distinct per-width configs) | default: **native narrow width refused** by the fail-closed P0 guard; opt-in `AGAMEMNON_BRAM_NARROW_WRITE` implements the silent-drop fix (qin_pack DataIn replication across every address-selected window + packer keeps the real-driven upper lanes + self-verifying guard), iverilog-verified against the vendor model (errors=0), unit-tested, and now **EMIT-VERIFIED**: a clean x9 write (`x9write9`) builds 0-unmapped with the upper window correctly populated (all 18 DataIn lanes driven, 9/9 window pairs share a net). byte-granular masking also available via **ByteEn** | read: board-witness-pending; write: silent-drop mechanism FIXED + emit-verified (opt-in) but **NOT silicon-witnessed — storability INCONCLUSIVE, confound now CONFIRMED on silicon** (correcting an earlier over-claim). A read-only x9 board test (x9rdt2, INIT so DataOutA[0]@wl=wl&1) read **0 at all wordlines — it could not read a KNOWN INIT pattern** (hrdata[0] stuck-0, hrdata[1] floats), proving the fresh x9 readback does NOT deliver. So the earlier x9-write "read 0 after writing 1" was a BROKEN READBACK, not proof the write failed. x9/x4/x2/x1 single-port write is OPEN/unwitnessed. Deciding it needs a write grafted onto a proven-reading x9 image (qualified read corridor). What holds: x18 write stores (w3bit, control-confirmed); the QUALIFIED x9 read delivers (working images); replication is emit-correct; x2 dual-port (SERV) write board-proven |
+| x9 / x4 / x2 / x1 | emits (default; byte-distinct per-width configs) | default: **native narrow width refused** by the fail-closed P0 guard; opt-in `AGAMEMNON_BRAM_NARROW_WRITE` implements the silent-drop fix (qin_pack DataIn replication across every address-selected window + packer keeps the real-driven upper lanes + self-verifying guard), iverilog-verified against the vendor model (errors=0), unit-tested, and now **EMIT-VERIFIED**: a clean x9 write (`x9write9`) builds 0-unmapped with the upper window correctly populated (all 18 DataIn lanes driven, 9/9 window pairs share a net). byte-granular masking also available via **ByteEn** | read: board-witness-pending; write: silent-drop mechanism FIXED + emit-verified (opt-in). Silicon: the **x9 (narrow single-port) write does NOT store — now RESOLVED with a TRUSTED read** (after an intermediate confound correction). Using an INFERRED x9 BRAM with a registered read (like the working x9 reads; explicit-instantiation combinational reads don't deliver — x9rdt2) + a complement INIT, a board test (x9inf_c) read back the **INIT pattern {1,0,1,0} correctly** (proving the read delivers) while the **written values never appeared** (proving the write does not store). x18 write stores (w3bit, control-confirmed same session); so it is the **x9 WIDTH MODE that fails to store** on silicon (consistent with the single-variable x9w3-vs-w3bit isolation). The replication fix cures a separate packer window-drop but cannot make x9 store while the mode itself does not. x2 dual-port (SERV) write board-proven |
 | x36 | emits (opt-in `AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG`) | experimental / untested | board-witness-pending |
 | ByteEn per-byte masking (on x18) | n/a | **SHIPPED + board-proven** (`CFG_KMUX` pos-8 gnd tie; `test_bram_byteen_emission`) | board-proven (obs 0xE4→0xFF) |
 
@@ -23,17 +23,16 @@ change; x18 write + ByteEn masking emit with shipped tables.
 `AGAMEMNON_BRAM_NARROW_WRITE` (DataIn replication + `active_width` packer keep-change + self-verifying
 guard; iverilog-verified errors=0, unit-tested, and emit-verified — a clean x9 write builds 0-unmapped
 with the upper window correctly populated; default stays fail-closed and byte-identical). Board
-qualification of a narrow write is BLOCKED and its storability is **INCONCLUSIVE** (correcting an earlier
-over-claim that x9 "does not store"). 2026-09-15 board sessions (independently audited, controls PASS)
-found x9-write designs read back 0, but the x9 READ is a fragile qualified path (needs 6 buffer fields
-the x9w3 image lacks), so the readback may not deliver the BRAM data — a "read 0" is confounded between
-write-didn't-store and readback-doesn't-deliver. The clean disambiguating design (x9dp dual-port: write
-Port A / read Port B, the silicon-proven SERV pattern) routes 0-unmapped but does not emit (bitgen
-fail-closes on an uncharacterized read-egress route-through). So single-port x9/x4/x2/x1 write is
-OPEN/unwitnessed — neither proven working nor proven non-storing. What holds: x18 write stores (w3bit,
-control-confirmed same session); the x9 READ is qualifiable; the replication is emit-correct; x2
-dual-port (SERV) write is board-proven. The clean next step is a write + a QUALIFIED x9 readback (or
-dual-port with a characterized Port-B read-egress). Not the guard;
+qualification of a narrow write is **RESOLVED on silicon (with a trusted read): the x9 single-port write
+does NOT store.** After an intermediate confound correction (fresh *explicit-instantiation* x9 reads
+don't deliver — x9rdt2 read a known INIT as 0), an INFERRED x9 BRAM with a registered read (like the
+working x9 reads) plus a complement INIT (x9inf_c) read back the INIT pattern {1,0,1,0} CORRECTLY —
+proving the read delivers — while the written values never appeared — proving the write does not store.
+x18 write stores (w3bit, control-confirmed same session and in the post-x9inf_c health check), so it is
+the **x9 WIDTH MODE that fails to store** on silicon (matching the single-variable x9w3-vs-w3bit
+isolation). This is the parked-x9 open-flow gap. The replication fix cures a separate packer window-drop
+but cannot make x9 store while the mode itself does not; x2 dual-port (SERV) write is board-proven.
+Not the guard;
 (2) **per-width/per-lane SILICON witnessing** of the composed open images
 (SRAM-only, control-first, attended) — the x18 read composed open image is now witnessed (`hbread10`,
 driven-0 delivery; independently audited PASS), leaving driven-1/address-varied read (hbread6 partial),
