@@ -36,15 +36,17 @@ Two consequences: the shipped model is ~1.5–1.8x pessimistic on whole paths (l
 ~1.5x), and its LUT:route **ratio** is off by ~1.2x in the direction of under-weighting routing
 hops. Per-family constants fit silicon better than per-pip devdb values scaled by family (RMS 0.72
 vs 0.81 ns): the devdb's within-family per-pip variation is not something silicon agrees with.
-LUT and IMUX cannot be separated by I[0]-fed rings (one IMUX entry per stage); the split above
-scales both equally.
+Rings fed on I[3] (the D input) on seven of the same tiles separate LUT from IMUX: the A input
+costs +0.268 ns more than D per level (sd 0.056; vendor constants say +0.459), giving LUT ≈ 0.59×
+and IMUX ≈ 0.56× of the vendor numbers, with the vendor's ~4× A:D ratio holding on silicon. LUT
+input-pin assignment is therefore a real ~0.27 ns-per-level lever for critical paths.
 Measurement tooling, raw results and the fit live in the workbench repository
 (`tools/vendor_parity/timing_ro_20260916`).
 
 ## The hook
 
 ```
-AGRV2K_TIMING_CAL="RMUX=0.727,IMUX=0.474,LUT=0.474,OMUX=0.55"
+AGRV2K_TIMING_CAL="RMUX=0.727,IMUX=0.56,LUT=0.59,OMUX=0.55"
 ```
 
 Each `FAMILY=scale` multiplies the devdb `delay_ns` of every pip whose **destination wire name
@@ -59,8 +61,8 @@ nets differently from an uncalibrated one — treat calibrated images as fresh r
 
 ## Open
 
-- The LUT/IMUX split via I[3]-fed rings; a flat per-family override syntax so the hook can express
-  the better-fitting constant-per-family model exactly.
+- A flat per-family override syntax so the hook can express the better-fitting constant-per-family
+  model exactly; a LUT input-pin permutation pass for critical paths.
 - A/B of `placer_heap` on devdb vs calibrated delays on SERV, judged under one external STA and
   then on silicon Fmax, before any default changes.
 
