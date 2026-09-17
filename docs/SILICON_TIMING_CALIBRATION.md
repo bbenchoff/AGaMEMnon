@@ -23,21 +23,28 @@ over the retained routed netlists (per-family pip counts) gives, on the pilot se
 
 | term | silicon | shipped model | ratio |
 |---|---|---|---|
-| LUT (A input) + IMUX entry, per stage | 0.436 ns | 0.608 + 0.336 = 0.944 ns | 0.46 |
-| RMUX span, per pip | 0.305 ns | 0.418 ns (mean) | 0.73 |
-| OMUX hop, per pip | 0.116 ns | 0.066 ns (mean) | 1.75 (weakly determined) |
+| LUT (A input) + IMUX entry, per stage | 0.529 ns | 0.608 + 0.336 = 0.944 ns | 0.56 |
+| RMUX span, per pip | 0.280 ns | 0.418 ns (mean) | 0.67 |
+| OMUX hop, per pip | 0.030 ns | 0.066 ns (mean) | ~0.5 (weakly determined) |
 
-Two consequences: the shipped model is ~1.6–1.7x pessimistic on whole paths, and — more important
-for placement — its LUT:route **ratio** is wrong (logic overestimated ~2.2x, routing ~1.4x), so a
-delay-driven placer using it under-weights routing hops by roughly 1.6x. LUT and IMUX cannot be
-separated by I[0]-fed rings (one IMUX entry per stage); the split above scales both equally.
+(129 rings, all 128 buildable logic tiles plus a 31-stage reference; RMS 0.72 ns on 14–30 ns
+half-periods. The 6-ring pilot fit predicted the other 123 tiles to +1.0% mean / 3.6% sd before
+refitting, so the model generalizes across the array. Tile-to-tile residual sd is 0.055 ns per
+stage, ~10%, with column X12 slowest and X9/X3 fastest.)
+
+Two consequences: the shipped model is ~1.5–1.8x pessimistic on whole paths (logic ~1.8x, routing
+~1.5x), and its LUT:route **ratio** is off by ~1.2x in the direction of under-weighting routing
+hops. Per-family constants fit silicon better than per-pip devdb values scaled by family (RMS 0.72
+vs 0.81 ns): the devdb's within-family per-pip variation is not something silicon agrees with.
+LUT and IMUX cannot be separated by I[0]-fed rings (one IMUX entry per stage); the split above
+scales both equally.
 Measurement tooling, raw results and the fit live in the workbench repository
 (`tools/vendor_parity/timing_ro_20260916`).
 
 ## The hook
 
 ```
-AGRV2K_TIMING_CAL="RMUX=0.73,IMUX=0.46,OMUX=1.75,LUT=0.46"
+AGRV2K_TIMING_CAL="RMUX=0.727,IMUX=0.474,LUT=0.474,OMUX=0.55"
 ```
 
 Each `FAMILY=scale` multiplies the devdb `delay_ns` of every pip whose **destination wire name
@@ -52,6 +59,7 @@ nets differently from an uncalibrated one — treat calibrated images as fresh r
 
 ## Open
 
-- Per-tile speed map (full 132-tile sweep) and the LUT/IMUX split via I[3]-fed rings.
+- The LUT/IMUX split via I[3]-fed rings; a flat per-family override syntax so the hook can express
+  the better-fitting constant-per-family model exactly.
 - A/B of `placer_heap` on devdb vs calibrated delays on SERV, judged under one external STA and
   then on silicon Fmax, before any default changes.
