@@ -145,6 +145,66 @@ static double to_double(const std::string &s, double dflt = 0.0)
     return s.empty() ? dflt : std::strtod(s.c_str(), nullptr);
 }
 
+// ---- Opt-in silicon calibration of the timing model. ----
+// The devdb delay_ns column and the cell constants below are a vendor-STA fit. Ring-oscillator
+// measurements on silicon (AG32-Docs tools/vendor_parity/timing_ro_20260916, 2026-09-16) show the fit
+// is not just pessimistic but has the wrong LUT:route ratio (LUT+IMUX ~2.2x, RMUX ~1.4x), which a
+// delay-driven placer turns into under-weighted routing hops. AGRV2K_TIMING_CAL="RMUX=0.73,IMUX=0.46,
+// OMUX=1.75,LUT=0.46" scales every pip whose DESTINATION wire name contains the family token, and the
+// LUT->F cell delays. Unset = vendor numbers unchanged; unlisted families are unscaled.
+struct TimingCal
+{
+    std::map<std::string, double> pip;
+    double lut = 1.0;
+    bool active = false;
+};
+
+static const TimingCal &timing_cal()
+{
+    static TimingCal cal;
+    static bool parsed = false;
+    if (parsed)
+        return cal;
+    parsed = true;
+    const char *spec = std::getenv("AGRV2K_TIMING_CAL");
+    if (spec == nullptr || *spec == '\0')
+        return cal;
+    std::string s(spec);
+    size_t pos = 0;
+    while (pos < s.size()) {
+        size_t comma = s.find(',', pos);
+        if (comma == std::string::npos)
+            comma = s.size();
+        std::string item = s.substr(pos, comma - pos);
+        size_t eq = item.find('=');
+        if (eq == std::string::npos || eq == 0 || eq + 1 >= item.size())
+            log_error("agrv2k: AGRV2K_TIMING_CAL item '%s' must be FAMILY=scale\n", item.c_str());
+        std::string key = item.substr(0, eq);
+        double v = to_double(item.substr(eq + 1), 0.0);
+        if (!(v > 0.0))
+            log_error("agrv2k: AGRV2K_TIMING_CAL scale for %s must be > 0\n", key.c_str());
+        if (key == "LUT")
+            cal.lut = v;
+        else
+            cal.pip[key] = v;
+        pos = comma + 1;
+    }
+    cal.active = true;
+    log_info("agrv2k: silicon timing calibration active (AGRV2K_TIMING_CAL=%s)\n", spec);
+    return cal;
+}
+
+static double timing_cal_pip_scale(const std::string &dst_wire)
+{
+    const TimingCal &cal = timing_cal();
+    if (!cal.active)
+        return 1.0;
+    for (const auto &kv : cal.pip)
+        if (dst_wire.find(kv.first) != std::string::npos)
+            return kv.second;
+    return 1.0;
+}
+
 // ---- First conservative slice timing model. ----
 // Provenance: decoded vendor library
 //   AG32-Docs/tools/archdec/rodinia_p1000lp0_alta_lib.ar.txt
@@ -183,7 +243,8 @@ static void add_slice_timing(Context *ctx)
         // The four generic inputs map directly to alta_slice A/B/C/D.
         for (int i = 0; i < 4; ++i) {
             IdString input = ctx->id("I[" + std::to_string(i) + "]");
-            ctx->addCellTimingDelay(ci->name, input, f, ctx->getDelayFromNS(SLICE_LUT_TO_F_NS[i]));
+            ctx->addCellTimingDelay(ci->name, input, f,
+                                    ctx->getDelayFromNS(SLICE_LUT_TO_F_NS[i] * timing_cal().lut));
         }
 
         const bool is_carry = ci->ports.count(cout) != 0;
@@ -14430,7 +14491,8 @@ struct AgrvImpl : ViaductAPI
                 if (si == wire_by_name.end() || di == wire_by_name.end())
                     log_error("agrv2k: pip '%s' references unknown endpoint\n", c.at(0).c_str());
                 Loc loc(to_int(c.at(5)), to_int(c.at(6)), to_int(c.at(7)));
-                const delay_t pip_delay = ctx->getDelayFromNS(to_double(c.at(4), 0.05));
+                const delay_t pip_delay =
+                        ctx->getDelayFromNS(to_double(c.at(4), 0.05) * timing_cal_pip_scale(c.at(3)));
                 PipId pip = ctx->addPip(IdStringList(ctx->id(c.at(0))), ctx->id(c.at(1)), si->second,
                                         di->second, pip_delay, loc);
                 pip_delay_by_index[pip.index] = pip_delay;
