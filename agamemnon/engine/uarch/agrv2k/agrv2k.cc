@@ -9564,10 +9564,45 @@ struct AgrvImpl : ViaductAPI
     // Do not materialize the full transitive closure for every candidate BEL:
     // large walks remain unconstrained here. This cannot reject a reachable
     // pair, and is not a routing or simultaneous-selector feasibility proof.
+    // AGRV2K_REACH_EXACT=1: drop the 4096-wire cap and keep the full downhill
+    // reach of every checked output as a bitset (54k bits x <=2112 sources, lazily).
+    // The capped walk marks most outputs "broad" and never checks them; on the
+    // strict graph that admits 378 same-tile output->input pairs that are
+    // unreachable in ANY router box (2026-09-16 offline replay). Still a graph
+    // fact, never a routing claim.
+    mutable std::unordered_map<int, std::vector<bool>> exact_output_reach;
+    static bool reach_exact_enabled()
+    {
+        static int cached = -1;
+        if (cached < 0) {
+            const char *v = std::getenv("AGRV2K_REACH_EXACT");
+            cached = (v != nullptr && std::string(v) == "1") ? 1 : 0;
+        }
+        return cached == 1;
+    }
+
     bool local_output_can_reach(WireId source, WireId target) const
     {
         if (source == WireId() || target == WireId())
             return false;
+        if (reach_exact_enabled()) {
+            auto it = exact_output_reach.find(source.index);
+            if (it == exact_output_reach.end()) {
+                std::vector<bool> seen(ctx->wires.size(), false);
+                seen[source.index] = true;
+                std::vector<WireId> queue{source};
+                for (size_t head = 0; head < queue.size(); ++head)
+                    for (PipId pip : ctx->getPipsDownhill(queue[head])) {
+                        WireId dst = ctx->getPipDstWire(pip);
+                        if (!seen[dst.index]) {
+                            seen[dst.index] = true;
+                            queue.push_back(dst);
+                        }
+                    }
+                it = exact_output_reach.emplace(source.index, std::move(seen)).first;
+            }
+            return it->second[target.index];
+        }
         if (broad_output_roots.count(source.index))
             return true;
         auto found = local_output_reach.find(source.index);
@@ -14515,8 +14550,11 @@ struct AgrvImpl : ViaductAPI
                 if (si == wire_by_name.end() || di == wire_by_name.end())
                     log_error("agrv2k: pip '%s' references unknown endpoint\n", c.at(0).c_str());
                 Loc loc(to_int(c.at(5)), to_int(c.at(6)), to_int(c.at(7)));
-                const delay_t pip_delay =
-                        ctx->getDelayFromNS(to_double(c.at(4), 0.05) * timing_cal_pip_scale(c.at(3)));
+                // The generator's witness column is consumed as-is; the optional
+                // silicon calibration rescales it per destination family afterwards.
+                delay_t pip_delay = ctx->getDelayFromNS(to_double(c.at(4), 0.05));
+                if (timing_cal().active)
+                    pip_delay = ctx->getDelayFromNS(to_double(c.at(4), 0.05) * timing_cal_pip_scale(c.at(3)));
                 PipId pip = ctx->addPip(IdStringList(ctx->id(c.at(0))), ctx->id(c.at(1)), si->second,
                                         di->second, pip_delay, loc);
                 pip_delay_by_index[pip.index] = pip_delay;

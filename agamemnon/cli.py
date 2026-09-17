@@ -3102,6 +3102,11 @@ def _cmd_build_once(a):
         env[special_routes.DEVDB_ENV] = os.path.abspath(devdb)
         env["AGRV2K_CONDPLACE"] = "1"
         env["AGRV2K_BRAM_HARDCONST"] = "1"
+        # Silicon-calibrated timing (ring-oscillator sweep, 2026-09-16/17) and the placement legality
+        # floor that keeps dense designs routable; both promoted to default after the FF-RF SERV
+        # silicon Fmax A/B (docs/SILICON_TIMING_CALIBRATION.md). User env overrides win.
+        env.setdefault("AGRV2K_TIMING_CAL", "RMUX=0.855,IMUX=0.66,LUT=0.69,OMUX=0.65")
+        env.setdefault("AGRV2K_MIN_INPUT_INDEG", "5")
         env["AGRV2K_BRAM_PINPACK"] = "1"
         env["AGRV2K_IO_PINPACK"] = "1"
         # Small handshake clusters are no-ops when these nets are absent. They keep common bus/RF

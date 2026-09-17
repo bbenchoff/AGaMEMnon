@@ -1,6 +1,6 @@
-# Silicon timing calibration (experimental, opt-in)
+# Silicon timing calibration
 
-Status: **research**. Default builds are unchanged. This documents the `AGRV2K_TIMING_CAL`
+Status: **default since 2026-09-17** (see "Promoted to default" below); previously opt-in. This documents the `AGRV2K_TIMING_CAL`
 hook in the `agrv2k` uarch and the silicon measurement behind its suggested values. It is not
 timing sign-off and does not change any qualified checkpoint.
 
@@ -100,3 +100,30 @@ fans out directly into slices using the internal Qin feedback (`AGRV2K_REGISTER_
 LOCAL_QIN_I2`) misbehaves on silicon although every routed-netlist simulation is correct. Register
 such inputs once inside the fabric (`rst_r <= reset`). The numbers above were taken with that
 workaround.
+
+## Promoted to default (2026-09-17)
+
+`build --uarch` now sets, unless the user's environment overrides them:
+
+```
+AGRV2K_TIMING_CAL=RMUX=0.855,IMUX=0.66,LUT=0.69,OMUX=0.65   # calibrated ratios, derated x0.85 for closure
+AGRV2K_MIN_INPUT_INDEG=5                                      # placement legality floor (routability)
+```
+
+Evidence (same netlist, same seed budget, HeAP at a 40 MHz target, highest passing PLL rate on the
+board measured with the LED-rate invariant, `tools/vendor_parity/timing_ro_20260916/serv_ff/fmax`):
+
+| design | devdb-delay placement | calibrated-delay placement |
+|---|---|---|
+| SERV core, 143 slices (3 seeds each) | 110 / 120 / 120 MHz | 133 / 110 / 133 MHz |
+| SERV + FF register file, 1,178 slices (56 %) | 80 / 72 (+ 72 / 80 at the 10 MHz target) | 64 / 96 / 72 / 90 / 64 MHz |
+
+The calibrated-delay placement holds the best result on both designs (133 vs 120, 96 vs 80), its
+mean is higher on the core and level on the dense design, and on the dense design it routed more
+seeds. The derate keeps `--freq` closure safe: the undated calibrated STA was +10 % optimistic on the
+core and −30 % conservative on the dense design; ×0.85 brackets both.
+
+The defaults act through the uarch's `AGRV2K_TIMING_CAL` and `AGRV2K_MIN_INPUT_INDEG` hooks, so
+they take effect only with a nextpnr built from this revision of `agrv2k.cc` (older binaries
+ignore the variables and behave as before). `AGRV2K_REACH_EXACT=1` (cap-free reach legality) is
+compiled but not yet exercised on a design and stays opt-in.
