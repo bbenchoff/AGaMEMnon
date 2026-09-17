@@ -7843,27 +7843,51 @@ static void pack_route_through_bels(Context *ctx)
 
 // A site with no admitted incoming resource for a connected data pin cannot
 // route. This is a graph fact, independent of slice parity or source distance.
+//
+// AGRV2K_MIN_INPUT_INDEG=N (default 1) raises the bar: a connected data pin
+// must sit on a wire with at least N admitted feeding pips. In the strict
+// graph 70 of 8,448 slice inputs have a single feed (e.g. X20Y9_IMUX56 <-
+// X21Y9_RMUX00 only); on the 2026-09-17 FF-register-file SERV every HeAP
+// placement lost its last arc on one of those, so N=2 removes 0.8% of the
+// input capacity to make dense designs routable. Still a graph fact, not a
+// routing claim.
+static int min_input_ingress()
+{
+    static int cached = -1;
+    if (cached < 0) {
+        const char *v = std::getenv("AGRV2K_MIN_INPUT_INDEG");
+        cached = (v == nullptr || *v == '\0') ? 1 : std::max(1, to_int(v, 1));
+    }
+    return cached;
+}
+
 static bool slice_data_inputs_have_ingress(Context *ctx, CellInfo *cell, BelId bel,
                                            bool explain_invalid = false)
 {
     if (!source_typed_xbar_enabled())
         return true; // preserve the legacy placement policy
+    // The raised bar is a placement preference for movable cells; hard-packed
+    // cells (pad presentation, route-throughs, explicit BEL) keep the graph fact
+    // (>= 1 feed) only, or the pre-placement itself would be declared illegal.
+    const bool movable = cell->belStrength < STRENGTH_LOCKED && !cell->attrs.count(ctx->id("BEL"));
+    const int need = movable ? min_input_ingress() : 1;
     for (int pin = 0; pin < 4; ++pin) {
         IdString port = ctx->id("I[" + std::to_string(pin) + "]");
         if (cell->getPort(port) == nullptr)
             continue;
         WireId target = ctx->getBelPinWire(bel, port);
-        bool has_ingress = false;
+        int ingress = 0;
         if (target != WireId())
             for (PipId pip : ctx->getPipsUphill(target)) {
                 (void)pip;
-                has_ingress = true;
-                break;
+                if (++ingress >= need)
+                    break;
             }
-        if (!has_ingress) {
+        if (ingress < need) {
             if (explain_invalid)
-                log_info("agrv2k validity: cell '%s' at %s has no admitted ingress for %s\n",
-                         ctx->nameOf(cell), ctx->nameOfBel(bel), port.c_str(ctx));
+                log_info("agrv2k validity: cell '%s' at %s has %d admitted ingress pip(s) for %s "
+                         "(AGRV2K_MIN_INPUT_INDEG=%d)\n",
+                         ctx->nameOf(cell), ctx->nameOfBel(bel), ingress, port.c_str(ctx), need);
             return false;
         }
     }

@@ -63,3 +63,14 @@ nets differently from an uncalibrated one — treat calibrated images as fresh r
   the better-fitting constant-per-family model exactly.
 - A/B of `placer_heap` on devdb vs calibrated delays on SERV, judged under one external STA and
   then on silicon Fmax, before any default changes.
+
+## Companion: `AGRV2K_MIN_INPUT_INDEG` (placement legality, opt-in)
+
+Dense designs exposed a second gap while running the A/B: HeAP may park a consumer on a slice input
+whose wire has only one or two admitted feeding pips (70 of 8,448 inputs have a single feed, 234 have
+at most two; the worst sit in the X1 and X20 columns), and router2 then loses exactly that last arc
+under congestion. `AGRV2K_MIN_INPUT_INDEG=N` (default 1 = the existing "has any ingress" fact) makes
+`isBelLocationValid` require at least N feeding pips on every connected data input of a *movable*
+slice; hard-packed cells keep the N=1 rule. N=4–5 excludes ≤ 6 % of input pins and turned a
+1,178-slice SERV that failed 17/17 seeds into a routable one. Research-only until the placement
+policy change is promoted with silicon evidence.
