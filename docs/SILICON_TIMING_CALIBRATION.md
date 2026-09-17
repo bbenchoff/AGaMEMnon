@@ -76,3 +76,27 @@ under congestion. `AGRV2K_MIN_INPUT_INDEG=N` (default 1 = the existing "has any 
 slice; hard-packed cells keep the N=1 rule. N=4–5 excludes ≤ 6 % of input pins and turned a
 1,178-slice SERV that failed 17/17 seeds into a routable one. Research-only until the placement
 policy change is promoted with silicon evidence.
+
+## Design-level silicon results (2026-09-17)
+
+A SERV core (servile, register file stubbed to zero, 143 slices, HeAP placement from the ordinary
+`build --uarch --release-strict` path) was re-packed at each qualified PLL rate and run on the board
+with its LED rate checked against the fixed cycles-per-instruction invariant:
+
+| | MHz |
+|---|---|
+| silicon | PASS at 96, FAIL at 110 |
+| nextpnr STA, shipped devdb model (build log) | 59.7 |
+| external STA, shipped model (`sta_routed.py --model devdb`) | 76.0 |
+| external STA, calibrated model (`--model cal`) | 114.3 |
+
+So the shipped model is 1.6–1.8× pessimistic on a real design, and the ring-derived calibration is
+~10 % optimistic at design level (clock skew, pad paths and the scaled setup constants are not
+measured by rings). For `--freq` closure a derated calibration (≈ 0.85 × the calibrated Fmax) is the
+safe form; for placement only the ratios matter.
+
+**Caveat for fresh sequential builds (open defect, see the workbench BLOCKERS):** a pad input that
+fans out directly into slices using the internal Qin feedback (`AGRV2K_REGISTER_INPUT_MODE=
+LOCAL_QIN_I2`) misbehaves on silicon although every routed-netlist simulation is correct. Register
+such inputs once inside the fabric (`rst_r <= reset`). The numbers above were taken with that
+workaround.
