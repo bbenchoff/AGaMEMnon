@@ -126,6 +126,14 @@ NONPORTABLE_RELATIVE_KEYS = frozenset({
     # Passing probe: 4cdd9b3800cdec2678ee9b687882b20eed9d661aa9f33ea5137d96c071e3862f.
     # Failing probe: 297893ea5912972ed651864ad2849cc96eaa5cd5049b7b150830f50211154946.
     ("RMUX", 74, "RMUX", 92, 0, -1),
+    # RMUX93 -> RMUX87 at dx=1 is observed only at destination columns 3/16,
+    # pair 5/8. At X19Y10, the independently controlled X18Y10_RMUX93 source
+    # toggles but this inferred selector does not deliver it. With both source
+    # branches configured, changing only two RMUX87 bits to exact pair 3/8
+    # restores 5 MHz in three alternating SRAM trials. Preserve exact witnesses.
+    # Passing probe: b07127aac4883b8aa7bea2cfee2385b5306d68c8befa7b6ce2fd285cc13bfb67.
+    # Failing probe: 344e8999fb629bd3b9275554245bdca5f775cbec01da4e682e11055ab6eba745.
+    ("RMUX", 87, "RMUX", 93, 1, 0),
 })
 
 _WIRE = re.compile(r"X(-?\d+)Y(-?\d+)_([A-Za-z]+)(\d+)")

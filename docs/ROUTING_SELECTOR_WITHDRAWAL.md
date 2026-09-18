@@ -71,3 +71,21 @@ failure; they do not qualify a fresh whole-design build or imply that
 every other unobserved selector is safe. Passing/failing paired images:
 `4cdd9b3800cdec2678ee9b687882b20eed9d661aa9f33ea5137d96c071e3862f` /
 `297893ea5912972ed651864ad2849cc96eaa5cd5049b7b150830f50211154946`.
+
+## RMUX93 rightward turnback — 2026-09-18
+
+The relative `RMUX93 -> RMUX87` rule at delta `(1,0)` is withdrawn too.
+Its exact observations occur only at destination columns 3 and 16. A fresh
+tiered accumulator exposed a failing four-cell output path at
+`X18Y10_RMUX93 -> X19Y10_RMUX87`. Independent source-prefix and output-buffer
+controls pass; clearing the source selector stops the prefix control.
+With both source branches configured, three alternating trials switch between
+stuck high and 5 MHz by changing only two RMUX87 payload bits: inferred pair
+`5/8` versus exact `X17Y10_RMUX45` pair `3/8`. The adjacent suspected downward
+hop conducts and remains admitted. Flash readback is unchanged.
+
+Only unsupported translations are refused; all exact observations remain.
+This is a localized selector diagnosis, not whole-design qualification.
+Passing/failing paired images:
+`b07127aac4883b8aa7bea2cfee2385b5306d68c8befa7b6ce2fd285cc13bfb67` /
+`344e8999fb629bd3b9275554245bdca5f775cbec01da4e682e11055ab6eba745`.
