@@ -130,6 +130,7 @@ def _signature_for(record: AttemptRecord) -> Optional[Signature]:
     if any(message in record.log for message in (
             "Placing design failed.", "Unable to place cell",
             "Unable to find legal placement for cell",
+            "Unable to find legal placement for all cells",
             "has no legal same-tile slot assignment")):
         return Signature("PLACEMENT", "PLACEMENT",
                          "placement failed before routing; inspect placement legality diagnostics")

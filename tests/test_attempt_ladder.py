@@ -261,6 +261,7 @@ def test_garbage_log_with_no_recognisable_marker_falls_back_to_other_and_never_r
 
 @pytest.mark.parametrize("failure", [
     "Placing design failed.",
+    "Unable to find legal placement for all cells, design is probably at utilisation limit.",
     "Unable to find legal placement for cell 'enable' of type 'AGRV2K_TILE_CONTROL' after 10001 attempts",
     "agrv2k: clock-enable cluster 'enable' has no legal same-tile slot assignment",
 ])
