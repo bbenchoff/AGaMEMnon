@@ -7,6 +7,9 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+- Refused the bottom-row RMUX87 to RMUX68 translation after a two-bit
+  selector comparison broke output delivery in three hardware pairs.
+  Exact recorded routes and historical graph identities remain available.
 - Refused the boundary-derived same-tile RMUX86 to RMUX57 inference after
   a two-bit selector comparison reproduced incorrect source delivery in
   three hardware pairs. Exact observed connections remain available.
