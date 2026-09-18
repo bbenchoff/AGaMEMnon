@@ -7,6 +7,9 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+- On Linux and other POSIX hosts, `--attempt-timeout` now terminates the
+  tool's process group. Workers launched by a wrapper no longer survive a
+  timed-out attempt and compete with its retry.
 - BRAM designs now activate their board-witnessed support automatically: an
   ordinary (non-release-strict) `build --uarch` whose netlist contains a
   read-ported `ALTA_BRAM9K` gets the silicon-witnessed X13Y4 site-read

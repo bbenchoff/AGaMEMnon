@@ -585,16 +585,56 @@ def _synchronize_build_frequency(env, freq):
     return sysclk
 
 
+def _run_timed_posix_child(command, **kwargs):
+    """Bound the entire tool process group, including shell-launched workers."""
+    import signal
+
+    popen_kwargs = dict(kwargs)
+    timeout = popen_kwargs.pop("timeout")
+    input_data = popen_kwargs.pop("input", None)
+    check = popen_kwargs.pop("check", False)
+    if input_data is not None:
+        if popen_kwargs.get("stdin") is not None:
+            raise ValueError("stdin and input arguments may not both be used")
+        popen_kwargs["stdin"] = subprocess.PIPE
+    if popen_kwargs.pop("capture_output", False):
+        if popen_kwargs.get("stdout") is not None or popen_kwargs.get("stderr") is not None:
+            raise ValueError("stdout/stderr may not be used with capture_output")
+        popen_kwargs["stdout"] = subprocess.PIPE
+        popen_kwargs["stderr"] = subprocess.PIPE
+    # A separate session gives this invocation its own process group, so a
+    # timeout cannot kill the CLI or another build sharing its terminal.
+    popen_kwargs["start_new_session"] = True
+    with subprocess.Popen(command, **popen_kwargs) as proc:
+        try:
+            stdout, stderr = proc.communicate(input=input_data, timeout=timeout)
+        except BaseException:
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass  # the group already exited
+            proc.wait()
+            raise
+        result = subprocess.CompletedProcess(command, proc.returncode, stdout, stderr)
+        if check:
+            result.check_returncode()
+        return result
+
+
 def _run_child(command, **kwargs):
-    """Run one tool and tie its lifetime to this CLI process on Windows.
+    """Run a tool with process-tree cleanup on cancellation or timed attempts.
 
     Windows does not normally terminate a child when its console parent is
     killed.  A cancelled build could therefore leave nextpnr consuming CPU and
     competing with the next invocation.  A kill-on-close Job Object gives the
-    process tree Unix-like parent lifetime semantics; if jobs are unavailable,
+    process tree parent lifetime semantics; if jobs are unavailable,
     retain normal subprocess behaviour rather than making tools unstartable.
+    Timed POSIX invocations own a process group which is killed on cancellation
+    or timeout; ordinary untimed calls retain subprocess.run semantics.
     """
     if os.name != "nt":
+        if kwargs.get("timeout") is not None:
+            return _run_timed_posix_child(command, **kwargs)
         return subprocess.run(command, **kwargs)
 
     import ctypes
