@@ -2679,6 +2679,111 @@ static void prune_unused_generated_constants(Context *ctx, const std::vector<IdS
         log_info("agrv2k: removed %d unused generated constant source(s)\n", removed);
 }
 
+struct CarryResetCapture
+{
+    CellInfo *lut = nullptr;
+    CellInfo *dff = nullptr;
+    NetInfo *reset = nullptr;
+    int operand_axis = -1;
+    int active = -1;
+    int value = -1;
+};
+
+// A constant operand frees one physical LUT input. It can carry synchronous
+// reset for SUM, while the low LUT bank must still compute the original COUT.
+// Recognize the complete truth table and exclusive consumers before mutation.
+static bool find_carry_reset_capture(Context *ctx, CellInfo *fa, CarryResetCapture &result)
+{
+    const int ac = constant_slice_value(ctx, fa->getPort(ctx->id("A")));
+    const int bc = constant_slice_value(ctx, fa->getPort(ctx->id("B")));
+    if ((ac >= 0) == (bc >= 0))
+        return false;
+    if (fa->getPort(ctx->id(ac >= 0 ? "B" : "A")) == nullptr)
+        return false;
+    NetInfo *sum = fa->getPort(ctx->id("SUM"));
+    if (sum == nullptr || sum->users.entries() != 1)
+        return false;
+    const PortRef user = *sum->users.begin();
+    CellInfo *lut = user.cell;
+    if (lut == nullptr || !is_lut(ctx, lut) || ctx->args.K != 4)
+        return false;
+    auto init = lut->params.find(ctx->id("INIT"));
+    auto k = lut->params.find(ctx->id("K"));
+    if (init == lut->params.end() || init->second.is_string ||
+            !init->second.is_fully_def() || init->second.size() != 16 ||
+            k == lut->params.end() || k->second.is_string ||
+            !k->second.is_fully_def() || k->second.as_int64() != 4)
+        return false;
+    for (const auto &parameter : lut->params)
+        if (parameter.first != ctx->id("INIT") && parameter.first != ctx->id("K"))
+            return false;
+    const int mask = int(init->second.as_int64());
+    int sum_axis = -1, reset_axis = -1;
+    for (int axis = 0; axis < 4; ++axis) {
+        const IdString port = ctx->id("I[" + std::to_string(axis) + "]");
+        if (user.port == port)
+            sum_axis = axis;
+        else if (init_depends_on(mask, axis)) {
+            if (reset_axis >= 0)
+                return false;
+            reset_axis = axis;
+        }
+    }
+    if (sum_axis < 0 || reset_axis < 0 || !init_depends_on(mask, sum_axis))
+        return false;
+    NetInfo *reset = lut->getPort(ctx->id("I[" + std::to_string(reset_axis) + "]"));
+    if (reset == nullptr || reset == sum || reset->driver.cell == nullptr ||
+            constant_slice_value(ctx, reset) >= 0)
+        return false;
+    // An AND of two FA sums can look like a reset gate from either side.
+    // Do not claim that shared LUT/DFF twice or erase another carry's SUM.
+    if (reset->driver.cell->type == ctx->id("AG32_FA"))
+        return false;
+    int active = -1, value = -1;
+    for (int level = 0; level < 2; ++level) {
+        const int lo = (mask >> (level << reset_axis)) & 1;
+        const int hi = (mask >> ((level << reset_axis) | (1 << sum_axis))) & 1;
+        const int other_lo = (mask >> ((1 - level) << reset_axis)) & 1;
+        const int other_hi = (mask >> (((1 - level) << reset_axis) | (1 << sum_axis))) & 1;
+        if (lo == hi && other_lo == 0 && other_hi == 1) {
+            active = level;
+            value = lo;
+        }
+    }
+    if (active < 0)
+        return false;
+    NetInfo *out = lut->getPort(ctx->id("Q"));
+    CellInfo *dff = out ? net_only_drives(ctx, out, is_ff, ctx->id("D"), true) : nullptr;
+    if (dff == nullptr || dff->getPort(ctx->id("CLK")) == nullptr ||
+            dff->getPort(ctx->id("Q")) == nullptr || !dff->params.empty())
+        return false;
+    // Unknown user/control metadata and fixed reset LUTs stay on the ordinary
+    // path. DFF BEL intent participates in whole-chain preflight below.
+    for (CellInfo *cell : {lut, dff}) {
+        if (cell->bel != BelId() || cell->cluster != ClusterId())
+            return false;
+        for (const auto &attr : cell->attrs)
+            if (attr.first != ctx->id("src") && attr.first != ctx->id("module_not_derived") &&
+                    attr.first != ctx->id("hdlname") &&
+                    !(cell == dff && attr.first == ctx->id("BEL")))
+                return false;
+        for (const auto &port : cell->ports) {
+            if (port.second.net == nullptr)
+                continue;
+            bool ordinary = port.first == ctx->id("Q");
+            if (cell == dff)
+                ordinary |= port.first == ctx->id("D") || port.first == ctx->id("CLK");
+            else
+                for (int axis = 0; axis < 4; ++axis)
+                    ordinary |= port.first == ctx->id("I[" + std::to_string(axis) + "]");
+            if (!ordinary)
+                return false;
+        }
+    }
+    result = {lut, dff, reset, ac >= 0 ? 0 : 1, active, value};
+    return true;
+}
+
 static void pack_carries(Context *ctx)
 {
     IdString fa_type = ctx->id("AG32_FA");
@@ -2800,18 +2905,28 @@ static void pack_carries(Context *ctx)
     // fixed placement is therefore whole-chain intent too; preflight both
     // surfaces before any packing mutation and reject disagreement.
     std::unordered_map<CellInfo *, CellInfo *> capture_dff;
+    std::unordered_map<CellInfo *, CarryResetCapture> reset_capture;
+    const char *reset_option = std::getenv("AGRV2K_CARRY_RESET_FUSION");
+    const bool reset_enabled = reset_option != nullptr && std::string(reset_option) == "1";
     for (CellInfo *fa : fa_cells) {
         NetInfo *sum = fa->getPort(sum_port);
         CellInfo *dff = sum ? net_only_drives(ctx, sum, is_ff, ctx->id("D"), true)
                             : nullptr;
         if (dff != nullptr)
             capture_dff.emplace(fa, dff);
+        else if (reset_enabled) {
+            CarryResetCapture candidate;
+            if (find_carry_reset_capture(ctx, fa, candidate)) {
+                capture_dff.emplace(fa, candidate.dff);
+                reset_capture.emplace(fa, candidate);
+            }
+        }
     }
 
     // Fixed-root prefixes reuse the same witnessed arithmetic sites and
     // local inputs as the full 32-bit corridor. Movable short chains retain
     // ordinary routed D/VCC; they can occupy sites outside that corridor.
-    bool d_default_high = chains.size() == 1 && fa_cells.size() >= 9 && fa_cells.size() <= 32 &&
+    bool d_default_high = reset_capture.empty() && chains.size() == 1 && fa_cells.size() >= 9 && fa_cells.size() <= 32 &&
             !chains.front().export_cout && capture_dff.size() == fa_cells.size();
     if (d_default_high) {
         NetInfo *shared_clock = capture_dff.at(fa_cells.front())->getPort(ctx->id("CLK"));
@@ -3090,11 +3205,15 @@ static void pack_carries(Context *ctx)
         // masks 0x96E8/0x69D4/..). The unfolded mask is 0x96E8: LutOut(D=1)=A^B^Cin, Cout=maj(A,B,Cin).
         int ac = const_of(ci->getPort(ctx->id("A")));
         int bc = const_of(ci->getPort(ctx->id("B")));
+        auto reset_found = reset_capture.find(ci);
+        const CarryResetCapture *reset = reset_found == reset_capture.end() ? nullptr : &reset_found->second;
         int mask = 0;
         for (int i = 0; i < 16; i++) {
             int pA = i & 1, pB = (i >> 1) & 1, pC = (i >> 2) & 1, D = (i >> 3) & 1;
             int a = (ac >= 0) ? ac : pA, b = (bc >= 0) ? bc : pB;
             int bit = D ? (a ^ b ^ pC) : ((a + b + pC) >= 2 ? 1 : 0); // hi byte=sum, lo byte=Cout(maj)
+            if (D && reset != nullptr && ((i >> reset->operand_axis) & 1) == reset->active)
+                bit = reset->value;
             if (bit)
                 mask |= (1 << i);
         }
@@ -3107,6 +3226,8 @@ static void pack_carries(Context *ctx)
             ci->movePortTo(ctx->id("B"), lc.get(), ctx->id("I[1]"));
         else
             ci->disconnectPort(ctx->id("B"));
+        if (reset != nullptr)
+            lc->connectPort(ctx->id("I[" + std::to_string(reset->operand_axis) + "]"), reset->reset);
         // The head always receives the explicit seed Cout.  For a dynamic CI,
         // move that original signal to the seed's A input; for a constant CI,
         // its value is already folded into the seed mask.  Interior cells keep
@@ -3133,6 +3254,17 @@ static void pack_carries(Context *ctx)
         // fuse the DFF the SUM drives (reset-free counter: SUM -> DFF.D directly), else comb F=SUM
         NetInfo *sum = ci->ports.at(ctx->id("SUM")).net;
         CellInfo *dff = sum ? net_only_drives(ctx, sum, is_ff, ctx->id("D"), true) : nullptr;
+        if (reset != nullptr) {
+            dff = reset->dff;
+            NetInfo *reset_result = reset->lut->getPort(ctx->id("Q"));
+            // Disconnect before erasing nets so no stale input user survives.
+            dff->disconnectPort(ctx->id("D"));
+            for (auto &port : reset->lut->ports)
+                reset->lut->disconnectPort(port.first);
+            ci->disconnectPort(ctx->id("SUM"));
+            ctx->nets.erase(reset_result->name);
+            packed_cells.insert(reset->lut->name);
+        }
         if (dff != nullptr) {
             lc->params[ctx->id("FF_USED")] = 1;
             set_register_input_mode(ctx, lc.get(), RegisterInputMode::CARRY_SUM_TO_FF);
@@ -3203,6 +3335,8 @@ static void pack_carries(Context *ctx)
         ctx->cells.erase(pc);
     for (auto &nc : new_cells)
         ctx->cells[nc->name] = std::move(nc);
+    if (!reset_capture.empty())
+        log_info("  folded %ld synchronous reset gate(s) into carry SUM banks\n", long(reset_capture.size()));
     if (d_default_high)
         log_info("  fused %ld AG32_FA carry slices (%ld registered) + %ld seed(s), qualified local inputs\n",
                  n_fa, n_ffused, long(seeds.size()));

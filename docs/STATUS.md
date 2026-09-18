@@ -63,6 +63,11 @@ timing qualification or proof of the first clock after host-driven reset release
 See [the evidence record](../qualification/slice_input_mode_evidence.jsonl).
 C-independent LUTs, unused slices, and dedicated carry retain their selections.
 
+An optional [carry SUM/reset fusion](CARRY_RESET_FUSION.md) reduces the same
+LFSR from 44 to 36 slices while retaining 24 registers. Its exact image passes
+two 10 MHz reset/sequence captures with matching controls. It remains disabled
+by default; wider reset/arithmetic shapes and timing preservation are unqualified.
+
 ## Main after v0.4.0 — 2026-09-11
 
 Three BramTILE selector defects were found by cross-checking the evidence
