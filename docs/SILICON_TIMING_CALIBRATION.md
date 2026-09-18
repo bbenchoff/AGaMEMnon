@@ -127,3 +127,29 @@ The defaults act through the uarch's `AGRV2K_TIMING_CAL` and `AGRV2K_MIN_INPUT_I
 they take effect only with a nextpnr built from this revision of `agrv2k.cc` (older binaries
 ignore the variables and behave as before). `AGRV2K_REACH_EXACT=1` (cap-free reach legality) is
 compiled but not yet exercised on a design and stays opt-in.
+
+## Input-ingress family rule and control-sharing clock gate (2026-09-17, evening)
+
+Two defects found while measuring the open flow against the vendor flow on the same RTL (a 32-bit
+LFSR + 32-bit accumulator probe; AG32-Docs `tools/vendor_parity/timing_ro_20260916/vendor_cmp/RESULTS_20260917.md`):
+
+- **Slice inputs fed only by same-tile OMUX wires.** In the tiered (plain `build --uarch`) admission
+  graph nine slice `I[0]` pins have feeders, but every feeder is an OMUX wire of the same tile, so no
+  externally driven net can reach them (`X20Y10_IMUX56`, `X20Y11_IMUX56`, ...). `AGRV2K_MIN_INPUT_INDEG`
+  counts feeders without regard to family, so an ordinary LUT with an external net could be parked
+  on such a pin and lose its arc in routing. `slice_data_inputs_have_ingress` now also requires, for a
+  free (non-cluster) movable cell, at least one non-OMUX feeder on every connected input. Dedicated-carry
+  cluster members keep the count rule: their `I[0]` carries the slice's own Q feedback, which those OMUX
+  feeders exist for. Test: `tests/test_agrv2k_external_ingress.py`.
+- **Control-sharing candidates on non-bus clocks.** After a successful isolated baseline the CLI
+  measures the experimental "mixed"/"dual" register-sharing profiles. Both put a native consumer on
+  local clock line 1, which bitgen accepts only under the qualified MCU-bus GCLK0 profile
+  (`features/clocks.py`). On a PLL-clocked design the candidate could route and then abort the whole
+  build in bitgen, depending on placement luck. The opportunity scan now offers no sharing profile unless
+  the baseline routes an `MCU_BUS_CLOCK` cell, and any `SystemExit` inside a candidate build rejects
+  the candidate instead of the build. Test: `tests/test_control_sharing_clock_gate.py`.
+
+What the same measurement showed about dedicated carry: a 32-bit adder only gets hardware carry when
+the accumulator register is fused into the chain slice (SUM must drive the flip-flop's D directly, so
+a synchronous reset on the accumulator must be moved onto the addend), because the only qualified
+33-site corridor (X20Y11 -> X20Y12 -> X20Y10_SLICE0) has `I[0]` pins reachable from the same tile only.

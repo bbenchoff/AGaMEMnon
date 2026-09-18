@@ -7851,6 +7851,23 @@ static void pack_route_through_bels(Context *ctx)
 // placement lost its last arc on one of those, so N=2 removes 0.8% of the
 // input capacity to make dense designs routable. Still a graph fact, not a
 // routing claim.
+// Slice inputs whose every admitted feeder is a same-tile OMUX wire can only be
+// driven from inside their own tile. Nine I[0] pins are like that in the tiered
+// graph (e.g. X20Y10_IMUX56, X20Y11_IMUX56); an ordinary movable LUT parked on
+// one of them with an externally driven net is unroutable, whatever the feeder
+// COUNT says (acc_probe, 2026-09-17: a 24-sink net lost its arc into
+// X20Y10_IMUX56 on the plain default profile). Filled while loading dev_pips.csv.
+static std::vector<uint8_t> g_wire_external_feed;
+
+static std::string wire_family_of(const std::string &name)
+{
+    const size_t us = name.find('_');
+    std::string fam = us == std::string::npos ? name : name.substr(us + 1);
+    while (!fam.empty() && std::isdigit(static_cast<unsigned char>(fam.back())))
+        fam.pop_back();
+    return fam;
+}
+
 static int min_input_ingress()
 {
     static int cached = -1;
@@ -7888,6 +7905,17 @@ static bool slice_data_inputs_have_ingress(Context *ctx, CellInfo *cell, BelId b
                 log_info("agrv2k validity: cell '%s' at %s has %d admitted ingress pip(s) for %s "
                          "(AGRV2K_MIN_INPUT_INDEG=%d)\n",
                          ctx->nameOf(cell), ctx->nameOfBel(bel), ingress, port.c_str(ctx), need);
+            return false;
+        }
+        // A free (non-cluster) cell's input may be driven from anywhere, so the pin
+        // must have a feeder that is not a same-tile OMUX wire. Cluster members
+        // (dedicated carry: own-Q feedback on I[0]) are shaped by the packer and
+        // keep the count-only rule.
+        if (movable && cell->cluster == ClusterId() && target != WireId() &&
+            size_t(target.index) < g_wire_external_feed.size() && !g_wire_external_feed[target.index]) {
+            if (explain_invalid)
+                log_info("agrv2k validity: cell '%s' at %s: %s has only same-tile OMUX feeders\n",
+                         ctx->nameOf(cell), ctx->nameOfBel(bel), port.c_str(ctx));
             return false;
         }
     }
@@ -14558,6 +14586,10 @@ struct AgrvImpl : ViaductAPI
                 PipId pip = ctx->addPip(IdStringList(ctx->id(c.at(0))), ctx->id(c.at(1)), si->second,
                                         di->second, pip_delay, loc);
                 pip_delay_by_index[pip.index] = pip_delay;
+                if (g_wire_external_feed.size() != ctx->wires.size())
+                    g_wire_external_feed.assign(ctx->wires.size(), 0);
+                if (wire_family_of(c.at(2)) != "OMUX")
+                    g_wire_external_feed[di->second.index] = 1;
                 const int source_node = timing_node_by_wire.at(si->second.index);
                 const int destination_node = timing_node_by_wire.at(di->second.index);
                 auto &aggregate = timing_uphill.at(destination_node);

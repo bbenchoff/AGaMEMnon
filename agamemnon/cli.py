@@ -3875,9 +3875,11 @@ def _control_sharing_auto_enabled(a):
 
 
 def _control_sharing_opportunity(document):
-    groups, ordinary = set(), 0
+    groups, ordinary, bus_clocked = set(), 0, False
     for module_name, module in document.get("modules", {}).items():
         for cell in module.get("cells", {}).values():
+            if cell.get("type") == "MCU_BUS_CLOCK":
+                bus_clocked = True
             if cell.get("type") != "GENERIC_SLICE":
                 continue
             used = cell.get("parameters", {}).get("FF_USED", "0")
@@ -3896,7 +3898,17 @@ def _control_sharing_opportunity(document):
         profiles.append("mixed")
     if len(groups) > 1:
         profiles.append("dual")
-    return tuple(profiles), {"native_groups": len(groups), "ordinary_registers": ordinary}
+    population = {"native_groups": len(groups), "ordinary_registers": ordinary,
+                  "bus_clocked": bus_clocked}
+    # Both sharing profiles put a native consumer on local clock line 1, which
+    # bitgen only accepts under the qualified MCU-bus clock profile
+    # (engine/features/clocks.py _LINE1_PROFILE). A PLL- or pad-clocked design
+    # would route the candidate and then die in bitgen, taking the already
+    # successful isolated baseline down with it (2026-09-17, placement-dependent).
+    if profiles and not bus_clocked:
+        population["skipped"] = "line1_requires_mcu_bus_clock"
+        profiles = []
+    return tuple(profiles), population
 
 
 def _compare_control_sharing(a, baseline, root_tmp):
@@ -3959,6 +3971,14 @@ def _compare_control_sharing(a, baseline, root_tmp):
             result = _cmd_build_once(candidate)
         except _ControlSharingCandidateExhausted as exc:
             profile_report.update(exc.report())
+            report["profiles"].append(profile_report)
+            continue
+        except SystemExit as exc:
+            # A candidate is an optional A/B measurement; a refusal anywhere in
+            # its own build (typically bitgen) rejects the candidate, it never
+            # fails the build whose isolated baseline already succeeded.
+            profile_report.update(outcome="rejected", detail=str(exc.code)[:200])
+            print("[build] control sharing: %s candidate rejected, keeping the isolated baseline" % profile)
             report["profiles"].append(profile_report)
             continue
         finally:
