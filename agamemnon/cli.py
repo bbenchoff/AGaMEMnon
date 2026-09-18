@@ -1558,6 +1558,21 @@ def _uarch_prefers_heap(synth_json):
     return has_mcu_boundary or dense_fabric
 
 
+def _validate_placement_seed(seed):
+    # nextpnr accepts uint64, but the constructive spill-order generator
+    # uses unsigned32 on both Windows and Linux. Keep one portable meaning.
+    if seed is not None and (isinstance(seed, bool) or not isinstance(seed, int) or
+                             not 0 <= seed <= 0xffffffff):
+        raise ValueError("--seed must be an integer between 0 and 4294967295")
+    return seed
+
+
+def _uarch_placement_seeds(generic_place, route_seeds, requested_seed=None):
+    if requested_seed is not None:
+        return [str(requested_seed)]
+    return ["1", "2", "3", "4"] if generic_place else list(route_seeds)
+
+
 def _uarch_attempts(requested_cap, maxfo, split_first=False, heap_first=False):
     """Return the deterministic placement/fanout escalation order.
 
@@ -2271,6 +2286,11 @@ def _cmd_build_once(a):
     if attempt_timeout is not None and (not math.isfinite(attempt_timeout) or attempt_timeout <= 0):
         print("error: --attempt-timeout must be a finite positive number of seconds")
         sys.exit(2)
+    try:
+        requested_seed = _validate_placement_seed(getattr(a, "seed", None))
+    except ValueError as exc:
+        print("error: %s" % exc)
+        sys.exit(2)
     from .engine import special_routes
     _suppress_windows_crash_dialogs()
     freq = getattr(a, "freq", None)
@@ -2281,8 +2301,15 @@ def _cmd_build_once(a):
     if not getattr(a, "input", None):
         try:
             project = PJ.Project.load(getattr(a, "project", None))
+            if requested_seed is None:
+                requested_seed = _validate_placement_seed(project.fabric.get("seed"))
         except (OSError, ValueError) as exc:
             print("error: %s" % exc)
+            sys.exit(2)
+        if requested_seed is not None and (
+                project.external or project.fabric.get("qualified_profile") or
+                not project.fabric.get("sources") or not project.fabric.get("uarch", True)):
+            print("error: --seed requires a source-based native FPGA project")
             sys.exit(2)
         if project.external:
             PJ.build_external(project)
@@ -2323,6 +2350,12 @@ def _cmd_build_once(a):
         sys.exit(2)
     if getattr(a, "no_hard_carry", False) and not a.uarch:
         print("error: --no-hard-carry requires --uarch")
+        sys.exit(2)
+    if requested_seed is not None and not a.uarch:
+        print("error: --seed requires --uarch")
+        sys.exit(2)
+    if requested_seed is not None and (a.qualified_checkpoint or getattr(a, "qualified_bram_write", None)):
+        print("error: --seed cannot change a fixed qualified profile")
         sys.exit(2)
     compact_maxd = getattr(a, "compact_maxd", None)
     if compact_maxd is not None and not a.uarch:
@@ -3229,16 +3262,17 @@ def _cmd_build_once(a):
                 # MCU exits jointly, but the placer itself has discrete legal
                 # outcomes.  Four bounded nextpnr seeds cover that variance
                 # before any netlist-changing fanout split.
-                placement_seeds = ["1", "2", "3", "4"]
             else:
                 env["AGRV2K_CONDPLACE"] = "1"
                 env["AGRV2K_CONDPLACE_CAP"] = str(cap)
-                placement_seeds = route_seeds
+            placement_seeds = _uarch_placement_seeds(generic_place, route_seeds, requested_seed)
             for seed_index, seed in enumerate(placement_seeds):
                 if not generic_place:
                     env["AGRV2K_CONDPLACE_SEED"] = seed
                 attempt_npr = npr + (["--placer", "heap", "--seed", seed]
                                      if generic_place else [])
+                if requested_seed is not None and not generic_place:
+                    attempt_npr += ["--seed", seed]
                 # C++ writes only an atomic structured report for the narrow
                 # zero-assignment/enable-driver-reachability condition. Each
                 # attempt receives a distinct absolute path so diagnosis is
@@ -4056,6 +4090,11 @@ def _compare_control_sharing(a, baseline, root_tmp):
 
 def cmd_build(a):
     """Build, selecting the cheaper successful native SRST mapping when needed."""
+    try:
+        _validate_placement_seed(getattr(a, "seed", None))
+    except ValueError as exc:
+        print("error: %s" % exc)
+        sys.exit(2)
     if not _native_srst_auto_enabled(a):
         return _cmd_build_once(a)
     root_tmp = tempfile.mkdtemp(prefix="agamemnon_srst_candidates_")
@@ -4331,6 +4370,9 @@ def main(argv=None):
     b.add_argument("--maxfo", type=int, default=2,
                    help="[--uarch] tightest fanout floor for the route-driven escalation (tries unsplit "
                         "first across the cap sweep, then splits progressively down to this if routing fails)")
+    b.add_argument("--seed", type=int, metavar="N",
+                   help="[--uarch] use one placement/router seed (0..4294967295) across retry stages; "
+                        "default: the bounded seed sweep")
     b.add_argument("--attempt-timeout", type=float, metavar="SECONDS",
                    help="[--uarch] stop an incomplete place-and-route attempt after this time "
                         "and continue the existing retry ladder (default: no time limit)")

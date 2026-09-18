@@ -833,7 +833,7 @@ def test_cli_large_uarch_defaults_are_strict_router2():
     assert "heap_first=heap_first" in src
     assert 'attempts.append((0, 0))' in src
     assert 'env.pop("AGRV2K_CONDPLACE", None)' in src
-    assert 'placement_seeds = ["1", "2", "3", "4"]' in src
+    assert 'placement_seeds = _uarch_placement_seeds(generic_place, route_seeds, requested_seed)' in src
     assert '["--placer", "heap", "--seed", seed]' in src
     assert '"command": attempt_npr' in src
     assert 'dedicated-carry route ladder exhausted' in src

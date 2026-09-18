@@ -88,6 +88,12 @@ script. Fabric builds accept multiple source files and an explicit top; direct
 one-off builds can use repeated `--source` plus `--top`. `freq` is both the
 emitted fabric PLL frequency and the timing-closure target. It defaults to the
 qualified 10 MHz setting; a command-line `--freq` overrides the manifest.
+For source-based native FPGA projects, an optional `[fabric]` `seed = 7`
+selects one placement/router seed throughout the retry ladder. Valid seeds
+are integers from 0 through 4294967295; `--seed` overrides the manifest,
+including when it is zero. Omit both to retain the default seed sweep.
+External builds, MCU-only projects and fixed qualified profiles reject a
+seed rather than silently ignoring it.
 
 `agamemnon run --transport dap` loads built MCU/fabric images into SRAM and is
 the safe default. USB `run` performs `GO` only unless `--flash --backup FILE`

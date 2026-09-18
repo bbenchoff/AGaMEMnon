@@ -102,6 +102,7 @@ Common options:
 | `--require-clean-selectors` | keep the selected feature policy but remove every route whose selector lacks conflict-free physical or unanimous-relative evidence; useful with `--research-unsafe` for an experimental primitive that must not admit predicted routing |
 | `--cap N` | placement density hint; default 5 |
 | `--maxfo N` | fanout floor used by split-net retry |
+| `--seed N` | use one native placement/router seed from 0 through 4294967295 throughout retries |
 | `--compact-maxd N` | experimental regional-placement Manhattan radius; no default |
 | `--freq MHz` | set the emitted fabric PLL and require timing closure there |
 | `--verify` | simulate the routed result |
@@ -119,6 +120,14 @@ source-tree qualification fixtures, not portable project templates or a
 generic routing escape hatch. `AGAMEMNON_DEBUG=1` prints the
 offending routes. `AGAMEMNON_ALLOW_UNMAPPED=1` is a development escape hatch
 and is not a supported release mode.
+
+For a reproducible placement experiment, add `--seed 7` to a normal `build
+--uarch` command. The selected seed applies to both heap and constructive
+placement and stays fixed across density and fanout retries. Omitting it
+preserves the existing bounded seed sweep. Reproducing an image also requires
+the same source, constraints, tools, device database and other build settings;
+a seed does not relax timing or bitstream checks. Fixed qualified profiles
+reject this option because their placement cannot change.
 
 Qualified-checkpoint replay is deliberately exact: changed LUT INITs, primitive
 parameters, ports, cells, or connections are rejected. Net names and JSON bit
