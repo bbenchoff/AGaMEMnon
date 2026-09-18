@@ -107,9 +107,7 @@ def test_default_high_cannot_be_claimed_by_an_ordinary_slice(default_high):
         validate_module_register_inputs(module)
 
 
-@pytest.fixture
-def a_feedback(default_high):
-    module, members, _ = default_high
+def _use_a_feedback(module, members):
     for cell in members.values():
         inputs = cell["connections"]["I"]
         inputs[0], inputs[1] = inputs[1], inputs[0]
@@ -125,6 +123,12 @@ def a_feedback(default_high):
                 continue
             net["attributes"]["ROUTING"] = net["attributes"]["ROUTING"].replace(old, new)
     return module, members
+
+
+@pytest.fixture
+def a_feedback(default_high):
+    module, members, _ = default_high
+    return _use_a_feedback(module, members)
 
 
 def test_explicit_a_feedback_requires_its_local_presentation(a_feedback):
@@ -160,11 +164,29 @@ def test_a_feedback_tag_does_not_authorize_b_or_unregistered_feedback(default_hi
         validate_routed_carry(module)
 
 
-def test_local_inputs_reject_shorter_chain():
-    module, _, _ = _local_module([(20,12,z) for z in range(16)] +
-                                 [(20,11,z) for z in range(9)])
-    with pytest.raises(CarryValidationError, match="complete X20 downward 33-site"):
+def test_local_inputs_reject_movable_short_chain():
+    module, _, _ = _local_module([(20,12,z) for z in range(9)])
+    with pytest.raises(CarryValidationError, match="X20 downward"):
         validate_routed_carry(module)
+
+
+def test_local_inputs_do_not_inherit_retained_x10_compatibility():
+    module, _, _ = _local_module([(10,4,z) for z in range(16)] +
+                                 [(10,3,z) for z in range(9)])
+    with pytest.raises(CarryValidationError, match="X20 downward"):
+        validate_routed_carry(module)
+
+
+@pytest.mark.parametrize('width', range(9,33))
+@pytest.mark.parametrize('axis', ['A','B'])
+def test_local_inputs_accept_each_fixed_corridor_prefix(width, axis, field_maps):
+    sites = [(20,12,z) for z in range(16)] + [(20,11,z) for z in range(16)] + [(20,10,0)]
+    module, members, _ = _local_module(sites[:width+1])
+    if axis == 'A':
+        _use_a_feedback(module, members)
+    result = validate_routed_carry(module)
+    assert len(result.chains[0].q_feedback_cells) == width
+    assert len(CARRY_FEATURE.prepare(module, *field_maps).default_high_fields) == 12*width
 
 
 def test_local_inputs_reject_different_clocks(default_high):

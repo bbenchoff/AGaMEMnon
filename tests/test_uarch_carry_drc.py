@@ -390,8 +390,7 @@ def test_import_accepts_only_the_exact_registered_q_feedback_resource(tmp_path):
     assert "typed resource notification rejects" not in log
 
 
-def _ordinary_slice_qfb_document():
-    bel = "X2Y2_SLICE3"
+def _ordinary_slice_qfb_document(bel="X2Y2_SLICE3", axis="B"):
     bel_pins = {
         (row["bel"], row["pin"]): row["wire"]
         for row in csv.DictReader((DEVDB / "dev_belpins.csv").open(
@@ -399,12 +398,12 @@ def _ordinary_slice_qfb_document():
     }
     pips = list(csv.DictReader((DEVDB / "dev_pips.csv").open(
         encoding="utf-8", newline="")))
-    q_wire, b_wire = bel_pins[(bel, "Q")], bel_pins[(bel, "I[1]")]
+    q_wire, b_wire = bel_pins[(bel, "Q")], bel_pins[(bel, "I[0]" if axis == "A" else "I[1]")]
     bridge = next(row for row in pips
                   if row["src"] == q_wire and row["type"] == "OMUXFB")
     qfb = next(row for row in pips
                if row["src"] == bridge["dst"] and row["dst"] == b_wire)
-    assert qfb["type"] == "SLICE_QFB"
+    assert qfb["type"] == ("CARRY_QFB_A" if axis == "A" else "SLICE_QFB")
     module = {
         "attributes": {},
         "ports": {},
@@ -431,7 +430,7 @@ def _ordinary_slice_qfb_document():
                     "F": "output",
                 },
                 "connections": {
-                    "I": [11, 10, 12, 13], "CLK": [14], "Q": [10],
+                    "I": [10, 11, 12, 13] if axis == "A" else [11, 10, 12, 13], "CLK": [14], "Q": [10],
                     "F": [],
                 },
             },
@@ -1016,11 +1015,12 @@ def test_unqualified_long_chain_translation_without_direct_seam_fails_before_rou
 
 
 @pytest.mark.parametrize('axis', ['A','B'])
-def test_full_registered_feedback_chain_uses_owned_local_inputs(tmp_path, axis, monkeypatch):
+@pytest.mark.parametrize('width', [9,16,24,25,31,32])
+def test_registered_feedback_prefix_uses_owned_local_inputs(tmp_path, axis, width, monkeypatch):
     monkeypatch.setenv('AGRV2K_MIN_INPUT_INDEG', '5')
     monkeypatch.setenv('AGRV2K_CARRY_GRAPH_PREFLIGHT', '1')
     design = CarryJson()
-    cells = design.feedback_registered_chain(32)
+    cells = design.feedback_registered_chain(width)
     if axis == 'A':
         for name in cells:
             pins = design.cells[name]['connections']
@@ -1032,9 +1032,9 @@ def test_full_registered_feedback_chain_uses_owned_local_inputs(tmp_path, axis, 
     module = document['modules']['top']
     marked = [c for c in module['cells'].values()
               if 'AGRV2K_CARRY_D_DEFAULT_HIGH' in c.get('attributes',{})]
-    assert len(marked) == 32
+    assert len(marked) == width
     assert all(c['attributes']['AGRV2K_CARRY_D_DEFAULT_HIGH'] == 'IMUX_UNSELECTED_HIGH_V1' for c in marked)
-    assert sum('AGRV2K_CARRY_A_Q_FEEDBACK' in c['attributes'] for c in marked) == (32 if axis == 'A' else 0)
+    assert sum('AGRV2K_CARRY_A_Q_FEEDBACK' in c['attributes'] for c in marked) == (width if axis == 'A' else 0)
     assert '$CARRY_VCC' not in module['cells']
     from agamemnon.engine.features.carry_validate import validate_routed_carry
     assert validate_routed_carry(module).chains
@@ -1056,11 +1056,61 @@ def test_full_registered_feedback_chain_uses_owned_local_inputs(tmp_path, axis, 
             or 'typed resource notification rejects PIP' in forged_log)
 
 
-def test_shorter_feedback_chain_retains_ordinary_vcc(tmp_path):
+def test_movable_short_feedback_chain_retains_ordinary_vcc(tmp_path):
     design = CarryJson()
-    design.feedback_registered_chain(24)
+    design.feedback_registered_chain(8)
     result, log, output = _run(tmp_path,design)
     assert result.returncode == 0, log
     cells = json.loads(output.read_text())['modules']['top']['cells']
     assert '$CARRY_VCC' in cells
     assert all('AGRV2K_CARRY_D_DEFAULT_HIGH' not in c.get('attributes',{}) for c in cells.values())
+
+
+@pytest.mark.parametrize('width', [16,24,31,32])
+def test_variable_addend_uses_B_instead_of_feedback_only_A(tmp_path, width):
+    design = CarryJson()
+    members = design.feedback_registered_chain(width)
+    clock = design.admitted_clock()
+    for index, name in enumerate(members):
+        data = design.net('addend_%d' % index)
+        design.cells[name]['connections']['A'] = [data]
+        design.cells['addend_source_%d' % index] = {
+            'hide_name': 0, 'type': 'GENERIC_SLICE',
+            'parameters': {'K': '100', 'FF_USED': '1', 'INIT': '1'*16},
+            'attributes': {},
+            'port_directions': {'I': 'input', 'CLK': 'input', 'Q': 'output', 'F': 'output'},
+            'connections': {'I': ['0']*4, 'CLK': [clock], 'Q': [data], 'F': []},
+        }
+    result, log, output = _run(tmp_path, design)
+    assert result.returncode == 0, log
+    module = json.loads(output.read_text())['modules']['top']
+    marked = [c for c in module['cells'].values()
+              if 'AGRV2K_CARRY_D_DEFAULT_HIGH' in c.get('attributes',{})]
+    assert len(marked) == width
+    for cell in marked:
+        index = int(cell['attributes']['AGRV2K_CARRY_POSITION'], 2)-1
+        assert cell['connections']['I'][0] == cell['connections']['Q'][0]
+        assert cell['connections']['I'][1] == module['netnames']['addend_%d' % index]['bits'][0]
+        assert cell['attributes']['AGRV2K_CARRY_A_Q_FEEDBACK'] == 'LOCAL_PRESENTATION_V1'
+        assert int(cell['parameters']['INIT'], 2) == 0x96E8
+
+
+@pytest.mark.parametrize('axis', ['A','B'])
+def test_import_rejects_local_input_prefix_translated_inside_corridor(tmp_path, axis):
+    # This physical feedback edge is present in the full corridor, but a
+    # FIRST member at Y11 would silently translate a prefix's root from Y12.
+    document, _, _ = _ordinary_slice_qfb_document('X20Y11_SLICE1', axis)
+    cell = document['modules']['top']['cells']['ordinary_registered_feedback']
+    cell['port_directions'].update(CIN='input', COUT='output')
+    cell['connections'].update(CIN=[15], COUT=[16])
+    cell['attributes'].update(AGRV2K_CARRY_SCHEMA=1, AGRV2K_CARRY_PROFILE='LEGACY_25',
+                              AGRV2K_CARRY_CHAIN=0, AGRV2K_CARRY_POSITION=1,
+                              AGRV2K_CARRY_LENGTH=17, AGRV2K_CARRY_ROLE='FIRST',
+                              AGRV2K_REGISTER_INPUT_MODE='CARRY_SUM_TO_FF',
+                              AGRV2K_CARRY_D_DEFAULT_HIGH='IMUX_UNSELECTED_HIGH_V1')
+    if axis == 'A':
+        cell['attributes']['AGRV2K_CARRY_A_Q_FEEDBACK'] = 'LOCAL_PRESENTATION_V1'
+    result, log, _ = _run_document(tmp_path,'translated_local_input_prefix',document,
+                                   '--no-pack','--no-place','--no-route')
+    assert result.returncode != 0
+    assert 'typed resource notification rejects PIP' in log

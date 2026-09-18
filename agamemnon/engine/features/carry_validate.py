@@ -33,11 +33,12 @@ _CARRY_WIRE = re.compile(r"X(\d+)Y(\d+)_CARRY(IN|OUT)(\d+)")
 _OMUX_WIRE = re.compile(r"X(\d+)Y(\d+)_OMUX(\d+)")
 _IMUX_WIRE = re.compile(r"X(\d+)Y(\d+)_IMUX(\d+)")
 
-# Only the arithmetic sites of the witnessed full 32-bit downward corridor.
-CARRY_LOCAL_INPUT_SITES = frozenset(
+# Prefixes preserve the seed and the order of the witnessed full corridor.
+CARRY_LOCAL_INPUT_PATH = tuple(
     [(20, 12, z) for z in range(1, 16)] +
     [(20, 11, z) for z in range(16)] + [(20, 10, 0)]
 )
+CARRY_LOCAL_INPUT_SITES = frozenset(CARRY_LOCAL_INPUT_PATH)
 
 
 def carry_a_qfb_site(source, destination):
@@ -713,9 +714,11 @@ def validate_routed_carry(module):
 
     profile = _validate_physical_profiles(chains)
     if default_high_cells:
-        if (len(chains) != 1 or len(chains[0]) != 33 or profile != "x20-downward-33" or
-                {(item.site.x, item.site.y, item.site.z) for item in chains[0][1:]} != CARRY_LOCAL_INPUT_SITES):
-            _reject("carry local inputs require the complete X20 downward 33-site footprint")
+        if (len(chains) != 1 or not 10 <= len(chains[0]) <= 33 or
+                chains[0][0].site != CarrySite(20, 12, 0) or
+                tuple((item.site.x, item.site.y, item.site.z) for item in chains[0][1:]) !=
+                CARRY_LOCAL_INPUT_PATH[:len(chains[0])-1]):
+            _reject("carry local inputs require a fixed X20 downward 10-33-site prefix")
         if len({tuple(item.cell['connections']['CLK']) for item in chains[0][1:]}) != 1:
             _reject("carry local inputs require one shared clock")
     routes, aliases = _routes_by_bit(module)

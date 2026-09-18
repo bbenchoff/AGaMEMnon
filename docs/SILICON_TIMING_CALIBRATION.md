@@ -149,7 +149,11 @@ LFSR + 32-bit accumulator probe; AG32-Docs `tools/vendor_parity/timing_ro_202609
   the baseline routes an `MCU_BUS_CLOCK` cell, and any `SystemExit` inside a candidate build rejects
   the candidate instead of the build. Test: `tests/test_control_sharing_clock_gate.py`.
 
-What the same measurement showed about dedicated carry: a 32-bit adder only gets hardware carry when
-the accumulator register is fused into the chain slice (SUM must drive the flip-flop's D directly, so
-a synchronous reset on the accumulator must be moved onto the addend), because the only qualified
-33-site corridor (X20Y11 -> X20Y12 -> X20Y10_SLICE0) has `I[0]` pins reachable from the same tile only.
+The accumulator measurement uses a register fused into each carry slice: SUM
+drives the flip-flop's D directly. Its accumulator has no synchronous reset;
+reset instead clears the LFSR and gates the addend. That holds the accumulator
+while reset is asserted and is not equivalent to clearing its value. The
+checker solves its initial state. The corrected 33-site corridor runs
+X20Y12 -> X20Y11 -> X20Y10_SLICE0. Some A pins admit only local own-Q feedback;
+the [local-input packer](CARRY_LOCAL_INPUTS.md) places live addends on B and
+removes the routed D/VCC ingress demand for eligible registered chains.

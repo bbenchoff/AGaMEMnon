@@ -2702,12 +2702,11 @@ static void pack_carries(Context *ctx)
             capture_dff.emplace(fa, dff);
     }
 
-    // The witnessed 32-bit accumulator/counter profile uses the complete
-    // downward corridor, registered sums and exactly one own-Q operand per
-    // stage. Its unselected D inputs read high, avoiding a seventeenth tile
-    // ingress demand for VCC. Other shapes retain ordinary routed D/VCC.
-    bool d_default_high = chains.size() == 1 && fa_cells.size() == 32 &&
-            !chains.front().export_cout && capture_dff.size() == 32;
+    // Fixed-root prefixes reuse the same witnessed arithmetic sites and
+    // local inputs as the full 32-bit corridor. Movable short chains retain
+    // ordinary routed D/VCC; they can occupy sites outside that corridor.
+    bool d_default_high = chains.size() == 1 && fa_cells.size() >= 9 && fa_cells.size() <= 32 &&
+            !chains.front().export_cout && capture_dff.size() == fa_cells.size();
     if (d_default_high) {
         NetInfo *shared_clock = capture_dff.at(fa_cells.front())->getPort(ctx->id("CLK"));
         for (CellInfo *fa : fa_cells) {
@@ -2973,6 +2972,19 @@ static void pack_carries(Context *ctx)
         lc->attrs = ci->attrs;
         lc->addInput(ctx->id("CIN"));   // create_generic_cell doesn't add the carry ports
         lc->addOutput(ctx->id("COUT"));
+        // Some A pins in the fixed local-input corridor admit only their own
+        // register's Q. Addition is commutative: keep a live external addend
+        // on B and use that local A path for feedback. Folded constant addends
+        // need no ingress and retain their established operand orientation.
+        if (d_default_high && ci->getPort(ctx->id("B")) == capture_dff.at(ci)->getPort(ctx->id("Q")) &&
+            const_of(ci->getPort(ctx->id("A"))) < 0) {
+            NetInfo *a = ci->getPort(ctx->id("A"));
+            NetInfo *b = ci->getPort(ctx->id("B"));
+            ci->disconnectPort(ctx->id("A"));
+            ci->disconnectPort(ctx->id("B"));
+            ci->connectPort(ctx->id("A"), b);
+            ci->connectPort(ctx->id("B"), a);
+        }
         // CONSTANT FOLD: a full adder whose A/B input is a constant (e.g. the counter's "+1" addend, GND on
         // the high bits) bakes that value into the LUT mask so we DON'T route GND/VCC to every dense slice
         // (that ingress is what makes a dense carry tile unroutable -- and it's why the vendor uses per-bit
@@ -14073,6 +14085,24 @@ struct AgrvImpl : ViaductAPI
         return result;
     }
 
+    bool carry_local_input_profile(const CarryIdentity &identity) const
+    {
+        // carry_identity independently binds the length limits for each
+        // profile. Placement closure still requires the exact X20 root.
+        return identity.valid && (identity.profile == "LEGACY_25" ||
+                                  identity.profile == "X20_DOWNWARD_33");
+    }
+
+    bool carry_local_input_site(const CellInfo *cell, const CarryIdentity &identity) const
+    {
+        if (!carry_local_input_profile(identity) || identity.position <= 0 || cell->bel == BelId())
+            return false;
+        const Loc loc = ctx->getBelLocation(cell->bel);
+        const int position = identity.position;
+        return loc.x == 20 && loc.y == (position < 16 ? 12 : position < 32 ? 11 : 10) &&
+                loc.z == position % 16;
+    }
+
     bool same_carry_chain(const CellInfo *a, const CellInfo *b) const
     {
         const CarryIdentity left = carry_identity(a), right = carry_identity(b);
@@ -14221,8 +14251,12 @@ struct AgrvImpl : ViaductAPI
             else if (user.cell == cell && user.port == ctx->id("I[0]"))
                 self_a = true;
         const CarryIdentity identity = carry_identity(cell);
-        const bool carry_a = self_a && !self_b && identity.valid &&
-                identity.profile == "X20_DOWNWARD_33" && identity.length == 33 && identity.position > 0 &&
+        const bool local_d = cell->attrs.count(ctx->id("AGRV2K_CARRY_D_DEFAULT_HIGH"));
+        // Prefixes must not inherit a translated root merely because their
+        // individual feedback edges also exist elsewhere in the full chain.
+        if (local_d && !carry_local_input_site(cell, identity))
+            return false;
+        const bool carry_a = self_a && !self_b && carry_local_input_site(cell, identity) &&
                 cell->attrs.count(ctx->id("AGRV2K_CARRY_D_DEFAULT_HIGH")) &&
                 cell->attrs.at(ctx->id("AGRV2K_CARRY_D_DEFAULT_HIGH")).as_string() == "IMUX_UNSELECTED_HIGH_V1" &&
                 cell->attrs.count(ctx->id("AGRV2K_CARRY_A_Q_FEEDBACK")) &&
@@ -14322,8 +14356,8 @@ struct AgrvImpl : ViaductAPI
             const bool local_inputs = std::any_of(ordered.begin(), ordered.end(), [&](CellInfo *member) {
                 return member->attrs.count(ctx->id("AGRV2K_CARRY_D_DEFAULT_HIGH"));
             });
-            if (local_inputs && (root_identity.profile != "X20_DOWNWARD_33" || ordered.size() != 33))
-                log_error("agrv2k: carry local inputs require the complete X20 downward 33-site profile\n");
+            if (local_inputs && !carry_local_input_profile(root_identity))
+                log_error("agrv2k: carry local inputs require a fixed X20 downward 10-33-site prefix\n");
             NetInfo *local_input_clock = local_inputs ? ordered.at(1)->getPort(ctx->id("CLK")) : nullptr;
             for (size_t index = 0; index < ordered.size(); ++index) {
                 CellInfo *current = ordered.at(index);

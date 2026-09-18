@@ -40,8 +40,10 @@ emission fails closed when any non-L48 package is selected.
 technology maps. The synthesis path maps ordinary Verilog into AGRV2K LUT,
 flip-flop, clock, IO, MCU-edge, carry, and BRAM cells.
 
-Dedicated carry lowering is opt-in because only specific physical footprints
-are qualified. BRAM inference is accepted only for patterns represented by the
+Native builds automatically select eligible dedicated-carry chains within
+bounded physical footprints; `--no-hard-carry` disables that selection.
+See [carry local inputs](CARRY_LOCAL_INPUTS.md) for supported shapes and the
+narrower silicon qualification. BRAM inference is accepted only for patterns represented by the
 integrated hard-block model; unsupported semantics must use soft logic or fail.
 
 ## Chip database

@@ -252,22 +252,27 @@ A ripple slice is a LUT4 configured with `INIT = 0x96E8` and `D = I[3]` tied
 | `Cout` | `maj(A, B, Cin)` — taken from the **low mask byte** |
 
 `I[2]` is unused because `pinC` comes from the carry hardware
-(`modeMux = 1`, `CFG_LUTCMUX[2z+1] = 1`). Because `D` must be 1, the packer ties
-it to a **shared VCC slice**. Related masks in the same family
+(`modeMux = 1`, `CFG_LUTCMUX[2z+1] = 1`). The packer normally supplies `D` from
+a **shared VCC slice**. The bounded [registered local-input profile](CARRY_LOCAL_INPUTS.md)
+instead leaves its D selector unselected, which reads high at those sites.
+Related masks in the same family
 (`0x69D4`, …) appear as folded/inverted variants. **[R]**
 
-### Silicon status **[S]** — opt-in and narrow
+### Silicon status **[S]** — narrow physical subsets
 
 | Qualified | Detail |
 |---|---|
 | Same-tile short chains | 4-stage and 8-stage chains; **two simultaneous 3-stage** chains |
-| One inter-tile corridor | a **33-site** corridor containing a seed plus up to **32** arithmetic stages, in the qualified order through **X20Y11, X20Y12, X20Y10** — one 32-bit chain observed |
+| One inter-tile corridor | A **33-site** corridor containing a seed plus **32** arithmetic stages through **X20Y12, X20Y11, X20Y10**, with counter-rate and registered-accumulator witnesses. The former upward/skipping order is withdrawn; see [correction](CARRY_CORRIDOR_CORRECTION.md). |
+| Registered local-input prefixes | Exact 16/24/31-bit accumulator images pass sampled sequence checks at 10 MHz; the full 32-bit image passes through 110 MHz and fails at 120/125 MHz. [Scope and evidence](CARRY_LOCAL_INPUTS.md). |
 
-Placement rule enforced by the packer **[R]**:
+The same-tile multi-chain placement rule enforced by the packer **[R]** is
 `sum(arithmetic stages) + number of chains <= 9`.
+One longer chain may use the fixed corridor through 33 sites including its seed.
 
-Dedicated-carry lowering is **opt-in**, because only these specific physical
-footprints are qualified. **Unqualified [U]:** arbitrary seed/spill corridors,
+Native builds automatically select eligible dedicated-carry chains within
+these bounded footprints; `--no-hard-carry` disables that selection.
+**Unqualified [U]:** arbitrary seed/spill corridors,
 multi-chain placement beyond the above, and all other carry sites and modes.
 A "fourth binary carry cone" is explicitly still fail-closed.
 
@@ -1387,7 +1392,7 @@ images **must not** be treated as board qualification images. **[R]**
 | Physical inputs | **[S]** L48 subset | PIN_10, 11, 12, 15, 19; PIN_19 registered; PIN_12 scalar single-consumer direct only; exact single-consumer direct corridors for PIN_25–28 |
 | L48 bond map | **[S]** | exact; other packages architecture-recovered only |
 | IO electrical (drive/pull/open-drain/OE) | **[R]** decode, **[S]** exact subsets | PIN_16 pull-up, PIN_26 open-drain, and exact PIN_25 combined-cell constant/dynamic OE; generic OE/bidirectional behaviour **[U]** |
-| Dedicated carry | **[S]** opt-in | same-tile chains + one 33-site corridor |
+| Dedicated carry | **[S]** exact subsets | same-tile chains + one corrected 33-site corridor; automatic eligible-chain selection |
 | BRAM | **[S]** bounded read at `X13Y4`; `PORTA_OUTREG` = one Port-A read clock; bounded x2 `PORTB_OUTREG` = one Port-B read clock; `PACKEDMODE` has measured first-order behaviour (mechanism unclaimed); four exact hash-bound profiles qualify one fixed-address x18 write A/B through replay and fail-closed source-to-route | edited/inferred/generic write ingress, patterned narrow INIT, other addresses/sites/modes/clocks and collisions fail closed; `CLKMODE` remains a bounded null |
 | BRAM mode config | **[R]** 11 of 30 bit positions | 19 position-resolved only; all Port-B unvalidated |
 | Routing selectors | **[R]** | 659,759 + 62,044 admitted; corpus counts, not coverage |
