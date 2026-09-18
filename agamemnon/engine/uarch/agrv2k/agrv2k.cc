@@ -2124,6 +2124,32 @@ static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constne
     orig->users.clear();
 }
 
+// Generated objects must not replace an imported cell/net with the same name.
+// Reserve pending names as well as live context entries: many pack passes only
+// install their new objects after all original cells have been inspected.
+struct PackedNameAllocator
+{
+    Context *ctx;
+    pool<IdString> cells, nets;
+
+    explicit PackedNameAllocator(Context *ctx) : ctx(ctx) {}
+
+    IdString reserve(const std::string &base, bool cell)
+    {
+        pool<IdString> &pending = cell ? cells : nets;
+        for (size_t suffix = 0;; ++suffix) {
+            IdString name = ctx->id(base + (suffix ? "_" + std::to_string(suffix) : ""));
+            if ((cell ? ctx->cells.count(name) : ctx->nets.count(name)) || pending.count(name))
+                continue;
+            pending.insert(name);
+            return name;
+        }
+    }
+
+    IdString cell(const std::string &base) { return reserve(base, true); }
+    IdString net(const std::string &base) { return reserve(base, false); }
+};
+
 // AGRV2K_LOCAL_CONSTANTS (opt-in): the default flow drives every constant consumer from ONE shared
 // $PACKER_GND/$PACKER_VCC cell, which the placer pins far (the MCU-boundary X14Y11), so fabric-wide
 // constant fan-in becomes long cross-fabric routes -- silicon-wrong for carry-heavy designs and a
@@ -2133,6 +2159,7 @@ static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constne
 // ONLY under the env flag, so the default remains byte-identical.
 static void replicate_local_constants(Context *ctx, IdString net_name, IdString cell_name)
 {
+    PackedNameAllocator names(ctx);
     auto net_it = ctx->nets.find(net_name);
     auto cell_it = ctx->cells.find(cell_name);
     if (net_it == ctx->nets.end() || cell_it == ctx->cells.end())
@@ -2152,18 +2179,17 @@ static void replicate_local_constants(Context *ctx, IdString net_name, IdString 
         if (u.cell == nullptr)
             continue;
         if (idx++ == 0) {
-            // keep the first consumer on the original shared cell/net (also preserves
-            // $PACKER_GND/$PACKER_VCC for any downstream by-name use).
+            // Keep the first consumer on the original shared cell/net.
             u.cell->ports[u.port].net = shared;
             u.cell->ports[u.port].user_idx = shared->users.add(u);
             continue;
         }
         std::string base = cell_name.str(ctx) + "_LOCAL_" + std::to_string(idx);
         std::unique_ptr<CellInfo> cell =
-                create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), base);
+                create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), names.cell(base).str(ctx));
         for (auto &p : proto->params)
             cell->params[p.first] = p.second;
-        std::unique_ptr<NetInfo> net = std::make_unique<NetInfo>(ctx->id(base + "_NET"));
+        std::unique_ptr<NetInfo> net = std::make_unique<NetInfo>(names.net(base + "_NET"));
         net->driver.cell = cell.get();
         net->driver.port = ctx->id("F");
         cell->ports.at(ctx->id("F")).net = net.get();
@@ -2402,18 +2428,22 @@ static void pack_shared_control(Context *ctx)
 static void pack_constants(Context *ctx)
 {
     log_info("Packing constants..\n");
-
-    std::unique_ptr<CellInfo> gnd_cell = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), "$PACKER_GND");
+    PackedNameAllocator names(ctx);
+    const IdString gnd_cell_name = names.cell("$PACKER_GND");
+    const IdString gnd_net_name = names.net("$PACKER_GND_NET");
+    const IdString vcc_cell_name = names.cell("$PACKER_VCC");
+    const IdString vcc_net_name = names.net("$PACKER_VCC_NET");
+    std::unique_ptr<CellInfo> gnd_cell = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), gnd_cell_name.str(ctx));
     gnd_cell->params[ctx->id("INIT")] = Property(0, 1 << ctx->args.K);
-    std::unique_ptr<NetInfo> gnd_net = std::make_unique<NetInfo>(ctx->id("$PACKER_GND_NET"));
+    std::unique_ptr<NetInfo> gnd_net = std::make_unique<NetInfo>(gnd_net_name);
     gnd_net->driver.cell = gnd_cell.get();
     gnd_net->driver.port = ctx->id("F");
     gnd_cell->ports.at(ctx->id("F")).net = gnd_net.get();
 
-    std::unique_ptr<CellInfo> vcc_cell = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), "$PACKER_VCC");
+    std::unique_ptr<CellInfo> vcc_cell = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), vcc_cell_name.str(ctx));
     // Fill with 1s
     vcc_cell->params[ctx->id("INIT")] = Property(Property::S1).extract(0, (1 << ctx->args.K), Property::S1);
-    std::unique_ptr<NetInfo> vcc_net = std::make_unique<NetInfo>(ctx->id("$PACKER_VCC_NET"));
+    std::unique_ptr<NetInfo> vcc_net = std::make_unique<NetInfo>(vcc_net_name);
     vcc_net->driver.cell = vcc_cell.get();
     vcc_net->driver.port = ctx->id("F");
     vcc_cell->ports.at(ctx->id("F")).net = vcc_net.get();
@@ -2454,8 +2484,8 @@ static void pack_constants(Context *ctx)
     }
 
     if (std::getenv("AGRV2K_LOCAL_CONSTANTS") != nullptr) {
-        replicate_local_constants(ctx, ctx->id("$PACKER_GND_NET"), ctx->id("$PACKER_GND"));
-        replicate_local_constants(ctx, ctx->id("$PACKER_VCC_NET"), ctx->id("$PACKER_VCC"));
+        replicate_local_constants(ctx, gnd_net_name, gnd_cell_name);
+        replicate_local_constants(ctx, vcc_net_name, vcc_cell_name);
     }
 }
 
@@ -2614,6 +2644,7 @@ static void pack_carries(Context *ctx)
     if (!any)
         return;
     log_info("Packing carry chains..\n");
+    PackedNameAllocator names(ctx);
 
     // Inventory and validate the complete logical graph before mutating it. A
     // dedicated carry COUT may have one following AG32_FA.CIN, or it may be a
@@ -2951,7 +2982,7 @@ static void pack_carries(Context *ctx)
         // Keep the original names for the single-chain case so its routed
         // evidence remains byte-for-byte reproducible.
         const std::string suffix = fa_heads.size() == 1 ? "" : "_" + std::to_string(index);
-        auto seed = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), "$CARRY_SEED" + suffix);
+        auto seed = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), names.cell("$CARRY_SEED" + suffix).str(ctx));
         seed->addOutput(ctx->id("COUT"));
         // Cout uses mask[7:0]. A constant seed directly emits 0/1; a dynamic
         // chain input is buffered through physical input A (0xAA => Cout=A).
@@ -2961,7 +2992,7 @@ static void pack_carries(Context *ctx)
         set_register_input_mode(ctx, seed.get(), RegisterInputMode::NONE);
         if (input_const < 0)
             seed->addInput(ctx->id("I[0]"));
-        auto seed_net = std::make_unique<NetInfo>(ctx->id("$CARRY_SEED_NET" + suffix));
+        auto seed_net = std::make_unique<NetInfo>(names.net("$CARRY_SEED_NET" + suffix));
         seed->connectPort(ctx->id("COUT"), seed_net.get());
         head_seed[head] = seeds.size();
         CellInfo *packed = seed.get();
@@ -2969,11 +3000,11 @@ static void pack_carries(Context *ctx)
     }
 
     // one shared VCC slice fans out to every carry cell's D input (I[3]=1)
-    std::unique_ptr<CellInfo> vcc_cell = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), "$CARRY_VCC");
+    std::unique_ptr<CellInfo> vcc_cell = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), names.cell("$CARRY_VCC").str(ctx));
     vcc_cell->params[ctx->id("INIT")] = Property(Property::S1).extract(0, (1 << ctx->args.K), Property::S1);
     vcc_cell->params[ctx->id("FF_USED")] = 0;
     set_register_input_mode(ctx, vcc_cell.get(), RegisterInputMode::NONE);
-    auto vcc_net_uptr = std::make_unique<NetInfo>(ctx->id("$CARRY_VCC_NET"));
+    auto vcc_net_uptr = std::make_unique<NetInfo>(names.net("$CARRY_VCC_NET"));
     NetInfo *vcc_net = vcc_net_uptr.get();
     vcc_cell->connectPort(ctx->id("F"), vcc_net);
 
@@ -2986,7 +3017,7 @@ static void pack_carries(Context *ctx)
         if (ci->type != fa_type)
             continue;
         std::unique_ptr<CellInfo> lc =
-                create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), ci->name.str(ctx) + "_CARRY");
+                create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), names.cell(ci->name.str(ctx) + "_CARRY").str(ctx));
         // Preserve ordinary placement/user metadata across the legalization
         // boundary, just as the generic LUT/FF packer does. In particular,
         // an explicit BEL remains a hard constraint on the packed slice.
@@ -3089,19 +3120,8 @@ static void pack_carries(Context *ctx)
             log_error("agrv2k: carry D default does not admit fabric carry export\n");
         CellInfo *tail = packed_fa.at(chain.fa.back());
         const std::string export_base = tail->name.str(ctx) + "_EXPORT";
-        std::string export_name = export_base;
-        for (size_t suffix = 1; ctx->cells.count(ctx->id(export_name)) ||
-                std::any_of(new_cells.begin(), new_cells.end(), [&](const std::unique_ptr<CellInfo> &cell) {
-                    return cell->name == ctx->id(export_name);
-                }); ++suffix)
-            export_name = export_base + "_" + std::to_string(suffix);
+        const std::string export_name = names.cell(export_base).str(ctx);
         auto exporter = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), export_name);
-        auto unique_net_name = [&](const std::string &base) {
-            std::string name = base;
-            for (size_t suffix = 1; ctx->nets.count(ctx->id(name)); ++suffix)
-                name = base + "_" + std::to_string(suffix);
-            return ctx->id(name);
-        };
         exporter->addInput(cin_port);
         exporter->addOutput(cout_port);
         exporter->params[ctx->id("INIT")] = Property(0xf000, 1 << ctx->args.K);
@@ -3111,14 +3131,14 @@ static void pack_carries(Context *ctx)
         NetInfo *external = tail->getPort(cout_port);
         tail->disconnectPort(cout_port);
         exporter->connectPort(ctx->id("F"), external);
-        auto internal = std::make_unique<NetInfo>(unique_net_name(export_name + "_CIN"));
+        auto internal = std::make_unique<NetInfo>(names.net(export_name + "_CIN"));
         tail->connectPort(cout_port, internal.get());
         exporter->connectPort(cin_port, internal.get());
         ctx->nets[internal->name] = std::move(internal);
         // Preserve an explicitly driven, unused COUT net in the serialized
         // carry shape, as for every arithmetic tail. The independent emitter
         // reconstructs ownership from these ports rather than marker names.
-        auto unused = std::make_unique<NetInfo>(unique_net_name(export_name + "_COUT"));
+        auto unused = std::make_unique<NetInfo>(names.net(export_name + "_COUT"));
         exporter->connectPort(cout_port, unused.get());
         ctx->nets[unused->name] = std::move(unused);
         chain.packed_export = exporter.get();
@@ -4065,15 +4085,7 @@ static void pack_bram_localize_const(Context *ctx)
     // width-padding don't-care. Constant/dangling padded lanes still trim, so the SERV
     // 512x2 RF (whose upper lanes are constant 0) stays byte-identical. Opt-in.
     bool narrow_write_optin = std::getenv("AGAMEMNON_BRAM_NARROW_WRITE") != nullptr;
-    NetInfo *gnd = nullptr, *vcc = nullptr;
-    for (auto &n : ctx->nets) {
-        if (n.first == ctx->id("$PACKER_GND_NET"))
-            gnd = n.second.get();
-        else if (n.first == ctx->id("$PACKER_VCC_NET"))
-            vcc = n.second.get();
-    }
-    if (gnd == nullptr && vcc == nullptr)
-        return;
+    PackedNameAllocator names(ctx);
     int idx = 0;
     long n = 0, hard_n = 0, local_n = 0, routed_gnd_n = 0;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
@@ -4097,28 +4109,7 @@ static void pack_bram_localize_const(Context *ctx)
         // carries no real data: a constant (gnd/vcc or an all-0/all-1 GENERIC_SLICE with no
         // FF, exactly as pack_constants builds $PACKER_GND/$PACKER_VCC) or a dangling net.
         auto is_dontcare_data = [&](NetInfo *net) -> bool {
-            if (net == nullptr || net == gnd || net == vcc)
-                return true;
-            if (net->driver.cell == nullptr)
-                return true;
-            if (net->driver.cell->type == ctx->id("GENERIC_SLICE") &&
-                    net->driver.port == ctx->id("F")) {
-                CellInfo *drv = net->driver.cell;
-                auto init = drv->params.find(ctx->id("INIT"));
-                auto ff = drv->params.find(ctx->id("FF_USED"));
-                const int width = 1 << ctx->args.K;
-                if (init != drv->params.end() && init->second.is_fully_def() &&
-                        int(init->second.size()) == width &&
-                        ff != drv->params.end() && ff->second.is_fully_def() &&
-                        ff->second.as_int64() == 0) {
-                    if (init->second == Property(0, width))
-                        return true;
-                    if (init->second ==
-                            Property(Property::S1).extract(0, width, Property::S1))
-                        return true;
-                }
-            }
-            return false;
+            return net == nullptr || net->driver.cell == nullptr || constant_slice_value(ctx, net) >= 0;
         };
         for (auto &p : ci->ports) {
             if (p.second.type != PORT_IN || p.second.net == nullptr)
@@ -4141,40 +4132,11 @@ static void pack_bram_localize_const(Context *ctx)
                 unused_data.push_back(p.first);
                 continue;
             }
-            // Classify by identity of the SHARED constant nets first (the
-            // default flow, byte-identical), then by what actually DRIVES the
-            // net. AGRV2K_LOCAL_CONSTANTS moves every consumer but the first
-            // onto a private $PACKER_{GND,VCC}_LOCAL_n net before this pass
-            // runs; comparing net pointers alone then sees no constant at all,
-            // so AGRV2K_BRAM_HARDCONST can never hard-default those pins and
-            // ClkEn/ByteEn/Re/We become routed fabric constants competing for
-            // the single CtrlMUX ingress (X14Y4_RMUX84). A constant is a
-            // GENERIC_SLICE driving from F with no FF whose INIT is fully
-            // defined and entirely 0 or entirely 1, exactly as pack_constants
-            // builds $PACKER_GND / $PACKER_VCC.
-            int const_value = -1;
-            if (p.second.net == gnd)
-                const_value = 0;
-            else if (p.second.net == vcc)
-                const_value = 1;
-            else if (p.second.net->driver.cell != nullptr &&
-                     p.second.net->driver.cell->type == ctx->id("GENERIC_SLICE") &&
-                     p.second.net->driver.port == ctx->id("F")) {
-                CellInfo *drv = p.second.net->driver.cell;
-                auto init = drv->params.find(ctx->id("INIT"));
-                auto ff = drv->params.find(ctx->id("FF_USED"));
-                const int width = 1 << ctx->args.K;
-                if (init != drv->params.end() && init->second.is_fully_def() &&
-                        int(init->second.size()) == width &&
-                        ff != drv->params.end() && ff->second.is_fully_def() &&
-                        ff->second.as_int64() == 0) {
-                    if (init->second == Property(0, width))
-                        const_value = 0;
-                    else if (init->second ==
-                             Property(Property::S1).extract(0, width, Property::S1))
-                        const_value = 1;
-                }
-            }
+            // Generated shared constants may have collision-free suffixes,
+            // and replicated constants have private names. Only their actual
+            // driver truth establishes the value; a user's reserved-looking
+            // net must never be treated as a shared GND/VCC pointer.
+            const int const_value = constant_slice_value(ctx, p.second.net);
             if (const_value == 0)
                 pins.push_back({p.first, false});
             else if (const_value == 1)
@@ -4271,13 +4233,13 @@ static void pack_bram_localize_const(Context *ctx)
                 ++n; ++hard_n;
                 continue;
             }
-            std::string cn = "$BRAM_CONST_" + std::to_string(idx++);
+            std::string cn = names.cell("$BRAM_CONST_" + std::to_string(idx++)).str(ctx);
             std::unique_ptr<CellInfo> cc = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), cn);
             if (pr.second)
                 cc->params[ctx->id("INIT")] = Property(Property::S1).extract(0, 1 << ctx->args.K, Property::S1);
             else
                 cc->params[ctx->id("INIT")] = Property(0, 1 << ctx->args.K);
-            std::unique_ptr<NetInfo> nn = std::make_unique<NetInfo>(ctx->id(cn + "_NET"));
+            std::unique_ptr<NetInfo> nn = std::make_unique<NetInfo>(names.net(cn + "_NET"));
             nn->driver.cell = cc.get();
             nn->driver.port = ctx->id("F");
             cc->ports.at(ctx->id("F")).net = nn.get();
