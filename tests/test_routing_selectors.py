@@ -337,3 +337,20 @@ def test_rmux49_same_tile_to_rmux07_is_not_portable():
     for x, y in ((2, 4), (15, 5), (15, 6), (15, 12)):
         assert not nonportable_translation(clean, f'X{x}Y{y}_RMUX49', f'X{x}Y{y}_RMUX07')
     assert not nonportable_translation(clean, 'X20Y9_RMUX49', 'X17Y9_RMUX07')
+
+
+def test_rmux92_downward_to_rmux81_requires_exact_observation():
+    clean = {(x, y, 'RMUX', 81, 'RMUX', x, y + 1, 92): (6, 9)
+             for x, y in ((2, 2), (3, 3), (19, 10))}
+    clean[17, 11, 'RMUX', 81, 'RMUX', 17, 10, 92] = (6, 8)
+    clean[17, 9, 'RMUX', 81, 'RMUX', 14, 9, 68] = (4, 8)
+    original = dict(clean)
+    key = ('RMUX', 81, 'RMUX', 92, 0, -1)
+    relative, rejected = relative_edges(clean)
+    assert key in rejected and key not in relative
+    assert clean == original
+    assert nonportable_translation(clean, 'X17Y10_RMUX92', 'X17Y9_RMUX81')
+    for x, y in ((2, 2), (3, 3), (19, 10)):
+        assert not nonportable_translation(clean, f'X{x}Y{y + 1}_RMUX92', f'X{x}Y{y}_RMUX81')
+    assert not nonportable_translation(clean, 'X17Y10_RMUX92', 'X17Y11_RMUX81')
+    assert not nonportable_translation(clean, 'X14Y9_RMUX68', 'X17Y9_RMUX81')

@@ -281,3 +281,31 @@ and ended with released pins, clean reset and unchanged flash readback.
 Fresh base and shared-control graphs each remove one unsupported strict edge
 and 123 tiered edges. Every surviving row is byte-identical, including the
 exact observations and the distinct leftward reference connection.
+
+## Downward RMUX92 to RMUX81 — 2026-09-18
+
+The inferred `RMUX92 -> RMUX81` rule at offset `(0, -1)` uses pair `6/9`.
+At `X17Y10_RMUX92 -> X17Y9_RMUX81`, its downstream data observer reads high
+for both forced source levels. An independent exact branch from the source
+`X17Y10_OMUX47` passes both constants and both reset-driven data polarities.
+
+An exact alternate entering `X17Y9_RMUX81` from `X14Y9_RMUX68`, pair `4/8`,
+restores the original downstream observer, complementary register load/hold
+checks, and the natural PC-enable event. Every cell remains unchanged. With
+the alternate configured, reverting only four RMUX81 selector bits to `6/9`
+breaks three alternating source-zero trials. Clearing the target selector also
+removes controlled low delivery.
+
+- Passing source-zero image: `a418ba9b1a777a77a0b17ee7dd8918cd0fdde33a9cf62d6ea5802ca6d25d4d13`
+- Failing four-bit reversal: `673a9800abc6a4a3b858b84861066fe1ca49c587703e5363e9448468e23d28e3`
+
+The general translation is refused while exact observations and other
+directions remain available. Direct independent observation at RMUX92 was
+not available through unused exact routes in this occupied design; this is
+evidence against exporting the inferred encoding, not proof of an intrinsically
+unusable physical connection. Full SERV still produces no LED transitions,
+with before/after CPU controls passing. SRAM experiments ended with released
+pins, clean reset and unchanged flash readback.
+
+For this withdrawal, fresh base and shared-control graphs each remove one
+strict edge or 101 tiered edges. All surviving rows remain byte-identical.

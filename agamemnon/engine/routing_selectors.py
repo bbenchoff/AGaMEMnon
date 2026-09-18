@@ -193,6 +193,14 @@ NONPORTABLE_RELATIVE_KEYS = frozenset({
     # breaks three alternating pairs. Preserve exact observations and the
     # distinct leftward RMUX49 -> RMUX07 connection used by the reference.
     ("RMUX", 7, "RMUX", 49, 0, 0),
+    # Downward RMUX92 -> RMUX81 pair 6/9 does not reproduce the controlled
+    # source at X17Y9. An independent OMUX47 branch passes both levels and
+    # dynamic data; an exact alternate entering RMUX81 at pair 4/8 restores
+    # data, load/hold and PC-enable. Reverting only four RMUX81 selector bits
+    # breaks three alternating low-level trials. This withdraws the unsafe
+    # translation, not an assertion that the physical edge cannot exist.
+    # Preserve coordinate-specific observations and other RMUX92 directions.
+    ("RMUX", 81, "RMUX", 92, 0, -1),
 })
 
 _WIRE = re.compile(r"X(-?\d+)Y(-?\d+)_([A-Za-z]+)(\d+)")
