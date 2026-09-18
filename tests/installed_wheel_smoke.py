@@ -71,6 +71,7 @@ def main():
         "agamemnon/engine/uarch/agrv2k/nextpnr-viaduct-timing.patch",
         "agamemnon/engine/uarch/agrv2k/nextpnr-viaduct-clusters.patch",
         "agamemnon/engine/uarch/agrv2k/nextpnr-router2-reservations.patch",
+        "agamemnon/engine/uarch/agrv2k/nextpnr-router2-constant-ripup.patch",
         "agamemnon/engine/uarch/agrv2k/nextpnr-json-direction-failclosed.patch",
         "agamemnon/engine/uarch/agrv2k/router2_probe_uarch/constids.inc",
         "agamemnon/engine/uarch/agrv2k/router2_probe_uarch/router2_probe.cc",

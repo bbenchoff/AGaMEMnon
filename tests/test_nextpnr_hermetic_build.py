@@ -18,6 +18,7 @@ def test_build_applies_every_required_nextpnr_patch_and_probe_overlay():
     assert 'apply_nextpnr_patch "$HERE/nextpnr-viaduct-timing.patch"' in build
     assert 'apply_nextpnr_patch "$HERE/nextpnr-viaduct-clusters.patch"' in build
     assert 'apply_nextpnr_patch "$HERE/nextpnr-router2-reservations.patch"' in build
+    assert 'apply_nextpnr_patch "$HERE/nextpnr-router2-constant-ripup.patch"' in build
     assert "router2_probe_uarch/constids.inc" in build
     assert "router2_probe_uarch/router2_probe.cc" in build
     assert "viaduct/agamemnon_router2_probe/router2_probe.cc" in build

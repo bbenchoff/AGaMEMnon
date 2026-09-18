@@ -1,0 +1,15 @@
+diff --git a/common/route/router2.cc b/common/route/router2.cc
+--- a/common/route/router2.cc
++++ b/common/route/router2.cc
+@@ -451,8 +451,10 @@ struct Router2
+             return;
+         WireId src = nets.at(net->udata).src_wire;
+         WireId cursor = ad.sink_wire;
++        // Release ordinary wires until reaching the actual constant source.
++        // The sink and intermediate wires do not themselves carry a constant.
+         while (cursor != src &&
+-               (net->constant_value == IdString() || ctx->getWireConstantValue(cursor) == net->constant_value)) {
++               (net->constant_value == IdString() || ctx->getWireConstantValue(cursor) != net->constant_value)) {
+             PipId pip = nd.wires.at(cursor).first;
+             unbind_pip_internal(nd, user, cursor);
+             cursor = ctx->getPipSrcWire(pip);

@@ -5,6 +5,7 @@
  */
 
 #include "nextpnr.h"
+#include "log.h"
 #include "viaduct_api.h"
 
 #define GEN_INIT_CONSTIDS
@@ -17,6 +18,8 @@ namespace {
 
 struct Router2ProbeImpl : ViaductAPI
 {
+    explicit Router2ProbeImpl(bool ripup_probe = false) : ripup_probe(ripup_probe) {}
+
     void init(Context *ctx) override
     {
         init_uarch_constids(ctx);
@@ -59,7 +62,24 @@ struct Router2ProbeImpl : ViaductAPI
         sig_sink->connectPort(id_IN, sig);
     }
 
+    void preRoute() override
+    {
+        if (!ripup_probe)
+            return;
+        log_info("Router2 probe: seed movable constant tree through CHOKE.\n");
+        // Seed a legal but movable constant tree through SIG's only corridor.
+        // Router2 must release that tree and use LOCAL_GND after SIG claims
+        // CHOKE. This exercises actual constant-arc rip-up, not reservation.
+        auto *gnd = ctx->nets.at(ctx->id("$PACKER_GND_NET")).get();
+        ctx->bindWire(ctx->getWireByName(IdStringList(ctx->id("GND_OUT"))), gnd, STRENGTH_WEAK);
+        for (const auto *name : {"GND_TO_PREFIX", "PREFIX_TO_CHOKE", "CHOKE_TO_HUB"})
+            ctx->bindPip(ctx->getPipByName(IdStringList(ctx->id(name))), gnd, STRENGTH_WEAK);
+        for (int i = 0; i < 4; ++i)
+            ctx->bindPip(ctx->getPipByName(IdStringList(ctx->idf("HUB_TO_WIDE%d", i))), gnd, STRENGTH_WEAK);
+    }
+
   private:
+    bool ripup_probe;
     WireId local_gnd;
 
     WireId add_wire(const char *name, int x)
@@ -133,9 +153,9 @@ struct Router2ProbeImpl : ViaductAPI
 struct Router2ProbeArch : ViaductArch
 {
     Router2ProbeArch() : ViaductArch("agamemnon_router2_probe") {}
-    std::unique_ptr<ViaductAPI> create(const dict<std::string, std::string> &) override
+    std::unique_ptr<ViaductAPI> create(const dict<std::string, std::string> &args) override
     {
-        return std::make_unique<Router2ProbeImpl>();
+        return std::make_unique<Router2ProbeImpl>(args.count("ripup") != 0);
     }
 } router2_probe_arch;
 

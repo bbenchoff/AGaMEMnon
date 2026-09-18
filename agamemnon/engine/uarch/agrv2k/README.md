@@ -73,6 +73,15 @@ functional change needs a separately reviewed profile and silicon evidence.
 Viaduct source tree, registers it with CMake, and builds `nextpnr-generic`.
 The operation is idempotent.
 
+The router patches also correct constant-tree rip-up. When a constant arc
+must move, router2 releases its ordinary wires up to the physical constant
+source, allowing another net to use the old corridor. The synthetic probe's
+`-o ripup=1` mode starts with a movable four-sink constant tree occupying a
+signal's only path; both nets must finish on disjoint routes. Compiled tests
+in `tests/test_native_router2_ripup.py` run this case and the original
+reservation case for three seeds. This is routing-algorithm evidence, without
+a new device or silicon claim.
+
 ```bash
 ./agamemnon/engine/uarch/agrv2k/build.sh
 export AGAMEMNON_UARCH_NEXTPNR="$PWD/third_party/nextpnr/build/nextpnr-generic"

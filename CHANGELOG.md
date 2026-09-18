@@ -10,6 +10,11 @@ is authoritative for downloadable artifacts.
 - On Linux and other POSIX hosts, `--attempt-timeout` now terminates the
   tool's process group. Workers launched by a wrapper no longer survive a
   timed-out attempt and compete with its retry.
+- Fixed router2 constant-tree rip-up: congested constant arcs now release
+  their old wires before selecting another constant source. A compiled
+  synthetic regression checks four shared sinks and a competing signal across
+  three seeds. Rebuild nextpnr with the shipped overlay to receive this fix;
+  it does not establish new silicon qualification or close dense carry routing.
 - BRAM designs now activate their board-witnessed support automatically: an
   ordinary (non-release-strict) `build --uarch` whose netlist contains a
   read-ported `ALTA_BRAM9K` gets the silicon-witnessed X13Y4 site-read
