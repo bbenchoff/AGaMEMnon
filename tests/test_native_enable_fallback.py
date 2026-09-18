@@ -36,6 +36,7 @@ def test_sharing_selects_only_measured_improvement(tmp_path, monkeypatch, tiles,
     monkeypatch.setattr(cli, "_control_sharing_auto_enabled", lambda a: True)
     routed = tmp_path / "baseline.json"
     routed.write_text(json.dumps({"modules": {"top": {"cells": {
+        "clock": {"type": "MCU_BUS_CLOCK"},
         "native": {"type": "GENERIC_SLICE", "parameters": {"FF_USED": "1"},
                    "attributes": {"AGRV2K_CLOCK_ENABLE_NET": "enable"}},
         "ordinary": {"type": "GENERIC_SLICE", "parameters": {"FF_USED": "1"}},
@@ -51,7 +52,7 @@ def test_sharing_selects_only_measured_improvement(tmp_path, monkeypatch, tiles,
     assert report["selected"] == expected
 
 
-@pytest.mark.parametrize("failure", [SystemExit(2), ValueError("policy"), RuntimeError("unknown")])
+@pytest.mark.parametrize("failure", [ValueError("policy"), RuntimeError("unknown")])
 def test_sharing_does_not_hide_nonplacement_failures(tmp_path, monkeypatch, failure):
     monkeypatch.setattr(cli, "_control_sharing_auto_enabled", lambda a: True)
     monkeypatch.setattr(cli, "_control_sharing_opportunity", lambda doc: (("mixed",), {}))

@@ -12,8 +12,8 @@ def _attempt(log, outcome=ladder.NOT_ROUTED):
     return ladder.AttemptRecord(1, 8, "4", 0, outcome, log)
 
 
-def _routed(path, *, native_groups=(), ordinary=0):
-    cells = {}
+def _routed(path, *, native_groups=(), ordinary=0, clock="MCU_BUS_CLOCK"):
+    cells = {"clock": {"type": clock}} if clock else {}
     for index, group in enumerate(native_groups):
         cells[f"native_{index}"] = {
             "type": "GENERIC_SLICE", "parameters": {"FF_USED": "1"},
@@ -251,11 +251,50 @@ def test_classified_exhaustion_keeps_baseline_and_other_failures_propagate(tmp_p
             "max_route_attempts": 3, "attempt_timeout_seconds": 60.0},
         "outcome": "classified_placement_routing_exhaustion"}]
     assert report["outcome"] == "classified_placement_routing_exhaustion"
-    for failure in (RuntimeError("unknown"), SystemExit(2)):
+    for failure in (RuntimeError("unknown"), ValueError("policy")):
         monkeypatch.setattr(cli, "_cmd_build_once",
                             lambda candidate, failure=failure: (_ for _ in ()).throw(failure))
         with pytest.raises(type(failure)):
             cli._compare_control_sharing(_ordinary_args(), baseline, str(tmp_path))
+
+
+@pytest.mark.parametrize("clock", [None, "MCU_SYS_CLOCK", "GENERIC_IOB"])
+def test_ineligible_clock_skips_sharing_before_build(tmp_path, monkeypatch, clock):
+    routed = tmp_path / "baseline.json"
+    _routed(routed, native_groups=("a", "b"), ordinary=1, clock=clock)
+    monkeypatch.setattr(cli, "_control_sharing_auto_enabled", lambda a: True)
+    def unexpected(candidate):
+        pytest.fail("line-1 sharing must not build for an unqualified clock")
+    monkeypatch.setattr(cli, "_cmd_build_once", unexpected)
+    baseline = _baseline(routed)
+    chosen, report = cli._compare_control_sharing(_ordinary_args(), baseline, str(tmp_path))
+    assert chosen is baseline
+    assert report["profiles"] == []
+    assert report["skipped"] == "line1_requires_mcu_bus_clock"
+    assert report["bus_clocked"] is False
+
+
+def test_optional_rejection_preserves_baseline_and_reports_reason(tmp_path, monkeypatch):
+    routed = tmp_path / "baseline.json"
+    _routed(routed, native_groups=("a", "b"), ordinary=1)
+    baseline = _baseline(routed)
+    monkeypatch.setattr(cli, "_control_sharing_auto_enabled", lambda a: True)
+    monkeypatch.setenv("AGRV2K_SHARED_CONTROL_SRST_RECOVERY", "prior")
+    calls = []
+    def reject(candidate):
+        calls.append(candidate._control_sharing_options)
+        assert os.environ["AGRV2K_SHARED_CONTROL_SRST_RECOVERY"] == "0"
+        raise SystemExit("line-1 emission refused")
+    monkeypatch.setattr(cli, "_cmd_build_once", reject)
+    chosen, report = cli._compare_control_sharing(_ordinary_args(), baseline, str(tmp_path))
+    assert chosen is baseline
+    assert len(calls) == 2
+    assert report["selected"] == "isolated"
+    assert report["outcome"] == "rejected"
+    assert [row["profile"] for row in report["profiles"]] == ["mixed", "dual"]
+    assert all(row["outcome"] == "rejected" and row["detail"] == "line-1 emission refused"
+               for row in report["profiles"])
+    assert os.environ["AGRV2K_SHARED_CONTROL_SRST_RECOVERY"] == "prior"
 
 
 def test_classified_mixed_exhaustion_continues_to_dual(tmp_path, monkeypatch):
