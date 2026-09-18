@@ -82,6 +82,14 @@ in `tests/test_native_router2_ripup.py` run this case and the original
 reservation case for three seeds. This is routing-algorithm evidence, without
 a new device or silicon claim.
 
+Placement uses bounded reachability checks in both directions. An output
+which reaches a large part of the routing graph can still be unable to drive
+an input with a small, isolated set of upstream wires. Such pairs are rejected
+using a cached backward search from the input. If both searches exceed their
+bounds the pair remains unconstrained by this check; it is not a proof of
+simultaneous routability or physical conduction. The compiled regression is
+`tests/test_native_local_reachability.py`.
+
 ```bash
 ./agamemnon/engine/uarch/agrv2k/build.sh
 export AGAMEMNON_UARCH_NEXTPNR="$PWD/third_party/nextpnr/build/nextpnr-generic"

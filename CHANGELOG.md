@@ -7,6 +7,10 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+- Placement now checks restricted input reachability even when a driver's
+  forward routing graph exceeds the bounded search. This rejects impossible
+  source/sink pairs before routing while retaining reachable local pairs.
+  Compiled regressions cover both cases; no new silicon support is claimed.
 - On Linux and other POSIX hosts, `--attempt-timeout` now terminates the
   tool's process group. Workers launched by a wrapper no longer survive a
   timed-out attempt and compete with its retry.

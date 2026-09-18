@@ -9535,6 +9535,8 @@ struct AgrvImpl : ViaductAPI
     mutable std::unordered_map<int, std::unordered_set<int>> downhill_reach;
     mutable std::unordered_map<int, std::unordered_set<int>> local_output_reach;
     mutable std::unordered_set<int> broad_output_roots;
+    mutable std::unordered_map<int, std::unordered_set<int>> local_input_reach;
+    mutable std::unordered_set<int> broad_input_roots;
     mutable std::unordered_map<int, std::unordered_set<int>> uphill_reach;
     mutable std::unordered_map<int, std::set<int>> first_slice_tiles;
     struct McuCorridorBounds {
@@ -9588,7 +9590,34 @@ struct AgrvImpl : ViaductAPI
         return uphill_reach.emplace(target.index, std::move(seen)).first->second;
     }
 
-    // Necessary placement check for outputs trapped in small graph components.
+    // A broadly connected output still cannot drive a sink whose complete
+    // uphill component excludes it. Cache bounded reverse walks independently
+    // of the source so placement rejects that impossible pair before routing.
+    bool local_input_can_be_driven_by(WireId source, WireId target) const
+    {
+        if (broad_input_roots.count(target.index))
+            return true;
+        auto found = local_input_reach.find(target.index);
+        if (found == local_input_reach.end()) {
+            std::unordered_set<int> seen{target.index};
+            std::vector<WireId> queue{target};
+            for (size_t head = 0; head < queue.size(); ++head) {
+                for (PipId pip : ctx->getPipsUphill(queue[head])) {
+                    WireId src = ctx->getPipSrcWire(pip);
+                    if (seen.insert(src.index).second)
+                        queue.push_back(src);
+                    if (seen.size() > 4096) {
+                        broad_input_roots.insert(target.index);
+                        return true;
+                    }
+                }
+            }
+            found = local_input_reach.emplace(target.index, std::move(seen)).first;
+        }
+        return found->second.count(source.index) != 0;
+    }
+
+    // Necessary placement check for outputs or inputs in small graph components.
     // Do not materialize the full transitive closure for every candidate BEL:
     // large walks remain unconstrained here. This cannot reject a reachable
     // pair, and is not a routing or simultaneous-selector feasibility proof.
@@ -9632,7 +9661,7 @@ struct AgrvImpl : ViaductAPI
             return it->second[target.index];
         }
         if (broad_output_roots.count(source.index))
-            return true;
+            return local_input_can_be_driven_by(source, target);
         auto found = local_output_reach.find(source.index);
         if (found == local_output_reach.end()) {
             std::unordered_set<int> seen{source.index};
@@ -9644,7 +9673,7 @@ struct AgrvImpl : ViaductAPI
                         queue.push_back(dst);
                     if (seen.size() > 4096) {
                         broad_output_roots.insert(source.index);
-                        return true;
+                        return local_input_can_be_driven_by(source, target);
                     }
                 }
             }
