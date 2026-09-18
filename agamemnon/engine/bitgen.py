@@ -197,7 +197,7 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT, document=None,
         chipdb_root, options, tuple(supplemental_fields)
     )
 
-    carry_state = CARRY_FEATURE.prepare(module, slice_config)
+    carry_state = CARRY_FEATURE.prepare(module, slice_config, cell_map)
     core_logic_state = CORE_LOGIC_FEATURE.prepare(
         module, cell_map, options, CONSTANTS,
         chipdb_root=chipdb_root, node_pinout=node_pinout,
@@ -485,6 +485,7 @@ def write_output(assembly, routed_path, output_path, routed_sha256=None):
     """Finalize, write, and optionally describe the canonical decoded image."""
     output_path = Path(output_path)
     output_path.unlink(missing_ok=True)
+    CARRY_FEATURE.audit_bitstream(assembly.contexts["carry"])
     output = emit_integrity_phase(assembly)
     refuse_known_silicon_negative_image(assembly.header, assembly.image)
     output_path.write_bytes(output)

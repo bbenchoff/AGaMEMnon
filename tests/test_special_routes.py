@@ -1259,9 +1259,24 @@ def test_cold_physical_devdb_rebuild_reaches_final_bitgen_byte_identically(tmp_p
     assert cold_output.read_bytes() == control_output.read_bytes()
 
 
+def _restore_carry_local_inputs(raw, admission, shared):
+    """Undo exactly the 32 typed A-feedback resources, preserving row order."""
+    lines = raw.splitlines(keepends=True)
+    typed = [line for line in lines if b",CARRY_QFB_A," in line]
+    assert len(typed) == 32
+    restored = b"".join(
+        line.replace(b",CARRY_QFB_A,", b",ROUTE,") for line in lines
+        if admission != "release-strict" or line not in typed
+    )
+    count, digest = sr.PRE_CARRY_LOCAL_INPUTS_PHYSICAL_GRAPHS[shared][admission]
+    assert restored.count(b"\n") - 1 == count
+    assert hashlib.sha256(restored).hexdigest() == digest
+    return restored
+
+
 def _restore_carry_seam_rows(raw, admission, shared):
     """Undo only the two removed and one added carry-seam rows."""
-    lines = raw.splitlines(keepends=True)
+    lines = _restore_carry_local_inputs(raw, admission, shared).splitlines(keepends=True)
     profile = "strict" if admission == "release-strict" else admission
     suffix = "shared" if shared == "1" else "base"
     prefix = "carry_seam_delta_" + profile + "_" + suffix

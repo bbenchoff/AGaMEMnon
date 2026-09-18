@@ -52,13 +52,13 @@ EXPECTED_CATALOG_SHA256 = (
 # rows reproduces the prior strict/tiered CSV byte-for-byte; the physical pad
 # corridors and all other graph rows are unchanged. Keep both exact snapshots
 # for replay, without accepting arbitrary self-reported graph digests.
-EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 255526
+EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 255558
 EXPECTED_PHYSICAL_GRAPH_SHA256 = (
-    "4c92a3ed46e882dd3990104d973fa47c18e199422290ff966ecbffbcd92b57a5"
+    "b42a1358dcb0104f1c2f33273aeb56c56712606164d47ce88869d2bcb4af9734"
 )
 EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 334449
 EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
-    "3072e00d2f44f95968d18eb90571cde3de7abd34a30d49e0a4e06e2e0fc7d3bf"
+    "983885e5cfb1ad24c0d622c57e56ccb1a468336b73cae6d5fa43f77ce260e496"
 )
 # The native-control graph contributes the finite, reviewed shared-control
 # topology.  It is a separate graph profile: accepting it by changing the base
@@ -66,12 +66,12 @@ EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
 # graph authority.
 EXPECTED_SHARED_CONTROL_PHYSICAL_GRAPHS = {
     "release-strict": (
-        256599,
-        "9fa295fca316433de0d427378f1d6e39aea28e08001345c8aa8dad309a2fb57b",
+        256631,
+        "2a648d3f01c38f41bb9a8afbee4ea5e0c3170bba5000d9b9edbf089b37124740",
     ),
     "tiered": (
         335522,
-        "6c9addad6ea267e2eefcfed31d94b3468e67ecbb3c33327d7689862a2390a34b",
+        "2e98ad5b1ad5852af8669f38d927f379e107f09d2d4651e1a9492e8a6cd3422d",
     ),
 }
 # Withdrawing the column-16 RMUX03 -> RMUX14 translation removes exactly
@@ -142,6 +142,18 @@ PRE_CARRY_CORRECTION_PHYSICAL_GRAPHS = {
     "1": {
         "release-strict": (256600, "f7db76ff18c89674e7e8bfa2812e3f72dcd35dea016dbfb41729e7777bf76726"),
         "tiered": (335523, "3272ee30d0dc856c9e95a37e80c6b438530d6850434c1fbaa8fc5a6c10925af1"),
+    },
+}
+# The exact 32 local Q-to-A resources are now typed and available in strict
+# routing. Preserve the preceding byte-bound graphs for retained replay.
+PRE_CARRY_LOCAL_INPUTS_PHYSICAL_GRAPHS = {
+    "0": {
+        "release-strict": (255526, "4c92a3ed46e882dd3990104d973fa47c18e199422290ff966ecbffbcd92b57a5"),
+        "tiered": (334449, "3072e00d2f44f95968d18eb90571cde3de7abd34a30d49e0a4e06e2e0fc7d3bf"),
+    },
+    "1": {
+        "release-strict": (256599, "9fa295fca316433de0d427378f1d6e39aea28e08001345c8aa8dad309a2fb57b"),
+        "tiered": (335522, "6c9addad6ea267e2eefcfed31d94b3468e67ecbb3c33327d7689862a2390a34b"),
     },
 }
 # Preserve exact historical graph snapshots after the retained58 byte gate.
@@ -671,6 +683,9 @@ def _validated_devdb(devdb, chipdb_root=None):
             if (graph_pip_count, graph_pips_sha256) == historical:
                 expected_pip_count, expected_pips_sha256 = historical
             historical = PRE_CARRY_CORRECTION_PHYSICAL_GRAPHS[shared_control_graph][admission]
+            if (graph_pip_count, graph_pips_sha256) == historical:
+                expected_pip_count, expected_pips_sha256 = historical
+            historical = PRE_CARRY_LOCAL_INPUTS_PHYSICAL_GRAPHS[shared_control_graph][admission]
             if (graph_pip_count, graph_pips_sha256) == historical:
                 expected_pip_count, expected_pips_sha256 = historical
         except KeyError:

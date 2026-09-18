@@ -16,6 +16,7 @@ class CarryState:
     fields: dict = field(default_factory=dict)
     sets: list = field(default_factory=list)
     clears: list = field(default_factory=list)
+    default_high_fields: list = field(default_factory=list)
 
 
 class CarryFeature:
@@ -32,7 +33,10 @@ class CarryFeature:
             source="slice_cfg.csv",
             byte_field="byte",
             mask_field="mask",
-        ),),
+        ), WritableRegion(
+            kind="selector_table", source="pips_full.csv",
+            byte_field="byte", mask_field="mask",
+        )),
         phase=EmissionPhase.LOGIC,
         evidence=("qualification/carry_evidence.jsonl",),
         maturity="release",
@@ -129,7 +133,7 @@ class CarryFeature:
             )
         return bit
 
-    def prepare(self, module, fields):
+    def prepare(self, module, fields, cell_map=None):
         # Placement cannot authorize image bytes.  Reconstruct the serialized
         # connectivity, BELs, and ROUTING surface independently before any
         # selector state is created or the image can be mutated.
@@ -147,6 +151,16 @@ class CarryFeature:
             connections = cell.get("connections", {})
             has_cin = bool(connections.get("CIN"))
             has_cout = bool(connections.get("COUT"))
+            if "AGRV2K_CARRY_D_DEFAULT_HIGH" in cell.get("attributes", {}):
+                if cell_map is None:
+                    raise SystemExit("carry local inputs require the complete D-selector field map")
+                selectors = [cell_map.get((x, y, "CFG_IMUX%d" % z, selector))
+                             for selector in range(36, 48)]
+                if (None in selectors or len(set(selectors)) != 12 or
+                        any(mask <= 0 or mask > 128 or mask & (mask - 1)
+                            for _byte, mask in selectors)):
+                    raise SystemExit("carry local inputs lack twelve distinct D-selector bits at X%dY%d_SLICE%d" % (x, y, z))
+                state.default_high_fields.extend(selectors)
 
             normal_carry_crl = cell.get("attributes", {}).get("AGRV2K_CARRY_CRL")
             if normal_carry_crl is not None and int(str(normal_carry_crl), 2):
@@ -189,6 +203,13 @@ class CarryFeature:
 
     def clear_bitstream(self, context: BitstreamContext) -> int:
         count = 0
+        for byte, mask in context.state.default_high_fields:
+            if not 0 <= byte < len(context.image):
+                raise SystemExit("carry D-selector field lies outside the image")
+            context.image[byte] &= (~mask) & 0xFF
+            if context.ownership is not None:
+                context.ownership.touch(byte, mask, "CARRY_D_DEFAULT")
+            count += 1
         for byte, mask in context.state.clears:
             if byte < len(context.image):
                 context.image[byte] &= (~mask) & 0xFF
@@ -198,10 +219,20 @@ class CarryFeature:
         return count
 
     def writable_bits(self, state):
-        return set(state.clears) | set(state.sets)
+        return set(state.clears) | set(state.sets) | set(state.default_high_fields)
+
+    def audit_bitstream(self, context: BitstreamContext):
+        for byte, mask in context.state.default_high_fields:
+            if not 0 <= byte < len(context.image) or context.image[byte] & mask:
+                raise SystemExit("carry local-input D selector is not unselected in the final image")
 
     def emit_bitstream(self, context: BitstreamContext) -> int:
         count = 0
+        self.audit_bitstream(context)
+        for byte, mask in context.state.default_high_fields:
+            if context.ownership is not None:
+                context.ownership.touch(byte, mask, "CARRY_D_DEFAULT")
+            count += 1
         for byte, mask in context.state.sets:
             if byte < len(context.image):
                 context.image[byte] |= mask

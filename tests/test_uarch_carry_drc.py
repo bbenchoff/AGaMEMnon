@@ -223,16 +223,17 @@ def _routed_short_chain(tmp_path):
 def test_generated_database_has_one_exact_typed_carry_resource_profile():
     pips = list(csv.DictReader((DEVDB / "dev_pips.csv").open(
         encoding="utf-8", newline="")))
-    typed_types = {"CARRY", "CARRY_SEAM", "SLICE_QFB"}
+    typed_types = {"CARRY", "CARRY_SEAM", "SLICE_QFB", "CARRY_QFB_A"}
     typed = [row for row in pips if row["type"] in typed_types]
     by_type = {
         kind: [row for row in typed if row["type"] == kind]
-        for kind in ("CARRY", "CARRY_SEAM", "SLICE_QFB")
+        for kind in sorted(typed_types)
     }
     assert {kind: len(rows) for kind, rows in by_type.items()} == {
         "CARRY": 1980,
         "CARRY_SEAM": 2,
         "SLICE_QFB": 2112,
+        "CARRY_QFB_A": 32,
     }
     assert {row["delay_ns"] for row in by_type["CARRY"]} == {"0.05"}
     assert {row["delay_ns"] for row in by_type["SLICE_QFB"]} == {"0.401"}
@@ -1012,3 +1013,54 @@ def test_unqualified_long_chain_translation_without_direct_seam_fails_before_rou
     assert result.returncode != 0
     assert "has no dedicated" in log
     assert "Routing" not in log
+
+
+@pytest.mark.parametrize('axis', ['A','B'])
+def test_full_registered_feedback_chain_uses_owned_local_inputs(tmp_path, axis, monkeypatch):
+    monkeypatch.setenv('AGRV2K_MIN_INPUT_INDEG', '5')
+    monkeypatch.setenv('AGRV2K_CARRY_GRAPH_PREFLIGHT', '1')
+    design = CarryJson()
+    cells = design.feedback_registered_chain(32)
+    if axis == 'A':
+        for name in cells:
+            pins = design.cells[name]['connections']
+            pins['A'], pins['B'] = pins['B'], pins['A']
+    result, log, output = _run(tmp_path, design, route=True,
+                               extra=('--router','router2','--placer','heap','--freq','10'))
+    assert result.returncode == 0, log
+    document = json.loads(output.read_text())
+    module = document['modules']['top']
+    marked = [c for c in module['cells'].values()
+              if 'AGRV2K_CARRY_D_DEFAULT_HIGH' in c.get('attributes',{})]
+    assert len(marked) == 32
+    assert all(c['attributes']['AGRV2K_CARRY_D_DEFAULT_HIGH'] == 'IMUX_UNSELECTED_HIGH_V1' for c in marked)
+    assert sum('AGRV2K_CARRY_A_Q_FEEDBACK' in c['attributes'] for c in marked) == (32 if axis == 'A' else 0)
+    assert '$CARRY_VCC' not in module['cells']
+    from agamemnon.engine.features.carry_validate import validate_routed_carry
+    assert validate_routed_carry(module).chains
+    imported, import_log, _ = _run_document(tmp_path,'local_input_roundtrip',document,
+                                           '--no-pack','--no-place','--no-route')
+    assert imported.returncode == 0, import_log
+    original_d = marked[0]['connections']['I'][3]
+    marked[0]['connections']['I'][3] = marked[0]['connections']['Q'][0]
+    driven, driven_log, _ = _run_document(tmp_path,'driven_local_input_d',document,
+                                         '--no-pack','--no-place','--no-route')
+    assert driven.returncode != 0
+    assert 'typed resource notification rejects PIP' in driven_log
+    marked[0]['connections']['I'][3] = original_d
+    del marked[0]['attributes']['AGRV2K_CARRY_D_DEFAULT_HIGH']
+    forged, forged_log, _ = _run_document(tmp_path,'missing_local_input_marker',document,
+                                         '--no-pack','--no-place','--no-route')
+    assert forged.returncode != 0
+    assert ('local-input' in forged_log or 'sum selector' in forged_log
+            or 'typed resource notification rejects PIP' in forged_log)
+
+
+def test_shorter_feedback_chain_retains_ordinary_vcc(tmp_path):
+    design = CarryJson()
+    design.feedback_registered_chain(24)
+    result, log, output = _run(tmp_path,design)
+    assert result.returncode == 0, log
+    cells = json.loads(output.read_text())['modules']['top']['cells']
+    assert '$CARRY_VCC' in cells
+    assert all('AGRV2K_CARRY_D_DEFAULT_HIGH' not in c.get('attributes',{}) for c in cells.values())

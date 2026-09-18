@@ -33,6 +33,26 @@ _CARRY_WIRE = re.compile(r"X(\d+)Y(\d+)_CARRY(IN|OUT)(\d+)")
 _OMUX_WIRE = re.compile(r"X(\d+)Y(\d+)_OMUX(\d+)")
 _IMUX_WIRE = re.compile(r"X(\d+)Y(\d+)_IMUX(\d+)")
 
+# Only the arithmetic sites of the witnessed full 32-bit downward corridor.
+CARRY_LOCAL_INPUT_SITES = frozenset(
+    [(20, 12, z) for z in range(1, 16)] +
+    [(20, 11, z) for z in range(16)] + [(20, 10, 0)]
+)
+
+
+def carry_a_qfb_site(source, destination):
+    """Identify one bounded typed local Q-to-A resource, independent of tags."""
+    src, dst = _OMUX_WIRE.fullmatch(source), _IMUX_WIRE.fullmatch(destination)
+    if src is None or dst is None:
+        return None
+    sx, sy, index = map(int, src.groups())
+    dx, dy, pin = map(int, dst.groups())
+    site = sx, sy, index // 3
+    if ((sx, sy) == (dx, dy) and index % 3 == 1 and
+            pin == 4 * site[2] and site in CARRY_LOCAL_INPUT_SITES):
+        return site
+    return None
+
 
 # The historic partial TFF checkpoint predates the Q-presentation bridge and
 # uses one local feedback edge as a same-slice route-through.  It is retained
@@ -204,7 +224,7 @@ def _route_uses_protected_resources(route):
         any(
             _protected_carry_wire(src) or
             _protected_carry_wire(dst) or
-            _qfb_edge((src, dst))
+            _qfb_edge((src, dst)) or carry_a_qfb_site(src, dst) is not None
             for src, dst in route.edges
         ) or
         any(_protected_carry_wire(root) for root in route.roots)
@@ -471,6 +491,8 @@ def validate_routed_carry(module):
         _reject("top module cells is not a mapping")
 
     raw_carry = {}
+    default_high_cells = set()
+    default_high_wires = set()
     occupied = {}
     live_bits = _live_integer_bits(module)
     for name, cell in cells.items():
@@ -479,6 +501,14 @@ def validate_routed_carry(module):
         connections = cell.get("connections") or {}
         has_cin = "CIN" in connections
         has_cout = "COUT" in connections
+        d_default = (cell.get("attributes") or {}).get("AGRV2K_CARRY_D_DEFAULT_HIGH")
+        a_feedback = (cell.get("attributes") or {}).get("AGRV2K_CARRY_A_Q_FEEDBACK")
+        if a_feedback is not None and (
+                a_feedback != "LOCAL_PRESENTATION_V1" or not has_cin or not has_cout):
+            _reject("cell %r has malformed carry A feedback" % name)
+        if d_default is not None and (
+                d_default != "IMUX_UNSELECTED_HIGH_V1" or not has_cin or not has_cout):
+            _reject("cell %r has malformed carry D default" % name)
         if not (has_cin or has_cout):
             continue
         if cell.get("type") != "GENERIC_SLICE":
@@ -529,6 +559,11 @@ def validate_routed_carry(module):
                 _reject("carry member %r requires exactly four serialized I pins" % name)
             if (not isinstance(inputs[3], int) or isinstance(inputs[3], bool)):
                 _reject("carry member %r lacks its ordinary I[3] D source" % name)
+            if d_default is not None:
+                if inputs[3] in live_bits or ff_used != 1:
+                    _reject("carry D default requires an undriven registered member")
+                default_high_cells.add(name)
+                default_high_wires.add("X%dY%d_IMUX%02d" % (site.x, site.y, 4 * site.z + 3))
             if ff_used:
                 _integer_bit(connections.get("Q"), "registered carry cell %r Q" % name)
                 _integer_bit(connections.get("CLK"), "registered carry cell %r CLK" % name)
@@ -561,6 +596,9 @@ def validate_routed_carry(module):
                     if expected_qfb.get(edge) != bit:
                         _reject("bit %d makes foreign use of SLICE_QFB PIP %s -> %s" %
                                 (bit, edge[0], edge[1]))
+                if carry_a_qfb_site(*edge) is not None:
+                    _reject("bit %d makes foreign use of CARRY_QFB_A PIP %s -> %s" %
+                            (bit, edge[0], edge[1]))
             for root in route.roots:
                 if _protected_carry_wire(root):
                     _reject("bit %d makes foreign root use of protected carry wire %s" %
@@ -643,22 +681,26 @@ def validate_routed_carry(module):
         item.cell["connections"]["I"][3]
         for item in raw_carry.values() if item.cin is not None
     }
-    if len(d_bits) != 1:
-        _reject("carry members do not share exactly one ordinary I[3] D source")
-    d_bit = next(iter(d_bits))
-    d_drivers = drivers.get(d_bit, [])
-    if len(d_drivers) != 1 or d_drivers[0][0] != "cell":
-        _reject("carry I[3] D source lacks one ordinary cell driver")
-    _kind, d_name, d_port = d_drivers[0]
-    d_cell = cells.get(d_name, {})
-    d_connections = d_cell.get("connections") or {}
-    if (d_name in raw_carry or d_cell.get("type") != "GENERIC_SLICE" or
-            d_port != "F" or "CIN" in d_connections or "COUT" in d_connections):
-        _reject("carry I[3] D source is not one ordinary GENERIC_SLICE.F")
-    if (_parameter(d_cell, "K") != 4 or _parameter(d_cell, "FF_USED") != 0 or
-            _parameter(d_cell, "INIT") != 0xFFFF or
-            _bits(d_connections.get("F")) != (d_bit,)):
-        _reject("carry I[3] D source is not the exact ordinary VCC shape")
+    if default_high_cells:
+        if default_high_cells != {item.name for item in raw_carry.values() if item.cin is not None}:
+            _reject("mixed ordinary and carry D sources")
+    else:
+        if len(d_bits) != 1:
+            _reject("carry members do not share exactly one ordinary I[3] D source")
+        d_bit = next(iter(d_bits))
+        d_drivers = drivers.get(d_bit, [])
+        if len(d_drivers) != 1 or d_drivers[0][0] != "cell":
+            _reject("carry I[3] D source lacks one ordinary cell driver")
+        _kind, d_name, d_port = d_drivers[0]
+        d_cell = cells.get(d_name, {})
+        d_connections = d_cell.get("connections") or {}
+        if (d_name in raw_carry or d_cell.get("type") != "GENERIC_SLICE" or
+                d_port != "F" or "CIN" in d_connections or "COUT" in d_connections):
+            _reject("carry I[3] D source is not one ordinary GENERIC_SLICE.F")
+        if (_parameter(d_cell, "K") != 4 or _parameter(d_cell, "FF_USED") != 0 or
+                _parameter(d_cell, "INIT") != 0xFFFF or
+                _bits(d_connections.get("F")) != (d_bit,)):
+            _reject("carry I[3] D source is not the exact ordinary VCC shape")
 
     for seed in seeds:
         seed_cell = raw_carry[seed]
@@ -670,9 +712,22 @@ def validate_routed_carry(module):
             _reject("dynamic carry seed %r lacks one external I[0] driver" % seed)
 
     profile = _validate_physical_profiles(chains)
+    if default_high_cells:
+        if (len(chains) != 1 or len(chains[0]) != 33 or profile != "x20-downward-33" or
+                {(item.site.x, item.site.y, item.site.z) for item in chains[0][1:]} != CARRY_LOCAL_INPUT_SITES):
+            _reject("carry local inputs require the complete X20 downward 33-site footprint")
+        if len({tuple(item.cell['connections']['CLK']) for item in chains[0][1:]}) != 1:
+            _reject("carry local inputs require one shared clock")
     routes, aliases = _routes_by_bit(module)
+    for route in routes.values():
+        if route is None:
+            continue
+        if (route.roots & default_high_wires or
+                any(src in default_high_wires or dst in default_high_wires for src, dst in route.edges)):
+            _reject("a route drives an unselected-high carry D selector")
     expected_carry = {}
     expected_qfb, slice_qfb_owners = _slice_qfb_claims(module, routes)
+    expected_a_qfb = {}
     protected = set()
     q_feedback_names = set()
 
@@ -698,6 +753,27 @@ def validate_routed_carry(module):
             inputs = connections.get("I") or []
             own_indices = ([index for index, bit in enumerate(inputs)
                             if q_bits and bit == q_bits[0]] if len(q_bits) == 1 else [])
+            if item.name in default_high_cells and own_indices not in ([0], [1]):
+                _reject("carry local inputs require exactly one own-Q arithmetic operand")
+            a_feedback = (item.cell.get("attributes") or {}).get("AGRV2K_CARRY_A_Q_FEEDBACK")
+            if a_feedback is not None:
+                if own_indices != [0] or not item.ff_used or item.name not in default_high_cells:
+                    _reject("carry A feedback requires registered own Q on I[0] only in the local-input profile")
+                q_root, bridge, _ = _qfb_resources(item.site)
+                sink = "X%dY%d_IMUX%02d" % (item.site.x, item.site.y, 4 * item.site.z)
+                edge = bridge[1], sink
+                directions = item.cell.get('port_directions') or {}
+                if (directions.get('Q') != 'output' or directions.get('I') != 'input' or
+                        drivers.get(q_bits[0]) != [('cell', item.name, 'Q')]):
+                    _reject("carry A feedback lacks one exact Q driver")
+                route = routes.get(q_bits[0])
+                if (route is None or q_root not in route.roots or bridge not in route.edges or
+                        edge not in route.edges):
+                    _reject("carry A feedback lacks its exact local presentation path")
+                expected_a_qfb[edge] = q_bits[0]
+                protected.add(edge)
+                q_feedback_names.add(item.name)
+                continue
             if own_indices and own_indices != [1]:
                 _reject("carry cell %r uses own Q outside the typed B/I[1] feedback" %
                         item.name)
@@ -716,7 +792,7 @@ def validate_routed_carry(module):
             # unchanged retained 25/33 and exact seam checkpoints may keep
             # their already admitted ordinary detours; if they do use the
             # typed edge, _slice_qfb_claims has already proven exact ownership.
-            if profile == "short-same-tile":
+            if profile == "short-same-tile" or item.name in default_high_cells:
                 if item.name not in slice_qfb_owners:
                     _reject(
                         "carry Q-feedback net %s lacks its exact root/bridge/SLICE_QFB path" %
@@ -732,6 +808,13 @@ def validate_routed_carry(module):
         if route is None:
             continue
         for edge in route.edges:
+            if carry_a_qfb_site(*edge) is not None:
+                if expected_a_qfb.get(edge) != bit:
+                    _reject("bit %d makes foreign use of CARRY_QFB_A PIP %s -> %s" %
+                            (bit, edge[0], edge[1]))
+                if edge in claimed and claimed[edge] != bit:
+                    _reject("protected CARRY_QFB_A PIP has multiple routed owners")
+                claimed[edge] = bit
             if (_protected_carry_wire(edge[0]) or
                     _protected_carry_wire(edge[1])):
                 if expected_carry.get(edge) != bit:

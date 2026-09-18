@@ -1324,6 +1324,18 @@ static bool port_has_net(Context *ctx, const CellInfo *cell, const std::string &
     return found != cell->ports.end() && found->second.net != nullptr;
 }
 
+static bool port_is_unconnected(Context *ctx, const CellInfo *cell, const std::string &port)
+{
+    const NetInfo *net = cell->getPort(ctx->id(port));
+    if (net == nullptr)
+        return true;
+    if (net->driver.cell != nullptr || net->users.entries() != 1)
+        return false;
+    for (const PortRef &user : net->users)
+        return user.cell == cell && user.port == ctx->id(port);
+    return false;
+}
+
 static bool init_depends_on(uint64_t init, int input)
 {
     for (int row = 0; row < 16; ++row) {
@@ -1526,9 +1538,19 @@ static RegisterInputRequirement register_input_requirement(Context *ctx, const C
                     break;
                 }
     } else if (result.mode == RegisterInputMode::CARRY_SUM_TO_FF) {
+        const NetInfo *d = cell->getPort(ctx->id("I[3]"));
+        const bool default_d = cell->attrs.count(ctx->id("AGRV2K_CARRY_D_DEFAULT_HIGH"));
         if (!carry_shape || tagged_pad || tagged_direct || tagged_qin)
             reject("requires only the dedicated carry resource shape");
-        else if (!port_has_net(ctx, cell, "I[3]"))
+        else if (default_d &&
+                 (cell->attrs.at(ctx->id("AGRV2K_CARRY_D_DEFAULT_HIGH")).as_string() != "IMUX_UNSELECTED_HIGH_V1" ||
+                  !port_is_unconnected(ctx, cell, "I[3]")))
+            reject("requires an unconnected carry local-input D selector");
+        // Serialized unconnected vector inputs become anonymous, undriven
+        // nets on JSON import. A non-null port alone is not a D supply.
+        else if ((d == nullptr || d->driver.cell == nullptr) &&
+                 !(cell->attrs.count(ctx->id("AGRV2K_CARRY_D_DEFAULT_HIGH")) &&
+                   cell->attrs.at(ctx->id("AGRV2K_CARRY_D_DEFAULT_HIGH")).as_string() == "IMUX_UNSELECTED_HIGH_V1"))
             reject("requires the carry I[3] sum selector");
     } else if (result.mode == RegisterInputMode::LUT_COMPUTE_TO_FF) {
         if (special_shapes != 0)
@@ -2680,6 +2702,24 @@ static void pack_carries(Context *ctx)
             capture_dff.emplace(fa, dff);
     }
 
+    // The witnessed 32-bit accumulator/counter profile uses the complete
+    // downward corridor, registered sums and exactly one own-Q operand per
+    // stage. Its unselected D inputs read high, avoiding a seventeenth tile
+    // ingress demand for VCC. Other shapes retain ordinary routed D/VCC.
+    bool d_default_high = chains.size() == 1 && fa_cells.size() == 32 &&
+            !chains.front().export_cout && capture_dff.size() == 32;
+    if (d_default_high) {
+        NetInfo *shared_clock = capture_dff.at(fa_cells.front())->getPort(ctx->id("CLK"));
+        for (CellInfo *fa : fa_cells) {
+            NetInfo *q = capture_dff.at(fa)->getPort(ctx->id("Q"));
+            const bool own_a = q != nullptr && fa->getPort(ctx->id("A")) == q;
+            const bool own_b = q != nullptr && fa->getPort(ctx->id("B")) == q;
+            if (own_a == own_b || shared_clock == nullptr ||
+                capture_dff.at(fa)->getPort(ctx->id("CLK")) != shared_clock)
+                d_default_high = false;
+        }
+    }
+
     // Admit only the already-qualified physical templates. Template selection
     // also happens before mutation, so an unsupported topology cannot leave a
     // half-packed design behind.
@@ -2974,7 +3014,10 @@ static void pack_carries(Context *ctx)
             ci->disconnectPort(ctx->id("CIN"));
         }
         ci->movePortTo(ctx->id("COUT"), lc.get(), ctx->id("COUT"));
-        lc->connectPort(ctx->id("I[3]"), vcc_net); // D=1 (selects the sum half; inherent, must be routed)
+        if (d_default_high)
+            lc->attrs[ctx->id("AGRV2K_CARRY_D_DEFAULT_HIGH")] = Property("IMUX_UNSELECTED_HIGH_V1");
+        else
+            lc->connectPort(ctx->id("I[3]"), vcc_net);
 
         // fuse the DFF the SUM drives (reset-free counter: SUM -> DFF.D directly), else comb F=SUM
         NetInfo *sum = ci->ports.at(ctx->id("SUM")).net;
@@ -2987,7 +3030,12 @@ static void pack_carries(Context *ctx)
             ctx->nets.erase(sum->name); // internal LUT->FF net; F stays unconnected
             packed_cells.insert(dff->name);
             ++n_ffused;
+            if (d_default_high && lc->getPort(ctx->id("Q")) != nullptr &&
+                lc->getPort(ctx->id("Q")) == lc->getPort(ctx->id("I[0]")))
+                lc->attrs[ctx->id("AGRV2K_CARRY_A_Q_FEEDBACK")] = Property("LOCAL_PRESENTATION_V1");
         } else {
+            if (d_default_high)
+                log_error("agrv2k: carry D default requires registered arithmetic members\n");
             lc->params[ctx->id("FF_USED")] = 0;
             set_register_input_mode(ctx, lc.get(), RegisterInputMode::NONE);
             ci->movePortTo(ctx->id("SUM"), lc.get(), ctx->id("F"));
@@ -3004,6 +3052,8 @@ static void pack_carries(Context *ctx)
     for (CarryChain &chain : chains) {
         if (!chain.export_cout)
             continue;
+        if (d_default_high)
+            log_error("agrv2k: carry D default does not admit fabric carry export\n");
         CellInfo *tail = packed_fa.at(chain.fa.back());
         const std::string export_base = tail->name.str(ctx) + "_EXPORT";
         std::string export_name = export_base;
@@ -3045,14 +3095,20 @@ static void pack_carries(Context *ctx)
         ctx->cells[seed.cell->name] = std::move(seed.cell);
         ctx->nets[seed.net->name] = std::move(seed.net);
     }
-    ctx->cells[vcc_cell->name] = std::move(vcc_cell);
-    ctx->nets[vcc_net_uptr->name] = std::move(vcc_net_uptr);
+    if (!d_default_high) {
+        ctx->cells[vcc_cell->name] = std::move(vcc_cell);
+        ctx->nets[vcc_net_uptr->name] = std::move(vcc_net_uptr);
+    }
     for (auto pc : packed_cells)
         ctx->cells.erase(pc);
     for (auto &nc : new_cells)
         ctx->cells[nc->name] = std::move(nc);
-    log_info("  fused %ld AG32_FA carry slices (%ld registered) + %ld seed(s) + shared VCC\n",
-             n_fa, n_ffused, long(seeds.size()));
+    if (d_default_high)
+        log_info("  fused %ld AG32_FA carry slices (%ld registered) + %ld seed(s), qualified local inputs\n",
+                 n_fa, n_ffused, long(seeds.size()));
+    else
+        log_info("  fused %ld AG32_FA carry slices (%ld registered) + %ld seed(s) + shared VCC\n",
+                 n_fa, n_ffused, long(seeds.size()));
 
     // ---- constructive placement: each logical chain is now an independent
     // relative cluster. This preserves its exact qualified internal geometry
@@ -7887,11 +7943,17 @@ static bool slice_data_inputs_have_ingress(Context *ctx, CellInfo *cell, BelId b
     // cells (pad presentation, route-throughs, explicit BEL) keep the graph fact
     // (>= 1 feed) only, or the pre-placement itself would be declared illegal.
     const bool movable = cell->belStrength < STRENGTH_LOCKED && !cell->attrs.count(ctx->id("BEL"));
-    const int need = movable ? min_input_ingress() : 1;
     for (int pin = 0; pin < 4; ++pin) {
         IdString port = ctx->id("I[" + std::to_string(pin) + "]");
         if (cell->getPort(port) == nullptr)
             continue;
+        // A fixed local own-Q connection needs its one exact feeder, not a
+        // choice of unrelated external feeders. The ordinary CLI's raised
+        // ingress preference must not reject that qualified carry input.
+        const bool local_feedback = cell->cluster != ClusterId() &&
+                cell->attrs.count(ctx->id("AGRV2K_CARRY_D_DEFAULT_HIGH")) &&
+                cell->getPort(port) == cell->getPort(ctx->id("Q"));
+        const int need = movable && !local_feedback ? min_input_ingress() : 1;
         WireId target = ctx->getBelPinWire(bel, port);
         int ingress = 0;
         if (target != WireId())
@@ -9246,6 +9308,7 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
 
 struct AgrvImpl : ViaductAPI
 {
+    pool<WireId> carry_d_default_high_wires;
     std::string chipdb;
     ViaductHelpers h;
     dict<IdString, WireId> wire_by_name;
@@ -14144,20 +14207,36 @@ struct AgrvImpl : ViaductAPI
         if (cell->bel == BelId() ||
             int_or_default(cell->params, ctx->id("FF_USED"), 0) != 1)
             return false;
+        // JSON imports bind typed edges even when every implementation stage
+        // is disabled.  Check the register contract here as well as in the
+        // aggregate carry audit, so removing the D-default marker cannot
+        // silently turn an undriven sum selector into an ordinary carry FF.
+        if (register_input_requirement(ctx, cell).malformed())
+            return false;
         bool self_b = false;
+        bool self_a = false;
         for (const PortRef &user : net->users)
             if (user.cell == cell && user.port == ctx->id("I[1]"))
                 self_b = true;
-        if (!self_b)
+            else if (user.cell == cell && user.port == ctx->id("I[0]"))
+                self_a = true;
+        const CarryIdentity identity = carry_identity(cell);
+        const bool carry_a = self_a && !self_b && identity.valid &&
+                identity.profile == "X20_DOWNWARD_33" && identity.length == 33 && identity.position > 0 &&
+                cell->attrs.count(ctx->id("AGRV2K_CARRY_D_DEFAULT_HIGH")) &&
+                cell->attrs.at(ctx->id("AGRV2K_CARRY_D_DEFAULT_HIGH")).as_string() == "IMUX_UNSELECTED_HIGH_V1" &&
+                cell->attrs.count(ctx->id("AGRV2K_CARRY_A_Q_FEEDBACK")) &&
+                cell->attrs.at(ctx->id("AGRV2K_CARRY_A_Q_FEEDBACK")).as_string() == "LOCAL_PRESENTATION_V1";
+        if (!self_b && !carry_a)
             return false;
         const WireId q_wire = ctx->getBelPinWire(cell->bel, ctx->id("Q"));
-        const WireId b_wire = ctx->getBelPinWire(cell->bel, ctx->id("I[1]"));
+        const WireId b_wire = ctx->getBelPinWire(cell->bel, ctx->id(carry_a ? "I[0]" : "I[1]"));
         for (PipId candidate_bridge : ctx->getPipsDownhill(q_wire)) {
             if (ctx->getPipType(candidate_bridge) != ctx->id("OMUXFB"))
                 continue;
             const WireId presented_q = ctx->getPipDstWire(candidate_bridge);
             for (PipId candidate_qfb : ctx->getPipsDownhill(presented_q)) {
-                if (ctx->getPipType(candidate_qfb) != ctx->id("SLICE_QFB") ||
+                if (ctx->getPipType(candidate_qfb) != ctx->id(carry_a ? "CARRY_QFB_A" : "SLICE_QFB") ||
                     ctx->getPipDstWire(candidate_qfb) != b_wire)
                     continue;
                 if (bridge != PipId() || qfb != PipId())
@@ -14177,6 +14256,8 @@ struct AgrvImpl : ViaductAPI
         if (!cell->ports.count(ctx->id("CIN")) ||
             !cell->ports.count(ctx->id("COUT")))
             return false;
+        if (cell->attrs.count(ctx->id("AGRV2K_CARRY_D_DEFAULT_HIGH")))
+            return true;
         bool short_local = false;
         int member_count = 0;
         return carry_cluster_profile(cell, short_local, member_count) && short_local;
@@ -14187,7 +14268,7 @@ struct AgrvImpl : ViaductAPI
         const IdString type = ctx->getPipType(pip);
         if (type == ctx->id("CARRY") || type == ctx->id("CARRY_SEAM"))
             return expected_carry_link_pip(net) == pip;
-        if (type == ctx->id("SLICE_QFB")) {
+        if (type == ctx->id("SLICE_QFB") || type == ctx->id("CARRY_QFB_A")) {
             PipId bridge, qfb;
             return expected_slice_qfb(net, bridge, qfb) && qfb == pip;
         }
@@ -14208,7 +14289,8 @@ struct AgrvImpl : ViaductAPI
             const bool has_cout = member->ports.count(ctx->id("COUT"));
             const CarryIdentity identity = carry_identity(member);
             if (!has_cin && !has_cout) {
-                if (identity.active)
+                if (identity.active || member->attrs.count(ctx->id("AGRV2K_CARRY_D_DEFAULT_HIGH")) ||
+                    member->attrs.count(ctx->id("AGRV2K_CARRY_A_Q_FEEDBACK")))
                     log_error("agrv2k: %s carry closure rejects metadata on non-carry cell '%s'\n",
                               phase, ctx->nameOf(member));
                 continue;
@@ -14237,8 +14319,35 @@ struct AgrvImpl : ViaductAPI
             CellInfo *root = ordered.front();
             const CarryIdentity root_identity = carry_identity(root);
             const bool short_local = root_identity.profile == "SHORT_LOCAL";
+            const bool local_inputs = std::any_of(ordered.begin(), ordered.end(), [&](CellInfo *member) {
+                return member->attrs.count(ctx->id("AGRV2K_CARRY_D_DEFAULT_HIGH"));
+            });
+            if (local_inputs && (root_identity.profile != "X20_DOWNWARD_33" || ordered.size() != 33))
+                log_error("agrv2k: carry local inputs require the complete X20 downward 33-site profile\n");
+            NetInfo *local_input_clock = local_inputs ? ordered.at(1)->getPort(ctx->id("CLK")) : nullptr;
             for (size_t index = 0; index < ordered.size(); ++index) {
                 CellInfo *current = ordered.at(index);
+                const bool tagged_d = current->attrs.count(ctx->id("AGRV2K_CARRY_D_DEFAULT_HIGH"));
+                const bool tagged_a = current->attrs.count(ctx->id("AGRV2K_CARRY_A_Q_FEEDBACK"));
+                if (tagged_d != (local_inputs && index != 0))
+                    log_error("agrv2k: carry local-input markers do not cover exactly the arithmetic members\n");
+                if (tagged_d) {
+                    NetInfo *q = current->getPort(ctx->id("Q"));
+                    const bool own_a = q != nullptr && current->getPort(ctx->id("I[0]")) == q;
+                    const bool own_b = q != nullptr && current->getPort(ctx->id("I[1]")) == q;
+                    if (current->attrs.at(ctx->id("AGRV2K_CARRY_D_DEFAULT_HIGH")).as_string() != "IMUX_UNSELECTED_HIGH_V1" ||
+                        int_or_default(current->params, ctx->id("FF_USED"), 0) != 1 ||
+                        !port_is_unconnected(ctx, current, "I[2]") || !port_is_unconnected(ctx, current, "I[3]") ||
+                        local_input_clock == nullptr || current->getPort(ctx->id("CLK")) != local_input_clock ||
+                        own_a == own_b || tagged_a != own_a)
+                        log_error("agrv2k: malformed registered carry local-input member '%s'\n", ctx->nameOf(current));
+                    if (require_complete && current->bel != BelId() &&
+                        ctx->getBoundWireNet(ctx->getBelPinWire(current->bel, ctx->id("I[3]"))) != nullptr)
+                        log_error("agrv2k: routed carry D default selector is driven\n");
+                }
+                if (tagged_a && (!tagged_d ||
+                    current->attrs.at(ctx->id("AGRV2K_CARRY_A_Q_FEEDBACK")).as_string() != "LOCAL_PRESENTATION_V1"))
+                    log_error("agrv2k: malformed carry A-feedback member '%s'\n", ctx->nameOf(current));
                 const bool has_cin = current->ports.count(ctx->id("CIN"));
                 const bool has_cout = current->ports.count(ctx->id("COUT"));
                 if (!has_cout || (index == 0 && has_cin) || (index != 0 && !has_cin))
@@ -16620,6 +16729,20 @@ struct AgrvImpl : ViaductAPI
 
     void preRoute() override
     {
+        carry_d_default_high_wires.clear();
+        for (auto &entry : ctx->cells) {
+            CellInfo *cell = entry.second.get();
+            if (!cell->attrs.count(ctx->id("AGRV2K_CARRY_D_DEFAULT_HIGH"))) continue;
+            if (cell->attrs.at(ctx->id("AGRV2K_CARRY_D_DEFAULT_HIGH")).as_string() != "IMUX_UNSELECTED_HIGH_V1" ||
+                !cell->ports.count(ctx->id("CIN")) || !cell->ports.count(ctx->id("COUT")) ||
+                int_or_default(cell->params, ctx->id("FF_USED"), 0) != 1 ||
+                !port_is_unconnected(ctx, cell, "I[3]") || cell->bel == BelId())
+                log_error("agrv2k: malformed carry D default on %s\n", ctx->nameOf(cell));
+            WireId wire = ctx->getBelPinWire(cell->bel, ctx->id("I[3]"));
+            if (wire == WireId() || ctx->getBoundWireNet(wire) != nullptr)
+                log_error("agrv2k: carry D selector is missing or already driven\n");
+            carry_d_default_high_wires.insert(wire);
+        }
         reserve_required_routes(true);
         audit_mcu_endpoint_routes("pre-route import", false);
         refresh_mcu_endpoint_owner("pre-route", true, true);
@@ -16771,6 +16894,9 @@ struct AgrvImpl : ViaductAPI
     // the fix a dense hardware-carry cell needs, since it can't use the Qin internal path (pinC=Cin).
     bool checkPipAvail(PipId pip) const override
     {
+        if (carry_d_default_high_wires.count(ctx->getPipSrcWire(pip)) ||
+            carry_d_default_high_wires.count(ctx->getPipDstWire(pip)))
+            return false;
         if (std::getenv("AGRV2K_NO_FBBRIDGE") == nullptr)
             return true;
         std::string s = ctx->getWireName(ctx->getPipSrcWire(pip)).str(ctx);

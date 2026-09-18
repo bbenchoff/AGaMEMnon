@@ -291,7 +291,14 @@ def test_carry_feature_owns_slice_selectors_and_emission():
         source="slice_cfg.csv",
         byte_field="byte",
         mask_field="mask",
-    ),)
+    ), WritableRegion(
+        kind="selector_table",
+        source="pips_full.csv",
+        byte_field="byte",
+        mask_field="mask",
+    ))
+    # Routing owns pips_full.csv; carry shares only the writable selector
+    # region needed to clear and audit its qualified unselected D inputs.
     assert CARRY_FEATURE.descriptor.chipdb_files[0] == "slice_cfg.csv"
 
     fields = CARRY_FEATURE.load_slice_config(ROOT / "agamemnon" / "chipdb")

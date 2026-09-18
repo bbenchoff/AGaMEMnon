@@ -20,6 +20,7 @@ from agamemnon.engine import sel_byteexact as SB
 from agamemnon.engine import wire_timing
 
 from .physical_io import parse_wire
+from .carry_validate import CARRY_LOCAL_INPUT_SITES, carry_a_qfb_site
 from .mcu_ahb import EXIT_PAIR_FILES, FEATURE as MCU_AHB_FEATURE
 from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, WritableRegion
 
@@ -1883,6 +1884,7 @@ class RoutingFeature:
                 _PHYS_INPUT_CONT.setdefault(_sk, set()).add(
                     (int(_r["dst_x"]), int(_r["dst_y"]), _r["dst_res"]))
         _slice_qfb_pips = set()
+        _carry_a_qfb_pips = set()
         for fn in edge_files:
             path = os.path.join(DATA, fn)
             if not os.path.exists(path):
@@ -1900,6 +1902,10 @@ class RoutingFeature:
                     r["src_tile"] = tile_type.get((r["src_x"], r["src_y"]), "LogicTILE")
                     r["dst_tile"] = tile_type.get((r["dst_x"], r["dst_y"]), "LogicTILE")
                 _qfb_z = _slice_qfb_signature(r)
+                _carry_a_site = (carry_a_qfb_site(
+                    W(r["src_x"], r["src_y"], r["src_res"]),
+                    W(r["dst_x"], r["dst_y"], r["dst_res"]))
+                    if os.environ.get("AGAMEMNON_HW_CARRY") else None)
                 if _outside_bram_corridor(r):
                     _bram_epr += 1; continue
                 if os.environ.get("AGAMEMNON_PHYSICAL_IO"):
@@ -2056,7 +2062,7 @@ class RoutingFeature:
                     # whether a net may use them.  This also retains the direct
                     # HIL-positive autonomous-feedback path present in the
                     # packaged strict snapshot.
-                    if _qfb_z is not None:
+                    if _qfb_z is not None or _carry_a_site is not None:
                         pass
                     elif is_trusted(r, fn):
                         _tier = routing_tiers.TIER_WITNESSED
@@ -2093,11 +2099,14 @@ class RoutingFeature:
                     _witnessed_pips.add(nm)
                 if nm in seen_pip:
                     continue
-                ctx.addPip(name=nm, type=("SLICE_QFB" if _qfb_z is not None else "ROUTE"), srcWire=s, dstWire=t,
+                ctx.addPip(name=nm, type=("SLICE_QFB" if _qfb_z is not None else
+                                         "CARRY_QFB_A" if _carry_a_site is not None else "ROUTE"), srcWire=s, dstWire=t,
                            delay=pip_delay(r, fn), loc=Loc(int(r["dst_x"]), int(r["dst_y"]), 0))
                 seen_pip.add(nm); n_pip += 1
                 if _qfb_z is not None:
                     _slice_qfb_pips.add(nm)
+                if _carry_a_site is not None:
+                    _carry_a_qfb_pips.add(nm)
                 if _tier is not None:
                     _tier_counts[_tier] += 1
                 if _basis is not None and nm not in _tier2_seen:
@@ -2210,6 +2219,12 @@ class RoutingFeature:
                      len(_missing_qfb), len(_extra_qfb)))
             print("AGRV2K arch: typed %d graph-derived ripple Q->B feedback pips" %
                   len(_slice_qfb_pips))
+            expected_a = {"X%dY%d_OMUX%02d.X%dY%d_IMUX%02d" %
+                          (x, y, 3*z+1, x, y, 4*z)
+                          for x, y, z in CARRY_LOCAL_INPUT_SITES}
+            if _carry_a_qfb_pips != expected_a:
+                raise ValueError("hard-carry graph requires the exact 32 typed X20 Q->A paths")
+            print("AGRV2K arch: typed %d bounded carry Q->A feedback pips" % len(expected_a))
 
         # ---- 4c. FF-FEEDBACK BRIDGE (fixes counter-freeze for wide sequential) --------------------------------
         # DATA-PROVEN root cause: the ONLY intra-slice FF-Q->own-LUT feedback wire is OMUX[3z+1] (OMUX[3z+1]->IMUX

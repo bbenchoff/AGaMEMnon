@@ -32,8 +32,10 @@ python -m agamemnon.cli build qualification/counter32_carry_rate_step65539.v --u
 ```
 
 Both designs retain 32 registered arithmetic stages plus one carry seed.
-They use ordinary routed D/VCC and ordinary Q-to-B feedback. No experimental
-unselected-input or A-feedback mode is involved.
+The recorded topology-correction images used ordinary routed D/VCC and
+Q-to-B feedback. Current builds can recognize the bounded
+[registered carry local-input profile](CARRY_LOCAL_INPUTS.md); their emitted
+images therefore need not match the earlier topology-correction witnesses.
 
 | Increment per clock | Expected PIN17 frequency at 10 MHz | Native image, repeated 1 s windows |
 |---|---:|---:|
