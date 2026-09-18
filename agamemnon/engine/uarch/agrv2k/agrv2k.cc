@@ -2574,6 +2574,34 @@ static void pack_io(Context *ctx)
 // DROP CIN/COUT (it only maps I/Q/F/CLK) -- that's why this dedicated pass exists. See ag32-dense-carry-
 // mechanism: ripple slice INIT=0x96E8 (LutOut(D=1)=A^B^Cin ; Cout=maj(A,B,Cin) from the low mask byte);
 // D=I[3] must be 1, so tie it to a shared VCC slice; I[2] is unused (pinC comes from the Cin hardware).
+// Signal names do not establish constant value. In particular, a user's live
+// operand can contain PACKER_GND/PACKER_VCC/CARRY_VCC. Admit only a fully defined
+// combinational LUT truth table on F, including ordinary replicated constants.
+static int constant_slice_value(Context *ctx, const NetInfo *net)
+{
+    if (net == nullptr || net->driver.cell == nullptr ||
+            net->driver.cell->type != ctx->id("GENERIC_SLICE") ||
+            net->driver.port != ctx->id("F"))
+        return -1;
+    const CellInfo *driver = net->driver.cell;
+    auto init = driver->params.find(ctx->id("INIT"));
+    auto ff = driver->params.find(ctx->id("FF_USED"));
+    auto k = driver->params.find(ctx->id("K"));
+    const int width = 1 << ctx->args.K;
+    if (init == driver->params.end() || init->second.is_string ||
+            !init->second.is_fully_def() || int(init->second.size()) != width ||
+            ff == driver->params.end() || ff->second.is_string ||
+            !ff->second.is_fully_def() || ff->second.as_int64() != 0 ||
+            k == driver->params.end() || k->second.is_string ||
+            !k->second.is_fully_def() || k->second.as_int64() != ctx->args.K)
+        return -1;
+    if (init->second == Property(0, width))
+        return 0;
+    if (init->second == Property(Property::S1).extract(0, width, Property::S1))
+        return 1;
+    return -1;
+}
+
 static void pack_carries(Context *ctx)
 {
     IdString fa_type = ctx->id("AG32_FA");
@@ -2906,14 +2934,7 @@ static void pack_carries(Context *ctx)
         fa_heads.push_back(chain.fa.front());
 
     auto const_of = [&](NetInfo *n) -> int { // -1 = routed signal; 0/1 = folded constant
-        if (n == nullptr)
-            return 0;
-        const std::string nm = n->name.str(ctx);
-        if (nm.find("PACKER_GND") != std::string::npos)
-            return 0;
-        if (nm.find("PACKER_VCC") != std::string::npos || nm.find("CARRY_VCC") != std::string::npos)
-            return 1;
-        return -1;
+        return n == nullptr ? 0 : constant_slice_value(ctx, n);
     };
     struct CarrySeed {
         CellInfo *head;
@@ -3972,15 +3993,6 @@ static void pack_clk(Context *ctx)
 // doesn't route it. Runs AFTER pack_constants (so WeA is resolved to the GND net for the read-only test).
 static void pack_bram_trim(Context *ctx)
 {
-    IdString gnd_net;
-    for (auto &c : ctx->cells)
-        if (c.second->name.str(ctx).find("PACKER_GND") != std::string::npos) {
-            NetInfo *o = c.second->getPort(ctx->id("F"));
-            if (o == nullptr)
-                o = c.second->getPort(ctx->id("Q"));
-            if (o != nullptr)
-                gnd_net = o->name;
-        }
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
         if (ci->type != ctx->id("ALTA_BRAM9K"))
@@ -3988,7 +4000,7 @@ static void pack_bram_trim(Context *ctx)
         std::vector<IdString> drop;
         for (const char port : {'A', 'B'}) {
             NetInfo *we = ci->getPort(ctx->id(std::string("We") + port));
-            bool read_only = (we == nullptr) || (gnd_net != IdString() && we->name == gnd_net);
+            bool read_only = (we == nullptr) || constant_slice_value(ctx, we) == 0;
             if (!read_only)
                 continue;
             std::string prefix = std::string("DataIn") + port;
@@ -4013,8 +4025,7 @@ static void pack_bram_trim(Context *ctx)
             }
         }
         NetInfo *we_b = ci->getPort(ctx->id("WeB"));
-        bool port_b_write_used = we_b != nullptr &&
-                                 (gnd_net == IdString() || we_b->name != gnd_net);
+        bool port_b_write_used = we_b != nullptr && constant_slice_value(ctx, we_b) != 0;
         if (!port_b_read_used && !port_b_write_used) {
             for (auto &p : ci->ports) {
                 if (p.second.type != PORT_IN || p.second.net == nullptr)
@@ -5666,8 +5677,7 @@ static void tie_left_link_data_gnd(Context *ctx)
         std::string bel = ctx->getBelName(io->bel).str(ctx);
         if (bel.find("X0Y4_IOB") != 0) continue;
         NetInfo *old = io->getPort(ctx->id("I"));
-        if (old == nullptr || old->driver.cell == nullptr ||
-            old->driver.cell->name.str(ctx).find("PACKER_GND") == std::string::npos)
+        if (constant_slice_value(ctx, old) != 0)
             continue;
         io->disconnectPort(ctx->id("I"));
         io->attrs[ctx->id("AGRV2K_IO_DATA_GND")] = Property(1);
