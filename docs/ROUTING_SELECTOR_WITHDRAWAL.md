@@ -115,3 +115,44 @@ Source-fresh base and shared-control graphs each lose exactly six strict
 or 123 tiered inferred edges, with every surviving row unchanged. Exact
 predecessor graph identities remain available for historical replay, while
 the emitter independently refuses this translation before writing an image.
+
+## Two further clear-input translations — 2026-09-18
+
+Two more relative rules are withdrawn while preserving every exact coordinate
+observation:
+
+- `RMUX33 -> RMUX39`, delta `(1,0)`, inferred pair `5/8`. Its observations
+  occur only at destination columns 3 and 16. An independent observation of
+  `X17Y9_RMUX33` correctly carries both forced source levels, but the inferred
+  input at `X18Y9_RMUX39` reads high for both. With an exact output path and
+  both source branches configured, changing only two target-selector bits to
+  exact `X19Y9_RMUX33` pair `5/7` restores source delivery in three alternating
+  board pairs. Cutting the common RMUX33 source also breaks the reference.
+- `RMUX69 -> RMUX83`, delta `(0,-1)`, inferred pair `6/9`. Its observations
+  occur at destination rows 2, 3 and 10. With the preceding RMUX39 input
+  corrected, `X18Y10_RMUX69 -> X18Y9_RMUX83` still reads high for both source
+  levels. An exact alternate from that same RMUX69, through `X18Y12_RMUX86`,
+  `X16Y12_RMUX57` and `X16Y9_RMUX45`, restores delivery. Reverting only four
+  RMUX83 bits from exact pair `3/8` reproduces failure in three board pairs;
+  cutting the common source breaks the reference too.
+
+The first RMUX39 reference retained the faulty downstream RMUX83 connection
+and therefore also failed. The later independent output path removes that
+confound before attributing the two failures to their respective selectors.
+All final reference controls pass under both output pull biases. The SRAM-only
+sessions end with pins released, clean resets and unchanged flash readback.
+
+Passing/failing source-zero image pairs, with only the named selector changed:
+
+| Selector | Passing image SHA-256 | Failing image SHA-256 |
+|---|---|---|
+| RMUX39 | `9a9281b2fe58fb7034df430211ab160d591674705aaab6c023d5a13e6ad63b57` | `67ff8e9d10adfc685acc98a07397afb97bcf55eaa7a8f4274a15aa8625e462c6` |
+| RMUX83 | `018509eb5f46bc9624ac28658b186086c968dbbfd981c480cf6b5ca291533204` | `e292c2741727342e876c5a9c1f0276a51b91e48a9d9ce0b8ec67fc16dbda1221` |
+
+These are localized selector diagnoses. An independently controlled exact
+clear-input route still does not repair the complete SERV design; whole-design
+qualification and other unobserved translations remain open.
+Source-fresh base and shared-control graphs each remove exactly two strict
+or 202 tiered inferred edges, with every surviving row unchanged. Exact
+predecessor identities remain available for replay; new emission independently
+rejects both withdrawn translations even when using a historical graph.

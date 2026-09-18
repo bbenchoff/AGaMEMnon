@@ -143,6 +143,24 @@ NONPORTABLE_RELATIVE_KEYS = frozenset({
     # Passing low probe: 01698ef5aca04b3006bf6b163e183070858dafd859aae57bd37d7f825cd3c7d4.
     # Failing low probe: 2650c044e6e0c70e67f406b9a22f0ad4e238a0244f22859ce2e2c871fb080477.
     ("RMUX", 87, "RMUX", 69, 0, 0),
+    # RMUX33 -> RMUX39 at dx=1 is observed only at destination columns 3/16,
+    # pair 5/8. At X18Y9, an independently observed X17Y9_RMUX33 source
+    # carries both levels but this inferred selector reads high for both.
+    # With an exact output path and both source branches configured, changing
+    # only two RMUX39 bits to exact X19Y9_RMUX33 pair 5/7 restores 0/5 MHz
+    # in three alternating board pairs. Cutting the common source breaks it.
+    # Passing low probe: 9a9281b2fe58fb7034df430211ab160d591674705aaab6c023d5a13e6ad63b57.
+    # Failing low probe: 67ff8e9d10adfc685acc98a07397afb97bcf55eaa7a8f4274a15aa8625e462c6.
+    ("RMUX", 39, "RMUX", 33, 1, 0),
+    # RMUX69 -> RMUX83 at dy=-1 has exact observations at destination rows
+    # 2/3/10, pair 6/9. At X18Y9 it fails to deliver the X18Y10_RMUX69 source.
+    # An exact alternate from the SAME source restores both levels; reverting
+    # only four RMUX83 bits from exact pair 3/8 to inferred 6/9 breaks the
+    # reference in three board pairs. A common-source cut also breaks it.
+    # Keep exact observations; neither diagnosis qualifies the full design.
+    # Passing low probe: 018509eb5f46bc9624ac28658b186086c968dbbfd981c480cf6b5ca291533204.
+    # Failing low probe: e292c2741727342e876c5a9c1f0276a51b91e48a9d9ce0b8ec67fc16dbda1221.
+    ("RMUX", 83, "RMUX", 69, 0, -1),
 })
 
 _WIRE = re.compile(r"X(-?\d+)Y(-?\d+)_([A-Za-z]+)(\d+)")
