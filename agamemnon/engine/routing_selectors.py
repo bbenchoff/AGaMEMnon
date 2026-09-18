@@ -117,6 +117,15 @@ NONPORTABLE_RELATIVE_KEYS = frozenset({
     # Passing low probe: 625cb7da2a4e299d33dd9dae8ba5ffa13cf4032ff16a0e73b9cce556ad0692f7.
     # Failing low probe: 9f348c42148f42a5c33d60038f7fc4d8dc06dbf25060ca9788c19d3f0d7f1b89.
     ("RMUX", 68, "RMUX", 87, 0, 0),
+    # RMUX92 -> RMUX74 with dy=-1 is witnessed only at destination rows 2/3,
+    # pair 6/9. At X19Y11 it does not deliver X19Y12_RMUX92. A local observer
+    # independently verifies that source prefix (clearing RMUX92 stops it).
+    # With both source branches configured, changing ONLY the two RMUX74
+    # selector bits from inferred 6/9 to exact 1/9 restores 5 MHz in three pairs.
+    # Keep the exact boundary observations; withdraw their translation.
+    # Passing probe: 4cdd9b3800cdec2678ee9b687882b20eed9d661aa9f33ea5137d96c071e3862f.
+    # Failing probe: 297893ea5912972ed651864ad2849cc96eaa5cd5049b7b150830f50211154946.
+    ("RMUX", 74, "RMUX", 92, 0, -1),
 })
 
 _WIRE = re.compile(r"X(-?\d+)Y(-?\d+)_([A-Za-z]+)(\d+)")

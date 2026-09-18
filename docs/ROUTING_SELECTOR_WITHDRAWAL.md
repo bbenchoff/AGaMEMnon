@@ -52,3 +52,22 @@ parity, general mixed-control qualification, or physical speed improvement.
 Compaction was subsequently promoted with placement preflight and fallback;
 see [ordinary default qualification](DEFAULT_TILE_PACKING.md). Expanded
 control sharing remains explicit. No release is created by this change.
+
+## RMUX92 downward turnback — 2026-09-18
+
+The relative `RMUX92 -> RMUX74` rule at delta `(0,-1)` is also withdrawn.
+Its supporting observations are confined to destination rows 2 and 3.
+At `X19Y11_RMUX74`, the inferred selector pair `6/9` leaves a minimal
+four-cell toggle observer high. With both candidate source branches
+configured, changing only that selector to the exact `X19Y8_RMUX92`
+reference (`1/9`, two payload bits) restores 5 MHz in three alternating
+SRAM trials. A separate local observer verifies the disputed
+`X19Y12_RMUX92` source prefix; clearing its selector stops the signal.
+The before/after rig controls pass and flash readback is unchanged.
+
+This refuses an unsupported translation while preserving every exact
+coordinate observation. The diagnostic images establish this selector
+failure; they do not qualify a fresh whole-design build or imply that
+every other unobserved selector is safe. Passing/failing paired images:
+`4cdd9b3800cdec2678ee9b687882b20eed9d661aa9f33ea5137d96c071e3862f` /
+`297893ea5912972ed651864ad2849cc96eaa5cd5049b7b150830f50211154946`.
