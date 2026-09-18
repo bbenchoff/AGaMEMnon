@@ -1259,9 +1259,45 @@ def test_cold_physical_devdb_rebuild_reaches_final_bitgen_byte_identically(tmp_p
     assert cold_output.read_bytes() == control_output.read_bytes()
 
 
-def _restore_rmux87_rows(raw, admission, shared):
+def _restore_rmux69turn_rows(raw, admission, shared):
     """Restore the exact predecessor without permitting unrelated drift."""
     lines = raw.splitlines(keepends=True)
+    suffix = "shared" if shared == "1" else "base"
+    profile = "strict" if admission == "release-strict" else admission
+    fixture = Path(__file__).parent / "fixtures" / ("rmux69turn_withdrawal_" + profile + "_" + suffix + ".csv")
+    rows = fixture.read_bytes().splitlines()[1:]
+    assert len(rows) == (6 if admission == "release-strict" else 123)
+    for row in rows:
+        index, _, line = row.partition(b",")
+        line += b"\r\n"
+        assert line not in lines
+        lines.insert(int(index), line)
+    restored = b"".join(lines)
+    count, digest = sr.PRE_RMUX69TURN_WITHDRAWAL_PHYSICAL_GRAPHS[shared][admission]
+    assert len(lines) - 1 == count
+    assert hashlib.sha256(restored).hexdigest() == digest
+    return restored
+
+
+def _check_rmux69turn_predecessor(devdb, tmp_path, admission, shared):
+    previous = tmp_path / ("rmux69turn-predecessor-" + admission + "-" + shared)
+    shutil.copytree(devdb, previous)
+    path = previous / "dev_pips.csv"
+    path.write_bytes(_restore_rmux69turn_rows(path.read_bytes(), admission, shared))
+    count, digest = sr.PRE_RMUX69TURN_WITHDRAWAL_PHYSICAL_GRAPHS[shared][admission]
+    _replace_metadata_value(previous / sr.DEV_META_NAME, "graph_pip_count", count)
+    _replace_metadata_value(previous / sr.DEV_META_NAME, "graph_pips_sha256", digest)
+    _replace_metadata_value(previous / "dev_meta.csv", "n_pips", count)
+    assert sr.validate_devdb(previous, CHIPDB)
+
+
+def test_rmux69turn_strict_predecessor_remains_exactly_bound(tmp_path):
+    _check_rmux69turn_predecessor(PHYSICAL_DEVDB, tmp_path, "release-strict", "0")
+
+
+def _restore_rmux87_rows(raw, admission, shared):
+    """Restore the exact predecessor without permitting unrelated drift."""
+    lines = _restore_rmux69turn_rows(raw, admission, shared).splitlines(keepends=True)
     suffix = "shared" if shared == "1" else "base"
     profile = "strict" if admission == "release-strict" else admission
     fixture = Path(__file__).parent / "fixtures" / ("rmux87_withdrawal_" + profile + "_" + suffix + ".csv")
@@ -1590,6 +1626,7 @@ def test_source_fresh_tiered_physical_devdb_matches_pinned_graph(tmp_path):
     _check_rmux68_predecessor(devdb, tmp_path, "tiered", "0")
     _check_rmux74_predecessor(devdb, tmp_path, "tiered", "0")
     _check_rmux87_predecessor(devdb, tmp_path, "tiered", "0")
+    _check_rmux69turn_predecessor(devdb, tmp_path, "tiered", "0")
     _check_carry_seam_predecessor(devdb, tmp_path, "tiered", "0")
     with graph_path.open("a", newline="", encoding="utf-8") as stream:
         csv.writer(stream).writerow((
@@ -1653,6 +1690,7 @@ def test_source_fresh_shared_control_graph_is_exact_and_tamper_proof(
     _check_rmux68_predecessor(devdb, tmp_path, admission, "1")
     _check_rmux74_predecessor(devdb, tmp_path, admission, "1")
     _check_rmux87_predecessor(devdb, tmp_path, admission, "1")
+    _check_rmux69turn_predecessor(devdb, tmp_path, admission, "1")
     _check_carry_seam_predecessor(devdb, tmp_path, admission, "1")
     if admission == "tiered":
         _check_rmux14_predecessor(devdb, tmp_path, "1")

@@ -213,3 +213,19 @@ def test_rmux93_rightward_turnback_preserves_exact_observations():
     assert not nonportable_translation(clean, 'X15Y10_RMUX93', 'X16Y10_RMUX87')
     assert not nonportable_translation(clean, 'X2Y3_RMUX93', 'X3Y3_RMUX87')
     assert not nonportable_translation(clean, 'X17Y10_RMUX45', 'X19Y10_RMUX87')
+
+
+def test_same_tile_rmux69_to_rmux87_preserves_only_exact_observations():
+    clean = {(x, y, 'RMUX', 87, 'RMUX', x, y, 69): (5, 9)
+             for x, y in ((6, 3), (8, 3), (13, 4), (20, 11))}
+    clean[17, 10, 'RMUX', 87, 'RMUX', 15, 10, 45] = (3, 8)
+    original = dict(clean)
+    key = ('RMUX', 87, 'RMUX', 69, 0, 0)
+    relative, rejected = relative_edges(clean)
+    assert key in rejected
+    assert key not in relative
+    assert clean == original
+    assert nonportable_translation(clean, 'X17Y10_RMUX69', 'X17Y10_RMUX87')
+    for x, y in ((6, 3), (8, 3), (13, 4), (20, 11)):
+        assert not nonportable_translation(clean, f'X{x}Y{y}_RMUX69', f'X{x}Y{y}_RMUX87')
+    assert not nonportable_translation(clean, 'X15Y10_RMUX45', 'X17Y10_RMUX87')

@@ -89,3 +89,29 @@ This is a localized selector diagnosis, not whole-design qualification.
 Passing/failing paired images:
 `b07127aac4883b8aa7bea2cfee2385b5306d68c8befa7b6ce2fd285cc13bfb67` /
 `344e8999fb629bd3b9275554245bdca5f775cbec01da4e682e11055ab6eba745`.
+
+## RMUX69 same-tile turnback to RMUX87 — 2026-09-18
+
+The relative `RMUX69 -> RMUX87` rule at delta `(0,0)` is withdrawn.
+Its exact observations occur at destination rows 3, 4 and 11, pair `5/9`.
+At `X17Y10`, a seven-cell diagnostic reads high for both forced source
+levels. An exact-observation path from the same RMUX69 source prefix,
+through `X17Y12_RMUX86`, `X15Y12_RMUX57` and `X15Y10_RMUX45`, rejoins
+the original suffix at RMUX87 and correctly distinguishes zero from one.
+
+Keeping both branches configured and restoring only the four RMUX87
+selector payload bits reproduces the failure in three alternating pairs.
+Clearing the shared RMUX69 source selector also breaks the reference.
+All reference and rig controls pass under both output pull biases;
+the SRAM-only session ends with unchanged flash readback and a clean reset.
+Passing/failing source-zero paired images:
+`01698ef5aca04b3006bf6b163e183070858dafd859aae57bd37d7f825cd3c7d4` /
+`2650c044e6e0c70e67f406b9a22f0ad4e238a0244f22859ce2e2c871fb080477`.
+
+Exact coordinate observations remain admitted. This rejects an unsupported
+translation; it does not establish that every possible encoding is absent,
+or qualify the complete SERV design from which the diagnostic was reduced.
+Source-fresh base and shared-control graphs each lose exactly six strict
+or 123 tiered inferred edges, with every surviving row unchanged. Exact
+predecessor graph identities remain available for historical replay, while
+the emitter independently refuses this translation before writing an image.
