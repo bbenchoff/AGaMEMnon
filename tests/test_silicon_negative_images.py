@@ -248,8 +248,14 @@ def test_write_output_removes_stale_file_before_exact_image_refusal(
         header=b"header",
         image=bytearray(b"payload"),
         trace_path=None,
+        contexts={"carry": object()},
     )
     events = []
+
+    def audit_carry(context):
+        assert context is assembly.contexts["carry"]
+        assert not output_path.exists()
+        events.append("carry audit")
 
     def emit_integrity_phase(candidate):
         assert candidate is assembly
@@ -264,11 +270,12 @@ def test_write_output_removes_stale_file_before_exact_image_refusal(
         events.append("refusal")
         raise SystemExit("retained negative")
 
+    monkeypatch.setattr(bitgen.CARRY_FEATURE, "audit_bitstream", audit_carry)
     monkeypatch.setattr(bitgen, "emit_integrity_phase", emit_integrity_phase)
     monkeypatch.setattr(bitgen, "refuse_known_silicon_negative_image", refuse)
 
     with pytest.raises(SystemExit, match="retained negative"):
         bitgen.write_output(assembly, "routed.json", output_path)
 
-    assert events == ["integrity", "refusal"]
+    assert events == ["carry audit", "integrity", "refusal"]
     assert not output_path.exists()
