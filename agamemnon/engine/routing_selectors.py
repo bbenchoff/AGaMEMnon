@@ -161,6 +161,15 @@ NONPORTABLE_RELATIVE_KEYS = frozenset({
     # Passing low probe: 018509eb5f46bc9624ac28658b186086c968dbbfd981c480cf6b5ca291533204.
     # Failing low probe: e292c2741727342e876c5a9c1f0276a51b91e48a9d9ce0b8ec67fc16dbda1221.
     ("RMUX", 83, "RMUX", 69, 0, -1),
+    # RMUX85 -> RMUX65 at dy=-1 is observed at destination rows 2/3/10,
+    # pair 6/9. At X18Y9 the independently observed X18Y10_RMUX85 prefix
+    # carries both source levels, but this inferred input reads high for both.
+    # With both branches from the same logical source configured, reverting
+    # only two RMUX65 bits from exact pair 4/9 to inferred 6/9 breaks the
+    # reference in three alternating board pairs. Source cuts break controls.
+    # Passing low probe: 27c49e28ef9858ec5010e1e14bc10e839769374d778af6fce5048c9ae2a764e0.
+    # Failing low probe: 0f90ee793e4816502918fed684b3ff68a28b5babae96d7a8e1f539522d3f9cb0.
+    ("RMUX", 65, "RMUX", 85, 0, -1),
 })
 
 _WIRE = re.compile(r"X(-?\d+)Y(-?\d+)_([A-Za-z]+)(\d+)")

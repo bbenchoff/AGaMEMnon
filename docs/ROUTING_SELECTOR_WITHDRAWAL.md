@@ -156,3 +156,36 @@ Source-fresh base and shared-control graphs each remove exactly two strict
 or 202 tiered inferred edges, with every surviving row unchanged. Exact
 predecessor identities remain available for replay; new emission independently
 rejects both withdrawn translations even when using a historical graph.
+
+## RMUX85 to RMUX65 downward translation — 2026-09-18
+
+The relative `RMUX85 -> RMUX65` rule at delta `(0,-1)`, pair `6/9`, is
+withdrawn outside its exact observations at destination rows 2, 3 and 10.
+At `X18Y10_RMUX85 -> X18Y9_RMUX65`, the original input reads high for both
+forced source levels. An independent observation of the RMUX85 prefix
+correctly delivers both levels. An exact alternate from the same upstream
+logical source `X17Y10_RMUX69`, through `X17Y12_RMUX86`, `X15Y12_RMUX50`,
+`X15Y11_RMUX08` and `X18Y11_RMUX37`, restores delivery to RMUX65.
+
+With both branches configured, changing only two target-selector bits from
+exact pair `4/9` back to inferred `6/9` reproduces failure in three alternating
+board pairs. Cutting the common upstream source breaks the reference;
+cutting RMUX85 breaks its independent prefix observation. Both output pull
+biases agree. The passing and failing source-zero images differ only in the
+named selector field and the regenerated CRC:
+
+- Passing: `27c49e28ef9858ec5010e1e14bc10e839769374d778af6fce5048c9ae2a764e0`
+- Failing: `0f90ee793e4816502918fed684b3ff68a28b5babae96d7a8e1f539522d3f9cb0`
+
+Source-fresh base and shared-control graphs each lose 95 tiered inferred
+edges. Strict graphs and all surviving rows are unchanged. Exact historical
+graph identities remain available for replay; new emission refuses this
+translation even with a historical graph. Exact coordinate observations are
+preserved. The same investigation verifies the preceding RMUX92 to RMUX81
+instance delivers both levels, so that rule remains admitted.
+
+These SRAM-only controls establish a localized selector defect. The complete
+SERV design still fails its functional contract after a controlled exact
+clear-input replacement. The broader routing and toolchain objectives remain
+open. Pins were released, the board reset cleanly, and flash readback was
+unchanged after the diagnostic session.

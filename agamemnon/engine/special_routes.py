@@ -56,9 +56,9 @@ EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 255547
 EXPECTED_PHYSICAL_GRAPH_SHA256 = (
     "6c67ca0a0dd3fd2212dafe40de72f6ff8c0d07edcf77fa19bac6555359619bbf"
 )
-EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 333914
+EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 333819
 EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
-    "5ad332204d9a08543b523700cdb521591698096990ec6ecc3c3816a1d0b9a8f4"
+    "3a6d491f3e472fc79379901c59dd7f4e9f94caaed365fdeb498bf841e120d07e"
 )
 # The native-control graph contributes the finite, reviewed shared-control
 # topology.  It is a separate graph profile: accepting it by changing the base
@@ -70,8 +70,8 @@ EXPECTED_SHARED_CONTROL_PHYSICAL_GRAPHS = {
         "706bc9aace9471c63eb4af50c0cbc03968acab178da4804de7ccaa7a6024f389",
     ),
     "tiered": (
-        334987,
-        "2f406dc408659fd39e3b6b4652fc22d5b84ae066889f42960e5935227d792ce9",
+        334892,
+        "64915c0591845f0c08a0f74ccfac5c1b4a5e81fd2ea8bae66506fc3708b15b51",
     ),
 }
 # Withdrawing the column-16 RMUX03 -> RMUX14 translation removes exactly
@@ -199,6 +199,17 @@ PRE_CLEAR_SELECTORS_WITHDRAWAL_PHYSICAL_GRAPHS = {
     "1": {
         "release-strict": (256622, "18e8cff35b7bfe9f88efdf0e0d95bc6dcd63dd987deda55696bc6e18e70e7401"),
         "tiered": (335189, "9de711df9b996212b7e9b6be3239dfaa70a52c44b0518e3832d219765bba1284"),
+    },
+}
+# Exact predecessors before withdrawing the RMUX85 -> RMUX65 rule.
+PRE_RMUX65_WITHDRAWAL_PHYSICAL_GRAPHS = {
+    "0": {
+        "release-strict": (255547, "6c67ca0a0dd3fd2212dafe40de72f6ff8c0d07edcf77fa19bac6555359619bbf"),
+        "tiered": (333914, "5ad332204d9a08543b523700cdb521591698096990ec6ecc3c3816a1d0b9a8f4"),
+    },
+    "1": {
+        "release-strict": (256620, "706bc9aace9471c63eb4af50c0cbc03968acab178da4804de7ccaa7a6024f389"),
+        "tiered": (334987, "2f406dc408659fd39e3b6b4652fc22d5b84ae066889f42960e5935227d792ce9"),
     },
 }
 # Preserve exact historical graph snapshots after the retained58 byte gate.
@@ -743,6 +754,9 @@ def _validated_devdb(devdb, chipdb_root=None):
             if (graph_pip_count, graph_pips_sha256) == historical:
                 expected_pip_count, expected_pips_sha256 = historical
             historical = PRE_CLEAR_SELECTORS_WITHDRAWAL_PHYSICAL_GRAPHS[shared_control_graph][admission]
+            if (graph_pip_count, graph_pips_sha256) == historical:
+                expected_pip_count, expected_pips_sha256 = historical
+            historical = PRE_RMUX65_WITHDRAWAL_PHYSICAL_GRAPHS[shared_control_graph][admission]
             if (graph_pip_count, graph_pips_sha256) == historical:
                 expected_pip_count, expected_pips_sha256 = historical
         except KeyError:
