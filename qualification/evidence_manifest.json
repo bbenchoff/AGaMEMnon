@@ -341,6 +341,11 @@
       "prefix_bytes": 2003,
       "prefix_sha256": "581e085749c7a3ca00b575040e578c41fced9bba9c91f806dbf080b320f15f39",
       "record_policy": "schema-1"
+    },
+    "slice_input_mode_evidence.jsonl": {
+      "prefix_bytes": 3005,
+      "prefix_sha256": "4680dfb9843f3f783df53148a008d626d4fd090f2b04fac4320f82f82a9a9cd3",
+      "record_policy": "schema-1"
     }
   },
   "known_invalid_hashes": [

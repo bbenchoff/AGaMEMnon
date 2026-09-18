@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 
 from .carry_validate import CarryValidationError, validate_routed_carry
 from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, WritableRegion
+from .register_input import _init_depends_on
 
 
 @dataclass
@@ -17,6 +18,7 @@ class CarryState:
     sets: list = field(default_factory=list)
     clears: list = field(default_factory=list)
     default_high_fields: list = field(default_factory=list)
+    ordinary_cin_fields: list = field(default_factory=list)
 
 
 class CarryFeature:
@@ -45,7 +47,8 @@ class CarryFeature:
             "Construct synthetic Cin/Cout wires and qualified fixed carry seams."
         ),
         bitstream=(
-            "Clear mutually exclusive slice controls, then select dedicated Cin "
+            "Disable dedicated Cin for ordinary slices using input C, clear mutually exclusive "
+            "carry controls, then select dedicated Cin "
             "mode and explicitly requested bypass/carry controls."
         ),
     )
@@ -127,8 +130,8 @@ class CarryFeature:
         if not bit:
             raise SystemExit(
                 "carry: slice_cfg.csv has no %s cell at X%dY%d slice%d; refusing "
-                "to emit a carry slice whose dedicated-Cin controls would be left "
-                "at their canvas value (config-accepts, computes without carry)"
+                "to emit a slice whose input controls would be left "
+                "at their base-image value"
                 % (feature, x, y, z)
             )
         return bit
@@ -151,6 +154,16 @@ class CarryFeature:
             connections = cell.get("connections", {})
             has_cin = bool(connections.get("CIN"))
             has_cout = bool(connections.get("COUT"))
+            if (not has_cin and not has_cout and cell.get("type") == "GENERIC_SLICE"
+                    and _init_depends_on(int(cell["parameters"]["INIT"], 2), 2)):
+                # The base image selects dedicated Cin at some border slices.
+                # Ordinary LUT input C (including local Qin) must override it;
+                # setting the separate Qin bit does not deselect stale Cin.
+                # Leave Qin itself to routing. Unused slices and LUTs whose
+                # truth is independent of C retain their existing configuration.
+                bit = self._require(fields, x, y, z, "CFG_LUTCMUX[%d]" % (2 * z + 1))
+                state.clears.append(bit)
+                state.ordinary_cin_fields.append(bit)
             if "AGRV2K_CARRY_D_DEFAULT_HIGH" in cell.get("attributes", {}):
                 if cell_map is None:
                     raise SystemExit("carry local inputs require the complete D-selector field map")
@@ -222,6 +235,9 @@ class CarryFeature:
         return set(state.clears) | set(state.sets) | set(state.default_high_fields)
 
     def audit_bitstream(self, context: BitstreamContext):
+        for byte, mask in context.state.ordinary_cin_fields:
+            if not 0 <= byte < len(context.image) or context.image[byte] & mask:
+                raise SystemExit("ordinary slice still selects dedicated carry input in the final image")
         for byte, mask in context.state.default_high_fields:
             if not 0 <= byte < len(context.image) or context.image[byte] & mask:
                 raise SystemExit("carry local-input D selector is not unselected in the final image")

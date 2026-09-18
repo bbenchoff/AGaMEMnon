@@ -49,6 +49,20 @@ driven-0 delivery; independently audited PASS), leaving driven-1/address-varied 
 narrow writes, and non-x18 widths as the open witnesses. Witnessed read artifact: `AG32-Docs
 .../bram_width_matrix_20260915/image_hbread10_rmux84_boardready.bin` + `session_hbread10/RESULT.json`.
 
+## Ordinary slice input selection — 2026-09-18
+
+The emitter clears inherited dedicated-carry input selection when an ordinary
+LUT's truth depends on input C, including local register feedback. Previously,
+border slices could retain that base-image selection and compute from carry
+instead of C/Qin. A one-bit intervention at X20Y12_SLICE6 restores a stopped
+toggle register and its hold-after-reset behavior without changing its routes.
+The corrected ordinary CLI build of [the resettable LFSR probe](../qualification/lfsr_probe.v)
+passes two 10 MHz reset/sequence captures with zero model mismatches, bracketed
+by matching vendor controls. This is an exact-image witness, not device-wide
+timing qualification or proof of the first clock after host-driven reset release.
+See [the evidence record](../qualification/slice_input_mode_evidence.jsonl).
+C-independent LUTs, unused slices, and dedicated carry retain their selections.
+
 ## Main after v0.4.0 — 2026-09-11
 
 Three BramTILE selector defects were found by cross-checking the evidence
