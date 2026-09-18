@@ -1,7 +1,10 @@
 """Shared constant sources use graph reach, not incompatible dynamic-pin slots."""
+from collections import defaultdict
+import csv
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 
 import pytest
@@ -9,10 +12,14 @@ import pytest
 from test_native_bram_unassigned_output import _design
 
 
-def _run(tmp_path, width=15, port='A', count=5, source_kind='literal', bel=None, family='Address', dynamic_addresses=0, lanes=None):
-    binary = os.environ.get('AGAMEMNON_UARCH_NEXTPNR')
-    devdb = Path(os.environ.get('AGAMEMNON_UARCH_DEVDB', str(
+def _database():
+    return Path(os.environ.get('AGAMEMNON_UARCH_DEVDB', str(
         Path(__file__).resolve().parents[1] / 'agamemnon/engine/uarch/agrv2k/devdb_strict')))
+
+
+def _run(tmp_path, width=15, port='A', count=5, source_kind='literal', bel=None, family='Address', dynamic_addresses=0, lanes=None, trace=False):
+    binary = os.environ.get('AGAMEMNON_UARCH_NEXTPNR')
+    devdb = _database()
     if not binary or not Path(binary).is_file() or not (devdb / 'dev_pips.csv').is_file():
         pytest.skip('set the isolated native executable and strict devdb')
     design = _design('X13Y4_BRAM')
@@ -65,6 +72,8 @@ def _run(tmp_path, width=15, port='A', count=5, source_kind='literal', bel=None,
     source.write_text(json.dumps(design))
     env = {k: v for k, v in os.environ.items() if not k.startswith(('AGRV2K_', 'AGAMEMNON_'))}
     env.update(AGRV2K_BRAM_PINPACK='1', AGRV2K_BRAM_HARDCONST='1')
+    if trace:
+        env['AGRV2K_TRACE_BRAM_CORRIDORS'] = '1'
     proc = subprocess.run([binary, '--uarch', 'agrv2k', '-o', f'chipdb={devdb}',
         '--json', str(source), '--write', str(output), '--top', 'top', '--pack-only'],
         env=env, capture_output=True, text=True, timeout=60)
@@ -81,13 +90,23 @@ def test_shared_required_address_zeros_pack(tmp_path, width, port, count):
     assert proc.returncode == 0, transcript
     packed = json.loads(output.read_text())['modules']['top']
     bits = packed['cells']['ram']['connections']['Address' + port]
-    assert len(bits) == count and len(set(bits)) == 1
+    assert len(bits) == count
+    if port == 'B':
+        # The live read port keeps one shared low-prefix source and localizes
+        # every address lane >=3. Required zeros must survive that split.
+        assert len(set(bits[:3])) == 1
+        assert len(set(bits)) == count - 2
+    else:
+        assert len(set(bits)) == 1
     drivers = [c for c in packed['cells'].values() if c['type'] == 'GENERIC_SLICE'
-               and bits[0] in c['connections'].get('F', [])]
-    assert len(drivers) == 1
-    assert int(drivers[0]['parameters']['INIT'], 2) == 0
-    assert int(drivers[0]['attributes'].get('AGRV2K_BRAM_PINPACKED', '0'), 2) == 1
-    assert 'AGRV2K_OMUX_SEL' not in drivers[0]['attributes']
+               and any(bit in c['connections'].get('F', []) for bit in bits)]
+    assert len(drivers) == len(set(bits))
+    for bit in set(bits):
+        driver, = [c for c in drivers if bit in c['connections'].get('F', [])]
+        assert int(driver['parameters']['INIT'], 2) == 0
+        assert int(driver['parameters']['FF_USED'], 2) == 0
+        assert int(driver['attributes'].get('AGRV2K_BRAM_PINPACKED', '0'), 2) == 1
+        assert 'AGRV2K_OMUX_SEL' not in driver['attributes']
 
 
 @pytest.mark.parametrize('port', ['A', 'B'])
@@ -136,16 +155,43 @@ def test_dynamic_address_cannot_steal_a_ground_terminal_sole_ingress(tmp_path, d
 @pytest.mark.parametrize('source_kind', ['dynamic', 'registered'])
 def test_shared_odd_data_lanes_use_common_reachable_source(tmp_path, source_kind):
     proc, transcript, output = _run(tmp_path, width=0, family='DataIn',
-        lanes=range(1, 18, 2), source_kind=source_kind)
+        lanes=range(1, 18, 2), source_kind=source_kind, trace=True)
     assert proc.returncode == 0, transcript
     assert output.exists()
     assert "driver 'arbitrary_source_name'" in transcript
-    assert '-> X14Y4_SLICE5' in transcript
+    # Packing reserves DataInA[1]; the generic router handles the other
+    # shared lanes later. Check that reservation and independently verify
+    # the chosen source can reach every user in the admitted graph.
+    assert 'BRAM trace verified DataInA[1] ' in transcript
     packed = json.loads(output.read_text())['modules']['top']
     bits = packed['cells']['ram']['connections']['DataInA']
     # nextpnr serializes this sparse [17:1] port starting at its low index,
     # not as an 18-element zero-based list. Check all nine shared users.
     source = packed['cells']['arbitrary_source_name']['connections']
-    driver_bit = source['Q' if source_kind == 'registered' else 'F'][0]
+    pin = 'Q' if source_kind == 'registered' else 'F'
+    # Pack-only JSON omits placement coordinates. Read the actual binding
+    # without requiring one particular legal BEL.
+    binding, = re.findall(
+        r"BRAM-pin packed \S+ driver 'arbitrary_source_name'\.([FQ]) "
+        r"\(FF_USED=\d+\) -> (\S+)", transcript)
+    bound_pin, bel = binding
+    assert bound_pin == pin
+    driver_bit = source[pin][0]
     assert bits.count(driver_bit) == 9
     assert 'no BEL reaching all' not in transcript
+    database = _database()
+    with (database / 'dev_belpins.csv').open() as stream:
+        wires = {(row['bel'], row['pin']): row['wire'] for row in csv.DictReader(stream)}
+    adjacency = defaultdict(list)
+    with (database / 'dev_pips.csv').open() as stream:
+        for row in csv.DictReader(stream):
+            adjacency[row['src']].append(row['dst'])
+    reached = {wires[bel, pin]}
+    queue = list(reached)
+    for wire in queue:
+        for target in adjacency[wire]:
+            if target not in reached:
+                reached.add(target)
+                queue.append(target)
+    assert all(wires['X13Y4_BRAM', f'DataInA[{lane}]'] in reached
+               for lane in range(1, 18, 2))

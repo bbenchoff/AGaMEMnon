@@ -28,6 +28,8 @@ def test_gate_requires_nonempty_unskipped_suite(tmp_path, monkeypatch, counts, r
     tests = tmp_path / 'tests'
     tests.mkdir()
     (tests / 'test_native_example.py').write_text('')
+    for name in gate.COMPILED_CLOSURE_TARGETS:
+        (tests / name).write_text('')
     database = tmp_path / 'db'
     database.mkdir()
     (database / 'dev_pips.csv').write_text('fixture')
@@ -42,6 +44,7 @@ def test_gate_requires_nonempty_unskipped_suite(tmp_path, monkeypatch, counts, r
 
     def execute(command, **kwargs):
         assert kwargs['env']['AGAMEMNON_UARCH_DEVDB'] == str(database)
+        assert all(str(tests / name) in command for name in gate.COMPILED_CLOSURE_TARGETS)
         if counts is not None:
             (output / 'suite.xml').write_text('<testsuites><testsuite ' + counts + '/></testsuites>')
         return SimpleNamespace(returncode=returncode)

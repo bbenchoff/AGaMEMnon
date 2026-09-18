@@ -12,6 +12,12 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tests'))
 from devdb_fixtures import DatabaseFixtures
 
+COMPILED_CLOSURE_TARGETS = (
+    'test_uarch_carry_drc.py',
+    'test_uarch_register_input_legality.py',
+    'test_carry_routed_validation.py',
+)
+
 
 def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -33,6 +39,11 @@ def main():
     targets = sorted(ROOT.glob('tests/test_native*.py'))
     if not targets:
         raise ValueError('No native regression families found')
+    # These compiled ownership/closure families predate the test_native*
+    # naming convention. Ordinary CI skips their native cases without this
+    # executable, so they must participate in the same no-skip gate.
+    targets += [(ROOT / 'tests' / name).resolve(strict=True)
+                for name in COMPILED_CLOSURE_TARGETS]
     fixtures = DatabaseFixtures()
     try:
         database = fixtures.path('strict')

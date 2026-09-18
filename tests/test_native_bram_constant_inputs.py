@@ -64,9 +64,13 @@ def _pack_constants(tmp_path, width, port, family, value=0, readonly=False):
 def test_active_constant_zero_bram_inputs_have_ground_driver(tmp_path, width, port, family):
     bits, drivers = _pack_constants(tmp_path, width, port, family)
     assert bits, 'required zero input was disconnected'
-    assert len(set(bits)) == 1, 'one ground net can serve all required zero pins'
-    assert len(drivers) == 1
-    assert int(drivers[0]['parameters']['INIT'], 2) == 0
+    # Live Port-B address lanes >=3 deliberately use separate local zeros
+    # so their simultaneously routed approaches can be placed independently.
+    expected_sources = 2 if family == 'Address' and port == 'B' else 1
+    assert len(set(bits)) == len(drivers) == expected_sources
+    for driver in drivers:
+        assert int(driver['parameters']['INIT'], 2) == 0
+        assert int(driver['parameters']['FF_USED'], 2) == 0
 
 
 @pytest.mark.parametrize('width', [0, 8, 12, 14, 15])
