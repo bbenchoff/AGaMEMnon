@@ -189,3 +189,35 @@ SERV design still fails its functional contract after a controlled exact
 clear-input replacement. The broader routing and toolchain objectives remain
 open. Pins were released, the board reset cleanly, and flash readback was
 unchanged after the diagnostic session.
+
+## RMUX61 to RMUX54 leftward translation — 2026-09-18
+
+The relative `RMUX61 -> RMUX54` rule at delta `(-1,0)`, pair `1/8`, is
+withdrawn outside its exact observations at destination column 19.
+At `X19Y10_RMUX61 -> X18Y10_RMUX54`, the inferred input reads high for both
+forced source levels. An exact alternate from the same upstream source
+`X19Y12_RMUX14` restores both levels through target pair `4/9`. With both
+branches configured, reverting only four RMUX54 bits reproduces failure in
+three alternating source-zero/source-one pairs. Cutting the common source
+also prevents level propagation.
+
+An independent observer establishes that RMUX61 itself delivers both levels:
+exact routes feed a spare LUT at `X20Y10_SLICE0`, and its output follows an
+exact route back to the monitor. Forced buffer-output controls and a cut at
+RMUX61 qualify that observation. The preceding `RMUX14 -> RMUX61` instance
+therefore remains admitted. Earlier observation suffixes containing inferred
+hops failed their source-one control; they do not establish a fault in the
+source prefix. The buffer observer removes that ambiguity.
+
+Passing/failing source-zero images differ only in the named selector and CRC:
+
+- Passing: `0e6885ace0c965cdff5d2b62b4f11a546f251561a3c1709c15442ee3fbdae342`
+- Failing: `92ada5eec66c6605eec086393c4c14969f09b6b51c72b86e47f3e904a4fda795`
+
+Source-fresh base and shared-control graphs each remove one strict or 104
+tiered inferred edges, leaving every surviving row unchanged. Exact coordinate
+observations and exact historical graph identities are retained; the emitter
+refuses the unsupported translation before image output, including when using
+a historical graph. SRAM-only tests end with released pins, clean reset and
+unchanged flash readback. These localized controls do not qualify the complete
+SERV design or other unobserved routing translations.

@@ -277,3 +277,19 @@ def test_rmux85_downward_turnback_to_rmux65_preserves_exact_observations():
     for x, y in ((2, 2), (8, 3), (20, 10)):
         assert not nonportable_translation(clean, f'X{x}Y{y+1}_RMUX85', f'X{x}Y{y}_RMUX65')
     assert not nonportable_translation(clean, 'X18Y11_RMUX37', 'X18Y9_RMUX65')
+
+
+def test_rmux61_leftward_turnback_to_rmux54_preserves_exact_observations():
+    clean = {(19, y, 'RMUX', 54, 'RMUX', 20, y, 61): (1, 8)
+             for y in (1, 5, 10, 11)}
+    clean[18, 10, 'RMUX', 54, 'RMUX', 18, 12, 37] = (4, 9)
+    original = dict(clean)
+    key = ('RMUX', 54, 'RMUX', 61, -1, 0)
+    relative, rejected = relative_edges(clean)
+    assert key in rejected
+    assert key not in relative
+    assert clean == original
+    assert nonportable_translation(clean, 'X19Y10_RMUX61', 'X18Y10_RMUX54')
+    for y in (1, 5, 10, 11):
+        assert not nonportable_translation(clean, f'X20Y{y}_RMUX61', f'X19Y{y}_RMUX54')
+    assert not nonportable_translation(clean, 'X18Y12_RMUX37', 'X18Y10_RMUX54')

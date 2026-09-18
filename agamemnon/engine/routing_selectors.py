@@ -170,6 +170,15 @@ NONPORTABLE_RELATIVE_KEYS = frozenset({
     # Passing low probe: 27c49e28ef9858ec5010e1e14bc10e839769374d778af6fce5048c9ae2a764e0.
     # Failing low probe: 0f90ee793e4816502918fed684b3ff68a28b5babae96d7a8e1f539522d3f9cb0.
     ("RMUX", 65, "RMUX", 85, 0, -1),
+    # RMUX61 -> RMUX54 at dx=-1 is observed only at destination column 19,
+    # pair 1/8. At X18Y10 an independent LUT-buffer observer confirms that
+    # X19Y10_RMUX61 delivers both source levels, but this input reads high
+    # for both. With both source branches configured, reverting only four
+    # target-selector bits from exact 4/9 to inferred 1/8 breaks the reference
+    # in three alternating board pairs. Source cuts break level propagation.
+    # Passing low probe: 0e6885ace0c965cdff5d2b62b4f11a546f251561a3c1709c15442ee3fbdae342.
+    # Failing low probe: 92ada5eec66c6605eec086393c4c14969f09b6b51c72b86e47f3e904a4fda795.
+    ("RMUX", 54, "RMUX", 61, -1, 0),
 })
 
 _WIRE = re.compile(r"X(-?\d+)Y(-?\d+)_([A-Za-z]+)(\d+)")

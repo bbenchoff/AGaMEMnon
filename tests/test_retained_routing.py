@@ -60,6 +60,7 @@ def test_no_exception_for_changed_checkpoint_module_or_environment(tmp_path):
     'X17Y9_RMUX33.X18Y9_RMUX39',  # column-boundary rightward turnback
     'X18Y10_RMUX69.X18Y9_RMUX83',  # row-boundary downward turnback
     'X18Y10_RMUX85.X18Y9_RMUX65',  # unsupported downward turnback
+    'X19Y10_RMUX61.X18Y10_RMUX54',  # column-boundary leftward turnback
 ])
 def test_other_withdrawn_translations_refused_before_resolving(pip):
     with pytest.raises(ValueError, match='withdrawn selector translation'):
