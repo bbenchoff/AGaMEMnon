@@ -455,6 +455,9 @@ def test_supplemental_corridors_do_not_restore_nonportable_selector(emitted_grap
         assert ("X17Y9_RMUX50", "X17Y10_RMUX08") not in edges
         assert ("X17Y2_RMUX50", "X17Y3_RMUX08") in edges
         assert ("X17Y11_RMUX50", "X17Y10_RMUX08") in edges
+        assert ("X17Y10_RMUX69", "X17Y10_RMUX86") not in edges
+        assert ("X12Y3_RMUX69", "X12Y3_RMUX86") in edges
+        assert ("X16Y10_RMUX45", "X17Y10_RMUX86") in edges
 
 
 def test_exact_request_control_paths_reach_prior_tiered_only_wires(emitted_graphs):

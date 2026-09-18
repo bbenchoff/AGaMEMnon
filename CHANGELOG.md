@@ -7,6 +7,10 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+- Refused an unsupported same-tile RMUX69 to RMUX86 routing inference.
+  A minimal hardware probe and selector sweep fail to deliver either source
+  level, while an exact-route control works. Exact observed edges remain
+  available; this does not qualify the full dense SERV design.
 - Refused a row-3 selector inference that loses a program-counter signal
   when translated to the interior. Three two-bit selector A/B pairs distinguish
   zero activity from the expected 5 MHz diagnostic toggle. Exact observations

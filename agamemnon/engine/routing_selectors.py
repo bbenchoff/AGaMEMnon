@@ -86,6 +86,17 @@ NONPORTABLE_RELATIVE_KEYS = frozenset({
     # Passing probe: 757b716b889cf1f0bf8b31210a3227e7b78703acf1329b956a1b67ea5279a4de.
     # Failing probe: 7ffe30d9ef09093e4802d6aa11786a496638788166ca2d2a6c923536ad15dd2b.
     ("RMUX", 8, "RMUX", 50, 0, 1),
+    # Same-tile RMUX69 -> RMUX86 is witnessed only at LogicTile row 3
+    # (pair 5/9) and a differently encoded BramTILE. At X17Y10 a seven-cell
+    # probe reads high for BOTH source levels. Replacing only the target
+    # selector with an exact-route input distinguishes 0/5 MHz in three
+    # alternating board pairs; cutting its common source prefix breaks that
+    # distinction. None of 21 two-hot words tracks the source in this probe.
+    # Withdraw the unsupported translation, retaining exact observations;
+    # this is not a claim that every possible encoding is absent everywhere.
+    # Passing low probe: beb0125cb76222121549f76c8fc7dda4798c274c60ae6029553048b41e2d49cd.
+    # Failing low probe: d683f1c965d65265d4ce0fea9c3e734279b412b03ba5a9fbdcddbd0b023990ef.
+    ("RMUX", 86, "RMUX", 69, 0, 0),
 })
 
 _WIRE = re.compile(r"X(-?\d+)Y(-?\d+)_([A-Za-z]+)(\d+)")
