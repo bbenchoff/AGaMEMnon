@@ -2696,8 +2696,8 @@ static void pack_carries(Context *ctx)
         append_tile(20, 12);
         append_tile(20, 11, 9);
     } else if (!native_short_profile && chains.size() == 1 && total <= 33) {
-        append_tile(20, 11);
         append_tile(20, 12);
+        append_tile(20, 11);
         append_tile(20, 10, 1);
     } else if (!native_short_profile) {
         log_error("agrv2k: dedicated carry requires %ld slices across %ld chain(s), but the "
@@ -3087,7 +3087,7 @@ static void pack_carries(Context *ctx)
                  long(clustered.size()), first.x, first.y, first.z, last.x, last.y, last.z);
         make_relative_cluster(ctx, clustered, !native_short_profile);
         const std::string profile = native_short_profile ? "SHORT_LOCAL" :
-                (clustered.size() <= 25 ? "LEGACY_25" : "LEGACY_33");
+                (clustered.size() <= 25 ? "LEGACY_25" : "X20_DOWNWARD_33");
         for (size_t index = 0; index < clustered.size(); ++index) {
             CellInfo *member = clustered.at(index).first;
             const std::string role = index == 0 ? "SEED" :
@@ -10110,6 +10110,14 @@ struct AgrvImpl : ViaductAPI
                            candidate_loc.y - cell->constr_y,
                            absolute_z ? root->constr_z
                                       : candidate_loc.z - cell->constr_z);
+        // Both long templates are witnessed from this exact root. Adding the
+        // second downward seam must not silently translate the 25-site family
+        // onto a new footprint in rows 11/10.
+        if (absolute_z && (root_loc.x != 20 || root_loc.y != 12 || root_loc.z != 0)) {
+            if (explain_invalid)
+                log_info("agrv2k validity: long carry root must be X20Y12_SLICE0\n");
+            return false;
+        }
         std::unordered_map<CellInfo *, BelId> expected;
         std::unordered_set<int> occupied_locations;
         std::set<int> relative_z;
@@ -13991,7 +13999,7 @@ struct AgrvImpl : ViaductAPI
         const bool profile_valid =
                 (result.profile == "SHORT_LOCAL" && result.length >= 2 && result.length <= 9) ||
                 (result.profile == "LEGACY_25" && result.length >= 10 && result.length <= 25) ||
-                (result.profile == "LEGACY_33" && result.length >= 26 && result.length <= 33);
+                (result.profile == "X20_DOWNWARD_33" && result.length >= 26 && result.length <= 33);
         const std::string expected_role = result.position == 0 ? "SEED" :
                 (result.length == 2 ? "FIRST_TAIL" :
                  (result.position == 1 ? "FIRST" :
@@ -14251,11 +14259,11 @@ struct AgrvImpl : ViaductAPI
                     if (root_identity.profile == "LEGACY_25" && index >= 16) {
                         expected_y = root_loc.y - 1;
                         expected_z = int(index) - 16;
-                    } else if (root_identity.profile == "LEGACY_33" && index >= 16) {
-                        expected_y = index < 32 ? root_loc.y + 1 : root_loc.y - 1;
+                    } else if (root_identity.profile == "X20_DOWNWARD_33" && index >= 16) {
+                        expected_y = index < 32 ? root_loc.y - 1 : root_loc.y - 2;
                         expected_z = index < 32 ? int(index) - 16 : 0;
                     }
-                    if (root_loc.z != 0 || current_loc.x != root_loc.x ||
+                    if (root_loc.x != 20 || root_loc.y != 12 || root_loc.z != 0 || current_loc.x != root_loc.x ||
                         current_loc.y != expected_y || current_loc.z != expected_z)
                         log_error("agrv2k: %s retained carry closure rejects profile geometry at "
                                   "position %ld for member '%s'\n", phase, long(index),

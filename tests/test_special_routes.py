@@ -1259,9 +1259,50 @@ def test_cold_physical_devdb_rebuild_reaches_final_bitgen_byte_identically(tmp_p
     assert cold_output.read_bytes() == control_output.read_bytes()
 
 
+def _restore_carry_seam_rows(raw, admission, shared):
+    """Undo only the two removed and one added carry-seam rows."""
+    lines = raw.splitlines(keepends=True)
+    profile = "strict" if admission == "release-strict" else admission
+    suffix = "shared" if shared == "1" else "base"
+    prefix = "carry_seam_delta_" + profile + "_" + suffix
+    fixtures = Path(__file__).parent / "fixtures"
+    added = (fixtures / (prefix + "_added.csv")).read_bytes().splitlines()[1:]
+    removed = (fixtures / (prefix + "_removed.csv")).read_bytes().splitlines()[1:]
+    assert len(added) == 1 and len(removed) == 2
+    for row in reversed(added):
+        index, _, line = row.partition(b",")
+        assert lines[int(index)] == line + b"\r\n"
+        del lines[int(index)]
+    for row in removed:
+        index, _, line = row.partition(b",")
+        assert line + b"\r\n" not in lines
+        lines.insert(int(index), line + b"\r\n")
+    restored = b"".join(lines)
+    count, digest = sr.PRE_CARRY_CORRECTION_PHYSICAL_GRAPHS[shared][admission]
+    assert len(lines) - 1 == count
+    assert hashlib.sha256(restored).hexdigest() == digest
+    return restored
+
+
+def _check_carry_seam_predecessor(devdb, tmp_path, admission, shared):
+    previous = tmp_path / ("carry-seam-predecessor-" + admission + "-" + shared)
+    shutil.copytree(devdb, previous)
+    path = previous / "dev_pips.csv"
+    path.write_bytes(_restore_carry_seam_rows(path.read_bytes(), admission, shared))
+    count, digest = sr.PRE_CARRY_CORRECTION_PHYSICAL_GRAPHS[shared][admission]
+    _replace_metadata_value(previous / sr.DEV_META_NAME, "graph_pip_count", count)
+    _replace_metadata_value(previous / sr.DEV_META_NAME, "graph_pips_sha256", digest)
+    _replace_metadata_value(previous / "dev_meta.csv", "n_pips", count)
+    assert sr.validate_devdb(previous, CHIPDB)
+
+
+def test_carry_seam_strict_predecessor_remains_exactly_bound(tmp_path):
+    _check_carry_seam_predecessor(PHYSICAL_DEVDB, tmp_path, "release-strict", "0")
+
+
 def _restore_rmux68_rows(raw, admission, shared):
     """Restore the exact predecessor without permitting unrelated drift."""
-    lines = raw.splitlines(keepends=True)
+    lines = _restore_carry_seam_rows(raw, admission, shared).splitlines(keepends=True)
     suffix = "shared" if shared == "1" else "base"
     profile = "strict" if admission == "release-strict" else admission
     fixture = Path(__file__).parent / "fixtures" / ("rmux68_withdrawal_" + profile + "_" + suffix + ".csv")
@@ -1460,6 +1501,7 @@ def test_source_fresh_tiered_physical_devdb_matches_pinned_graph(tmp_path):
     _check_rmux86_predecessor(devdb, tmp_path, "tiered", "0")
     _check_rmux57_predecessor(devdb, tmp_path, "tiered", "0")
     _check_rmux68_predecessor(devdb, tmp_path, "tiered", "0")
+    _check_carry_seam_predecessor(devdb, tmp_path, "tiered", "0")
     with graph_path.open("a", newline="", encoding="utf-8") as stream:
         csv.writer(stream).writerow((
             "FAKE_TILE_OMUX00.FAKE_TILE_RMUX00", "PIP",
@@ -1520,6 +1562,7 @@ def test_source_fresh_shared_control_graph_is_exact_and_tamper_proof(
     _check_rmux86_predecessor(devdb, tmp_path, admission, "1")
     _check_rmux57_predecessor(devdb, tmp_path, admission, "1")
     _check_rmux68_predecessor(devdb, tmp_path, admission, "1")
+    _check_carry_seam_predecessor(devdb, tmp_path, admission, "1")
     if admission == "tiered":
         _check_rmux14_predecessor(devdb, tmp_path, "1")
 

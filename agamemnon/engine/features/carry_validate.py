@@ -9,7 +9,7 @@ N5.6A deliberately admits only two native physical families:
 
 * short chains whose complete seeded footprint uses at most nine sites, with
   each chain occupying consecutive slices in one tile; and
-* the retained single-chain 25/33-site relative profiles.
+* the retained 25-site profile and the exact X20Y12 downward 33-site corridor.
 
 Two exact three-site seam checkpoints remain readable as legacy emission
 compatibility.  They are not native-placement profiles and do not generalize
@@ -335,10 +335,10 @@ def _profile_sites(count, profile):
     if profile == "legacy-25":
         sites = ([CarrySite(0, 0, z) for z in range(16)] +
                  [CarrySite(0, -1, z) for z in range(9)])
-    elif profile == "legacy-33":
+    elif profile == "x20-downward-33":
         sites = ([CarrySite(0, 0, z) for z in range(16)] +
-                 [CarrySite(0, 1, z) for z in range(16)] +
-                 [CarrySite(0, -1, 0)])
+                 [CarrySite(0, -1, z) for z in range(16)] +
+                 [CarrySite(0, -2, 0)])
     else:
         raise AssertionError(profile)
     return tuple(sites[:count])
@@ -388,9 +388,15 @@ def _validate_physical_profiles(chains):
     if count <= 25:
         profile = "legacy-25"
     elif count <= 33:
-        profile = "legacy-33"
+        profile = "x20-downward-33"
     else:
         _reject("carry chain exceeds the retained 33-site profile")
+    # Keep the exact retained counter24 checkpoint readable without allowing
+    # the new Y11->Y10 seam to translate the native legacy-25 family.
+    root = chains[0][0].site
+    retained_counter24 = count == 25 and root == CarrySite(10, 4, 0)
+    if root != CarrySite(20, 12, 0) and not retained_counter24:
+        _reject("long carry requires the X20Y12 downward footprint or the exact retained X10Y4 25-site footprint; rebuild legacy 33-site designs")
     if _relative_sites([cell.site for cell in chains[0]]) != _profile_sites(count, profile):
         _reject("carry chain does not match the exact retained %s profile" % profile)
     return profile

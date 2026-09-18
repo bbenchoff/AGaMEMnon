@@ -184,11 +184,45 @@ def test_accepts_independent_disjoint_short_chains_with_one_shared_d_source():
     assert {chain.profile for chain in result.chains} == {"short-same-tile"}
 
 
-@pytest.mark.parametrize("profile,count", [(25, 25), (33, 33)])
+@pytest.mark.parametrize("profile,count", [(25, 25)])
 def test_accepts_exact_retained_legacy_profile_prefix(profile, count):
     result = validate_routed_carry(_module(_legacy_sites(count, profile)))
     assert len(result.chains[0].sites) == count
     assert result.chains[0].profile == "legacy-%d" % profile
+
+
+@pytest.mark.parametrize("count", [26, 32, 33])
+def test_long_carry_requires_exact_downward_x20_prefix(count):
+    sites = ([(20, 12, z) for z in range(16)] +
+             [(20, 11, z) for z in range(16)] + [(20, 10, 0)])[:count]
+    result = validate_routed_carry(_module(sites, registered=True, feedback=True))
+    assert result.chains[0].profile == "x20-downward-33"
+    assert len(result.chains[0].sites) == count
+    for bad in (_legacy_sites(count, 33), [(19, y, z) for _, y, z in sites],
+                [(x, y - 1, z) for x, y, z in sites]):
+        with pytest.raises(CarryValidationError, match="X20Y12 downward footprint"):
+            validate_routed_carry(_module(bad))
+
+
+def test_long_carry_rejects_a_skipped_tile_even_with_correct_root():
+    sites = [(20, 12, z) for z in range(16)] + [(20, 10, z) for z in range(16)]
+    with pytest.raises(CarryValidationError, match="exact retained x20-downward-33"):
+        validate_routed_carry(_module(sites))
+
+
+@pytest.mark.parametrize("count", [10, 17, 25])
+def test_legacy25_cannot_translate_to_the_new_downward_seam(count):
+    sites = [(x, y - 1, z) for x, y, z in _legacy_sites(count, 25)]
+    with pytest.raises(CarryValidationError, match="X20Y12 downward footprint"):
+        validate_routed_carry(_module(sites))
+
+
+def test_exact_retained_counter24_footprint_remains_readable():
+    sites = [(10, y - 8, z) for _, y, z in _legacy_sites(25, 25)]
+    assert validate_routed_carry(_module(sites)).chains[0].profile == "legacy-25"
+    for bad in (sites[:-1], [(x, y - 1, z) for x, y, z in sites]):
+        with pytest.raises(CarryValidationError, match="X20Y12 downward footprint"):
+            validate_routed_carry(_module(bad))
 
 
 @pytest.mark.parametrize("sites,profile", [

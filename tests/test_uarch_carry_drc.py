@@ -231,7 +231,7 @@ def test_generated_database_has_one_exact_typed_carry_resource_profile():
     }
     assert {kind: len(rows) for kind, rows in by_type.items()} == {
         "CARRY": 1980,
-        "CARRY_SEAM": 3,
+        "CARRY_SEAM": 2,
         "SLICE_QFB": 2112,
     }
     assert {row["delay_ns"] for row in by_type["CARRY"]} == {"0.05"}
@@ -269,7 +269,7 @@ def test_carry_lookahead_collapse_remains_an_admissible_lower_bound():
     assert all(node(row["src"]) == node(row["dst"]) for row in local)
     assert all(0.0 <= float(row["delay_ns"]) for row in local)
 
-    # The three retained seams cross lookahead nodes.  Rebuild the same
+    # The two downward seams cross lookahead nodes. Rebuild the same
     # nonnegative collapsed graph and prove its shortest estimate never
     # exceeds the actual admitted seam edge.  No timing or Fmax claim follows.
     graph = {}
@@ -296,7 +296,10 @@ def test_carry_lookahead_collapse_remains_an_admissible_lower_bound():
         return float("inf")
 
     seams = [row for row in pips if row["type"] == "CARRY_SEAM"]
-    assert len(seams) == 3
+    assert {(row["src"], row["dst"]) for row in seams} == {
+        ("X20Y12_CARRYOUT15", "X20Y11_CARRYIN00"),
+        ("X20Y11_CARRYOUT15", "X20Y10_CARRYIN00"),
+    }
     for row in seams:
         estimate = shortest(node(row["src"]), node(row["dst"]))
         assert 0.0 <= estimate <= float(row["delay_ns"])
@@ -327,7 +330,7 @@ def test_admitted_linear_profiles_pack_with_seed_and_terminal_modes(
     }
     expected_profile = (
         "SHORT_LOCAL" if expected_cells <= 9 else
-        "LEGACY_25" if expected_cells <= 25 else "LEGACY_33"
+        "LEGACY_25" if expected_cells <= 25 else "X20_DOWNWARD_33"
     )
     assert carry_profiles == {expected_profile}
 
@@ -577,12 +580,11 @@ def test_no_pack_import_rejects_wrong_retained_profile_with_legal_seam_pips(
     assert {cell["attributes"]["AGRV2K_CARRY_PROFILE"]
             for cell in ordered} == {"LEGACY_25"}
 
-    # Rebind the complete chain to the graph-legal upward seam used by the
-    # retained 33-site family, while leaving its authenticated profile as
-    # LEGACY_25.  Every imported link is still a real typed CARRY/SEAM PIP, so
-    # only the aggregate profile-geometry audit can reject this composition.
+    # The newly admitted second downward seam must not translate LEGACY_25
+    # away from its witnessed root. Every link below is graph-legal, so the
+    # complete profile audit must still reject this unqualified placement.
     for position, cell in enumerate(ordered):
-        y = 11 if position < 16 else 12
+        y = 11 if position < 16 else 10
         z = position if position < 16 else position - 16
         cell["attributes"]["NEXTPNR_BEL"] = f"X20Y{y}_SLICE{z}"
     module["cells"]["$CARRY_VCC"]["attributes"]["NEXTPNR_BEL"] = (

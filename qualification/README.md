@@ -118,7 +118,7 @@ accepted scope.
 
 | File | Accepted scope |
 |---|---|
-| `carry_evidence.jsonl` | same-tile short carry and one 32-bit chain through the qualified 33-site corridor |
+| `carry_evidence.jsonl` | same-tile short carry, exact seams, and counter-rate witnesses for the corrected downward X20 33-site corridor; the old upward/skipping profile is withdrawn |
 | `mcu_ahb32_read_evidence.jsonl` | simultaneous 32-bit fabric-to-MCU read |
 | `mcu_ahb32_write_evidence.jsonl` | protocol-valid four-lane groups covering HWDATA[31:0], plus one exact simultaneous 16-lane posted-capture checkpoint that replays source-to-route with `--qualified-checkpoint`; the latter is not a 16-bit register bank |
 | `mcu_ahb_constant_slave_evidence.jsonl` | L48 silicon qualification of the constant-ready, OKAY-only combinational External-AHB endpoint, including all 32 read-data lanes and no-effect writes |

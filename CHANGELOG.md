@@ -7,6 +7,10 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+- Corrected 26–33-site carry chains to descend from X20Y12 through X20Y11
+  to X20Y10. The old upward/skipping template produced incorrect counter
+  rates. Native placement and direct packing now reject that old topology;
+  the existing shorter carry profiles remain bounded to their witnessed sites.
 - Refused the bottom-row RMUX87 to RMUX68 translation after a two-bit
   selector comparison broke output delivery in three hardware pairs.
   Exact recorded routes and historical graph identities remain available.
