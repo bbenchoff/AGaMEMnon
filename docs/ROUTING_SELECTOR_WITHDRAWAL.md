@@ -221,3 +221,37 @@ refuses the unsupported translation before image output, including when using
 a historical graph. SRAM-only tests end with released pins, clean reset and
 unchanged flash readback. These localized controls do not qualify the complete
 SERV design or other unobserved routing translations.
+
+## RMUX31 to RMUX25: preserve the working coordinate — 2026-09-18
+
+The leftward relative rule `RMUX31 -> RMUX25`, delta `(-1,0)`, pair `1/8`,
+is not translation invariant. At `X19Y8_RMUX31 -> X18Y8_RMUX25`, both source
+levels read low. An independent buffered observer confirms that the source
+delivers both levels. An exact alternate from the common upstream source
+through `X19Y8_RMUX50`, `X19Y4_RMUX13`, and `X18Y4_RMUX55` restores both
+levels through target pair `2/9`. Both branches remain configured; reverting
+only four target-selector bits to `1/8` breaks three alternating pairs.
+Common-source and independent prefix cuts also break propagation.
+
+- Passing source-one image: `afd6fd292f2e8d039e0f8317e7cb07b4398c7da26445db2a1d38634e24c84123`
+- Failing paired image: `005d1f904952e1ab66a328d76345df0c8bb7ae6d06d9d6388bcc8c24ee25f13a`
+
+The same relative connection **works** at `X20Y11_RMUX31 -> X19Y11_RMUX25`.
+This coordinate is retained explicitly in `sel_edge_pairs.agdb`, pair `1/8`,
+alongside all prior exact observations. Forced source-zero/source-one and
+buffer-output controls, an independent source observer, and separate source
+and target selector cuts establish conduction. The database metadata records
+its native evidence separately from the historical imported data.
+
+- Source-zero image: `7781ce95f94cfefcb10b2bd507e8865b1dce43f6bd3516d8f6f2a397d98e3e47`
+- Source-one image: `021eeb5d3877d03138ddbf5cc3364186fefa5526e5a1c3d63fba5d9c23efd752`
+
+These SRAM-only controls qualify the named connection, not other coordinates,
+timing, or the complete SERV design. Pins were released, reset completed, and
+flash readback remained unchanged. The general translation is refused while
+the controlled working instance remains available.
+
+Source-fresh base and shared-control strict graphs remain byte-identical.
+Each tiered graph removes exactly 105 unsupported inferred edges, with every
+surviving row unchanged. The working coordinate remains in all four graphs;
+its new exact selector evidence does not alter its connectivity or encoding.

@@ -293,3 +293,29 @@ def test_rmux61_leftward_turnback_to_rmux54_preserves_exact_observations():
     for y in (1, 5, 10, 11):
         assert not nonportable_translation(clean, f'X20Y{y}_RMUX61', f'X19Y{y}_RMUX54')
     assert not nonportable_translation(clean, 'X18Y12_RMUX37', 'X18Y10_RMUX54')
+
+
+def test_rmux31_leftward_turnback_to_rmux25_is_not_portable():
+    clean = {(19, y, 'RMUX', 25, 'RMUX', 20, y, 31): (1, 8)
+             for y in (1, 5, 10, 11)}
+    original = dict(clean)
+    key = ('RMUX', 25, 'RMUX', 31, -1, 0)
+    relative, rejected = relative_edges(clean)
+    assert key in rejected
+    assert key not in relative
+    assert clean == original
+    assert nonportable_translation(clean, 'X19Y8_RMUX31', 'X18Y8_RMUX25')
+    for y in (1, 5, 10, 11):
+        assert not nonportable_translation(clean, f'X20Y{y}_RMUX31', f'X19Y{y}_RMUX25')
+
+
+def test_rmux25_native_coordinate_preserves_only_the_controlled_connection():
+    from pathlib import Path
+    from agamemnon.engine.routing_selectors import load_clean_edges
+
+    root = Path(__file__).resolve().parents[1] / 'agamemnon' / 'chipdb'
+    clean = load_clean_edges(root)
+    assert clean[19, 11, 'RMUX', 25, 'RMUX', 20, 11, 31] == (1, 8)
+    assert (18, 8, 'RMUX', 25, 'RMUX', 19, 8, 31) not in clean
+    assert not nonportable_translation(clean, 'X20Y11_RMUX31', 'X19Y11_RMUX25')
+    assert nonportable_translation(clean, 'X19Y8_RMUX31', 'X18Y8_RMUX25')

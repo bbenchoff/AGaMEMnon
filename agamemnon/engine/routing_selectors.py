@@ -179,6 +179,13 @@ NONPORTABLE_RELATIVE_KEYS = frozenset({
     # Passing low probe: 0e6885ace0c965cdff5d2b62b4f11a546f251561a3c1709c15442ee3fbdae342.
     # Failing low probe: 92ada5eec66c6605eec086393c4c14969f09b6b51c72b86e47f3e904a4fda795.
     ("RMUX", 54, "RMUX", 61, -1, 0),
+    # RMUX31 -> RMUX25 at dx=-1 is not translation invariant. The X18Y8
+    # instance reads low for both source levels despite an independently
+    # controlled source observer. Exact pair 2/9 restores propagation;
+    # reverting only four target bits to inferred 1/8 breaks three pairs.
+    # Preserve exact observations, including the independently tested X19Y11
+    # coordinate recorded in clean_edge. See ROUTING_SELECTOR_WITHDRAWAL.md.
+    ("RMUX", 25, "RMUX", 31, -1, 0),
 })
 
 _WIRE = re.compile(r"X(-?\d+)Y(-?\d+)_([A-Za-z]+)(\d+)")
