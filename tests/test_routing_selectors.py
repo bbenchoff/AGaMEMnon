@@ -319,3 +319,21 @@ def test_rmux25_native_coordinate_preserves_only_the_controlled_connection():
     assert (18, 8, 'RMUX', 25, 'RMUX', 19, 8, 31) not in clean
     assert not nonportable_translation(clean, 'X20Y11_RMUX31', 'X19Y11_RMUX25')
     assert nonportable_translation(clean, 'X19Y8_RMUX31', 'X18Y8_RMUX25')
+
+
+def test_rmux49_same_tile_to_rmux07_is_not_portable():
+    clean = {(x, y, 'RMUX', 7, 'RMUX', x, y, 49): (4, 8)
+             for x, y in ((2, 4), (15, 5), (15, 6), (15, 12))}
+    # The independently controlled prefix/reference uses this distinct
+    # leftward connection; withdrawing the same-tile rule must preserve it.
+    clean[17, 9, 'RMUX', 7, 'RMUX', 20, 9, 49] = (0, 8)
+    original = dict(clean)
+    key = ('RMUX', 7, 'RMUX', 49, 0, 0)
+    relative, rejected = relative_edges(clean)
+    assert key in rejected
+    assert key not in relative
+    assert clean == original
+    assert nonportable_translation(clean, 'X20Y9_RMUX49', 'X20Y9_RMUX07')
+    for x, y in ((2, 4), (15, 5), (15, 6), (15, 12)):
+        assert not nonportable_translation(clean, f'X{x}Y{y}_RMUX49', f'X{x}Y{y}_RMUX07')
+    assert not nonportable_translation(clean, 'X20Y9_RMUX49', 'X17Y9_RMUX07')

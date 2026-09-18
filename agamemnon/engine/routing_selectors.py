@@ -186,6 +186,13 @@ NONPORTABLE_RELATIVE_KEYS = frozenset({
     # Preserve exact observations, including the independently tested X19Y11
     # coordinate recorded in clean_edge. See ROUTING_SELECTOR_WITHDRAWAL.md.
     ("RMUX", 25, "RMUX", 31, -1, 0),
+    # Same-tile RMUX49 -> RMUX07 support is confined to columns 2 and 15.
+    # At X20Y9, inferred pair 4/8 reads high for both source levels while
+    # an independent observer confirms both levels at RMUX49. Exact pair
+    # 6/8 restores the downstream path; reverting only two target bits
+    # breaks three alternating pairs. Preserve exact observations and the
+    # distinct leftward RMUX49 -> RMUX07 connection used by the reference.
+    ("RMUX", 7, "RMUX", 49, 0, 0),
 })
 
 _WIRE = re.compile(r"X(-?\d+)Y(-?\d+)_([A-Za-z]+)(\d+)")

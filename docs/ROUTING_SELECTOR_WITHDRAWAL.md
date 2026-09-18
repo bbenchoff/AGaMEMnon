@@ -255,3 +255,29 @@ Source-fresh base and shared-control strict graphs remain byte-identical.
 Each tiered graph removes exactly 105 unsupported inferred edges, with every
 surviving row unchanged. The working coordinate remains in all four graphs;
 its new exact selector evidence does not alter its connectivity or encoding.
+
+## Same-tile RMUX49 to RMUX07 — 2026-09-18
+
+The same-tile rule `RMUX49 -> RMUX07`, pair `4/8`, has exact observations
+confined to columns 2 and 15. Translating it to `X20Y9` does not reproduce the
+source signal: the downstream counter input reads high for both forced source
+levels. An independent observer at `X20Y9_RMUX49` correctly reads both levels.
+
+An exact alternate from that same source through `X17Y9_RMUX07`,
+`X17Y8_RMUX31`, and `X20Y8_RMUX25` restores both levels through target pair
+`6/8`. With both prefixes configured, changing only two target-selector bits
+back to `4/8` breaks three alternating trials. Separate source, target,
+alternate-path and prefix-observer cuts remove the controlled low level.
+
+- Passing paired source-zero image: `c899fbe127fdf8b6d773623420cb132bef8c0d146ad86635d980ab29f859c233`
+- Failing paired source-zero image: `ffc5a464d8d9e3e13f3512100d1212230ca9c54396229a06dc79d6d3b32fe0f6`
+
+The general same-tile translation is refused. All exact observations and the
+distinct leftward RMUX49-to-RMUX07 connection remain available. These controls
+establish a selector-translation failure at the named coordinate; they do not
+qualify full SERV, timing, or other unobserved connections. Tests were SRAM-only
+and ended with released pins, clean reset and unchanged flash readback.
+
+Fresh base and shared-control graphs each remove one unsupported strict edge
+and 123 tiered edges. Every surviving row is byte-identical, including the
+exact observations and the distinct leftward reference connection.
