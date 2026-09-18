@@ -76,6 +76,16 @@ NONPORTABLE_RELATIVE_KEYS = frozenset({
     # Passing probe: c0ec6df35599291df61119c24f9badc766d3fdcafc372ff78349cd38fedc2375.
     # Failing probe: 45e011f7ded49ee5be4b0c0838a5579ee698c0821bbba8f3376a516edc5e8a87.
     ("RMUX", 14, "RMUX", 3, 1, 0),
+    # RMUX50 -> RMUX08 (dy=1) has LogicTile witnesses only at destination
+    # row 3. At X17Y10 its inferred pair 2/9 instead has exact evidence for
+    # X17Y6_RMUX02. A PC-feedback toggle probe delivers no edges through the
+    # translation. An exact-edge bypass ending at X17Y11_RMUX50, pair 3/9,
+    # delivers 5 MHz; restoring just the original two selector bits loses
+    # that signal again in three alternating board pairs. Preserve all exact
+    # observations, including the differently encoded BramTILE instance.
+    # Passing probe: 757b716b889cf1f0bf8b31210a3227e7b78703acf1329b956a1b67ea5279a4de.
+    # Failing probe: 7ffe30d9ef09093e4802d6aa11786a496638788166ca2d2a6c923536ad15dd2b.
+    ("RMUX", 8, "RMUX", 50, 0, 1),
 })
 
 _WIRE = re.compile(r"X(-?\d+)Y(-?\d+)_([A-Za-z]+)(\d+)")

@@ -1259,12 +1259,48 @@ def test_cold_physical_devdb_rebuild_reaches_final_bitgen_byte_identically(tmp_p
     assert cold_output.read_bytes() == control_output.read_bytes()
 
 
+def _restore_rmux08_rows(raw, admission, shared):
+    """Recover the pinned predecessor by restoring only the withdrawn rows."""
+    lines = raw.splitlines(keepends=True)
+    suffix = "shared" if shared == "1" else "base"
+    profile = "strict" if admission == "release-strict" else admission
+    fixture = Path(__file__).parent / "fixtures" / ("rmux08_withdrawal_" + profile + "_" + suffix + ".csv")
+    rows = fixture.read_bytes().splitlines()[1:]
+    assert len(rows) == (2 if admission == "release-strict" else 100)
+    for row in rows:
+        index, _, line = row.partition(b",")
+        line += b"\r\n"
+        assert line not in lines
+        lines.insert(int(index), line)
+    restored = b"".join(lines)
+    count, digest = sr.PRE_RMUX08_WITHDRAWAL_PHYSICAL_GRAPHS[shared][admission]
+    assert len(lines) - 1 == count
+    assert hashlib.sha256(restored).hexdigest() == digest
+    return restored
+
+
+def _check_rmux08_predecessor(devdb, tmp_path, admission, shared):
+    previous = tmp_path / ("rmux08-predecessor-" + admission + "-" + shared)
+    shutil.copytree(devdb, previous)
+    path = previous / "dev_pips.csv"
+    path.write_bytes(_restore_rmux08_rows(path.read_bytes(), admission, shared))
+    count, digest = sr.PRE_RMUX08_WITHDRAWAL_PHYSICAL_GRAPHS[shared][admission]
+    _replace_metadata_value(previous / sr.DEV_META_NAME, "graph_pip_count", count)
+    _replace_metadata_value(previous / sr.DEV_META_NAME, "graph_pips_sha256", digest)
+    _replace_metadata_value(previous / "dev_meta.csv", "n_pips", count)
+    assert sr.validate_devdb(previous, CHIPDB)
+
+
+def test_rmux08_strict_predecessor_remains_exactly_bound(tmp_path):
+    _check_rmux08_predecessor(PHYSICAL_DEVDB, tmp_path, "release-strict", "0")
+
+
 def _check_rmux14_predecessor(devdb, tmp_path, shared):
     """Reconstruct the exact prior graph; no unrelated row may change."""
     previous = tmp_path / ("rmux14-predecessor-" + shared)
     shutil.copytree(devdb, previous)
     path = previous / "dev_pips.csv"
-    lines = path.read_bytes().splitlines(keepends=True)
+    lines = _restore_rmux08_rows(path.read_bytes(), "tiered", shared).splitlines(keepends=True)
     suffix = "shared" if shared == "1" else "base"
     delta = (Path(__file__).parent / "fixtures" / ("rmux14_withdrawal_" + suffix + ".csv")).read_bytes()
     rows = delta.splitlines()[1:]
@@ -1312,6 +1348,7 @@ def test_source_fresh_tiered_physical_devdb_matches_pinned_graph(tmp_path):
     assert sr.validate_devdb(devdb, CHIPDB) is True
 
     _check_rmux14_predecessor(devdb, tmp_path, "0")
+    _check_rmux08_predecessor(devdb, tmp_path, "tiered", "0")
     with graph_path.open("a", newline="", encoding="utf-8") as stream:
         csv.writer(stream).writerow((
             "FAKE_TILE_OMUX00.FAKE_TILE_RMUX00", "PIP",
@@ -1368,6 +1405,7 @@ def test_source_fresh_shared_control_graph_is_exact_and_tamper_proof(
     assert hashlib.sha256(raw).hexdigest() == digest
     assert sr._csv_dict(devdb / sr.DEV_META_NAME)[sr.SHARED_CONTROL_GRAPH_MARKER] == "1"
     assert sr.validate_devdb(devdb, CHIPDB) is True
+    _check_rmux08_predecessor(devdb, tmp_path, admission, "1")
     if admission == "tiered":
         _check_rmux14_predecessor(devdb, tmp_path, "1")
 
@@ -1963,7 +2001,7 @@ def test_local_qin_addition_preserves_exact_legacy_graph_replay(tmp_path):
     devdb = tmp_path / "legacy-physical"
     shutil.copytree(PHYSICAL_DEVDB, devdb)
     path = devdb / "dev_pips.csv"
-    raw = path.read_bytes()
+    raw = _restore_rmux08_rows(path.read_bytes(), "release-strict", "0")
     lines = raw.splitlines(keepends=True)
     # Step back through the 2026-09-11 graph change first. That change ADDED 168
     # LogicTile edges (relative keys previously rejected as conflicted only

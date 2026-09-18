@@ -111,3 +111,21 @@ def test_column_sixteen_rmux03_turnback_does_not_translate_east():
     assert nonportable_translation(clean, "X19Y12_RMUX03", "X20Y12_RMUX14")
     assert not nonportable_translation(clean, "X15Y12_RMUX03", "X16Y12_RMUX14")
     assert not nonportable_translation(clean, "X18Y12_RMUX51", "X20Y12_RMUX14")
+
+
+def test_row_three_rmux50_turnback_does_not_translate_to_interior():
+    clean = {(x, 3, "RMUX", 8, "RMUX", x, 2, 50): (2, 9)
+             for x in (3, 4, 6, 7, 8, 9, 10, 11, 12, 15, 16, 17, 18)}
+    clean[(13, 2, "RMUX", 8, "RMUX", 13, 1, 50)] = (0, 9)
+    clean[(17, 10, "RMUX", 8, "RMUX", 17, 6, 2)] = (2, 9)
+    clean[(17, 10, "RMUX", 8, "RMUX", 17, 11, 50)] = (3, 9)
+    original = dict(clean)
+    relative, rejected = relative_edges(clean)
+    key = ("RMUX", 8, "RMUX", 50, 0, 1)
+    assert key in rejected
+    assert key not in relative
+    assert clean == original
+    assert nonportable_translation(clean, "X17Y9_RMUX50", "X17Y10_RMUX08")
+    assert not nonportable_translation(clean, "X17Y2_RMUX50", "X17Y3_RMUX08")
+    assert not nonportable_translation(clean, "X13Y1_RMUX50", "X13Y2_RMUX08")
+    assert not nonportable_translation(clean, "X17Y11_RMUX50", "X17Y10_RMUX08")

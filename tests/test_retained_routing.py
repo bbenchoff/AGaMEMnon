@@ -50,6 +50,7 @@ def test_no_exception_for_changed_checkpoint_module_or_environment(tmp_path):
     'X14Y7_RMUX15.X14Y7_RMUX69',
     'X14Y11_RMUX87.X14Y12_RMUX59',  # VP-AGM-001 (restored 2026-09-11, 04e789a6)
     'X19Y12_RMUX03.X20Y12_RMUX14',  # column-16-only turnback translation
+    'X17Y9_RMUX50.X17Y10_RMUX08',  # row-3-only turnback translation
 ])
 def test_other_withdrawn_translations_refused_before_resolving(pip):
     with pytest.raises(ValueError, match='withdrawn selector translation'):

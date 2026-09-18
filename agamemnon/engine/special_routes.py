@@ -52,13 +52,13 @@ EXPECTED_CATALOG_SHA256 = (
 # rows reproduces the prior strict/tiered CSV byte-for-byte; the physical pad
 # corridors and all other graph rows are unchanged. Keep both exact snapshots
 # for replay, without accepting arbitrary self-reported graph digests.
-EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 255534
+EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 255532
 EXPECTED_PHYSICAL_GRAPH_SHA256 = (
-    "274f3cdc94f6d10ecff09d4274731f387ef4876da3b7b498b676ff8618038d66"
+    "674267fd708ae9115c5f1223c8f0bf0e95c02bc45db78efb0a20cdc3a3ea29b3"
 )
-EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 334915
+EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 334815
 EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
-    "5e0ea1a9cd31346d1d3519925f61832e7f75ab6f7b6185025ea4102a4ec25020"
+    "8d1ec800e8776b347eb50b23171694d40798fc7374a5fe2587b62ba1f9a554de"
 )
 # The native-control graph contributes the finite, reviewed shared-control
 # topology.  It is a separate graph profile: accepting it by changing the base
@@ -66,12 +66,12 @@ EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
 # graph authority.
 EXPECTED_SHARED_CONTROL_PHYSICAL_GRAPHS = {
     "release-strict": (
-        256607,
-        "341a9fdc9db2227abe1ae57bd6cb2103b76c1c1ba370aa82c060a79e48eb1132",
+        256605,
+        "4930c3740159bd8084574bf56813a3d4ad2c5e0d29e328cb8bb8180c4be4247e",
     ),
     "tiered": (
-        335988,
-        "a04cf463d5192fe4029d0f93ec2b5692db58b90b8c786ee68b10d2bf759ac951",
+        335888,
+        "2c49ade39e84d88f7ffb50ad48dac7bc9cdb3b570a4ce12256694b5ec1d5776a",
     ),
 }
 # Withdrawing the column-16 RMUX03 -> RMUX14 translation removes exactly
@@ -81,6 +81,19 @@ EXPECTED_SHARED_CONTROL_PHYSICAL_GRAPHS = {
 PRE_RMUX14_WITHDRAWAL_TIERED_GRAPHS = {
     "0": (335023, "3143c0bc1faadb4416426f7a888065aa5d9a7b0d99abed04ce324d12f48371c0"),
     "1": (336096, "944beb426212a7155d2d3c6593f313e2b3a58590d47b03c70e64fd9a54511855"),
+}
+# RMUX50 -> RMUX08 withdrawal removes two unsupported strict edges and 100
+# tiered edges, without modifying surviving rows. These exact predecessors
+# remain valid graph snapshots; they do not authorize withdrawn emission.
+PRE_RMUX08_WITHDRAWAL_PHYSICAL_GRAPHS = {
+    "0": {
+        "release-strict": (255534, "274f3cdc94f6d10ecff09d4274731f387ef4876da3b7b498b676ff8618038d66"),
+        "tiered": (334915, "5e0ea1a9cd31346d1d3519925f61832e7f75ab6f7b6185025ea4102a4ec25020"),
+    },
+    "1": {
+        "release-strict": (256607, "341a9fdc9db2227abe1ae57bd6cb2103b76c1c1ba370aa82c060a79e48eb1132"),
+        "tiered": (335988, "a04cf463d5192fe4029d0f93ec2b5692db58b90b8c786ee68b10d2bf759ac951"),
+    },
 }
 # Preserve exact historical graph snapshots after the retained58 byte gate.
 # New graphs remove only the unsupported RMUX27 -> RMUX20 relative rule:
@@ -596,6 +609,9 @@ def _validated_devdb(devdb, chipdb_root=None):
                 historical = PRE_RMUX14_WITHDRAWAL_TIERED_GRAPHS[shared_control_graph]
                 if (graph_pip_count, graph_pips_sha256) == historical:
                     expected_pip_count, expected_pips_sha256 = historical
+            historical = PRE_RMUX08_WITHDRAWAL_PHYSICAL_GRAPHS[shared_control_graph][admission]
+            if (graph_pip_count, graph_pips_sha256) == historical:
+                expected_pip_count, expected_pips_sha256 = historical
         except KeyError:
             raise SpecialRouteError(
                 "uarch special-route physical graph has unknown routing admission %r" %

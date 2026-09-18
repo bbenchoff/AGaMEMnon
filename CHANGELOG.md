@@ -7,6 +7,10 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+- Refused a row-3 selector inference that loses a program-counter signal
+  when translated to the interior. Three two-bit selector A/B pairs distinguish
+  zero activity from the expected 5 MHz diagnostic toggle. Exact observations
+  remain available; full dense SERV operation is still under investigation.
 - Refused a column-16 routing-selector inference that selects the wrong
   reset source when translated to column 20. A two-bit selector A/B reproduces
   the failure and recovery in three board runs; exact observed routes remain
