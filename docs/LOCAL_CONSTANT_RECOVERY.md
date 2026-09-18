@@ -1,5 +1,9 @@
 # Local constant replication (`AGRV2K_LOCAL_CONSTANTS`) — opt-in, experimental
 
+For reclaiming generated constant slices whose consumers were folded away,
+see [Unused constant recovery](UNUSED_CONSTANT_RECOVERY.md). Reclamation is a
+separate opt-in and may change placement and timing.
+
 ## What it is
 The default flow drives every constant consumer from one shared `$PACKER_GND` / `$PACKER_VCC` cell.
 The placer pins that cell near the MCU boundary, so fabric-wide constant fan-in becomes long

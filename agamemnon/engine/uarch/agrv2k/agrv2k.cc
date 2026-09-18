@@ -2157,7 +2157,8 @@ struct PackedNameAllocator
 // all-but-the-first consumer gets its OWN local driver cell+net (params copied verbatim from the
 // prototype), letting HPWL placement keep each constant source adjacent to its single user. Reached
 // ONLY under the env flag, so the default remains byte-identical.
-static void replicate_local_constants(Context *ctx, IdString net_name, IdString cell_name)
+static void replicate_local_constants(Context *ctx, IdString net_name, IdString cell_name,
+                                      std::vector<IdString> &generated)
 {
     PackedNameAllocator names(ctx);
     auto net_it = ctx->nets.find(net_name);
@@ -2195,6 +2196,7 @@ static void replicate_local_constants(Context *ctx, IdString net_name, IdString 
         cell->ports.at(ctx->id("F")).net = net.get();
         u.cell->ports[u.port].net = net.get();
         u.cell->ports[u.port].user_idx = net->users.add(u);
+        generated.push_back(cell->name);
         new_cells.push_back(std::move(cell));
         new_nets.push_back(std::move(net));
     }
@@ -2425,10 +2427,11 @@ static void pack_shared_control(Context *ctx)
              controls, int(by_enable.size()));
 }
 
-static void pack_constants(Context *ctx)
+static std::vector<IdString> pack_constants(Context *ctx)
 {
     log_info("Packing constants..\n");
     PackedNameAllocator names(ctx);
+    std::vector<IdString> generated;
     const IdString gnd_cell_name = names.cell("$PACKER_GND");
     const IdString gnd_net_name = names.net("$PACKER_GND_NET");
     const IdString vcc_cell_name = names.cell("$PACKER_VCC");
@@ -2470,11 +2473,13 @@ static void pack_constants(Context *ctx)
     }
 
     if (gnd_used) {
+        generated.push_back(gnd_cell_name);
         ctx->cells[gnd_cell->name] = std::move(gnd_cell);
         ctx->nets[gnd_net->name] = std::move(gnd_net);
     }
 
     if (vcc_used) {
+        generated.push_back(vcc_cell_name);
         ctx->cells[vcc_cell->name] = std::move(vcc_cell);
         ctx->nets[vcc_net->name] = std::move(vcc_net);
     }
@@ -2484,9 +2489,10 @@ static void pack_constants(Context *ctx)
     }
 
     if (std::getenv("AGRV2K_LOCAL_CONSTANTS") != nullptr) {
-        replicate_local_constants(ctx, gnd_net_name, gnd_cell_name);
-        replicate_local_constants(ctx, vcc_net_name, vcc_cell_name);
+        replicate_local_constants(ctx, gnd_net_name, gnd_cell_name, generated);
+        replicate_local_constants(ctx, vcc_net_name, vcc_cell_name, generated);
     }
+    return generated;
 }
 
 // A GENERIC_SLICE with FF_USED=0 has no physical clocked state, so its CLK
@@ -2630,6 +2636,47 @@ static int constant_slice_value(Context *ctx, const NetInfo *net)
     if (init->second == Property(Property::S1).extract(0, width, Property::S1))
         return 1;
     return -1;
+}
+
+// Arithmetic/LUT packing can consume every user of a generated constant.
+// Reclaim only objects owned by pack_constants, before placement or routing:
+// unrelated imported cells (including fixed/kept constant probes) stay intact.
+static void prune_unused_generated_constants(Context *ctx, const std::vector<IdString> &generated)
+{
+    // Removing even an unused cell changes placement. Keep this area recovery
+    // opt-in until its changed timing is qualified for the target design.
+    const char *enabled = std::getenv("AGRV2K_PRUNE_UNUSED_CONSTANTS");
+    if (enabled == nullptr || std::string(enabled) != "1")
+        return;
+    const IdString f = ctx->id("F");
+    int removed = 0;
+    for (IdString name : generated) {
+        auto found = ctx->cells.find(name);
+        if (found == ctx->cells.end())
+            continue;
+        CellInfo *cell = found->second.get();
+        if (cell->bel != BelId() || cell->attrs.count(ctx->id("BEL")) ||
+                cell->attrs.count(ctx->id("NEXTPNR_BEL")) ||
+                cell->attrs.count(ctx->id("keep")) || cell->attrs.count(ctx->id("dont_touch")))
+            continue;
+        NetInfo *net = cell->getPort(f);
+        if (net == nullptr || !net->users.empty() || !net->wires.empty() ||
+                constant_slice_value(ctx, net) < 0)
+            continue;
+        bool other_connection = false;
+        for (const auto &port : cell->ports)
+            if (port.first != f && port.second.net != nullptr)
+                other_connection = true;
+        if (other_connection)
+            continue;
+        const IdString net_name = net->name;
+        cell->disconnectPort(f);
+        ctx->nets.erase(net_name);
+        ctx->cells.erase(name);
+        ++removed;
+    }
+    if (removed)
+        log_info("agrv2k: removed %d unused generated constant source(s)\n", removed);
 }
 
 static void pack_carries(Context *ctx)
@@ -15656,7 +15703,7 @@ struct AgrvImpl : ViaductAPI
         // finally standalone FFs. Output: GENERIC_SLICE cells (INIT + FF_USED) + GENERIC_IOB, 1:1 with
         // our bels, and byte-compatible with bitgen_seq.py.
         reject_unsupported_shared_control_ingress(ctx);
-        pack_constants(ctx);
+        const auto generated_constants = pack_constants(ctx);
         pack_bram_trim(ctx); // drop a read-only BRAM's don't-care DataInA (avoids an unroutable GND fanout)
         pack_io(ctx);
         pack_carries(ctx);   // dedicated HW carry: fuse AG32_FA(+DFF) -> GENERIC_SLICE keeping CIN/COUT
@@ -15667,6 +15714,7 @@ struct AgrvImpl : ViaductAPI
         // control set is clustered as a whole rather than in two halves.
         pack_shared_control(ctx);
         pack_inactive_constant_slice_clocks(ctx);
+        prune_unused_generated_constants(ctx, generated_constants);
         validate_native_direct_d_pool(ctx, false);
         pack_mcu_edge(ctx);  // bind MCU_DOUT exit cells AFTER fusion (binding before corrupts a readout net
                              // shared with a fusing LUT -> stale port). Names survive; bels still free.
