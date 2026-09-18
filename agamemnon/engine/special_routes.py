@@ -56,9 +56,9 @@ EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 255534
 EXPECTED_PHYSICAL_GRAPH_SHA256 = (
     "274f3cdc94f6d10ecff09d4274731f387ef4876da3b7b498b676ff8618038d66"
 )
-EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 335023
+EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 334915
 EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
-    "3143c0bc1faadb4416426f7a888065aa5d9a7b0d99abed04ce324d12f48371c0"
+    "5e0ea1a9cd31346d1d3519925f61832e7f75ab6f7b6185025ea4102a4ec25020"
 )
 # The native-control graph contributes the finite, reviewed shared-control
 # topology.  It is a separate graph profile: accepting it by changing the base
@@ -70,9 +70,17 @@ EXPECTED_SHARED_CONTROL_PHYSICAL_GRAPHS = {
         "341a9fdc9db2227abe1ae57bd6cb2103b76c1c1ba370aa82c060a79e48eb1132",
     ),
     "tiered": (
-        336096,
-        "944beb426212a7155d2d3c6593f313e2b3a58590d47b03c70e64fd9a54511855",
+        335988,
+        "a04cf463d5192fe4029d0f93ec2b5692db58b90b8c786ee68b10d2bf759ac951",
     ),
+}
+# Withdrawing the column-16 RMUX03 -> RMUX14 translation removes exactly
+# 108 tiered rows, changes no surviving row, and leaves strict graphs intact.
+# Retain only the two exact predecessor identities for historical checkpoints;
+# the routing emitter independently refuses withdrawn selectors in new images.
+PRE_RMUX14_WITHDRAWAL_TIERED_GRAPHS = {
+    "0": (335023, "3143c0bc1faadb4416426f7a888065aa5d9a7b0d99abed04ce324d12f48371c0"),
+    "1": (336096, "944beb426212a7155d2d3c6593f313e2b3a58590d47b03c70e64fd9a54511855"),
 }
 # Preserve exact historical graph snapshots after the retained58 byte gate.
 # New graphs remove only the unsupported RMUX27 -> RMUX20 relative rule:
@@ -584,6 +592,10 @@ def _validated_devdb(devdb, chipdb_root=None):
             historical = PRE_WITHDRAWAL_PHYSICAL_GRAPHS[shared_control_graph][admission]
             if (graph_pip_count, graph_pips_sha256) == historical:
                 expected_pip_count, expected_pips_sha256 = historical
+            if admission == "tiered":
+                historical = PRE_RMUX14_WITHDRAWAL_TIERED_GRAPHS[shared_control_graph]
+                if (graph_pip_count, graph_pips_sha256) == historical:
+                    expected_pip_count, expected_pips_sha256 = historical
         except KeyError:
             raise SpecialRouteError(
                 "uarch special-route physical graph has unknown routing admission %r" %

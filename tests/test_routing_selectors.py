@@ -94,3 +94,20 @@ def test_relative_selector_promotion_is_unanimous_and_fail_closed():
     assert ("RMUX", 3, "OMUX", 7, 1, 0) not in relative
     assert ("RMUX", 3, "OMUX", 7, 1, 0) in conflicts
     assert relative[("IMUX", 1, "RMUX", 9, 0, 0)] == (0, 6)
+
+
+def test_column_sixteen_rmux03_turnback_does_not_translate_east():
+    clean = {(16, y, "RMUX", 14, "RMUX", 15, y, 3): (5, 8)
+             for y in (5, 6, 7, 8, 9, 10, 11, 12)}
+    # At column 20 the same word selects a different, four-tile-away source.
+    clean[(20, 12, "RMUX", 14, "RMUX", 16, 12, 51)] = (5, 8)
+    clean[(20, 12, "RMUX", 14, "RMUX", 18, 12, 51)] = (3, 8)
+    original = dict(clean)
+    relative, rejected = relative_edges(clean)
+    key = ("RMUX", 14, "RMUX", 3, 1, 0)
+    assert key in rejected
+    assert key not in relative
+    assert clean == original
+    assert nonportable_translation(clean, "X19Y12_RMUX03", "X20Y12_RMUX14")
+    assert not nonportable_translation(clean, "X15Y12_RMUX03", "X16Y12_RMUX14")
+    assert not nonportable_translation(clean, "X18Y12_RMUX51", "X20Y12_RMUX14")

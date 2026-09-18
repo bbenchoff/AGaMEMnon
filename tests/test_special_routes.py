@@ -1259,6 +1259,32 @@ def test_cold_physical_devdb_rebuild_reaches_final_bitgen_byte_identically(tmp_p
     assert cold_output.read_bytes() == control_output.read_bytes()
 
 
+def _check_rmux14_predecessor(devdb, tmp_path, shared):
+    """Reconstruct the exact prior graph; no unrelated row may change."""
+    previous = tmp_path / ("rmux14-predecessor-" + shared)
+    shutil.copytree(devdb, previous)
+    path = previous / "dev_pips.csv"
+    lines = path.read_bytes().splitlines(keepends=True)
+    suffix = "shared" if shared == "1" else "base"
+    delta = (Path(__file__).parent / "fixtures" / ("rmux14_withdrawal_" + suffix + ".csv")).read_bytes()
+    rows = delta.splitlines()[1:]
+    assert len(rows) == 108
+    for row in rows:
+        index, _, line = row.partition(b",")
+        line += b"\r\n"  # generated CSV identity is independent of fixture checkout EOL
+        assert line not in lines
+        lines.insert(int(index), line)
+    raw = b"".join(lines)
+    count, digest = sr.PRE_RMUX14_WITHDRAWAL_TIERED_GRAPHS[shared]
+    assert len(lines) - 1 == count
+    assert hashlib.sha256(raw).hexdigest() == digest
+    path.write_bytes(raw)
+    _replace_metadata_value(previous / sr.DEV_META_NAME, "graph_pip_count", count)
+    _replace_metadata_value(previous / sr.DEV_META_NAME, "graph_pips_sha256", digest)
+    _replace_metadata_value(previous / "dev_meta.csv", "n_pips", count)
+    assert sr.validate_devdb(previous, CHIPDB)
+
+
 def test_source_fresh_tiered_physical_devdb_matches_pinned_graph(tmp_path):
     root = Path(__file__).parents[1]
     devdb = tmp_path / "never-created-before-test" / "devdb_tiered_pcf"
@@ -1285,6 +1311,7 @@ def test_source_fresh_tiered_physical_devdb_matches_pinned_graph(tmp_path):
     assert sr._csv_dict(devdb / sr.DEV_META_NAME)[sr.SHARED_CONTROL_GRAPH_MARKER] == "0"
     assert sr.validate_devdb(devdb, CHIPDB) is True
 
+    _check_rmux14_predecessor(devdb, tmp_path, "0")
     with graph_path.open("a", newline="", encoding="utf-8") as stream:
         csv.writer(stream).writerow((
             "FAKE_TILE_OMUX00.FAKE_TILE_RMUX00", "PIP",
@@ -1341,6 +1368,8 @@ def test_source_fresh_shared_control_graph_is_exact_and_tamper_proof(
     assert hashlib.sha256(raw).hexdigest() == digest
     assert sr._csv_dict(devdb / sr.DEV_META_NAME)[sr.SHARED_CONTROL_GRAPH_MARKER] == "1"
     assert sr.validate_devdb(devdb, CHIPDB) is True
+    if admission == "tiered":
+        _check_rmux14_predecessor(devdb, tmp_path, "1")
 
     for marker, error in (("0", "physical graph identity drift"),
                           (None, "physical graph identity drift"),

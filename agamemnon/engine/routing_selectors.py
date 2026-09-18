@@ -65,6 +65,17 @@ NONPORTABLE_RELATIVE_KEYS = frozenset({
     # (features/routing.py:2511, ungated), so main has been admitting the
     # translation this withdraws. Brian ratified restoring it in session.
     ("RMUX", 59, "RMUX", 87, 0, 1),
+    # RMUX03 -> RMUX14 (dx=1) is observed only at destination column 16.
+    # At X20Y12 the inferred pair 5/8 has exact evidence for X16Y12_RMUX51,
+    # not X19Y12_RMUX03. A dense SERV reset branch reads high when asserted.
+    # An exact-edge bypass to X18Y12_RMUX51 (pair 3/8) restores reset; keeping
+    # that bypass and restoring ONLY the original two selector bits breaks
+    # the observer again in three alternating board runs. This withdraws
+    # an unsupported translation, not its exact column-16 observations.
+    # The full design still fails; this is not whole-design qualification.
+    # Passing probe: c0ec6df35599291df61119c24f9badc766d3fdcafc372ff78349cd38fedc2375.
+    # Failing probe: 45e011f7ded49ee5be4b0c0838a5579ee698c0821bbba8f3376a516edc5e8a87.
+    ("RMUX", 14, "RMUX", 3, 1, 0),
 })
 
 _WIRE = re.compile(r"X(-?\d+)Y(-?\d+)_([A-Za-z]+)(\d+)")

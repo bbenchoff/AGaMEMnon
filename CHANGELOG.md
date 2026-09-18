@@ -7,6 +7,11 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+- Refused a column-16 routing-selector inference that selects the wrong
+  reset source when translated to column 20. A two-bit selector A/B reproduces
+  the failure and recovery in three board runs; exact observed routes remain
+  available. This fixes admission of the bad inference, not all failures in
+  the dense SERV design that exposed it.
 - Placement now checks restricted input reachability even when a driver's
   forward routing graph exceeds the bounded search. This rejects impossible
   source/sink pairs before routing while retaining reachable local pairs.
