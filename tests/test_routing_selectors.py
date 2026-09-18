@@ -146,3 +146,20 @@ def test_row_three_same_tile_rmux69_turnback_does_not_translate_to_interior():
     assert not nonportable_translation(clean, "X12Y3_RMUX69", "X12Y3_RMUX86")
     assert not nonportable_translation(clean, "X13Y4_RMUX69", "X13Y4_RMUX86")
     assert not nonportable_translation(clean, "X16Y10_RMUX45", "X17Y10_RMUX86")
+
+
+def test_boundary_rmux86_to_rmux57_does_not_translate_to_interior():
+    clean = {(15, y, "RMUX", 57, "RMUX", 15, y, 86): (4, 8) for y in range(5, 13)}
+    clean[(2, 3, "RMUX", 57, "RMUX", 2, 3, 86)] = (4, 8)
+    clean[(17, 10, "RMUX", 57, "RMUX", 14, 10, 38)] = (4, 8)
+    clean[(17, 10, "RMUX", 57, "RMUX", 16, 10, 38)] = (2, 8)
+    original = dict(clean)
+    relative, rejected = relative_edges(clean)
+    key = ("RMUX", 57, "RMUX", 86, 0, 0)
+    assert key in rejected
+    assert key not in relative
+    assert clean == original
+    assert nonportable_translation(clean, "X17Y10_RMUX86", "X17Y10_RMUX57")
+    assert not nonportable_translation(clean, "X15Y10_RMUX86", "X15Y10_RMUX57")
+    assert not nonportable_translation(clean, "X2Y3_RMUX86", "X2Y3_RMUX57")
+    assert not nonportable_translation(clean, "X16Y10_RMUX38", "X17Y10_RMUX57")

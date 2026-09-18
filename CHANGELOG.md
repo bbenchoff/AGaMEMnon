@@ -7,6 +7,9 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+- Refused the boundary-derived same-tile RMUX86 to RMUX57 inference after
+  a two-bit selector comparison reproduced incorrect source delivery in
+  three hardware pairs. Exact observed connections remain available.
 - Refused an unsupported same-tile RMUX69 to RMUX86 routing inference.
   A minimal hardware probe and selector sweep fail to deliver either source
   level, while an exact-route control works. Exact observed edges remain
