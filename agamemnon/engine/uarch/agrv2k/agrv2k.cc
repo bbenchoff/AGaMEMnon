@@ -5527,6 +5527,13 @@ static void lock_bram_portb_corridors(Context *ctx,
             }
             if (exact_done)
                 continue;
+            // Experiment knob (2026-09-19): leave generic (non-exact) BRAM ingress
+            // corridors entirely to router2.  The greedy pre-routes are a trust
+            // argument from the unwitnessed era; on a graph the ring campaign has
+            // witnessed they may only box in the read lanes (bram_rom_kat's x9
+            // lanes failed to route even to the adjacent tile).
+            if (std::getenv("AGRV2K_NO_BRAM_GENERIC_LOCK") != nullptr)
+                continue;
             // Shared trees negotiate as whole recorded nets. Existing same-net
             // prefixes remain bound and are not owned twice.
             if (joint_bram && net->users.entries() >= 1) {
@@ -9466,6 +9473,23 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
         }
         log_info("agrv2k: pre-routed %d dense same-tile arc(s) over %d strict pip(s); "
                  "%d deferred to router2\n", locked_arcs, locked_pips, deferred_arcs);
+    }
+    // Where the BRAM-adjacent cells landed decides whether the read lanes can
+    // route out of the approach column (bram_rom_kat's x9 lanes failed from
+    // consumers seated at X17..X20 Y11..12, 2026-09-19); report them.
+    {
+        std::map<std::string, int> per_tile;
+        for (auto ci : cells)
+            if (bramadj.count(ci) && ci->bel != BelId()) {
+                Loc l = ctx->getBelLocation(ci->bel);
+                ++per_tile["X" + std::to_string(l.x) + "Y" + std::to_string(l.y)];
+            }
+        if (!per_tile.empty()) {
+            std::string summary;
+            for (auto &entry : per_tile)
+                summary += (summary.empty() ? "" : " ") + entry.first + ":" + std::to_string(entry.second);
+            log_info("agrv2k: CONDPLACE BRAM-adjacent cells by tile: %s\n", summary.c_str());
+        }
     }
     log_info("agrv2k: CONDPLACE embedded %d cells on conducting tiles (cap %d, %d exit-drivers)\n",
              int(cells.size()), CAP, int(exitdrv.size()));

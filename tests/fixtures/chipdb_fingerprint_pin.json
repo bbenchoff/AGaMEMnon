@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "13e59ae43ad131582680966cea83bde21927d65f0d3ff57902c44fe0685eec45",
+  "fingerprint_sha256": "ddb3a2859fca2cbaa10e4d5b1aa245f19422ecdb8f22e39802034deaba0def91",
   "file_count": 271,
   "pinned_date": "2026-09-19",
-  "reason": "Ring-oscillator campaign promotion #4 (AG32-Docs tools/pipwit, 2026-09-19): 106,957 witnessed rows incl. FF-counter, dedicated-carry and pad-approach vehicles; 283 new convictions incl. X20Y12_RMUX53->IMUX25 found by route surgery on the rando corpus adder8_kat image; positive-evidence rows that a conviction contradicts are retired into conduction_retired_by_conviction.csv. Graph identities, census, Port-B pin, physical_graph_profiles.json and the research inventory regenerated."
+  "reason": "Ring-oscillator campaign promotion #5 (AG32-Docs tools/pipwit, 2026-09-19 ~08:00): ring, FF-counter, dedicated-carry and pad-approach witnesses plus design-level witnesses from passing rando-corpus images (adder8_kat, serv_blinky, shift_sevenseg); the campaign served the BRAM approach tiles (X13-16/Y3-6) first from 07:11. Convictions from bisection. Graph identities, census, Port-B pin, physical_graph_profiles.json and the research inventory regenerated."
 }
