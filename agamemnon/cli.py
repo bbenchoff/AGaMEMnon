@@ -4523,6 +4523,13 @@ def cmd_build(a):
                     os.environ.pop(key, None)
                 else:
                     os.environ[key] = value
+        # A carry corridor conflict comes from the PCF's pad pin-packing, not from the
+        # native-SRST mapping: once one candidate had to fall back to LUT carry, the next
+        # one starts there instead of rediscovering it (adder8_kat, 2026-09-19: one synth
+        # and one nextpnr run, about 10 s of 66, per extra candidate).
+        if any(stage in getattr(candidate, "_fallback_stages", ())
+               for stage in ("lut_carry_seed_unplaceable", "lut_carry_graph_infeasible")):
+            a.no_hard_carry = True
         if result is not None:
             result.update({"mapping": label, "srst_recovery": recovery,
                            "mapping_options": mapping_options,
