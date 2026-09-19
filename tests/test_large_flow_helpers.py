@@ -1515,3 +1515,86 @@ def test_carry_seed_unplaceable_signature():
     assert cli._carry_seed_unplaceable(hit.replace("$CARRY_SEED'", "$CARRY_SEED_1'"))
     assert not cli._carry_seed_unplaceable("ERROR: Unable to find legal placement for cell 'foo' after 10001 attempts")
     assert not cli._carry_seed_unplaceable("Info: Routing complete.\n")
+
+
+def _fake_devdb(devdb, fingerprint, context=("AGAMEMNON_X=1",)):
+    devdb.mkdir()
+    (devdb / "dev_pips.csv").write_text("graph " + fingerprint[:4])
+    (devdb / ".source_sha256").write_text(fingerprint + "\n")
+    (devdb / ".source_context").write_text("\n".join(context) + "\n")
+
+
+def test_devdb_swap_variant_parks_and_restores_by_fingerprint(tmp_path):
+    """Alternating option sets swap parked graphs by rename instead of re-emitting."""
+    from agamemnon import cli
+    devdb = tmp_path / "devdb_strict_pcf"
+    park = tmp_path / "devdb_strict_pcf.variants"
+    fa, fb = "a" * 64, "b" * 64
+    _fake_devdb(devdb, fa)
+    # First switch: nothing is parked for B; A is parked and the caller must emit.
+    assert cli._devdb_swap_variant(str(devdb), fb) is False
+    assert not devdb.exists()
+    assert (park / fa[:16] / "dev_pips.csv").read_text() == "graph aaaa"
+    _fake_devdb(devdb, fb)
+    # Switching back restores A without an emit and parks B.
+    assert cli._devdb_swap_variant(str(devdb), fa) is True
+    assert (devdb / "dev_pips.csv").read_text() == "graph aaaa"
+    assert (devdb / ".source_sha256").read_text().strip() == fa
+    assert (park / fb[:16] / ".source_sha256").read_text().strip() == fb
+    assert not (park / fa[:16]).exists()
+
+
+def test_devdb_swap_variant_discards_broken_caches_and_prunes_old_variants(tmp_path):
+    from agamemnon import cli
+    devdb = tmp_path / "devdb_strict"
+    park = tmp_path / "devdb_strict.variants"
+    # A cache without a manifest cannot be parked: it is removed and re-emitted.
+    devdb.mkdir()
+    (devdb / "dev_pips.csv").write_text("orphan")
+    assert cli._devdb_swap_variant(str(devdb), "c" * 64) is False
+    assert not devdb.exists() and not park.exists()
+    # A parked slot whose manifest disagrees with its name is never restored.
+    park.mkdir()
+    bad = park / ("d" * 16)
+    _fake_devdb(bad, "e" * 64)
+    assert cli._devdb_swap_variant(str(devdb), "d" * 64) is False
+    assert not bad.exists()
+    # Only the most recent ``keep`` parked graphs survive.
+    import os
+    for index, letter in enumerate("fghi"):
+        slot = park / (letter * 16)
+        _fake_devdb(slot, letter * 64)
+        os.utime(slot, (1_000_000 + index, 1_000_000 + index))
+    assert cli._devdb_swap_variant(str(devdb), "z" * 64, keep=2) is False
+    assert sorted(p.name for p in park.iterdir()) == ["h" * 16, "i" * 16]
+
+
+def test_devdb_stale_reason_names_the_changed_options(tmp_path):
+    from agamemnon import cli
+    devdb = tmp_path / "devdb_strict_pcf"
+    manifest = str(devdb / ".source_sha256")
+    context = str(devdb / ".source_context")
+    assert cli._devdb_stale_reason(str(devdb), manifest, context, ["A=1"]) == "no cached graph"
+    _fake_devdb(devdb, "a" * 64, ("AGAMEMNON_A=1", "AGAMEMNON_B=1", "AGRV2K_SHARED_CONTROL_GRAPH=1"))
+    same = ["AGAMEMNON_A=1", "AGAMEMNON_B=1", "AGRV2K_SHARED_CONTROL_GRAPH=1"]
+    assert cli._devdb_stale_reason(str(devdb), manifest, context, same) == \
+        "engine source or chipdb content changed"
+    reason = cli._devdb_stale_reason(
+        str(devdb), manifest, context,
+        ["AGAMEMNON_A=1", "AGAMEMNON_C=2", "AGRV2K_SHARED_CONTROL_GRAPH=0"])
+    assert reason == ("option context changed: AGAMEMNON_B 1 -> <unset>, "
+                      "AGAMEMNON_C <unset> -> 2, AGRV2K_SHARED_CONTROL_GRAPH 1 -> 0")
+    (devdb / ".source_context").unlink()
+    assert "no recorded option context" in cli._devdb_stale_reason(str(devdb), manifest, context, same)
+
+
+def test_inherited_hw_carry_does_not_fingerprint_the_devdb():
+    """The emit passes AGAMEMNON_HW_CARRY=1 itself, so the popped env copy must not re-emit."""
+    import pathlib
+    source = (pathlib.Path(__file__).resolve().parents[1] / "agamemnon" / "cli.py").read_text(encoding="utf-8")
+    assert 'ignored_cache_env.add("AGAMEMNON_HW_CARRY")' in source
+    emit_branches = source.split("emit_env = [")[1:]
+    assert len(emit_branches) == 2
+    assert all('"AGAMEMNON_HW_CARRY=1"' in branch.split("]", 1)[0] for branch in emit_branches)
+    emitter = (pathlib.Path(__file__).resolve().parents[1] / "agamemnon" / "engine" / "emit_uarch_db.py").read_text(encoding="utf-8")
+    assert "os.environ[k] = v" in emitter

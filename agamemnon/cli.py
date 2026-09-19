@@ -870,6 +870,68 @@ def _typed_hard_output_pins(netlist, output_pcf):
     return owned
 
 
+def _shared_pad_corridor_conflicts(output_pcf, chipdb=CHIPDB, netlist_path=None):
+    """Explain output pins whose qualified corridors share a wire, before place-and-route.
+
+    Every qualified output pad admits exactly one composition (approach ->
+    pad-feed source -> pad-tile RMUX -> IOMUX; pad_output_qualified_L48.csv and
+    routing.py's _pad_composition_denied).  Two pads whose compositions share a
+    wire can carry the same signal but never two different ones, and the router
+    can only report that after the whole escalation ladder: on 2026-09-19 the
+    rando corpus's fsm_traffic (led=PIN_17, red=PIN_19, both approached through
+    RMUX68@(15,9)) spent 680 s to fail with "net 'green' (... -> X18Y13_IOMUX03)".
+    Returns one message per conflicting pin group; empty means no conflict.  Two
+    ports that the netlist shows to be one top-level net are not a conflict.
+    """
+    path = os.path.join(chipdb, "pad_output_qualified_L48.csv")
+    if not os.path.exists(path):
+        return []
+    corridor = {}
+    for row in csv.DictReader(open(path, newline="", encoding="utf-8")):
+        wires = []
+        for res, x, y in (("approach_res", "approach_x", "approach_y"),
+                          ("src_res", "src_x", "src_y")):
+            if row.get(res) and row.get(x) and row.get(y):
+                wires.append("%s@(%s,%s)" % (row[res], row[x], row[y]))
+        corridor[row.get("pin")] = wires
+    net_of_port = {}
+    if netlist_path and os.path.exists(netlist_path):
+        with open(netlist_path, encoding="utf-8") as fh:
+            modules = json.load(fh).get("modules", {})
+        if modules:
+            topname = next((name for name, module in modules.items()
+                            if str(module.get("attributes", {}).get("top", "0"))
+                            in ("1", "00000000000000000000000000000001")), None)
+            if topname is None:
+                topname = max(modules, key=lambda name: len(modules[name].get("cells", {})))
+            for port, spec in modules[topname].get("ports", {}).items():
+                net_of_port[port] = tuple(spec.get("bits", ()))
+    holders = {}
+    for port, pin in sorted(output_pcf.items()):
+        for wire in corridor.get(pin, ()):
+            holders.setdefault(wire, []).append((port, pin))
+    used = {wire for pin in output_pcf.values() for wire in corridor.get(pin, ())}
+    free = sorted((pin for pin, wires in corridor.items()
+                   if pin and pin not in output_pcf.values() and not set(wires) & used),
+                  key=lambda pin: int(re.sub(r"\D", "", pin) or 0))
+    messages, reported = [], set()
+    for wire, users in holders.items():
+        pins = sorted({pin for _, pin in users})
+        if len(pins) < 2 or tuple(pins) in reported:
+            continue
+        if net_of_port and len({net_of_port.get(port, ("?", port)) for port, _ in users}) == 1:
+            continue        # one signal fanned out to two pads rides the shared wire legally
+        reported.add(tuple(pins))
+        messages.append(
+            "output pads %s share the only qualified feed wire %s; two different nets cannot "
+            "drive them at once, so place-and-route would fail on every attempt. Move one output "
+            "to a qualified pad with an unshared corridor (%s), or drive both pads from one signal."
+            % (" and ".join("%s (%s)" % (pin, ", ".join(port for port, held in users if held == pin))
+                            for pin in pins),
+               wire, ", ".join(free) or "none left in this PCF"))
+    return messages
+
+
 def _qualified_pad_vendor_out(output_pcf, chipdb=CHIPDB, hard_output_pins=()):
     """Return the one vendor-output slice required by output-capable PCF pads.
 
@@ -897,6 +959,94 @@ def _qualified_pad_vendor_out(output_pcf, chipdb=CHIPDB, hard_output_pins=()):
             % ", ".join(sorted(selected))
         )
     return next(iter(selected), None)
+
+
+DEVDB_PARKED_VARIANTS = 6
+
+
+def _devdb_stale_reason(devdb, manifest, context_file, emit_context):
+    """Explain a device-database cache miss from the context recorded beside the graph."""
+    if not os.path.isdir(devdb):
+        return "no cached graph"
+    if not os.path.exists(manifest):
+        return "cached graph has no fingerprint manifest"
+    try:
+        old = [line for line in open(context_file, encoding="utf-8").read().split("\n") if line]
+    except OSError:
+        return "engine, chipdb or option change (no recorded option context)"
+    new = [line for line in emit_context if line]
+    if old == new:
+        return "engine source or chipdb content changed"
+
+    def keyed(lines):
+        return {line.split("=", 1)[0]: line.split("=", 1)[1] if "=" in line else "" for line in lines}
+
+    before, after = keyed(old), keyed(new)
+    changed = sorted(set(before) ^ set(after)
+                     | {key for key in set(before) & set(after) if before[key] != after[key]})
+    return "option context changed: " + ", ".join(
+        "%s %s -> %s" % (key, before.get(key, "<unset>"), after.get(key, "<unset>")) for key in changed)
+
+
+def _devdb_prune_variants(park_root, keep):
+    try:
+        slots = [os.path.join(park_root, name) for name in os.listdir(park_root)]
+    except OSError:
+        return
+    slots = [slot for slot in slots if os.path.isdir(slot)]
+    slots.sort(key=os.path.getmtime, reverse=True)
+    for slot in slots[keep:]:
+        shutil.rmtree(slot, ignore_errors=True)
+
+
+def _devdb_swap_variant(devdb, fingerprint, keep=DEVDB_PARKED_VARIANTS):
+    """Park the current graph under its fingerprint; restore a parked graph for this one.
+
+    Ordinary builds alternate between a few option sets that emit DIFFERENT
+    graphs into the SAME cache directory: the two native-SRST candidates, a
+    design that auto-enables a BRAM or GPIO4 surface, a LUT-carry
+    resynthesis.  Re-emitting on every alternation costs about 37 s per
+    switch -- on 2026-09-19 that was four emits and most of the wall time of
+    every rando-corpus build (blinky 144 s, yosys 0.12 s, nextpnr 1-4 s).
+    Parked variants live beside the cache as ``<devdb>.variants/<fp16>`` and
+    move by rename, so a switch costs milliseconds; at most ``keep`` are
+    retained.  Returns True when a parked graph now sits at ``devdb``; False
+    means the caller must emit (the previous graph, if any, is parked).
+    Callers hold the emit lock.
+    """
+    park_root = devdb + ".variants"
+    try:
+        if os.path.isdir(devdb):
+            try:
+                current = open(os.path.join(devdb, ".source_sha256"), encoding="ascii").read().strip()
+            except OSError:
+                current = ""
+            if current and os.path.exists(os.path.join(devdb, "dev_pips.csv")):
+                os.makedirs(park_root, exist_ok=True)
+                slot = os.path.join(park_root, current[:16])
+                if os.path.isdir(slot):
+                    shutil.rmtree(slot)
+                os.replace(devdb, slot)
+                os.utime(slot, None)
+            else:
+                shutil.rmtree(devdb)
+        wanted = os.path.join(park_root, fingerprint[:16])
+        if os.path.isdir(wanted):
+            try:
+                parked = open(os.path.join(wanted, ".source_sha256"), encoding="ascii").read().strip()
+            except OSError:
+                parked = ""
+            if parked == fingerprint and os.path.exists(os.path.join(wanted, "dev_pips.csv")):
+                os.replace(wanted, devdb)
+                _devdb_prune_variants(park_root, keep)
+                return True
+            shutil.rmtree(wanted, ignore_errors=True)
+        _devdb_prune_variants(park_root, keep)
+    except OSError:
+        # A rename can fail (Windows: a file inside is open elsewhere).  The
+        # plain re-emit below is exactly what happened before variants existed.
+        return False
+    return False
 
 
 def _devdb_fingerprint(arch, emitter, data, emit_env):
@@ -2857,6 +3007,9 @@ def _cmd_build_once(a):
     if a.pcf:
         try:
             _output_pcf = _pcf_output_constraints(synth_json, _pcf)
+            for _line in _shared_pad_corridor_conflicts(_output_pcf, data, synth_json):
+                print("error: %s" % _line)
+                sys.exit(2)
             _hard_output_pins = _typed_hard_output_pins(synth_json, _output_pcf)
             _auto_vendor_out = _qualified_pad_vendor_out(
                 _output_pcf, data, _hard_output_pins
@@ -3192,6 +3345,12 @@ def _cmd_build_once(a):
                              "AGAMEMNON_SYSCLK",
                              "AGAMEMNON_HSE", "AGAMEMNON_SRAM_STUB"}
         ignored_cache_env.add("AGAMEMNON_BRAM_TMUX9_SOURCE_PROFILE")
+        # Every emit passes AGAMEMNON_HW_CARRY=1 explicitly (both emit_env
+        # branches) and emit_uarch_db.py applies --env over the inherited
+        # environment, so the copy the LUT-carry restart pops from env cannot
+        # change the graph. Fingerprinting it re-emitted the same 21 MB
+        # database on every hard-carry -> LUT-carry resynthesis.
+        ignored_cache_env.add("AGAMEMNON_HW_CARRY")
         runtime_assets = (
             "master_conduction.csv", "mcu_ahb32_corridors.csv",
             "mcu_ahb32_pip_cfg.csv",
@@ -3238,6 +3397,7 @@ def _cmd_build_once(a):
                 sys.exit(1)
         fingerprint = _devdb_fingerprint(arch_source, emitter, data, emit_context)
         manifest = os.path.join(devdb, ".source_sha256")
+        context_file = os.path.join(devdb, ".source_context")
 
         def cache_matches():
             if not os.path.exists(os.path.join(devdb, "dev_pips.csv")):
@@ -3271,6 +3431,14 @@ def _cmd_build_once(a):
                     time.sleep(0.1)
             # Another build may have completed the same cache while this one waited.
             cache_ok = cache_matches()
+            if not cache_ok:
+                stale = _devdb_stale_reason(devdb, manifest, context_file, emit_context)
+                if _devdb_swap_variant(devdb, fingerprint):
+                    cache_ok = True
+                    print("[build] device database %s: restored the parked graph for this option set (%s)"
+                          % (os.path.basename(devdb), stale))
+                else:
+                    print("[build] device database %s: emitting (%s)" % (os.path.basename(devdb), stale))
         try:
             if not cache_ok:
                 if not custom_devdb and os.path.isdir(devdb):
@@ -3289,6 +3457,8 @@ def _cmd_build_once(a):
                 if not custom_devdb:
                     with open(manifest, "w", encoding="ascii") as f:
                         f.write(fingerprint + "\n")
+                    with open(context_file, "w", encoding="utf-8") as f:
+                        f.write("\n".join(emit_context) + "\n")
         finally:
             if have_lock:
                 try:
