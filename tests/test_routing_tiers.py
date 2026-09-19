@@ -520,10 +520,19 @@ def test_docs_describe_the_model_the_registry_points_at():
         assert token in doc, token
 
 
-def test_cli_exposes_release_strict_and_defaults_to_tiered():
+def test_cli_exposes_release_strict_as_the_default_and_tiered_as_an_experiment():
     source = (ROOT / "agamemnon" / "cli.py").read_text(encoding="utf-8")
     assert '"--release-strict", action="store_true"' in source
+    assert '"--tiered", action="store_true"' in source
+    # Ordinary --uarch builds default to exact-witness admission (2026-09-18:
+    # tiered images of a counter, the SERV core and serv_blinky read 0 Hz on
+    # the board while the same designs built release-strict ran).
+    assert "if a.uarch and not (release_strict or research_unsafe or tiered):" in source
+    assert "a._admission_defaulted = True" in source
+    # The tiered graph and its cache remain available to the explicit experiment.
     assert 'default_devdb = "devdb_tiered_pcf" if a.pcf else "devdb_tiered"' in source
+    # A tiered image is never silent about its unwitnessed edges.
+    assert "AGAMEMNON WARNING: tiered admission" in source
     # release-strict must not perturb the existing cache fingerprint, or the
     # first strict build after this change silently rebuilds the database that
     # every retained artifact was produced against.

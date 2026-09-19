@@ -85,14 +85,28 @@ position-independent formula cannot be the whole story for it.
 ## Choosing a model
 
 ```
-agamemnon build design.v --uarch                    # tiered (default)
-agamemnon build design.v --uarch --release-strict   # tier 1 only
+agamemnon build design.v --uarch                    # tier 1 only (the default since 2026-09-18)
+agamemnon build design.v --uarch --release-strict   # the same, explicitly
+agamemnon build design.v --uarch --tiered           # EXPERIMENT: tier 1 + tier 2, loudly reported
 agamemnon build design.v --uarch --research-unsafe --require-clean-selectors
                                                     # experimental features, clean selectors only
 ```
 
 or, equivalently, `AGAMEMNON_ROUTING_ADMISSION=release-strict|tiered|tiered-tables`.
 `tiered-tables` is the A/B control: tier 2 without the closed forms.
+
+**Why tier 1 is the default again (2026-09-18).** Three designs were built the
+same day, with the same tool, under both models and measured on the board with a
+control-first, SRAM-only Pico harness: a 24-bit counter blinky (30 tier-2 edges
+over 14 nets), the SERV core that had run at 96-133 MHz the day before, and
+the shipped `examples/serv_blinky` (160 tier-2 edges over 114 nets). Every
+tiered image read 0 Hz with the LED never rising; the release-strict counter
+read 2441/2439/2439 rising edges per second against 2441.4 expected. A
+"unanimous tile-relative" codeword is exact, but the wire it selects has not
+been watched conduct at that coordinate, and on this fabric that is not a
+theoretical distinction. Tiered admission therefore stays available as an
+explicit experiment (`--tiered`), reports every unwitnessed edge it used, and
+prints a warning; it is no longer what an ordinary build silently gets.
 
 `--release-strict` is exactly the behaviour that shipped before this model
 existed, byte-for-byte. Use it when every edge in the image must carry

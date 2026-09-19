@@ -131,10 +131,11 @@ agamemnon build
 agamemnon run --transport dap
 ```
 
-This default uses the ordinary tiered routing policy, needs only a compatible
-RISC-V GCC, and runs from volatile SRAM. `--release-strict` is the narrower
-exact-witness policy for release-scoped images; neither policy is a general
-silicon-correctness guarantee.
+This default routes only through edges with a silicon witness at their exact
+position (`--release-strict` admission), needs only a compatible RISC-V GCC,
+and runs from volatile SRAM. `--tiered` is an explicit experiment that also
+admits encoding-certain but unwitnessed edges; such images have read 0 Hz on
+the board. Neither policy is a general silicon-correctness guarantee.
 `agamemnon doctor` reports separate inspection, MCU-build, fabric-build, and
 hardware-transport capabilities.
 

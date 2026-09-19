@@ -1512,7 +1512,64 @@ def _write_confidence_manifest(*, routed_json, devdb, output, sources, device,
         return None
     for line in routing_tiers.render_summary(manifest, path):
         print(line)
+    summary = manifest.get("summary", {}) if isinstance(manifest, dict) else {}
+    if manifest.get("admission_model") == "tiered" and summary.get("tier_2_pips_used"):
+        print("AGAMEMNON WARNING: tiered admission -- %d routed edge(s) on %d net(s) have no "
+              "silicon witness at their position. On 2026-09-18 tiered images of a 24-bit "
+              "counter, the SERV core and examples/serv_blinky all read 0 Hz on the board while "
+              "the same designs built with the default (release-strict) admission ran. Treat this "
+              "image as unverified until it is witnessed; see docs/ROUTING_ADMISSION.md."
+              % (summary.get("tier_2_pips_used", 0), summary.get("nets_touching_tier_2", 0)))
     return path
+
+
+def _present_top_module(synth_json, requested=None):
+    """Present the synthesized top module under the exact key ``modules['top']``.
+
+    Every downstream consumer -- the typed special-route validator, the carry
+    and GCLK route checks, bitgen, verify -- reads ``modules['top']``.  Yosys
+    keeps the user's module name, so a design whose top is not literally named
+    ``top`` (the shipped serv_blinky example, most user RTL) was refused before
+    place-and-route with "typed special routes require exact modules['top']".
+    Only the module key is renamed; cell names, nets and attributes are
+    untouched, so a design already named ``top`` is byte-identical.  Returns the
+    original name, or None when no single top can be identified (the exact
+    downstream refusal then names the problem).
+    """
+    with open(synth_json, encoding="utf-8") as stream:
+        design = json.load(stream)
+    modules = design.get("modules")
+    if not isinstance(modules, dict) or not modules:
+        return None
+    if isinstance(modules.get("top"), dict):
+        return "top"
+
+    def _marked_top(module):
+        value = str((module.get("attributes") or {}).get("top", "0"))
+        return value in ("1", "00000000000000000000000000000001")
+
+    if requested and isinstance(modules.get(requested), dict):
+        name = requested
+    else:
+        marked = [key for key, module in modules.items()
+                  if isinstance(module, dict) and _marked_top(module)]
+        if len(marked) == 1:
+            name = marked[0]
+        elif len(modules) == 1:
+            name = next(iter(modules))
+        else:
+            return None
+    module = modules.pop(name)
+    attributes = module.get("attributes")
+    if not isinstance(attributes, dict):
+        attributes = {}
+        module["attributes"] = attributes
+    attributes.setdefault("top", "00000000000000000000000000000001")
+    design["modules"] = dict([("top", module)] + list(modules.items()))
+    with open(synth_json, "w", encoding="utf-8") as stream:
+        json.dump(design, stream, indent=2)
+        stream.write("\n")
+    return name
 
 
 def _validate_uarch_devdb(path):
@@ -2251,30 +2308,45 @@ def _bram_auto_features(synth_json):
     """Which board-witnessed BRAM surfaces the synthesized netlist calls for.
 
     ``reads``: an ``ALTA_BRAM9K`` cell has a net-connected ``DataOutA``/
-    ``DataOutB`` bit, so the design reads BRAM and wants the witnessed
-    site-read pre-route.  ``byteen``: a cell ties a ``ByteEnA`` lane to
-    constant ``'0'`` -- the same predicate ``qin_pack`` uses to record the
-    mask intent -- so faithful emission needs the CFG_KMUX tie.  A parse
-    failure reports neither: auto-enable must never be the reason a build
-    changes, only the typed cells can be.
+    ``DataOutB`` bit AND the design has an MCU boundary cell (type ``MCU_*``),
+    i.e. it reads BRAM over the MCU bus, which is what the witnessed X13Y4
+    site-read corridor serves (hbread10).  ``fabric_reads``: a read-ported
+    BRAM whose design has no MCU boundary at all -- the SERV register file, a
+    fabric-only ROM.  Such a design must NOT get the site-read profile: that
+    profile also skips the exact SERV WeA/ReA witness reservation in the uarch,
+    and on the shipped serv_blinky that collided with the register-file write
+    corridor ("SERV WeA corridor conflict at X16Y5_RMUX27 -> X16Y4_RMUX20",
+    40/40 attempts).  ``byteen``: a cell ties a ``ByteEnA`` lane to constant
+    ``'0'`` -- the same predicate ``qin_pack`` uses to record the mask intent
+    -- so faithful emission needs the CFG_KMUX tie.  A parse failure reports
+    nothing: auto-enable must never be the reason a build changes, only the
+    typed cells can be.
     """
-    reads = byteen = False
+    none = {"reads": False, "fabric_reads": False, "byteen": False}
+    read_ported = mcu_boundary = byteen = False
     try:
         with open(synth_json, encoding="utf-8") as fh:
             modules = json.load(fh).get("modules", {})
         for module in modules.values():
             for cell in module.get("cells", {}).values():
-                if cell.get("type") != "ALTA_BRAM9K":
+                cell_type = str(cell.get("type", ""))
+                if cell_type.startswith("MCU_"):
+                    mcu_boundary = True
+                if cell_type != "ALTA_BRAM9K":
                     continue
                 conns = cell.get("connections", {})
                 for port in ("DataOutA", "DataOutB"):
                     if any(isinstance(bit, int) for bit in conns.get(port, []) or []):
-                        reads = True
+                        read_ported = True
                 if any(bit == "0" for bit in conns.get("ByteEnA", []) or []):
                     byteen = True
     except Exception:
-        return {"reads": False, "byteen": False}
-    return {"reads": reads, "byteen": byteen}
+        return none
+    return {
+        "reads": read_ported and mcu_boundary,
+        "fabric_reads": read_ported and not mcu_boundary,
+        "byteen": byteen,
+    }
 
 
 def _cmd_build_once(a):
@@ -2478,6 +2550,26 @@ def _cmd_build_once(a):
         env["AGAMEMNON_DEVICE"] = a.device
     research_unsafe = bool(getattr(a, "research_unsafe", False))
     release_strict = bool(getattr(a, "release_strict", False))
+    tiered = bool(getattr(a, "tiered", False))
+    if tiered and release_strict:
+        print("error: --tiered and --release-strict are opposite admission models")
+        sys.exit(2)
+    if tiered and research_unsafe:
+        print("error: --tiered and --research-unsafe select different device graphs; pick one")
+        sys.exit(2)
+    if tiered and not a.uarch:
+        print("error: --tiered applies to the --uarch device graph")
+        sys.exit(2)
+    if a.uarch and not (release_strict or research_unsafe or tiered):
+        # Ordinary builds route only through edges with conduction evidence at
+        # their exact position.  Measured on the board on 2026-09-18: tiered
+        # images of a 24-bit counter (30 unwitnessed edges), the SERV core and
+        # examples/serv_blinky all read 0 Hz, while the same designs built
+        # release-strict ran at the expected rates.  Tiered admission is an
+        # explicit experiment (--tiered), never a silent default.
+        release_strict = True
+        a.release_strict = True
+        a._admission_defaulted = True
     require_clean_selectors = bool(
         getattr(a, "require_clean_selectors", False))
     # A hash-bound qualified profile was qualified against the release-strict
@@ -2693,6 +2785,14 @@ def _cmd_build_once(a):
             except (OSError, ValueError, json.JSONDecodeError) as exc:
                 print("error: native SRST candidate eligibility sidecar rejected: %s" % exc)
                 sys.exit(1)
+    # One tool that just works: present whatever module Yosys chose as the top
+    # under the exact modules['top'] key every later stage requires (see
+    # _present_top_module).  Idempotent, so the selective-retry snapshot path
+    # above is covered too.
+    _presented_top = _present_top_module(synth_json, top)
+    if _presented_top and _presented_top != "top":
+        print("[build] top module %r presented as modules['top']" % _presented_top)
+        top = "top"
     # SILENT-DEGRADATION GUARD: synth_pads.tcl writes a stable JSON sidecar
     # (<synth_json>.leftover_mem.json) naming every memory cell that
     # memory_libmap declined to map onto the hard ALTA_BRAM9K block RAM (see
@@ -2809,7 +2909,10 @@ def _cmd_build_once(a):
         if _bram_auto["reads"] and "AGAMEMNON_BRAM_SITE_READ_PATHS" not in env:
             env["AGAMEMNON_BRAM_SITE_READ_PATHS"] = "1"
             print("[build] BRAM site-read paths auto-enabled (read-ported "
-                  "ALTA_BRAM9K present; board-witnessed X13Y4 corridor)")
+                  "ALTA_BRAM9K read over the MCU boundary; board-witnessed X13Y4 corridor)")
+        elif _bram_auto["fabric_reads"] and "AGAMEMNON_BRAM_SITE_READ_PATHS" not in env:
+            print("[build] BRAM read by fabric logic only (no MCU boundary cell): "
+                  "the MCU site-read corridor is not applied")
         # ByteEn mask emission: board-proven 2026-09-15.  Without it a
         # grounded ByteEnA lane loses its CFG_KMUX tie, so the emitted image
         # would not carry the design's byte mask; qin_pack records the intent
@@ -2823,6 +2926,17 @@ def _cmd_build_once(a):
     # direct-D checkpoints retain their separate path; remaining cell reads
     # and pad inputs receive the input permutations enforced by qin_pack.
     run("qin", [sys.executable, os.path.join(engine, "qin_pack.py"), synth_json])
+    # One tool that just works, part three: an output pad driven by a net that
+    # also feeds internal logic (``assign led = count[11]``) gets a dedicated
+    # identity-LUT driver, the composition every qualified physical output
+    # uses; the typed L48 lanes refuse any other ("unsupported internal
+    # fanout; only one pad sink is qualified").  Exact replays keep their
+    # checkpoint's graph untouched.
+    if not qualified_profile:
+        for line in run("pad-isolate", [sys.executable, os.path.join(engine, "pad_isolate.py"),
+                                        synth_json]).splitlines():
+            if line.startswith("pad_isolate:") and "inserted 0 " not in line:
+                print("[build] " + line)
     if qualified_bram_source:
         QBW.prepare_route_reservations(synth_json, qualified_bram_source["id"])
     if a.uarch and a.pin:
@@ -3597,6 +3711,11 @@ def _cmd_build_once(a):
             else:
                 print("error: implementation did not complete after cap/fanout escalation; "
                       "see the per-attempt failure stages and diagnostics above")
+            if getattr(a, "_admission_defaulted", False):
+                print("hint: the default admission routes only through edges with a silicon "
+                      "witness at their exact position. `--tiered` also admits encoding-certain "
+                      "but unwitnessed edges; it may route this design, but such images have "
+                      "read 0 Hz on the board (2026-09-18). See docs/ROUTING_ADMISSION.md.")
             sys.exit(1)
     else:
         # Router1's path search fails on otherwise legal physical-I/O and MCU-exit routes once the
@@ -4360,9 +4479,17 @@ def main(argv=None):
     b.add_argument(
         "--release-strict", action="store_true",
         help="[--uarch] refuse every routing edge without conduction evidence at its exact "
-             "position, exactly as builds behaved before tiered admission. The default "
-             "additionally admits edges whose selector codeword is certain and reports each one "
-             "it used in <output>.confidence.json; see docs/ROUTING_ADMISSION.md",
+             "position. This is the default for ordinary builds (since 2026-09-18); the flag "
+             "makes it explicit, e.g. for a qualified checkpoint. See docs/ROUTING_ADMISSION.md",
+    )
+    b.add_argument(
+        "--tiered", action="store_true",
+        help="[--uarch] EXPERIMENT: additionally admit routing edges whose selector codeword is "
+             "certain but which have never been watched conduct at that position, and report "
+             "each one used in <output>.confidence.json. Tiered images of a 24-bit counter, the "
+             "SERV core and examples/serv_blinky all read 0 Hz on the board on 2026-09-18 while "
+             "the same designs built with the default ran; use only to route a design the "
+             "default refuses, and do not trust the image until it is witnessed",
     )
     b.add_argument("--cap", type=int, default=5,
                    help="[--uarch] cells/tile hint used by the placer and split-net retry sweep "

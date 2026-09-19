@@ -379,6 +379,78 @@ SOURCE_FRESH_PHYSICAL_ENV = (
     "AGAMEMNON_LEFT_PAD_OUT=1",
 )
 
+# Options that legitimately change the physical device graph in ORDINARY
+# builds.  A live BRAM Port B selects the qualified Port-B exit corridor, whose
+# emit withholds the corridor's RMUX rows (221 release-strict / 289 tiered,
+# nothing added); a read-ported BRAM auto-enables the board-witnessed site-read
+# pre-route, which adds its corridor rows.  Each combination with the
+# shared-control marker and the admission is a further exact graph profile.
+# Their identities live in physical_graph_profiles.json beside this module so
+# that a graph change is one reviewed regeneration
+# (qualification/regen_physical_graph_profiles.py) instead of a hand edit per
+# profile.  Any other arch-scoped option is expected to leave the pip graph
+# byte-identical to a base/historical identity above (vendor-out-slice and
+# direct-D do), so a graph-generation switch stays visible: an option set
+# without a registered identity is refused by name, never guessed.
+GRAPH_PROFILE_OPTIONS = (
+    "AGAMEMNON_BRAM_PORTB_EXIT",
+    "AGAMEMNON_BRAM_SITE_READ_PATHS",
+)
+GRAPH_PROFILES_NAME = "physical_graph_profiles.json"
+GRAPH_PROFILES_PATH = Path(__file__).resolve().parent / GRAPH_PROFILES_NAME
+_GRAPH_PROFILES = None
+
+
+def graph_profile_options(env):
+    """Return the canonical (sorted) graph-changing option tokens set in env."""
+    return tuple(sorted(
+        name + "=" + env[name]
+        for name in GRAPH_PROFILE_OPTIONS
+        if env.get(name) not in (None, "", "0")
+    ))
+
+
+def graph_profile_key(shared_control_graph, admission, options):
+    return ";".join(
+        ("shared_control=" + shared_control_graph, "admission=" + admission) +
+        tuple(options)
+    )
+
+
+def load_graph_profiles():
+    """Load (once) the registered physical graph profile table."""
+    global _GRAPH_PROFILES
+    if _GRAPH_PROFILES is None:
+        try:
+            loaded = json.loads(GRAPH_PROFILES_PATH.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            raise SpecialRouteError(
+                "cannot load the physical graph profile table %s: %s" %
+                (GRAPH_PROFILES_PATH, exc)
+            ) from exc
+        if loaded.get("schema") != 1 or not isinstance(loaded.get("profiles"), list):
+            raise SpecialRouteError(
+                "physical graph profile table %s is malformed" % GRAPH_PROFILES_PATH
+            )
+        _GRAPH_PROFILES = loaded
+    return _GRAPH_PROFILES
+
+
+def registered_graph_profile(shared_control_graph, admission, options):
+    """Return the registered profile for one option set, or refuse by name."""
+    key = graph_profile_key(shared_control_graph, admission, options)
+    for profile in load_graph_profiles()["profiles"]:
+        registered = graph_profile_key(
+            profile["shared_control"], profile["admission"], profile["options"],
+        )
+        if registered == key:
+            return profile
+    raise SpecialRouteError(
+        "uarch physical graph profile %s has no registered identity; review the "
+        "graph change, then register it with "
+        "qualification/regen_physical_graph_profiles.py" % key
+    )
+
 FROZEN_LANES = (
     ("PIN_25", "X14Y11_SLICE4", "Q", "X0Y4_IOB0", "I"),
     ("PIN_26", "X14Y11_SLICE5", "Q", "X0Y4_IOB1", "I"),
@@ -820,6 +892,16 @@ def _validated_devdb(devdb, chipdb_root=None):
                 "uarch special-route physical graph has unknown routing admission %r" %
                 admission
             )
+        profile_options = graph_profile_options(env)
+        if profile_options:
+            # A graph-changing option set never equals a base or historical
+            # identity (its row count differs), so the ladder above is inert
+            # for it; bind the registered profile instead, or refuse by name.
+            profile = registered_graph_profile(
+                shared_control_graph, admission, profile_options,
+            )
+            expected_pip_count = int(profile["graph_pip_count"])
+            expected_pips_sha256 = str(profile["graph_pips_sha256"])
         expected_graph = {
             "graph_pip_count": str(expected_pip_count),
             "graph_pips_sha256": expected_pips_sha256,

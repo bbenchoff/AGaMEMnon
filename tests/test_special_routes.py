@@ -2632,3 +2632,167 @@ def test_combinational_left_output_rejects_registered_bridge(tmp_path, lane_inde
     document = _document((lane_index,), wrong_port=lane_index)
     with pytest.raises(sr.SpecialRouteError, match="exact source root"):
         sr.validate_routed_json(_write(tmp_path, document), "post-nextpnr", CHIPDB)
+
+def _csv_pairs(path):
+    with path.open(newline="", encoding="utf-8") as stream:
+        return {row["key"]: row["value"] for row in csv.DictReader(stream)}
+
+
+def _emit_profile_graph(tmp_path, shared, admission, options):
+    """Emit one registered physical graph profile from source, as the CLI does."""
+    root = Path(__file__).parents[1]
+    devdb = tmp_path / ("profile-" + admission + "-" + shared + "-" + str(len(options)))
+    command = [
+        sys.executable,
+        str(root / "agamemnon" / "engine" / "emit_uarch_db.py"),
+        "--arch", str(root / "agamemnon" / "engine" / "arch.py"),
+        "--data", str(CHIPDB),
+        "--out", str(devdb),
+    ]
+    environ = list(sr.SOURCE_FRESH_PHYSICAL_ENV)
+    if shared == "1":
+        environ.append(sr.SHARED_CONTROL_GRAPH_ENV + "=1")
+    if admission != "release-strict":
+        environ.append("AGAMEMNON_ROUTING_ADMISSION=" + admission)
+    environ.extend(options)
+    for item in environ:
+        command.extend(("--env", item))
+    emitted = subprocess.run(
+        command, cwd=root, text=True, capture_output=True, timeout=180,
+    )
+    assert emitted.returncode == 0, emitted.stdout + emitted.stderr
+    return devdb
+
+
+def _pip_rows(devdb):
+    with (devdb / "dev_pips.csv").open(newline="", encoding="utf-8") as stream:
+        return {row["name"]: (row["src"], row["dst"]) for row in csv.DictReader(stream)}
+
+
+def test_physical_graph_profile_registry_is_well_formed():
+    """Every registered profile is a distinct, canonical option set with an identity."""
+    registry = sr.load_graph_profiles()
+    assert registry["schema"] == 1
+    keys = set()
+    for profile in registry["profiles"]:
+        assert profile["shared_control"] in ("0", "1")
+        assert profile["admission"] in ("release-strict", "tiered")
+        options = tuple(profile["options"])
+        assert options and list(options) == sorted(options)
+        assert all(item.split("=", 1)[0] in sr.GRAPH_PROFILE_OPTIONS for item in options)
+        key = sr.graph_profile_key(profile["shared_control"], profile["admission"], options)
+        assert key not in keys
+        keys.add(key)
+        assert isinstance(profile["graph_pip_count"], int) and profile["graph_pip_count"] > 0
+        assert len(profile["graph_pips_sha256"]) == 64
+        assert int(profile["graph_pips_sha256"], 16) >= 0
+        assert profile["why"]
+    # The base graphs never carry a profile option, so they are not registered here.
+    assert sr.graph_profile_key("0", "release-strict", ()) not in keys
+
+
+def test_graph_profile_options_ignore_unrelated_options():
+    env = {
+        "AGAMEMNON_BRAM_PORTB_EXIT": "1", "AGAMEMNON_DIRECT_D": "1",
+        "AGAMEMNON_VENDOR_OUT_SLICE": "14,9,8", "AGAMEMNON_BRAM_SITE_READ_PATHS": "1",
+    }
+    assert sr.graph_profile_options(env) == (
+        "AGAMEMNON_BRAM_PORTB_EXIT=1", "AGAMEMNON_BRAM_SITE_READ_PATHS=1",
+    )
+    assert sr.graph_profile_options({"AGAMEMNON_BRAM_PORTB_EXIT": "0"}) == ()
+    assert sr.graph_profile_options({}) == ()
+
+
+@pytest.mark.parametrize(
+    "shared, admission, options", (
+        # The ordinary pcf'd build of a design with a read-ported BRAM and a
+        # live Port B (examples/serv_blinky): native enables, tiered admission,
+        # site-read paths auto-enabled from the typed cell.
+        ("1", "tiered", ("AGAMEMNON_BRAM_PORTB_EXIT=1", "AGAMEMNON_BRAM_SITE_READ_PATHS=1")),
+        # The same design under --release-strict (site-read refused as experimental).
+        ("1", "release-strict", ("AGAMEMNON_BRAM_PORTB_EXIT=1",)),
+    ),
+)
+def test_source_fresh_profile_graph_is_exact_and_tamper_proof(
+        tmp_path, shared, admission, options):
+    """A registered option profile binds by its own identity and stays tamper-proof.
+
+    Before the registry existed every fresh pcf'd build of a design with a live
+    BRAM Port B, including the shipped serv_blinky example, was refused with
+    "physical graph identity drift" because the validator only knew the base
+    and shared-control graphs.
+    """
+    devdb = _emit_profile_graph(tmp_path, shared, admission, options)
+    graph_path = devdb / "dev_pips.csv"
+    raw = graph_path.read_bytes()
+    profile = sr.registered_graph_profile(shared, admission, options)
+    count, digest = profile["graph_pip_count"], profile["graph_pips_sha256"]
+    assert raw.count(b"\n") - 1 == count
+    assert hashlib.sha256(raw).hexdigest() == digest
+    dev_meta = _csv_pairs(devdb / "dev_meta.csv")
+    recorded = sr.split_env_summary(dev_meta["agamemnon_env"])
+    assert all(item in recorded for item in options)
+    metadata = _csv_pairs(devdb / sr.DEV_META_NAME)
+    assert metadata["enabled"] == "1"
+    assert metadata[sr.SHARED_CONTROL_GRAPH_MARKER] == shared
+    assert sr.validate_devdb(devdb, CHIPDB) is True
+
+    with graph_path.open("a", newline="", encoding="utf-8") as stream:
+        csv.writer(stream).writerow((
+            "FAKE_TILE_OMUX00.FAKE_TILE_RMUX00", "PIP",
+            "FAKE_TILE_OMUX00", "FAKE_TILE_RMUX00", 0, 0, 0, 0,
+        ))
+    tampered = hashlib.sha256(graph_path.read_bytes()).hexdigest()
+    _replace_metadata_value(devdb / sr.DEV_META_NAME, "graph_pip_count", count + 1)
+    _replace_metadata_value(devdb / sr.DEV_META_NAME, "graph_pips_sha256", tampered)
+    _replace_metadata_value(devdb / "dev_meta.csv", "n_pips", count + 1)
+    with pytest.raises(sr.SpecialRouteError, match="physical graph identity drift"):
+        sr.validate_devdb(devdb, CHIPDB)
+
+
+def test_unregistered_graph_profile_is_refused_by_name(tmp_path):
+    """An option set without a registered identity fails closed and says which."""
+    devdb = _copy_physical_devdb(tmp_path / "unregistered-profile")
+    metadata = devdb / "dev_meta.csv"
+    rows = list(csv.reader(metadata.open(newline="", encoding="utf-8")))
+    for row in rows[1:]:
+        if row[0] == "agamemnon_env":
+            row[1] += ";AGAMEMNON_BRAM_PORTB_EXIT=1"
+    with metadata.open("w", newline="", encoding="utf-8") as stream:
+        csv.writer(stream).writerows(rows)
+    # This profile IS registered, but the copied base graph is not its graph.
+    with pytest.raises(sr.SpecialRouteError, match="physical graph identity drift"):
+        sr.validate_devdb(devdb, CHIPDB)
+    registry = sr.load_graph_profiles()
+    saved = list(registry["profiles"])
+    try:
+        registry["profiles"][:] = [
+            profile for profile in saved
+            if "AGAMEMNON_BRAM_PORTB_EXIT=1" not in profile["options"]
+        ]
+        with pytest.raises(sr.SpecialRouteError, match="PORTB_EXIT=1 has no registered identity"):
+            sr.validate_devdb(devdb, CHIPDB)
+    finally:
+        registry["profiles"][:] = saved
+
+
+def test_portb_exit_graph_is_a_pure_reservation_subset_of_the_base_graph(tmp_path):
+    """The Port-B profile only withholds exit-corridor rows; it adds nothing."""
+    options = ("AGAMEMNON_BRAM_PORTB_EXIT=1",)
+    devdb = _emit_profile_graph(tmp_path, "0", "release-strict", options)
+    base = _pip_rows(PHYSICAL_DEVDB)
+    portb = _pip_rows(devdb)
+    assert set(portb) <= set(base)
+    assert all(portb[name] == base[name] for name in portb)
+    removed = set(base) - set(portb)
+    profile = sr.registered_graph_profile("0", "release-strict", options)
+    assert len(removed) == (
+        sr.EXPECTED_PHYSICAL_GRAPH_PIP_COUNT - profile["graph_pip_count"]
+    ) == 221
+    tiles = {base[name][1].split("_")[0] for name in removed}
+    assert all("_RMUX" in base[name][1] for name in removed)
+    assert tiles == {
+        "X13Y4", "X14Y4", "X15Y4", "X16Y4",
+        "X14Y8", "X15Y8", "X16Y8",
+        "X14Y10", "X15Y10", "X16Y10",
+    }, sorted(tiles)

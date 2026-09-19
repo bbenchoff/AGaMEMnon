@@ -484,11 +484,14 @@ byte-exact to the decoded body and has configured the L48 FCB successfully.
 This proves base generation and configuration acceptance, not the behavior of
 every design overlay.
 
-`agamemnon build --uarch` uses the tiered routing model: witnessed edges and
-encoding-certain edges are exposed, ambiguous selectors are refused, and tier-2
-use is recorded in `<output>.confidence.json`. `--release-strict` limits routing
-to exact witnessed admissions. Both modes still depend on the per-feature
-gates below; neither is a general correctness certificate.
+`agamemnon build --uarch` routes only through exact witnessed admissions
+(`--release-strict`, the default since 2026-09-18). `--tiered` is an explicit
+experiment that also exposes encoding-certain but conduction-unwitnessed
+edges, records each one in `<output>.confidence.json` and warns: on
+2026-09-18 tiered images of a 24-bit counter, the SERV core and
+`examples/serv_blinky` all read 0 Hz on the board while the same designs built
+release-strict ran. Both modes still depend on the per-feature gates below;
+neither is a general correctness certificate.
 
 ## Support matrix
 

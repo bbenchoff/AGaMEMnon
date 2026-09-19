@@ -7,6 +7,52 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+- Ordinary `build --uarch` now defaults to release-strict admission: only
+  routing edges with a silicon witness at their exact position. Tiered
+  admission is an explicit experiment, `--tiered`, which reports every
+  unwitnessed edge it used and prints a warning. Measured on the board on
+  2026-09-18 with a control-first SRAM-only Pico harness: tiered images of a
+  24-bit counter, the SERV core and `examples/serv_blinky` all read 0 Hz
+  (LED never rising), while the same designs built release-strict ran at the
+  expected rates (counter: 2441/2439/2439 edges per second vs 2441.4). When
+  the default cannot route a design, the failure now names `--tiered` as the
+  experiment and what it costs.
+- `build` now gives every output pad whose net also feeds internal logic
+  (`assign led = count[11]`) a dedicated identity-LUT driver before
+  place-and-route (`agamemnon/engine/pad_isolate.py`). That is the
+  composition every qualified physical output uses; the typed L48 output lanes
+  refused any other with "PIN_25 exact owner has unsupported internal fanout;
+  only one pad sink is qualified", which failed the fresh `examples/serv_blinky`
+  build on all 40 placement attempts. A pad whose net has the pad as its only
+  consumer is untouched, and exact checkpoint replays keep their graph.
+- The BRAM site-read corridor now auto-enables only for a BRAM read over the
+  MCU boundary (a read-ported `ALTA_BRAM9K` in a design with an `MCU_*` cell,
+  which is what the witnessed X13Y4 corridor serves). A BRAM read and written
+  by fabric logic alone, such as the SERV register file, no longer receives
+  it: that profile also skips the exact SERV write-witness reservation in the
+  uarch, and on the shipped `examples/serv_blinky` every placement attempt
+  then failed in packing with "SERV WeA corridor conflict at X16Y5_RMUX27 ->
+  X16Y4_RMUX20". The build reports the fabric-only case instead of enabling
+  the option. An explicit environment setting is still respected.
+- `build` now presents whatever module Yosys chose as the top under the exact
+  `modules['top']` key that every later stage reads (typed special-route
+  validation, carry/GCLK route checks, bitgen, verify). A design whose top
+  module is not literally named `top`, such as the shipped `examples/serv_blinky`
+  (`module serv_blinky`), was refused before place-and-route with "typed special
+  routes require exact modules['top']". Only the module key changes; cell names
+  and contents are untouched, so designs already named `top` build byte-identically.
+
+- Fixed the fresh build of any pcf'd design with a read-ported BRAM or a
+  live BRAM Port B, including the shipped `examples/serv_blinky` developer
+  reproduction, which since 2026-09-16 stopped before place-and-route with
+  "uarch special-route physical graph identity drift": the Port-B exit
+  corridor and the auto-enabled site-read paths change the device graph, and
+  the validator knew only the base and shared-control identities. Those
+  option profiles now bind through a registered profile table
+  (`agamemnon/engine/physical_graph_profiles.json`, regenerated and checked by
+  `qualification/regen_physical_graph_profiles.py`); an unregistered option
+  set is still refused, now naming the option set. Tampered or older graphs
+  fail closed as before.
 - Corrected 26–33-site carry chains to descend from X20Y12 through X20Y11
   to X20Y10. The old upward/skipping template produced incorrect counter
   rates. Native placement and direct packing now reject that old topology;
