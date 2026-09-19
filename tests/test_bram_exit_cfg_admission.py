@@ -1,4 +1,4 @@
-"""Desk check: byte-exact BRAM output exits can be admitted as encoding-certain (opt-in).
+"""Desk check: byte-exact BRAM output exits are admitted as encoding-certain.
 
 The BRAM tile model gives Port-B lane 0 (X13Y4_BufMUX16) and lane 1 (BufMUX17) several
 exits each, but the clean-selector encodability gate accepted a BufMUX -> RMUX exit only
@@ -6,8 +6,9 @@ when the MCU corridor map listed it, so both lanes kept ONE admitted exit -- the
 wire, X13Y4_RMUX08 -- and no two-lane Port-B read could route (bram_fifo_kat,
 2026-09-19).  chipdb/bram_pip_cfg.csv holds byte-exact rows for RMUX15 <- BufMUX17 and
 RMUX3 <- BufMUX18 whose cells sit in the destinations' own selector blocks, so bitgen can
-encode them.  AGAMEMNON_BRAM_EXIT_CFG_ADMIT=1 makes those rows encoding-certain (tier 2)
-at X13Y4 without touching the pinned default identities.
+encode them.  Admitting them was board-proven the same day: bram_fifo_kat (64x8, write A /
+read B, x18, all eight Port-B lanes) passed its self-checking oracle through both new exits
+(52,084 edges vs 52,083 expected), so the rows are admitted unconditionally.
 """
 import csv
 from pathlib import Path
@@ -17,10 +18,10 @@ ROUTING = ROOT / "agamemnon" / "engine" / "features" / "routing.py"
 CHIPDB = ROOT / "agamemnon" / "chipdb"
 
 
-def test_bram_exit_admission_is_opt_in_and_keyed_on_byte_exact_rows():
+def test_bram_exit_admission_is_unconditional_and_keyed_on_byte_exact_rows():
     source = ROUTING.read_text(encoding="utf-8")
     build = source.index("BRAM_EXIT_CFG_KEYS = set()")
-    assert 'os.environ.get("AGAMEMNON_BRAM_EXIT_CFG_ADMIT")' in source[build:build + 800]
+    assert "AGAMEMNON_BRAM_EXIT_CFG_ADMIT" not in source
     assert '"bram_pip_cfg.csv"' in source[build:build + 800]
     gate = source.index('if (sf == "BufMUX" and df == "RMUX" and (si, di) in BRAM_EXIT_CFG_KEYS')
     assert build < gate

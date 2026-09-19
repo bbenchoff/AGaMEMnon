@@ -3386,11 +3386,6 @@ def _cmd_build_once(a):
                 emit_env.append("AGAMEMNON_ROUTING_ADMISSION=%s" % admission)
         if live_portb:
             emit_env.append("AGAMEMNON_BRAM_PORTB_EXIT=1")
-        if env.get("AGAMEMNON_BRAM_EXIT_CFG_ADMIT"):
-            # Opt-in (2026-09-19): byte-exact bram_pip_cfg BufMUX -> RMUX exits at X13Y4
-            # count as encoding-certain in the emitted graph (features/routing.py).
-            # Part of the emit context, so it selects its own devdb variant.
-            emit_env.append("AGAMEMNON_BRAM_EXIT_CFG_ADMIT=1")
         if live_direct_d:
             emit_env.append("AGAMEMNON_DIRECT_D=1")
         if qualified_bram_source:

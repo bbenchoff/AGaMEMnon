@@ -52,13 +52,13 @@ EXPECTED_CATALOG_SHA256 = (
 # rows reproduces the prior strict/tiered CSV byte-for-byte; the physical pad
 # corridors and all other graph rows are unchanged. Keep both exact snapshots
 # for replay, without accepting arbitrary self-reported graph digests.
-EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 306924
+EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 306973
 EXPECTED_PHYSICAL_GRAPH_SHA256 = (
-    "b95123320c0c72c670f0afd01aed25ac08327b79fc94d5bb99944f244b864476"
+    "508ff394103682b05bd701963c580541a10b6db20d528aa859078e3ee03af00c"
 )
-EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 331354
+EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 331342
 EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
-    "8c76f712e6d9617e460e4c1c86d2b46fd9bd7800bf9ed9dc6a6e91b45a6bb0ae"
+    "34a7d6c6bd86ab122e90a119aa97082dae235614a8bc50c3aaa0dd249fb7b4bd"
 )
 # The native-control graph contributes the finite, reviewed shared-control
 # topology.  It is a separate graph profile: accepting it by changing the base
@@ -66,12 +66,12 @@ EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
 # graph authority.
 EXPECTED_SHARED_CONTROL_PHYSICAL_GRAPHS = {
     "release-strict": (
-        307997,
-        "94b2a9df8f335fbc3a3ecba9914adc989b612023784200d4b85b108ce76c45d2",
+        308046,
+        "b3fbfbec9076a504696ffe1411a2d902534fd8bc0ad15fff7423ca0806031237",
     ),
     "tiered": (
-        332427,
-        "24f682751cfb58cb9081b974ba8d8b279aae3ee5d1b4debc6a226fc4488fd634",
+        332415,
+        "e7b177dfaec27fc4a6c59e3d7fc9b467d3d90554f5926a2d8647e47708990097",
     ),
 }
 # Withdrawing the column-16 RMUX03 -> RMUX14 translation removes exactly
@@ -409,9 +409,6 @@ SOURCE_FRESH_PHYSICAL_ENV = (
 GRAPH_PROFILE_OPTIONS = (
     "AGAMEMNON_BRAM_PORTB_EXIT",
     "AGAMEMNON_BRAM_SITE_READ_PATHS",
-    # byte-exact bram_pip_cfg BufMUX->RMUX exits at X13Y4 admitted as tier 2
-    # (Port-B lanes 0/1 otherwise share their only first hop; 2026-09-19)
-    "AGAMEMNON_BRAM_EXIT_CFG_ADMIT",
 )
 GRAPH_PROFILES_NAME = "physical_graph_profiles.json"
 GRAPH_PROFILES_PATH = Path(__file__).resolve().parent / GRAPH_PROFILES_NAME

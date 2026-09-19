@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "ecd4469de75204f9a2852c32314ad0721a4420ff1d7a30d2a17ea9dc77f02c34",
+  "fingerprint_sha256": "fa70d82e9429053044ccc663246c369dd5495b9d084e06b4b13bee9e95725a2f",
   "file_count": 271,
   "pinned_date": "2026-09-19",
-  "reason": "Ring-oscillator campaign promotion #6 (AG32-Docs tools/pipwit, 2026-09-19 ~09:45): ring, FF-counter, dedicated-carry and pad-approach witnesses with the BRAM approach tiles served first, design-level witnesses from the passing bram_rom_kat image (its x9 read lanes and address ingress), and three convictions from forced retests of the bram_fifo_kat image's tier-2 edges. Graph identities, census, Port-B pin, physical_graph_profiles.json and the research inventory regenerated."
+  "reason": "Ring-oscillator campaign promotion #7 (AG32-Docs tools/pipwit, 2026-09-19 ~10:15): design-level witnesses from the passing bram_fifo_kat image (all eight Port-B lane exits, x18 write-A/read-B) and its lanes-1/2 control, plus ring/FF/carry/pad witnesses; byte-exact bram_pip_cfg BufMUX->RMUX exits at X13Y4 are now admitted unconditionally (board-proven by that image), so every base identity and profile is regenerated. Graph identities, census, Port-B pin, physical_graph_profiles.json and the research inventory regenerated."
 }

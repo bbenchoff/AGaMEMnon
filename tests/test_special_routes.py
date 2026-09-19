@@ -926,15 +926,16 @@ def test_current_physical_touching_pip_role_matrix_is_exhaustive(
     # 2026-09-19 ring-oscillator promotion (tools/pipwit): board-witnessed pips on physical-I/O catalog wires entered the strict graph: 794 -> 804 touching (incoming/outgoing/internal (270, 534, 10) -> (272, 542, 10)).
     # 2026-09-19 ring-oscillator promotion (tools/pipwit): board-witnessed pips on physical-I/O catalog wires entered the strict graph: 804 -> 809 touching (incoming/outgoing/internal (272, 542, 10) -> (274, 545, 10)).
     # 2026-09-19 ring-oscillator promotion (tools/pipwit): board-witnessed pips on physical-I/O catalog wires entered the strict graph: 809 -> 814 touching (incoming/outgoing/internal (274, 545, 10) -> (277, 547, 10)).
-    assert len(touching) == 814
+    # 2026-09-19 ring-oscillator promotion (tools/pipwit): board-witnessed pips on physical-I/O catalog wires entered the strict graph: 814 -> 816 touching (incoming/outgoing/internal (277, 547, 10) -> (278, 548, 10)).
+    assert len(touching) == 816
     assert hashlib.sha256(canonical).hexdigest() == (
-        "6b79f3a4e41080fd1a965e865cd12148c62f49adcd9fc93dfe67a0776beb59e9"
+        "05fdab398ccd16c4f52501ec41f48df1be047758da6aed888cc4ad95d91781e9"
     )
     incoming = [edge for edge in touching if edge[1] in catalog.wires]
     outgoing = [edge for edge in touching if edge[0] in catalog.wires]
     internal = [edge for edge in touching
                 if edge[0] in catalog.wires and edge[1] in catalog.wires]
-    assert (len(incoming), len(outgoing), len(internal)) == (277, 547, 10)
+    assert (len(incoming), len(outgoing), len(internal)) == (278, 548, 10)
 
     # The census above binds the exact current physical graph.  Avoid 7,656
     # redundant catalog reads while still exercising the public validator for
@@ -1321,6 +1322,12 @@ def _pre_campaign_graph_bytes(admission, shared):
     emitted = subprocess.run(command, cwd=root, text=True, capture_output=True, timeout=300)
     assert emitted.returncode == 0, emitted.stdout + emitted.stderr
     raw = (devdb / "dev_pips.csv").read_bytes()
+    # The byte-exact BRAM output exits (BufMUX17 -> RMUX15, BufMUX18 -> RMUX03) are a
+    # code-level admission made on 2026-09-19 after the rando corpus bram_fifo_kat passed
+    # through them on the board; the pre-campaign replay predates it, so drop exactly
+    # those two rows to reproduce the historical bytes.
+    raw = b"".join(line for line in raw.splitlines(keepends=True)
+                   if not line.startswith((b"X13Y4_BufMUX17.X13Y4_RMUX15,", b"X13Y4_BufMUX18.X13Y4_RMUX03,")))
     count, digest = sr.PRE_RING_WITNESS_20260918_PHYSICAL_GRAPHS[shared][admission]
     assert raw.count(b"\n") - 1 == count
     assert hashlib.sha256(raw).hexdigest() == digest
