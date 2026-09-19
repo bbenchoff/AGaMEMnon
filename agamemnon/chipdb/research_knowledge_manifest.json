@@ -367,16 +367,22 @@
       "sha256": "ba19518ab48ac1f39c73b65b7e5fc862934dd27fa755cf1ea28d7f014f857192"
     },
     {
-      "bytes": 9769984,
-      "data_rows": 258014,
-      "path": "agamemnon/chipdb/corpus_conduction.csv",
-      "sha256": "0ee06435e94d898cbcc29ce92ba744e87710cc4ee87229329b6f2566ef286867"
+      "bytes": 1941,
+      "data_rows": 32,
+      "path": "agamemnon/chipdb/conduction_retired_by_conviction.csv",
+      "sha256": "dde699b1856966c7580cd61ed81b7a5db6e177329ae5aa99b060503bc20ef47d"
     },
     {
-      "bytes": 43957,
-      "data_rows": 1636,
+      "bytes": 9768865,
+      "data_rows": 257984,
+      "path": "agamemnon/chipdb/corpus_conduction.csv",
+      "sha256": "ffa38a64810e854b446b2fe2b3e55dacfa5fec4f9e1475020eea38fffc5f76b3"
+    },
+    {
+      "bytes": 51567,
+      "data_rows": 1919,
       "path": "agamemnon/chipdb/dead_edges_silicon.csv",
-      "sha256": "232bfb49f72030aa9de79b7206a6d089c86898412c4a72d0a41ef90ba86f0bd6"
+      "sha256": "d4225493cf6bfb3305eac737454ef545759ff268e234daae1aa94ee46f82bf36"
     },
     {
       "bytes": 380,
@@ -390,10 +396,10 @@
       "sha256": "6093e876041bab9f8d1f6058235713a6b8ced1024455070fe2b358e87915a041"
     },
     {
-      "bytes": 31170,
-      "data_rows": 858,
+      "bytes": 31134,
+      "data_rows": 857,
       "path": "agamemnon/chipdb/ff2_conduction.csv",
-      "sha256": "8ca90618d566ff4e4df46feda1ca15976c9e11f03048bf30914b31ccffd0a7f8"
+      "sha256": "20e59a3a87f5d849397ceae3185f552746a37dea18666f703bb00a93aaafcec6"
     },
     {
       "bytes": 1355,
@@ -454,10 +460,10 @@
       "sha256": "390b0a933b143aab08b9c5716acf176d66a37a507996131793a5bf2ec5aa4a22"
     },
     {
-      "bytes": 88465,
-      "data_rows": 2768,
+      "bytes": 88433,
+      "data_rows": 2767,
       "path": "agamemnon/chipdb/master_conduction.csv",
-      "sha256": "52c9f3e482f3f103cef801c2d810ccbb79c922ecba7d6badb1ac0084ec6adba6"
+      "sha256": "68e88792acd2480ca6d84d659181af60f79d351cc9b9ed5b04e06b3c734541c9"
     },
     {
       "bytes": 7684,
@@ -1429,10 +1435,10 @@
       "sha256": "1115d38a900f328b8e1f1a89f767296b26db8f54f5aea5299148d974944c05b7"
     },
     {
-      "bytes": 3434234,
-      "data_rows": 93302,
+      "bytes": 3936858,
+      "data_rows": 106957,
       "path": "agamemnon/chipdb/ring_witness_conduction.csv",
-      "sha256": "ddb26948c1fbeabf8c7a58e0e9c56e862485b3ebff2405457c03eab606a20f6e"
+      "sha256": "0aca87c7a0934459c3f6a9a2c3d7de78df3c8f36cd12e1f1fc7abe1d08f9cbe5"
     },
     {
       "bytes": 1607,

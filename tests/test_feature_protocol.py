@@ -627,6 +627,7 @@ def test_routing_feature_owns_resolution_and_physical_writes():
         "exit_feeder_whitelist.csv", "master_conduction.csv",
         "ff2_conduction.csv", "harvest_conduction.csv",
         "ring_witness_conduction.csv",
+        "conduction_retired_by_conviction.csv",
         "pad_output_approaches_L48.csv",
         "corpus_conduction.csv", "ff_feedback_map.csv",
         "wire_timing_worst.json", "wire_timing_exact_safe.json",

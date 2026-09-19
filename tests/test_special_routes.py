@@ -925,15 +925,16 @@ def test_current_physical_touching_pip_role_matrix_is_exhaustive(
     # 2026-09-18 ring-oscillator promotion (tools/pipwit): board-witnessed pips on physical-I/O catalog wires entered the strict graph: 790 -> 794 touching (incoming/outgoing/internal (269, 531, 10) -> (270, 534, 10)).
     # 2026-09-19 ring-oscillator promotion (tools/pipwit): board-witnessed pips on physical-I/O catalog wires entered the strict graph: 794 -> 804 touching (incoming/outgoing/internal (270, 534, 10) -> (272, 542, 10)).
     # 2026-09-19 ring-oscillator promotion (tools/pipwit): board-witnessed pips on physical-I/O catalog wires entered the strict graph: 804 -> 809 touching (incoming/outgoing/internal (272, 542, 10) -> (274, 545, 10)).
-    assert len(touching) == 809
+    # 2026-09-19 ring-oscillator promotion (tools/pipwit): board-witnessed pips on physical-I/O catalog wires entered the strict graph: 809 -> 814 touching (incoming/outgoing/internal (274, 545, 10) -> (277, 547, 10)).
+    assert len(touching) == 814
     assert hashlib.sha256(canonical).hexdigest() == (
-        "5aa3488e738679276eee015bc85b26b22d1e92dc33951ff1313a767f30007e9a"
+        "6b79f3a4e41080fd1a965e865cd12148c62f49adcd9fc93dfe67a0776beb59e9"
     )
     incoming = [edge for edge in touching if edge[1] in catalog.wires]
     outgoing = [edge for edge in touching if edge[0] in catalog.wires]
     internal = [edge for edge in touching
                 if edge[0] in catalog.wires and edge[1] in catalog.wires]
-    assert (len(incoming), len(outgoing), len(internal)) == (274, 545, 10)
+    assert (len(incoming), len(outgoing), len(internal)) == (277, 547, 10)
 
     # The census above binds the exact current physical graph.  Avoid 7,656
     # redundant catalog reads while still exercising the public validator for
@@ -1284,6 +1285,19 @@ def _pre_campaign_graph_bytes(admission, shared):
     (data / "ring_witness_conduction.csv").unlink()
     # pad-approach witnesses (padapproach.py, 2026-09-19) are campaign output too
     (data / "pad_output_approaches_L48.csv").unlink(missing_ok=True)
+    # positive-evidence rows that a campaign conviction retired come back for the pre-campaign graph
+    retired = data / "conduction_retired_by_conviction.csv"
+    if retired.exists():
+        with retired.open(newline="", encoding="utf-8") as stream:
+            rows = list(csv.DictReader(stream))
+        retired.unlink()
+        for table in sorted({row["table"] for row in rows}):
+            with (data / table).open("a", newline="", encoding="utf-8") as stream:
+                writer = csv.writer(stream, lineterminator=chr(10))
+                for row in rows:
+                    if row["table"] == table:
+                        writer.writerow([row["src_res"], row["src_x"], row["src_y"], row["dst_res"],
+                                         row["dst_x"], row["dst_y"], row["source"]])
     with (data / "dead_edges_silicon.csv").open("w", newline="", encoding="utf-8") as stream:
         writer = csv.writer(stream, lineterminator=chr(10))     # edges contain commas: keep them quoted
         writer.writerow(["edge"])

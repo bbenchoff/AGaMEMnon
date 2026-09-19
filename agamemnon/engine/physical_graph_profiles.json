@@ -8,8 +8,8 @@
       "options": [
         "AGAMEMNON_BRAM_PORTB_EXIT=1"
       ],
-      "graph_pip_count": 294834,
-      "graph_pips_sha256": "d98a5b0a757d13eb0a8886696cfe6f08d3420641e14c15a16a5c03fe82c0238b",
+      "graph_pip_count": 299656,
+      "graph_pips_sha256": "b966b288a9c218da8f20406a279f3e92279e96811d3210afb05500a47f28e08c",
       "why": "release-strict, data-logic enables, live BRAM Port B: the base graph minus the 221 Port-B exit-corridor RMUX rows"
     },
     {
@@ -18,8 +18,8 @@
       "options": [
         "AGAMEMNON_BRAM_PORTB_EXIT=1"
       ],
-      "graph_pip_count": 295907,
-      "graph_pips_sha256": "858495c6bda8a4f51465a325d4e0996e93e1da198a7c31fae403d6ce53f8f829",
+      "graph_pip_count": 300729,
+      "graph_pips_sha256": "6d9cd93d6d0d739aaa1fcff11e21fbc0eeb60ddc960461e3dcf33e04c2ec1263",
       "why": "release-strict, native enables, live BRAM Port B (examples/serv_blinky --release-strict)"
     },
     {
@@ -28,8 +28,8 @@
       "options": [
         "AGAMEMNON_BRAM_PORTB_EXIT=1"
       ],
-      "graph_pip_count": 331541,
-      "graph_pips_sha256": "6b7fb243fde3c537edf439eb17e9a2645b3b7516e9790f6b61e100a6a3b1c50e",
+      "graph_pip_count": 331258,
+      "graph_pips_sha256": "480f8e8443cbc277adedfe99a86df900ade8a29520a96228a0178999844dd1dc",
       "why": "tiered, data-logic enables, live BRAM Port B without a read port"
     },
     {
@@ -38,8 +38,8 @@
       "options": [
         "AGAMEMNON_BRAM_PORTB_EXIT=1"
       ],
-      "graph_pip_count": 332614,
-      "graph_pips_sha256": "c70d3514d9c6f2fd4b3e623cfaf8114a5b735b0f765b4cb38195abc79674b865",
+      "graph_pip_count": 332331,
+      "graph_pips_sha256": "bc67a4b1cb14942015a9d9f67b4c66c5cab5bc0cd069b62d51fbb15d4b9217c7",
       "why": "tiered, native enables, live BRAM Port B without a read port"
     },
     {
@@ -48,8 +48,8 @@
       "options": [
         "AGAMEMNON_BRAM_SITE_READ_PATHS=1"
       ],
-      "graph_pip_count": 332015,
-      "graph_pips_sha256": "8adbc9a005a1a9619d90c1b2705f3cd444178cea1821bf00b7e48d39e78a2919",
+      "graph_pip_count": 331732,
+      "graph_pips_sha256": "ceb4fe19f2917db9d90012598911c619e1ee39e4635142a295f218f16182099c",
       "why": "tiered, data-logic enables, read-ported single-port BRAM (site-read pre-route auto-enabled from the typed cell)"
     },
     {
@@ -58,8 +58,8 @@
       "options": [
         "AGAMEMNON_BRAM_SITE_READ_PATHS=1"
       ],
-      "graph_pip_count": 333086,
-      "graph_pips_sha256": "666c77993ec7fdc818532c2fd2a19256e588269a98f24807088b6652cfcc9db1",
+      "graph_pip_count": 332803,
+      "graph_pips_sha256": "bd98f2580b746a4277bf8b6eeeb21f82e0a7926d093c076025004ff900018ac9",
       "why": "tiered, native enables, read-ported single-port BRAM (the ordinary BRAM ROM/RAM build)"
     },
     {
@@ -69,8 +69,8 @@
         "AGAMEMNON_BRAM_PORTB_EXIT=1",
         "AGAMEMNON_BRAM_SITE_READ_PATHS=1"
       ],
-      "graph_pip_count": 331741,
-      "graph_pips_sha256": "01c5e7d6689df0e53a853f9c1d51b3988168c733271c33f8a491e6b0878e2f2a",
+      "graph_pip_count": 331458,
+      "graph_pips_sha256": "84b7565989e4a7e3df79cd82327d681895ddfb39c179e7a44b36cc4fd52645b8",
       "why": "tiered, data-logic enables, read-ported BRAM with a live Port B (examples/serv_blinky --no-native-clock-enable)"
     },
     {
@@ -80,8 +80,8 @@
         "AGAMEMNON_BRAM_PORTB_EXIT=1",
         "AGAMEMNON_BRAM_SITE_READ_PATHS=1"
       ],
-      "graph_pip_count": 332812,
-      "graph_pips_sha256": "f3349a08609aabe0697c05f9786e8feaf2629d6840b9db1c87d364243a28a1a5",
+      "graph_pip_count": 332529,
+      "graph_pips_sha256": "b0844fda3c258b3afa666038ab3b677d1faa89e9eec41418e94f32f334e73613",
       "why": "tiered, native enables, read-ported BRAM with a live Port B: the ordinary examples/serv_blinky build"
     }
   ]

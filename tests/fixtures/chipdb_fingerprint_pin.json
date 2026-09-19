@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "8abbca67f64204bc29a0908afe352368e10116915660cae87099fc3a4f7ac389",
-  "file_count": 270,
+  "fingerprint_sha256": "13e59ae43ad131582680966cea83bde21927d65f0d3ff57902c44fe0685eec45",
+  "file_count": 271,
   "pinned_date": "2026-09-19",
-  "reason": "Ring-oscillator campaign promotion (AG32-Docs tools/pipwit, 2026-09-19): ring_witness_conduction.csv adds every pip a ring oscillated through with clean controls on the L48 board (tier 1 via the conduction loader); dead_edges_silicon.csv gains the pips convicted by a failing ring whose every other pip was silicon-witnessed, or by two independently placed failing rings with disjoint unwitnessed scaffolding; pad_output_approaches_L48.csv carries the additional pad-feed approaches the pad-approach vehicle witnessed (the ring template's output re-routed through each RRG fan-in of the feed wire, FREQ on the pad). Graph identities, census, Port-B pin, physical_graph_profiles.json and the research inventory regenerated."
+  "reason": "Ring-oscillator campaign promotion #4 (AG32-Docs tools/pipwit, 2026-09-19): 106,957 witnessed rows incl. FF-counter, dedicated-carry and pad-approach vehicles; 283 new convictions incl. X20Y12_RMUX53->IMUX25 found by route surgery on the rando corpus adder8_kat image; positive-evidence rows that a conviction contradicts are retired into conduction_retired_by_conviction.csv. Graph identities, census, Port-B pin, physical_graph_profiles.json and the research inventory regenerated."
 }
