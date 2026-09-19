@@ -93,6 +93,12 @@ def main():
                 constraints[fields[1]] = fields[2]
     else:
         constraints = json.loads(pcf_json)
+    by_pin = {}
+    for port, pin in constraints.items():
+        if pin in by_pin:
+            raise SystemExit("pcf_bind_json: %s is assigned to both %s and %s; one package pin "
+                             "carries one port" % (pin, by_pin[pin], port))
+        by_pin[pin] = port
     device = get_device(os.environ.get("AGAMEMNON_DEVICE"))
     if not device.bond_map_qualified:
         print("WARN: %s physical map is %s; generated image is not silicon-qualified for this package"

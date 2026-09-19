@@ -55,6 +55,20 @@ def test_pcf_rejects_non_decimal_or_noncanonical_package_pins(tmp_path, spelling
         cli._read_pcf(pcf)
 
 
+def test_pcf_refuses_one_package_pin_bound_to_two_ports(tmp_path):
+    # The rando corpus once bound `reset` (an input the Pico drives) and `dig[2]`
+    # (a fabric output) to PIN_15; the build went through and the image would
+    # have fought the tester on the pin.  One lead carries one port.
+    pcf = tmp_path / "contended.pcf"
+    pcf.write_text(
+        "set_io led PIN_17\nset_io reset PIN_15\nset_io dig[2] PIN_15\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=r"PIN_15 is assigned to both reset and dig\[2\]"):
+        cli._read_pcf(pcf)
+
+
 def test_qualified_pad_vendor_presentation_is_derived_from_the_pcf(tmp_path):
     table = tmp_path / "pad_output_qualified_L48.csv"
     table.write_text(

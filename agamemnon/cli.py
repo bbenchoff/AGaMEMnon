@@ -733,6 +733,16 @@ def _read_pcf(path):
             )
         if port in pins:
             raise ValueError("%s:%d: port %s is assigned twice" % (path, lineno, port))
+        taken = next((p for p, q in pins.items() if q == pin), None)
+        if taken is not None:
+            # One package lead carries one port.  A second binding is never a
+            # valid design (an input on a pad the fabric also drives is a bus
+            # fight the board would lose silently), so refuse it here with both
+            # port names instead of building an image that contends on the pin.
+            raise ValueError(
+                "%s:%d: %s is assigned to both %s and %s; one package pin "
+                "carries one port" % (path, lineno, pin, taken, port)
+            )
         pins[port] = pin
     return pins
 
