@@ -5527,12 +5527,16 @@ static void lock_bram_portb_corridors(Context *ctx,
             }
             if (exact_done)
                 continue;
-            // Experiment knob (2026-09-19): leave generic (non-exact) BRAM ingress
-            // corridors entirely to router2.  The greedy pre-routes are a trust
+            // Generic (non-exact) BRAM ingress corridors are left to router2 by
+            // default (2026-09-19).  The greedy pre-route locks were a trust
             // argument from the unwitnessed era; on a graph the ring campaign has
-            // witnessed they may only box in the read lanes (bram_rom_kat's x9
-            // lanes failed to route even to the adjacent tile).
-            if (std::getenv("AGRV2K_NO_BRAM_GENERIC_LOCK") != nullptr)
+            // witnessed they only boxed the read lanes in: bram_rom_kat's x9 lanes
+            // failed to route even to the adjacent tile on 40/40 attempts (strict
+            // and tiered alike), routed on the first attempt without the locks and
+            // passed its board oracle (19,459 edges vs 19,531 expected).  Exact
+            // silicon replays (SERV write paths, x9 haddr) above still lock.
+            // AGRV2K_BRAM_GENERIC_LOCK=1 restores the old locking for comparison.
+            if (std::getenv("AGRV2K_BRAM_GENERIC_LOCK") == nullptr)
                 continue;
             // Shared trees negotiate as whole recorded nets. Existing same-net
             // prefixes remain bound and are not owned twice.

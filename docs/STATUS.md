@@ -56,9 +56,11 @@ hobbyist's 64x8 RAM therefore maps x18 instead of being refused by the narrow-wr
 the fail-closed backstop. A registered driver of AddressA[4] is buffered through an identity LUT
 (`engine/bram_pin_buffer.py`: its qualified source slot X14Y4_SLICE0 presents F and Q on different wires and
 only F reaches the pin), and an output lane whose admitted egress reaches <= 2 tiles (DataOutA[12]) is
-re-driven through a bound identity LUT by the uarch (`pack_bram_output_reach_bridges`). Open: the BRAM
-approach's admitted routing is thin enough that a 256x8 x9 ROM with an 8-bit read still fails to route
-release-strict (and tiered); the ring campaign is witnessing that region first.
+re-driven through a bound identity LUT by the uarch (`pack_bram_output_reach_bridges`). Generic (non-exact)
+BRAM ingress corridors are left to router2 instead of being pre-routed and locked (the locks boxed a 256x8 x9
+ROM's read lanes in on 40/40 attempts, strict and tiered alike); exact silicon replays still lock. That ROM
+(rando corpus `bram_rom_kat`) now builds release-strict with the default command in 42 s and passes its board
+oracle (19,459 edges vs 19,531 expected, 2026-09-19); serv_blinky re-verified on the board with the new default.
 
 **Shipped/promoted to this deliverable:** the hready read corridor + board-proven CtrlMUX02 terminal
 (`bram_site_read_paths.csv`), all `PORTA_WIDTH` configs (admitted, per-width distinct), ByteEn native
