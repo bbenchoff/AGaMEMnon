@@ -99,3 +99,77 @@ module \$__ALTA_BRAM9K_ (PORT_A_CLK, PORT_A_CLK_EN, PORT_A_ADDR, PORT_A_WR_DATA,
 		.ClkEn0(PORT_A_CLK_EN), .ClkEn1(PORT_B_CLK_EN)
 	);
 endmodule
+
+// techmap: $__ALTA_BRAM9K_ROM_ (the read-only block of ag32_brams.txt) -> the same primitive
+// through $__ALTA_BRAM9K_ with the write side tied off exactly as memory_libmap ties it for a
+// read-only port on the writable block (WR_EN constant 0, WR_DATA undefined).  Read-only
+// memories keep the narrow width modes; writable ones are held at x18 by the library.
+module \$__ALTA_BRAM9K_ROM_ (PORT_A_CLK, PORT_A_CLK_EN, PORT_A_ADDR, PORT_A_RD_DATA,
+				     PORT_B_CLK, PORT_B_CLK_EN, PORT_B_ADDR, PORT_B_RD_DATA);
+	parameter INIT = 0;
+	parameter PORT_A_WIDTH = 18;
+	parameter PORT_A_CLK_POL = 1;
+	parameter PORT_A_CLK_EN_POL = 1;
+	parameter PORT_A_RD_INIT_VALUE = 0;
+	parameter PORT_B_WIDTH = 18;
+	parameter PORT_B_CLK_POL = 1;
+	parameter PORT_B_CLK_EN_POL = 1;
+	parameter PORT_B_RD_INIT_VALUE = 0;
+
+	input PORT_A_CLK, PORT_A_CLK_EN;
+	input [12:0] PORT_A_ADDR;
+	output [PORT_A_WIDTH-1:0] PORT_A_RD_DATA;
+	input PORT_B_CLK, PORT_B_CLK_EN;
+	input [12:0] PORT_B_ADDR;
+	output [PORT_B_WIDTH-1:0] PORT_B_RD_DATA;
+
+	\$__ALTA_BRAM9K_ #(
+		.INIT(INIT),
+		.PORT_A_WIDTH(PORT_A_WIDTH), .PORT_A_CLK_POL(PORT_A_CLK_POL), .PORT_A_WR_EN_WIDTH(1),
+		.PORT_A_CLK_EN_POL(PORT_A_CLK_EN_POL), .PORT_A_RD_INIT_VALUE(PORT_A_RD_INIT_VALUE),
+		.PORT_B_WIDTH(PORT_B_WIDTH), .PORT_B_CLK_POL(PORT_B_CLK_POL), .PORT_B_WR_EN_WIDTH(1),
+		.PORT_B_CLK_EN_POL(PORT_B_CLK_EN_POL), .PORT_B_RD_INIT_VALUE(PORT_B_RD_INIT_VALUE)
+	) _TECHMAP_REPLACE_ (
+		.PORT_A_CLK(PORT_A_CLK), .PORT_A_CLK_EN(PORT_A_CLK_EN), .PORT_A_ADDR(PORT_A_ADDR),
+		.PORT_A_WR_DATA({PORT_A_WIDTH{1'bx}}), .PORT_A_WR_EN(1'b0), .PORT_A_RD_DATA(PORT_A_RD_DATA),
+		.PORT_B_CLK(PORT_B_CLK), .PORT_B_CLK_EN(PORT_B_CLK_EN), .PORT_B_ADDR(PORT_B_ADDR),
+		.PORT_B_WR_DATA({PORT_B_WIDTH{1'bx}}), .PORT_B_WR_EN(1'b0), .PORT_B_RD_DATA(PORT_B_RD_DATA)
+	);
+endmodule
+
+// techmap: $__ALTA_BRAM9K_DP2_ (the x2 write-A / read-B block of ag32_brams.txt, the shipped SERV
+// register-file composition) -> the same primitive through $__ALTA_BRAM9K_, Port A write-only and
+// Port B read-only exactly as memory_libmap ties them when it uses the writable block that way.
+module \$__ALTA_BRAM9K_DP2_ (PORT_A_CLK, PORT_A_CLK_EN, PORT_A_ADDR, PORT_A_WR_DATA, PORT_A_WR_EN,
+				     PORT_B_CLK, PORT_B_CLK_EN, PORT_B_ADDR, PORT_B_RD_DATA);
+	parameter INIT = 0;
+	parameter PORT_A_WIDTH = 2;
+	parameter PORT_A_CLK_POL = 1;
+	parameter PORT_A_WR_EN_WIDTH = 1;
+	parameter PORT_A_CLK_EN_POL = 1;
+	parameter PORT_B_WIDTH = 2;
+	parameter PORT_B_CLK_POL = 1;
+	parameter PORT_B_CLK_EN_POL = 1;
+	parameter PORT_B_RD_INIT_VALUE = 0;
+
+	input PORT_A_CLK, PORT_A_CLK_EN;
+	input [12:0] PORT_A_ADDR;
+	input [PORT_A_WIDTH-1:0] PORT_A_WR_DATA;
+	input [PORT_A_WR_EN_WIDTH-1:0] PORT_A_WR_EN;
+	input PORT_B_CLK, PORT_B_CLK_EN;
+	input [12:0] PORT_B_ADDR;
+	output [PORT_B_WIDTH-1:0] PORT_B_RD_DATA;
+
+	\$__ALTA_BRAM9K_ #(
+		.INIT(INIT),
+		.PORT_A_WIDTH(PORT_A_WIDTH), .PORT_A_CLK_POL(PORT_A_CLK_POL), .PORT_A_WR_EN_WIDTH(PORT_A_WR_EN_WIDTH),
+		.PORT_A_CLK_EN_POL(PORT_A_CLK_EN_POL),
+		.PORT_B_WIDTH(PORT_B_WIDTH), .PORT_B_CLK_POL(PORT_B_CLK_POL), .PORT_B_WR_EN_WIDTH(1),
+		.PORT_B_CLK_EN_POL(PORT_B_CLK_EN_POL), .PORT_B_RD_INIT_VALUE(PORT_B_RD_INIT_VALUE)
+	) _TECHMAP_REPLACE_ (
+		.PORT_A_CLK(PORT_A_CLK), .PORT_A_CLK_EN(PORT_A_CLK_EN), .PORT_A_ADDR(PORT_A_ADDR),
+		.PORT_A_WR_DATA(PORT_A_WR_DATA), .PORT_A_WR_EN(PORT_A_WR_EN), .PORT_A_RD_DATA(),
+		.PORT_B_CLK(PORT_B_CLK), .PORT_B_CLK_EN(PORT_B_CLK_EN), .PORT_B_ADDR(PORT_B_ADDR),
+		.PORT_B_WR_DATA({PORT_B_WIDTH{1'bx}}), .PORT_B_WR_EN(1'b0), .PORT_B_RD_DATA(PORT_B_RD_DATA)
+	);
+endmodule

@@ -1392,10 +1392,51 @@ def test_heap_places_a_consumer_of_qualified_hsize1_logic_entry(tmp_path, seed):
     )
 
 
-@pytest.mark.parametrize("input_pin,reachable", [(0, False), (1, True)])
+def _local_pin_pair(tile="X14Y12"):
+    """A same-tile (driver, consumer) slice pair and two consumer input pins, one the driver's
+    F output reaches in the admitted graph and one it does not.
+
+    Derived from the current strict devdb rather than pinned: the ring campaign witnesses local
+    crossbar pips continuously (X14Y12_OMUX13->IMUX08 was witnessed on 2026-09-18 21:56 and turned the
+    formerly pinned SLICE4->SLICE2.I[0] example reachable), so a fixed pair would only track history.
+    """
+    belpins = {}
+    with (DEVDB / "dev_belpins.csv").open(newline="", encoding="utf-8") as stream:
+        for row in csv.DictReader(stream):
+            belpins[(row["bel"], row["pin"])] = row["wire"]
+    downhill = defaultdict(list)
+    with (DEVDB / "dev_pips.csv").open(newline="", encoding="utf-8") as stream:
+        for row in csv.DictReader(stream):
+            downhill[row["src"]].append(row["dst"])
+    slices = ["%s_SLICE%d" % (tile, z) for z in range(16)]
+    for driver in slices:
+        source = belpins.get((driver, "F"))
+        if source is None:
+            continue
+        reachable = {source}
+        queue = deque([source])
+        while queue:
+            wire = queue.popleft()
+            for following in downhill[wire]:
+                if following not in reachable:
+                    reachable.add(following)
+                    queue.append(following)
+        for consumer in slices:
+            if consumer == driver:
+                continue
+            pins = {k: belpins.get((consumer, "I[%d]" % k)) in reachable for k in range(4)}
+            if any(pins.values()) and not all(pins.values()):
+                good = next(k for k in range(4) if pins[k])
+                bad = next(k for k in range(4) if not pins[k])
+                return driver, consumer, good, bad
+    pytest.skip("no same-tile slice pair in %s with one reachable and one unreachable input pin" % tile)
+
+
+@pytest.mark.parametrize("reachable", [False, True], ids=["unreachable-pin", "reachable-pin"])
 @pytest.mark.parametrize("legacy_opt_in", [None, "1"], ids=["default", "legacy-opt-in"])
-def test_local_slice_output_topology_uses_actual_pins(tmp_path, input_pin, reachable, legacy_opt_in):
-    source_bel, sink_bel = "X14Y12_SLICE4", "X14Y12_SLICE2"
+def test_local_slice_output_topology_uses_actual_pins(tmp_path, reachable, legacy_opt_in):
+    source_bel, sink_bel, good_pin, bad_pin = _local_pin_pair()
+    input_pin = good_pin if reachable else bad_pin
     assert _input_reaches(sink_bel, endpoint=source_bel, endpoint_pin="F",
                           pin="I[%d]" % input_pin) == reachable
     driver = _slice(bel=source_bel)
@@ -1405,7 +1446,8 @@ def test_local_slice_output_topology_uses_actual_pins(tmp_path, input_pin, reach
     inputs = ["x"] * 4
     inputs[input_pin] = 2
     consumer["connections"] = {"I": inputs, "F": [], "Q": []}
-    consumer["parameters"]["INIT"] = format(0xAAAA if input_pin == 0 else 0xCCCC, "016b")
+    identity_init = {0: 0xAAAA, 1: 0xCCCC, 2: 0xF0F0, 3: 0xFF00}
+    consumer["parameters"]["INIT"] = format(identity_init[input_pin], "016b")
     design = {"modules": {"top": {
         "attributes": {"top": 1}, "ports": {},
         "cells": {"driver": driver, "consumer": consumer},

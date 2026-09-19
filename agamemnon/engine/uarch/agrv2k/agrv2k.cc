@@ -11359,6 +11359,99 @@ struct AgrvImpl : ViaductAPI
                      n_buf);
     }
 
+    // A BRAM output lane whose admitted egress reaches only a handful of slice
+    // input pins cannot feed logic that the tile-level constructive placer
+    // spreads around the approach column: DataOutA[12] (BufMUX11) reaches 29
+    // pins, all in X14Y4, and bram_rom_kat's checksum LUTs on that lane landed
+    // on X14Y6 and failed "cannot conduct fixed input net 'data[3]'" on all 40
+    // attempts (2026-09-19).  Re-drive such a lane through one identity LUT
+    // bound at a free reachable pin; every consumer then reads ordinary logic.
+    // Lanes with broad egress are left alone (approach-first placement plus
+    // the ordinary validity check already handle them, e.g. SERV's Port B).
+    void pack_bram_output_reach_bridges()
+    {
+        if (std::getenv("AGRV2K_BRAM_PINPACK") == nullptr ||
+                std::getenv("AGRV2K_NO_BRAM_OUTPUT_REACH_BRIDGE") != nullptr)
+            return;
+        const IdString slice = ctx->id("GENERIC_SLICE");
+        constexpr size_t narrow_tiles = 2;
+        static const uint32_t identity_init[4] = {0xaaaa, 0xcccc, 0xf0f0, 0xff00};
+        struct Bridge { CellInfo *ram; IdString port; NetInfo *net; BelId site; int pin; std::vector<PortRef> users; };
+        std::vector<Bridge> bridges;
+        std::vector<IdString> rams;
+        for (auto &entry : ctx->cells)
+            if (entry.second->type == ctx->id("ALTA_BRAM9K")) rams.push_back(entry.first);
+        std::sort(rams.begin(), rams.end(), [&](IdString a, IdString b) { return a.str(ctx) < b.str(ctx); });
+        pool<BelId> taken;
+        for (IdString ram_name : rams) {
+            CellInfo *ram = ctx->cells.at(ram_name).get();
+            BelId bel = assigned_or_requested_bram_bel(ctx, ram);
+            if (bel == BelId()) bel = ctx->getBelByNameStr("X13Y4_BRAM");
+            if (bel == BelId()) continue;
+            std::vector<IdString> ports;
+            for (auto &port : ram->ports)
+                if (port.second.type == PORT_OUT && port.second.net != nullptr)
+                    ports.push_back(port.first);
+            std::sort(ports.begin(), ports.end(), [&](IdString a, IdString b) { return a.str(ctx) < b.str(ctx); });
+            for (IdString port : ports) {
+                NetInfo *net = ram->getPort(port);
+                std::vector<PortRef> users;
+                for (auto &user : net->users)
+                    if (user.cell != nullptr && user.cell->type == slice && user.cell->bel == BelId())
+                        users.push_back(user);
+                if (users.empty()) continue;
+                WireId source = ctx->getBelPinWire(bel, port);
+                if (source == WireId()) continue;
+                const auto &reach = reachable_from(source);
+                std::set<int> tiles;
+                std::vector<std::pair<BelId, int>> sites;
+                for (BelId b : ctx->getBels()) {
+                    if (ctx->getBelType(b) != slice) continue;
+                    for (int k = 0; k < 4; ++k) {
+                        WireId pw = ctx->getBelPinWire(b, ctx->id("I[" + std::to_string(k) + "]"));
+                        if (pw == WireId() || !reach.count(pw.index)) continue;
+                        Loc l = ctx->getBelLocation(b);
+                        tiles.insert((l.x << 8) | (l.y & 0xff));
+                        if (ctx->checkBelAvail(b) && !taken.count(b)) sites.push_back({b, k});
+                    }
+                }
+                if (tiles.size() > narrow_tiles) continue;
+                if (sites.empty())
+                    log_error("agrv2k: BRAM output %s reaches slice input pins in only %d tile(s) and none "
+                              "of them is free for an identity bridge\n", port.c_str(ctx), int(tiles.size()));
+                std::sort(sites.begin(), sites.end(), [&](const std::pair<BelId, int> &a, const std::pair<BelId, int> &b) {
+                    Loc la = ctx->getBelLocation(a.first), lb = ctx->getBelLocation(b.first);
+                    return std::make_tuple(a.second, la.x, la.y, la.z) < std::make_tuple(b.second, lb.x, lb.y, lb.z);
+                });
+                taken.insert(sites.front().first);
+                bridges.push_back({ram, port, net, sites.front().first, sites.front().second, std::move(users)});
+            }
+        }
+        for (Bridge &bridge : bridges) {
+            std::string lane = bridge.port.str(ctx);
+            for (char &ch : lane) if (ch == '[' || ch == ']') ch = '_';
+            std::string bname = bridge.ram->name.str(ctx) + "_" + lane + "OUTBRIDGE";
+            auto buf = create_generic_cell(ctx, slice, bname);
+            buf->params[ctx->id("INIT")] = Property(identity_init[bridge.pin], 1 << ctx->args.K);
+            buf->attrs[ctx->id("AGRV2K_BRAM_OUTPUT_BRIDGE")] = Property(bridge.port.str(ctx));
+            auto bnet_uptr = std::make_unique<NetInfo>(ctx->id(bname + "_NET"));
+            NetInfo *bnet = bnet_uptr.get();
+            for (PortRef &user : bridge.users) {
+                user.cell->disconnectPort(user.port);
+                user.cell->connectPort(user.port, bnet);
+            }
+            buf->connectPort(ctx->id("I[" + std::to_string(bridge.pin) + "]"), bridge.net);
+            buf->connectPort(ctx->id("F"), bnet);
+            CellInfo *raw = buf.get();
+            ctx->cells[raw->name] = std::move(buf);
+            ctx->nets[bnet->name] = std::move(bnet_uptr);
+            ctx->bindBel(bridge.site, raw, STRENGTH_LOCKED);
+            log_info("agrv2k: BRAM output %s egress reaches few slice pins; bridged %d consumer(s) through "
+                     "identity LUT '%s' at %s.I[%d]\n", bridge.port.c_str(ctx), int(bridge.users.size()),
+                     bname.c_str(), ctx->nameOfBel(bridge.site), bridge.pin);
+        }
+    }
+
     // Anchor every unplaced consumer of a direct MCU_DIN input BEFORE
     // condplace fills the boundary region.  Each entry has one fixed physical
     // root with a bounded conducting region; a consumer left to condplace
@@ -15867,6 +15960,7 @@ struct AgrvImpl : ViaductAPI
         pack_bram_bridge_terminals(); // graph-disconnected MCU roots only; no address-index list
         pack_bram_direct_d_terminals(); // separate register placement from shared hard-block ingress
         pack_bram_pin_drivers(ctx); // slot-exact dynamic BRAM ingress on the loaded gated graph
+        pack_bram_output_reach_bridges(); // narrow-egress output lanes get a bound identity LUT
         pack_bram_direct_d_entries(); // preserve all legal direct-D pool source locations
         pack_bram_bridge_entries(); // choose identity input pins after terminal placement
         pack_bram_output_bridges(); // derive output identities from reachability and necessary-resource conflicts

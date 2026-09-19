@@ -64,7 +64,7 @@ proc agamemnon_preserve_memory_bels {synth_dir} {
         }
         foreach assignment $assignments {
             lassign $assignment memory bel
-            yosys select -set agm_existing_blocks t:\$__ALTA_BRAM9K_
+            yosys select -set agm_existing_blocks t:\$__ALTA_BRAM9K_ t:\$__ALTA_BRAM9K_ROM_ %u t:\$__ALTA_BRAM9K_DP2_ %u
             # select -read consumes exact object names, avoiding wildcard
             # interpretation of bracketed/escaped source identifiers.
             set fh [open $scratch w]
@@ -74,7 +74,7 @@ proc agamemnon_preserve_memory_bels {synth_dir} {
             yosys select -assert-count 1 %
             yosys memory_libmap -logic-cost-ram 100000 -lib $synth_dir/ag32_brams.txt
             yosys select -clear
-            yosys select -set agm_new_blocks t:\$__ALTA_BRAM9K_ @agm_existing_blocks %d
+            yosys select -set agm_new_blocks t:\$__ALTA_BRAM9K_ t:\$__ALTA_BRAM9K_ROM_ %u t:\$__ALTA_BRAM9K_DP2_ %u @agm_existing_blocks %d
             yosys select -write $scratch @agm_new_blocks
             set fh [open $scratch r]
             set blocks [string trim [read $fh]]

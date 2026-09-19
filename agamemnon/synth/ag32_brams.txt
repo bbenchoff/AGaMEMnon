@@ -23,6 +23,20 @@
 # (x1/x2/x4/x9) sub-word writes still need the packer's DataIn sub-word window on top of ByteEn masking.
 # The `old` vs `new`/`no_change` read-during-write collision policy is
 # still unverified on hardware -- verify it when a read+write-same-cycle image is board-tested.
+#
+# Two blocks over the same primitive (2026-09-19).  A memory with a WRITE port maps only at x18
+# (one logical word per 18-bit physical row) or x2: the narrow modes pack several words per row
+# and the primitive's write reaches only the lowest packed sub-word, so an x9/x4/x1 write is
+# silently wrong on silicon (x9 proven against the vendor model and on the board, AG32-Docs
+# tools/vendor_parity/bram_x9_write_multibit_20260913).  x18 is the silicon-proven write mode.
+# The one other proven write composition is the shipped SERV register file: x2, write on Port A,
+# read on Port B (an x18 SERV has no admitted Port-B read egress, 2026-09-19).  The third block
+# offers exactly that shape -- a write-only A port and a read-only B port at x2 -- so a
+# single-port x2 RAM (write and read on one port, the unproven packed-window case) cannot take it
+# and maps x18 instead.  memory_libmap rejects a port width list that skips a step of the
+# progression (`width 2 18` is refused), hence separate blocks.
+# A read-only memory (ROM) maps through the second block and keeps every width, since nothing is
+# ever written through a packed sub-word; it costs slightly less so ROMs prefer it.
 ram block $__ALTA_BRAM9K_ {
 	# Maximum address width is for the narrowest mode.  x18 uses nine of
 	# these bits (512 words); narrow modes use progressively more.  Declaring
@@ -36,6 +50,7 @@ ram block $__ALTA_BRAM9K_ {
 	cost 64;
 	init any;
 	port srsw "A" "B" {
+		width 18;
 		clock anyedge;
 		clken;
 		# Preserve all three synthesis choices: constraining this library to OLD
@@ -47,6 +62,34 @@ ram block $__ALTA_BRAM9K_ {
 		portoption "WRITEMODE" "OLD" { rdwr old; }
 		portoption "WRITEMODE" "NEW" { rdwr new; }
 		portoption "WRITEMODE" "NO_CHANGE" { rdwr no_change; }
+		rdinit any;
+	}
+}
+ram block $__ALTA_BRAM9K_DP2_ {
+	abits 13;
+	widths 1 2 4 9 18 per_port;
+	cost 62;
+	init any;
+	port sw "A" {
+		width 2;
+		clock anyedge;
+		clken;
+	}
+	port sr "B" {
+		width 2;
+		clock anyedge;
+		clken;
+		rdinit any;
+	}
+}
+ram block $__ALTA_BRAM9K_ROM_ {
+	abits 13;
+	widths 1 2 4 9 18 per_port;
+	cost 60;
+	init any;
+	port sr "A" "B" {
+		clock anyedge;
+		clken;
 		rdinit any;
 	}
 }

@@ -1588,9 +1588,20 @@ def _malformed_register_input(log):
     return re.search(r"relative cluster rejects malformed register input on '", log) is not None
 
 
+def _bram_pin_unreachable(log):
+    """No admitted slice output reaches a dynamic BRAM pin from its qualified slot.
+
+    The pin packer's reach test runs on the loaded graph before any seed, cap or
+    fanout choice, so every attempt repeats it (bram_rom_kat and bram_fifo_kat
+    burned 40 attempts each on AddressA[4] on 2026-09-19).
+    """
+    return "no gated-graph slice output reaches dynamic BRAM pin" in (log or "")
+
+
 def _ladder_invariant_failure(log):
     """A failed attempt whose cause the rest of the escalation ladder cannot change."""
-    return _enable_cluster_unplaceable(log) or _unmappable_cell_type(log) or _malformed_register_input(log)
+    return (_enable_cluster_unplaceable(log) or _unmappable_cell_type(log) or
+            _malformed_register_input(log) or _bram_pin_unreachable(log))
 
 
 def _nonretryable_uarch_failure(log):
@@ -3166,6 +3177,14 @@ def _cmd_build_once(a):
                                         synth_json]).splitlines():
             if line.startswith("pad_isolate:") and "inserted 0 " not in line:
                 print("[build] " + line)
+        # Part four: a BRAM address bit whose qualified source slot presents a
+        # register on a wire that cannot reach the pin (AddressA[4] <- X14Y4_SLICE0)
+        # gets an identity-LUT driver, so ``addr <= addr + 1`` designs have a legal
+        # driver slot instead of failing every placement attempt.
+        for line in run("bram-pin-buffer", [sys.executable, os.path.join(engine, "bram_pin_buffer.py"),
+                                            synth_json]).splitlines():
+            if line.startswith("bram_pin_buffer:") and "inserted 0 " not in line:
+                print("[build] " + line)
     if qualified_bram_source:
         QBW.prepare_route_reservations(synth_json, qualified_bram_source["id"])
     if a.uarch and a.pin:
@@ -3787,6 +3806,9 @@ def _cmd_build_once(a):
                         why = "a cell type has no BEL in this mapping"
                     elif _malformed_register_input(rlog):
                         why = "the packer rejects a register input shape of this mapping"
+                    elif _bram_pin_unreachable(rlog):
+                        why = ("no admitted slice output reaches a dynamic BRAM pin from its "
+                               "qualified source slot (the strict graph has no witnessed path)")
                     else:
                         why = "native clock-enable cluster has no legal same-tile slot assignment"
                     print("[build] %s; seeds, caps and fanout cannot change that -- ending the ladder after attempt %d"
