@@ -1367,6 +1367,20 @@ def _route_and_timing_succeeded(log, returncode, require_fmax=False):
             and (not require_fmax or "No Fmax available" not in log))
 
 
+def _carry_seed_unplaceable(log):
+    """The dedicated-carry cluster root found no legal BEL.
+
+    The qualified carry corridor is one fixed cluster shape (X20Y12 down into
+    X20Y11).  When another fixed cell already owns one of its slices -- the
+    pad pin-packing of a top-right input such as PIN_12 lands consumers in
+    X20Y12 -- the heap placer can never seat the chain, and every seed, cap
+    and fanout rung fails identically.  Measured 2026-09-18 on the rando
+    corpus: blinky burned 117 s and lfsr16_kat its whole 25-minute budget on
+    this signature before the LUT-carry fallback was even considered.
+    """
+    return re.search(r"Unable to find legal placement for cell '\$CARRY_SEED", log) is not None
+
+
 def _nonretryable_uarch_failure(log):
     """Recognize pack errors that placement seeds and fanout cannot change."""
     return any(marker in log for marker in (
@@ -3517,6 +3531,17 @@ def _cmd_build_once(a):
                     print(rlog[-4000:])
                     print("error: requested hard-carry mapping has no feasible graph footprint")
                     sys.exit(1)
+                if (outcome == _attempt_ladder.NOT_ROUTED and run.returncode and
+                        _carry_seed_unplaceable(rlog) and _default_carry_fallback_allowed(a) and
+                        not getattr(a, "_control_sharing_candidate", False)):
+                    # A corridor conflict does not change with seeds, caps or fanout:
+                    # resynthesize with LUT carry now instead of after the whole ladder.
+                    print("[build] dedicated-carry cluster cannot be seated in its qualified corridor "
+                          "(the carry seed found no legal placement); resynthesizing once with LUT carry fallback")
+                    print("[build] dedicated-carry diagnostics retained at %s" % tmp)
+                    _restart_with_lut_carry(a)
+                    a._fallback_stages = (*getattr(a, "_fallback_stages", ()), "lut_carry_seed_unplaceable")
+                    return _cmd_build_once(a)
                 if outcome == _attempt_ladder.ABORTED:
                     print(rlog[-4000:])
                     print("error: nextpnr aborted; placement/routing retries are unsafe for this failure")

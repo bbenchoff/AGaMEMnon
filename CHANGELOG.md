@@ -7,6 +7,12 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+- `build --uarch`: when the first place-and-route attempt cannot seat the dedicated-carry
+  cluster in its qualified corridor (`Unable to find legal placement for cell '$CARRY_SEED'`,
+  typically because a top-right pad's pin-packed consumers already occupy X20Y12), the build
+  resynthesizes with LUT carry at once instead of exhausting the seed/cap/fanout ladder first
+  (fallback stage `lut_carry_seed_unplaceable`). On 2026-09-18 the rando corpus's blinky spent
+  117 s and lfsr16_kat its full 25-minute budget on that ladder.
 - Ordinary `build --uarch` now defaults to release-strict admission: only
   routing edges with a silicon witness at their exact position. Tiered
   admission is an explicit experiment, `--tiered`, which reports every

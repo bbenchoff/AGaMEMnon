@@ -1503,3 +1503,15 @@ def test_regional_placer_has_stable_bfs_order():
     src = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text()
     assert "ASLR heap addresses" in src
     assert 'a->name.str(ctx) < b->name.str(ctx)' in src
+
+
+def test_carry_seed_unplaceable_signature():
+    """The fixed-corridor conflict is recognised from the placer's own message and nothing else."""
+    from agamemnon import cli
+    hit = ("Info: agrv2k: carry graph preflight '$CARRY_SEED': 1 typed footprints\n"
+           "ERROR: Unable to find legal placement for cell '$CARRY_SEED' of type 'GENERIC_SLICE' "
+           "after 10001 attempts, check constraints and utilisation.\n")
+    assert cli._carry_seed_unplaceable(hit)
+    assert cli._carry_seed_unplaceable(hit.replace("$CARRY_SEED'", "$CARRY_SEED_1'"))
+    assert not cli._carry_seed_unplaceable("ERROR: Unable to find legal placement for cell 'foo' after 10001 attempts")
+    assert not cli._carry_seed_unplaceable("Info: Routing complete.\n")
