@@ -924,15 +924,16 @@ def test_current_physical_touching_pip_role_matrix_is_exhaustive(
     # the crossbar moved.
     # 2026-09-18 ring-oscillator promotion (tools/pipwit): board-witnessed pips on physical-I/O catalog wires entered the strict graph: 790 -> 794 touching (incoming/outgoing/internal (269, 531, 10) -> (270, 534, 10)).
     # 2026-09-19 ring-oscillator promotion (tools/pipwit): board-witnessed pips on physical-I/O catalog wires entered the strict graph: 794 -> 804 touching (incoming/outgoing/internal (270, 534, 10) -> (272, 542, 10)).
-    assert len(touching) == 804
+    # 2026-09-19 ring-oscillator promotion (tools/pipwit): board-witnessed pips on physical-I/O catalog wires entered the strict graph: 804 -> 809 touching (incoming/outgoing/internal (272, 542, 10) -> (274, 545, 10)).
+    assert len(touching) == 809
     assert hashlib.sha256(canonical).hexdigest() == (
-        "ea57c0e4c76f6d551136bde41358401f4809f0af5054227466a65da583434f6e"
+        "5aa3488e738679276eee015bc85b26b22d1e92dc33951ff1313a767f30007e9a"
     )
     incoming = [edge for edge in touching if edge[1] in catalog.wires]
     outgoing = [edge for edge in touching if edge[0] in catalog.wires]
     internal = [edge for edge in touching
                 if edge[0] in catalog.wires and edge[1] in catalog.wires]
-    assert (len(incoming), len(outgoing), len(internal)) == (272, 542, 10)
+    assert (len(incoming), len(outgoing), len(internal)) == (274, 545, 10)
 
     # The census above binds the exact current physical graph.  Avoid 7,656
     # redundant catalog reads while still exercising the public validator for
@@ -2863,9 +2864,10 @@ def test_portb_exit_graph_is_a_pure_reservation_subset_of_the_base_graph(tmp_pat
     profile = sr.registered_graph_profile("0", "release-strict", options)
     # 2026-09-18 ring-oscillator promotion (tools/pipwit): a board-witnessed RMUX row inside the BRAM exit-corridor tiles entered the strict graph: 221 -> 222 withheld rows.
     # 2026-09-19 ring-oscillator promotion (tools/pipwit): board-witnessed RMUX rows inside the BRAM exit-corridor tiles entered the strict graph: 222 -> 223 withheld rows.
+    # 2026-09-19 ring-oscillator promotion (tools/pipwit): board-witnessed RMUX rows inside the BRAM exit-corridor tiles entered the strict graph: 223 -> 225 withheld rows.
     assert len(removed) == (
         sr.EXPECTED_PHYSICAL_GRAPH_PIP_COUNT - profile["graph_pip_count"]
-    ) == 223
+    ) == 225
     tiles = {base[name][1].split("_")[0] for name in removed}
     assert all("_RMUX" in base[name][1] for name in removed)
     assert tiles == {
