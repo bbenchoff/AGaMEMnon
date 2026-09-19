@@ -27,9 +27,12 @@ cluster, unmappable cell type, malformed register input).
 
 Rando corpus (AG32-Docs `tools/rando_corpus`, default command, this graph): blinky, pwm_breathe,
 lfsr16_kat, adder8_kat, fsm_traffic, uart_tx_hello, serv_blinky build in 25-80 s; blinky, pwm,
-lfsr16, fsm_traffic and uart_tx_hello pass on the board. **Open:** the adder8_kat image built on the
-promotion-#3 graph is silent on the board while the promotion-#2 image passes; its route uses 32
-pips admitted by promotion #3 and is being bisected on the board before the next promotion.
+lfsr16, fsm_traffic and uart_tx_hello pass on the board. The adder8_kat image built on the promotion-#3 graph was silent on the board while the
+promotion-#2 image passed; route surgery on the failing netlist (re-route one branch at a time,
+everything else byte-identical) pinned it to one hop, `X20Y12_RMUX53 -> X20Y12_IMUX25`, whose only
+evidence was the vendor-mined corpus table and which does not deliver on silicon. It is convicted
+in the campaign ledger and leaves the graph at the next promotion; the ~190k tier-1 pips that still
+rest on vendor-mined evidence alone are the campaign's remaining sweep.
 bram_rom_kat fails in placement legalisation (BRAM consumers), bram_fifo_kat is refused by the
 narrow-write guard, shift_sevenseg needed the pad-isolation fix (b459428).
 
