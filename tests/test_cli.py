@@ -392,6 +392,20 @@ def test_shared_pad_corridor_is_refused_before_place_and_route(tmp_path):
     assert cli._shared_pad_corridor_conflicts({"led": "PIN_17", "red": "PIN_19"}, tmp_path) == []
 
 
+def test_witnessed_extra_approaches_lift_the_shared_approach_conflict(tmp_path):
+    """Once a feed has board-witnessed alternatives its qualified approach is not forced any more."""
+    _write_qualified_pads(tmp_path / "pad_output_qualified_L48.csv")
+    (tmp_path / "pad_output_approaches_L48.csv").write_text(
+        "feed_res,feed_x,feed_y,approach_res,approach_x,approach_y,cfg,evidence\n"
+        'RMUX85,18,9,RMUX68,17,9,"CFG_RMUX14[2,8]",pipwit-pad/pad_20260919_004105\n',
+        encoding="utf-8",
+    )
+    # PIN_17's feed has another approach: PIN_17 and PIN_19 may now carry two nets.
+    assert cli._shared_pad_corridor_conflicts({"led": "PIN_17", "red": "PIN_19"}, tmp_path) == []
+    # PIN_13 and PIN_16 share the FEED wire itself: still impossible.
+    assert len(cli._shared_pad_corridor_conflicts({"a": "PIN_13", "b": "PIN_16"}, tmp_path)) == 1
+
+
 def test_shared_pad_corridor_allows_one_net_on_two_pads(tmp_path):
     import json as _json
     _write_qualified_pads(tmp_path / "pad_output_qualified_L48.csv")

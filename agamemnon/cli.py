@@ -886,13 +886,23 @@ def _shared_pad_corridor_conflicts(output_pcf, chipdb=CHIPDB, netlist_path=None)
     path = os.path.join(chipdb, "pad_output_qualified_L48.csv")
     if not os.path.exists(path):
         return []
+    # Feed sources with board-witnessed additional approaches (pad_output_approaches_L48.csv,
+    # admitted by routing.py beside the qualified one): their qualified approach is no longer
+    # forced, so only the feed wire itself can still collide.
+    extras = set()
+    extra_path = os.path.join(chipdb, "pad_output_approaches_L48.csv")
+    if os.path.exists(extra_path):
+        for row in csv.DictReader(open(extra_path, newline="", encoding="utf-8")):
+            extras.add((row.get("feed_res"), row.get("feed_x"), row.get("feed_y")))
     corridor = {}
     for row in csv.DictReader(open(path, newline="", encoding="utf-8")):
         wires = []
-        for res, x, y in (("approach_res", "approach_x", "approach_y"),
-                          ("src_res", "src_x", "src_y")):
-            if row.get(res) and row.get(x) and row.get(y):
-                wires.append("%s@(%s,%s)" % (row[res], row[x], row[y]))
+        feed = (row.get("src_res"), row.get("src_x"), row.get("src_y"))
+        if all(feed):
+            wires.append("%s@(%s,%s)" % feed)
+        if (row.get("approach_res") and row.get("approach_x") and row.get("approach_y")
+                and feed not in extras):
+            wires.append("%s@(%s,%s)" % (row["approach_res"], row["approach_x"], row["approach_y"]))
         corridor[row.get("pin")] = wires
     net_of_port = {}
     if netlist_path and os.path.exists(netlist_path):
