@@ -1,5 +1,38 @@
 # Supported feature matrix
 
+## Routing graph made true by silicon witness — 2026-09-19
+
+Release-strict admission is the default (`--tiered` is an experiment flag). Since 2026-09-18 an
+unattended board campaign (AG32-Docs `tools/pipwit`) witnesses routing pips at their own coordinates:
+ring oscillators forced through unwitnessed pips, flip-flop counters for the typed per-slice pips
+(GCLK0 leaves, local Q feedback, DIRECT_D), dedicated-carry chains for the COUT->CIN pips, and
+pad-approach images for the fan-ins of the top-row pad-feed wires. Convicted pips (a ring that
+stayed silent while every other pip of it was witnessed, or two independently placed silent rings)
+go to `dead_edges_silicon.csv`. Three promotions so far:
+
+| promotion | witnessed rows | dead edges | strict base graph (pips) |
+| --- | --- | --- | --- |
+| before the campaign | — | 107 | 255,544 |
+| #1 (4c51ee9) | 22,000 | 213 | 263,129 |
+| #2 (c9ddecf) | 78,490 | 1,364 | 286,055 |
+| #3 (da429af) | 93,302 | 1,631 | 295,059 |
+
+`pad_output_approaches_L48.csv` (74 rows) holds board-witnessed additional approaches into all nine
+distinct L48 top-row pad-feed wires; the router admits them beside the one qualified approach, a pad
+whose feed has them is no longer confined to the vendor F/Q output slice, and two output pads on the
+same qualified approach wire are refused before place-and-route with the shared wire named. Build
+time: the device database is no longer re-emitted on every carry/SRST round (blinky 174 s -> 48 s),
+and escalation ladders end at once on invariant failures (carry corridor, zero-assignment enable
+cluster, unmappable cell type, malformed register input).
+
+Rando corpus (AG32-Docs `tools/rando_corpus`, default command, this graph): blinky, pwm_breathe,
+lfsr16_kat, adder8_kat, fsm_traffic, uart_tx_hello, serv_blinky build in 25-80 s; blinky, pwm,
+lfsr16, fsm_traffic and uart_tx_hello pass on the board. **Open:** the adder8_kat image built on the
+promotion-#3 graph is silent on the board while the promotion-#2 image passes; its route uses 32
+pips admitted by promotion #3 and is being bisected on the board before the next promotion.
+bram_rom_kat fails in placement legalisation (BRAM consumers), bram_fifo_kat is refused by the
+narrow-write guard, shift_sevenseg needed the pad-isolation fix (b459428).
+
 ## BRAM read/write width matrix (open flow) — 2026-09-15
 
 Precise, honest state of the AGRV2K BRAM (X13Y4) read/write surface in the open flow. "Emit" = the open
