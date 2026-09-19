@@ -409,6 +409,9 @@ SOURCE_FRESH_PHYSICAL_ENV = (
 GRAPH_PROFILE_OPTIONS = (
     "AGAMEMNON_BRAM_PORTB_EXIT",
     "AGAMEMNON_BRAM_SITE_READ_PATHS",
+    # byte-exact bram_pip_cfg BufMUX->RMUX exits at X13Y4 admitted as tier 2
+    # (Port-B lanes 0/1 otherwise share their only first hop; 2026-09-19)
+    "AGAMEMNON_BRAM_EXIT_CFG_ADMIT",
 )
 GRAPH_PROFILES_NAME = "physical_graph_profiles.json"
 GRAPH_PROFILES_PATH = Path(__file__).resolve().parent / GRAPH_PROFILES_NAME

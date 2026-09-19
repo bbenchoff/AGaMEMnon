@@ -9176,6 +9176,11 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
                     continue;
                 if (!slots_fit(ci, t, nullptr, BelId()))
                     continue;
+                // The regional partition never consulted `feasible`; apply the same
+                // wire-level rule here so a driver of a pin-packed consumer is not
+                // seated where no slot can reach it (bram_fifo_kat, 2026-09-19).
+                if (!tile_has_reaching_slot(ci, t))
+                    continue;
                 if (is_combinational(ci)) {
                     auto ci_oi = occ_comb.find(t);
                     int comb_used = ci_oi == occ_comb.end() ? 0 : ci_oi->second;

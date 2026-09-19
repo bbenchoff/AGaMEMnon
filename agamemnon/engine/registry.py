@@ -105,6 +105,7 @@ OPTIONS = {
     "AGAMEMNON_DIRECT_D_X15Y8_S12_EXPERIMENT": _flag("both", "experimental", "qualification/mcu_bus_clock_x15y8_s12_gpio_dff.v", "Expose the exact X15Y8 slice12 direct-D footprint for bounded silicon qualification."),
     "AGAMEMNON_DIRECT_D_EXTRA_SITES": _value("", "text", "both", "experimental", "qualification/mcu_bus_clock_evidence.jsonl", "Semicolon-separated arbitrary-length list of additional direct-D BELs admitted for bounded silicon qualification (F6 direct-D site-broadening campaign; see AG32-Docs/tools/direct_d_site_campaign/). Same shape and intent as AGAMEMNON_DIRECT_D_X15Y8_S12_EXPERIMENT, generalized to more than one site so a growing candidate list does not need a new hardcoded flag and recompile per site. Never widens the release-strict qualified four-site pool by itself; promoting a site out of this experimental list is a separate, later, evidence-gated step."),
     "AGAMEMNON_BRAM_PORTB_EXIT": _flag("both", "release", "qualification/bram_evidence.jsonl", "Enable the qualified BRAM Port-B exit corridor."),
+    "AGAMEMNON_BRAM_EXIT_CFG_ADMIT": _flag("both", "experimental", "agamemnon/chipdb/bram_pip_cfg.csv", "Admit the byte-exact bram_pip_cfg BufMUX->RMUX exits at X13Y4 as encoding-certain (tier 2), beside the Port-B corridor's single first hop per lane; graph-changing, profile-registered."),
     "AGAMEMNON_BRAM_TMUX9_SOURCE_PROFILE": _value(None, "text", "both", "release", "qualification/registered_bram_tmux9_evidence.jsonl", "Internally select one hash-bound X13Y4 x18 registered-source TMUX09 source-to-route profile."),
     "AGAMEMNON_BRAM_SITE_READ_PATHS": _flag("both", "experimental", "qualification/bram_x18_site_address_parity.v", "Expose the sensitized four-site x18 BRAM read-path corpus and atomically pre-route its per-site address/data trees."),
     "AGAMEMNON_MCU_GPIO4_REQUEST_PATHS": _flag("both", "experimental", "agamemnon/chipdb/mcu_gpio4_request_paths.csv", "Expose the measured GPIO4 bit-1 (AHB 'request') MCU-output->fabric-input entry corridor: the X11Y5_BufMUX10 boundary plus the one novel X11Y4_RMUX81 fabric bridge. Opt-in so the default device graph is byte-unchanged (zero blast radius); the corridor (vendor route + codewords triangulated with four ahbrwide corpus builds) is BOARD-WITNESSED 2026-09-12: it delivers a TOGGLING MCU-GPIO4->fabric request on silicon (attended, control-first, controls PASS both sides). The delivering hop is BufMUX10->InputMUX10; the generic BufMUX10->InputMUX11 exit does NOT deliver a faithful request, so a request build must route via InputMUX10 only."),
@@ -238,6 +239,9 @@ INDIVIDUALLY_QUALIFIED_OPTIONS = {
 }
 DIFFERENTIALLY_VALIDATED_OPTIONS = {
     "AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG",
+    # byte-exact BufMUX->RMUX exit rows harvested from vendor images
+    # (bram_pip_cfg.csv, harvest_bram_pip_cfg.py); no board witness yet
+    "AGAMEMNON_BRAM_EXIT_CFG_ADMIT",
     "AGAMEMNON_ROUTING_SELECTOR_EXPERIMENT",
     "AGAMEMNON_IO_PULLUP",
     "AGAMEMNON_IO_OPEN_DRAIN",

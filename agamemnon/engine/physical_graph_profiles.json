@@ -83,6 +83,28 @@
       "graph_pip_count": 332415,
       "graph_pips_sha256": "e3bff4a57b15fd18efe2ab76769a55049515e25125bb576e86bd1a42a0b715dc",
       "why": "tiered, native enables, read-ported BRAM with a live Port B: the ordinary examples/serv_blinky build"
+    },
+    {
+      "shared_control": "0",
+      "admission": "tiered",
+      "options": [
+        "AGAMEMNON_BRAM_EXIT_CFG_ADMIT=1",
+        "AGAMEMNON_BRAM_PORTB_EXIT=1"
+      ],
+      "graph_pip_count": 331146,
+      "graph_pips_sha256": "dfc9ad9acbc96bc7b6946293c17c9294f6ee2eb7ae7920c9deeac2133b928fc0",
+      "why": "tiered, data-logic enables, live BRAM Port B with byte-exact bram_pip_cfg exits admitted (Port-B lanes 0/1 distinct first hops; bram_fifo_kat 2026-09-19)"
+    },
+    {
+      "shared_control": "1",
+      "admission": "tiered",
+      "options": [
+        "AGAMEMNON_BRAM_EXIT_CFG_ADMIT=1",
+        "AGAMEMNON_BRAM_PORTB_EXIT=1"
+      ],
+      "graph_pip_count": 332219,
+      "graph_pips_sha256": "5b83836a599b72fe4acd562fca53c7904dbe720d71884041392b43e20da57e69",
+      "why": "tiered, native enables, live BRAM Port B with byte-exact bram_pip_cfg exits admitted (Port-B lanes 0/1 distinct first hops; bram_fifo_kat 2026-09-19)"
     }
   ]
 }

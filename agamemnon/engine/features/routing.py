@@ -1560,6 +1560,24 @@ class RoutingFeature:
             # corpus_conduction.csv: topology evidence is not a codeword.
             EXACT_HARD_BOUNDARY = MCU_AHB_FEATURE.load_routing_metadata(
                 context.chipdb_root, OPTIONS).exact_pips
+        # The BRAM feature emits a BufMUX -> RMUX exit from its own byte-exact table
+        # (chipdb/bram_pip_cfg.csv, rows keyed (dst_res, src_res, 0, 0) with X13Y4
+        # cells), but the encodability gate above only knew the MCU corridor map, so
+        # exits such as BufMUX17 -> RMUX15 were never even tier-2 although bitgen can
+        # encode them.  The tile model gives lanes 0 and 1 of Port B one admitted
+        # exit each -- the SAME wire, X13Y4_RMUX08 -- so no two-lane Port-B read
+        # could route (bram_fifo_kat, 2026-09-19).  Opt-in while the default graph
+        # identities stay pinned: AGAMEMNON_BRAM_EXIT_CFG_ADMIT=1.
+        BRAM_EXIT_CFG_KEYS = set()
+        if os.environ.get("AGAMEMNON_BRAM_EXIT_CFG_ADMIT"):
+            _bpc_admit = os.path.join(DATA, "bram_pip_cfg.csv")
+            if os.path.exists(_bpc_admit):
+                for _r in csv.DictReader(open(_bpc_admit)):
+                    if (_r["src_res"].startswith("BufMUX") and _r["dst_res"].startswith("RMUX")
+                            and int(_r["ddx"]) == 0 and int(_r["ddy"]) == 0):
+                        BRAM_EXIT_CFG_KEYS.add((int(_r["src_res"][6:]), int(_r["dst_res"][4:])))
+            print("AGRV2K arch: byte-exact BRAM exit admission ON (%d BufMUX->RMUX keys at X13Y4)"
+                  % len(BRAM_EXIT_CFG_KEYS))
         # CODEWORD-OWNERSHIP GATE (AGAMEMNON_OWNERSHIP_GATE=1; OPT-IN).
         # SelectorCertainty already applies this to INFERRED selectors, but a
         # tier-1 edge never reaches it: is_trusted grants tier 1 on a vendor route
@@ -1675,6 +1693,10 @@ class RoutingFeature:
                     int(r["dst_x"]), int(r["dst_y"]), df, di,
                 )
                 if exact_key in EXACT_HARD_BOUNDARY:
+                    return True
+                if (sf == "BufMUX" and df == "RMUX" and (si, di) in BRAM_EXIT_CFG_KEYS
+                        and (int(r["src_x"]), int(r["src_y"])) == (13, 4)
+                        and (int(r["dst_x"]), int(r["dst_y"])) == (13, 4)):
                     return True
                 # A few InputMUX entries predate the unified corridor CSVs but
                 # are still exact bitgen inputs: vendor-observed physical rows,
@@ -1822,6 +1844,14 @@ class RoutingFeature:
                 if _r["port"] == "DataOutB": _BRAM_CORRIDOR_SRC.add(_s)
             print("AGRV2K arch: Port-B silicon corridor: %d input + %d output terminals restricted"
                   % (len(_BRAM_CORRIDOR_DST), len(_BRAM_CORRIDOR_SRC)))
+        # Opt-in (AGAMEMNON_BRAM_EXIT_CFG_ADMIT): the corridor restricts every DataOutB
+        # source to its checked-in first hop, which for lanes 0 and 1 is the same
+        # wire (X13Y4_RMUX08).  A byte-exact bram_pip_cfg exit at X13Y4 is an
+        # encodable alternative the same table already emits from; admit it beside
+        # the corridor row so a two-lane Port-B read has distinct first hops.
+        if BRAM_EXIT_CFG_KEYS:
+            for _si, _di in BRAM_EXIT_CFG_KEYS:
+                _BRAM_CORRIDOR_OK.add((13, 4, _padres("BufMUX%d" % _si)) + (13, 4, _padres("RMUX%d" % _di)))
         _BRAM_EXIT_SRC = set(); _BRAM_EXIT_OK = set()
         _bxcor = os.path.join(DATA, "bram_portb_exit_corridors.csv")
         # This table is an MCU-readback route, not a universal fabric-read corridor.

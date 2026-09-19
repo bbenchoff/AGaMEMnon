@@ -62,6 +62,14 @@ ROM's read lanes in on 40/40 attempts, strict and tiered alike); exact silicon r
 (rando corpus `bram_rom_kat`) now builds release-strict with the default command in 42 s and passes its board
 oracle (19,459 edges vs 19,531 expected, 2026-09-19); serv_blinky re-verified on the board with the new default.
 
+**Port-B read lanes (2026-09-19, open):** in the emitted graph Port-B lanes 0 and 1 (X13Y4_BufMUX16/17)
+each have one admitted first hop and it is the same wire (X13Y4_RMUX08), so a two-lane Port-B read cannot
+route. `bram_pip_cfg.csv` holds byte-exact alternatives (RMUX15 <- BufMUX17, RMUX3 <- BufMUX18); the opt-in
+`AGAMEMNON_BRAM_EXIT_CFG_ADMIT=1` (experimental, differentially validated, profile-registered; needs
+`AGAMEMNON_STRICT_POLICY=experimental-strict` with the knob in `AGAMEMNON_EXPERIMENTAL_FEATURES`) admits them.
+The rando corpus `bram_fifo_kat` (64x8, write A / read B x18) builds with it under tiered admission (29
+unwitnessed edges) but read 0 Hz on the board; bisection in progress.
+
 **Shipped/promoted to this deliverable:** the hready read corridor + board-proven CtrlMUX02 terminal
 (`bram_site_read_paths.csv`), all `PORTA_WIDTH` configs (admitted, per-width distinct), ByteEn native
 emission. Read emit therefore covers the full single-port width surface (x1..x36) with no further chipdb
