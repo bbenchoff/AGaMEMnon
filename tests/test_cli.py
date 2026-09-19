@@ -406,6 +406,23 @@ def test_witnessed_extra_approaches_lift_the_shared_approach_conflict(tmp_path):
     assert len(cli._shared_pad_corridor_conflicts({"a": "PIN_13", "b": "PIN_16"}, tmp_path)) == 1
 
 
+def test_witnessed_extra_approaches_free_the_pad_from_its_vendor_output_slice(tmp_path):
+    """uart_tx_hello: txd=PIN_10 (slice 14,9,4) + led=PIN_17 (14,9,8) needed two vendor slices;
+    with PIN_17's feed approachable from ordinary logic only PIN_10 still claims one."""
+    _write_qualified_pads(tmp_path / "pad_output_qualified_L48.csv")
+    with (tmp_path / "pad_output_qualified_L48.csv").open("a", encoding="utf-8") as fh:
+        fh.write('20,13,1,PIN_10,8,RMUX55,20,9,RMUX61,17,9,"14,9,4",4,e\n')
+    with pytest.raises(ValueError, match="multiple vendor-output slices"):
+        cli._qualified_pad_vendor_out({"txd": "PIN_10", "led": "PIN_17"}, tmp_path)
+    (tmp_path / "pad_output_approaches_L48.csv").write_text(
+        "feed_res,feed_x,feed_y,approach_res,approach_x,approach_y,cfg,evidence\n"
+        'RMUX85,18,9,RMUX68,17,9,"CFG_RMUX14[2,8]",pipwit-pad/pad_20260919_004105\n',
+        encoding="utf-8",
+    )
+    assert cli._qualified_pad_vendor_out({"txd": "PIN_10", "led": "PIN_17"}, tmp_path) == "14,9,4"
+    assert cli._qualified_pad_vendor_out({"led": "PIN_17"}, tmp_path) is None
+
+
 def test_shared_pad_corridor_allows_one_net_on_two_pads(tmp_path):
     import json as _json
     _write_qualified_pads(tmp_path / "pad_output_qualified_L48.csv")

@@ -1598,3 +1598,15 @@ def test_inherited_hw_carry_does_not_fingerprint_the_devdb():
     assert all('"AGAMEMNON_HW_CARRY=1"' in branch.split("]", 1)[0] for branch in emit_branches)
     emitter = (pathlib.Path(__file__).resolve().parents[1] / "agamemnon" / "engine" / "emit_uarch_db.py").read_text(encoding="utf-8")
     assert "os.environ[k] = v" in emitter
+
+
+def test_enable_cluster_unplaceable_signature():
+    """The zero-assignment enable cluster is recognised from the placer's own message only."""
+    from agamemnon import cli
+    hit = ("Info: agrv2k: flexible enable cluster '$agrv2k_clken$$abc$1145$auto$opt_dff.cc:350:"
+           "make_patterns_logic$1004$0': 10 register(s), 0 legal tile assignment(s)\n"
+           "ERROR: agrv2k: clock-enable cluster '$agrv2k_clken$$abc$1145$auto$opt_dff.cc:350:"
+           "make_patterns_logic$1004$0' has no legal same-tile slot assignment\n")
+    assert cli._enable_cluster_unplaceable(hit)
+    assert not cli._enable_cluster_unplaceable("ERROR: Unable to find legal placement for cell 'foo' after 10001 attempts")
+    assert not cli._enable_cluster_unplaceable("Info: agrv2k: flexible enable cluster 'x': 4 register(s), 3 legal tile assignment(s)\n")

@@ -955,12 +955,22 @@ def _qualified_pad_vendor_out(output_pcf, chipdb=CHIPDB, hard_output_pins=()):
     if not os.path.exists(path):
         return None
     hard_output_pins = set(hard_output_pins)
+    # A pad whose feed source has board-witnessed additional approaches
+    # (pad_output_approaches_L48.csv) no longer has to start its route on the
+    # vendor F/Q slice: any of its approaches reaches the feed from ordinary
+    # logic, so it does not compete for the one admitted vendor-output slice.
+    freed = set()
+    extra_path = os.path.join(chipdb, "pad_output_approaches_L48.csv")
+    if os.path.exists(extra_path):
+        for row in csv.DictReader(open(extra_path, newline="", encoding="utf-8")):
+            freed.add((row.get("feed_res"), row.get("feed_x"), row.get("feed_y")))
     selected = {
         row.get("vendor_out_slice", "").strip()
         for row in csv.DictReader(open(path, newline="", encoding="utf-8"))
         if row.get("pin") in set(output_pcf.values())
         and row.get("pin") not in hard_output_pins
         and row.get("vendor_out_slice", "").strip()
+        and (row.get("src_res"), row.get("src_x"), row.get("src_y")) not in freed
     }
     if len(selected) > 1:
         raise ValueError(
@@ -1539,6 +1549,19 @@ def _carry_seed_unplaceable(log):
     this signature before the LUT-carry fallback was even considered.
     """
     return re.search(r"Unable to find legal placement for cell '\$CARRY_SEED", log) is not None
+
+
+def _enable_cluster_unplaceable(log):
+    """A native clock-enable cluster reported zero legal same-tile slot assignments.
+
+    That is a property of the mapping (how many registers share the enable and
+    which tiles can host them), not of the placement seed, cap or fanout split,
+    so the rest of the escalation ladder cannot change it.  Measured 2026-09-19
+    on the rando corpus: pwm_breathe's recovered native-SRST candidate spent
+    40 attempts (about 90 s) on exactly this before the legacy candidate built;
+    fsm_traffic and adder8_kat lost 34 and 30 attempts the same way.
+    """
+    return re.search(r"clock-enable cluster '.*' has no legal same-tile slot assignment", log) is not None
 
 
 def _nonretryable_uarch_failure(log):
@@ -3552,6 +3575,7 @@ def _cmd_build_once(a):
         # create it, wasting the only potentially decisive early observation.
         os.makedirs(attempts_dir, exist_ok=True)
         attempt_records = []
+        ladder_futile = False          # set when one attempt proves the rest of the ladder pointless
         native_enable_reports = []
         attempt_no = 0
         for attempt, (cap, fo) in enumerate(attempts):
@@ -3722,6 +3746,17 @@ def _cmd_build_once(a):
                     _restart_with_lut_carry(a)
                     a._fallback_stages = (*getattr(a, "_fallback_stages", ()), "lut_carry_seed_unplaceable")
                     return _cmd_build_once(a)
+                if (outcome == _attempt_ladder.NOT_ROUTED and run.returncode and
+                        native_enable and _enable_cluster_unplaceable(rlog)):
+                    # Seeds, caps and fanout splitting cannot give the cluster a legal
+                    # tile: end the ladder now.  Everything that follows a full ladder
+                    # (selective data-logic retry, candidate exhaustion, compaction and
+                    # data-logic fallbacks) accepts this shorter record set unchanged.
+                    print("[build] native clock-enable cluster has no legal same-tile slot assignment; "
+                          "seeds, caps and fanout cannot change that -- ending the ladder after attempt %d"
+                          % attempt_no)
+                    ladder_futile = True
+                    break
                 if outcome == _attempt_ladder.ABORTED:
                     print(rlog[-4000:])
                     print("error: nextpnr aborted; placement/routing retries are unsafe for this failure")
@@ -3788,9 +3823,9 @@ def _cmd_build_once(a):
                     # endpoint in a design that has none.
                     if no_fmax_available and require_timing_path:
                         break
-                if seed_index + 1 < len(placement_seeds):
+                if not ladder_futile and seed_index + 1 < len(placement_seeds):
                     print("[build]   did not route; retrying deterministic seed")
-            if log is not None or (no_fmax_available and require_timing_path):
+            if log is not None or ladder_futile or (no_fmax_available and require_timing_path):
                 break
             if attempt + 1 < len(attempts):
                 print("[build]   did not route; escalating")
