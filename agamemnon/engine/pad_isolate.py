@@ -90,7 +90,11 @@ def isolate(design):
             "connections": {"I": [bit, "0", "0", "0"], "Q": [output_bit]},
         }
         cell["connections"]["I"] = [output_bit]
-        users[bit] = [u for u in users[bit] if u[0] != name]
+        # The buffer now reads the shared net: a sibling pad on the same net (``assign led =
+        # dig[0]``) must see that reader and get its own buffer too, or the bitgen's native
+        # endpoint check finds the sibling IOB reading the first buffer's input bit
+        # ("malformed mixed input endpoint claim on port I", shift_sevenseg 2026-09-19).
+        users[bit] = [u for u in users[bit] if u[0] != name] + [(buf, "I", 0)]
         users[output_bit] = [(name, "I", 0)]
         added += 1
     return added, examined

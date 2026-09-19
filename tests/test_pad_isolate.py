@@ -126,3 +126,23 @@ def test_build_runs_pad_isolation_after_qin_and_not_for_exact_replays():
     replay = src.index('run("exact-route-replay"')
     assert qin < pad < replay
     assert "if not qualified_profile:" in src[qin:pad]
+
+
+def test_two_pads_on_one_lut_net_both_get_buffers():
+    """``assign led = dig[0]``: after the first pad is buffered the net still has two readers (the
+    sibling pad and the new buffer), so the sibling gets its own buffer as well.  Leaving it on the raw
+    net made the bitgen's native endpoint check refuse the first buffer ("malformed mixed input
+    endpoint claim on port I", shift_sevenseg 2026-09-19)."""
+    design = _design({
+        "dig0_lut": _lut([2, 3, 4, 5], 7),
+        "dig0_pad": _iob_out(7, pad=90),
+        "led_pad": _iob_out(7, pad=91),
+    })
+    added, examined = pad_isolate.isolate(design)
+    assert (added, examined) == (2, 2)
+    cells = design["modules"]["top"]["cells"]
+    fed = {cells[n]["connections"]["I"][0] for n in ("dig0_pad", "led_pad")}
+    bufs = [c for n, c in cells.items() if n.startswith("$pad_buf$")]
+    assert len(bufs) == 2 and {b["connections"]["Q"][0] for b in bufs} == fed
+    assert all(b["connections"]["I"][0] == 7 for b in bufs)
+
