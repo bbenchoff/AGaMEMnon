@@ -1564,6 +1564,25 @@ def _enable_cluster_unplaceable(log):
     return re.search(r"clock-enable cluster '.*' has no legal same-tile slot assignment", log) is not None
 
 
+def _unmappable_cell_type(log):
+    """nextpnr found a cell whose type has no BEL at all (a yosys ``$mux``/``$_..._`` the mapping
+    left unlowered).  That is a netlist property: no seed, cap or fanout split can create a BEL for
+    it.  fsm_traffic's recovered native-SRST candidate spent 34 attempts on one on 2026-09-19."""
+    return re.search(r"no BELs remaining to implement cell type '", log) is not None
+
+
+def _malformed_register_input(log):
+    """The packer rejected a relative cluster's register input shape (e.g. ``LOCAL_QIN_I2: requires
+    own-Q feedback on I[2]``): a property of the mapped netlist, invariant under seed, cap and fanout.
+    uart_tx_hello and bram_fifo_kat spent 22-40 attempts on it on 2026-09-19."""
+    return re.search(r"relative cluster rejects malformed register input on '", log) is not None
+
+
+def _ladder_invariant_failure(log):
+    """A failed attempt whose cause the rest of the escalation ladder cannot change."""
+    return _enable_cluster_unplaceable(log) or _unmappable_cell_type(log) or _malformed_register_input(log)
+
+
 def _nonretryable_uarch_failure(log):
     """Recognize pack errors that placement seeds and fanout cannot change."""
     return any(marker in log for marker in (
@@ -3747,14 +3766,21 @@ def _cmd_build_once(a):
                     a._fallback_stages = (*getattr(a, "_fallback_stages", ()), "lut_carry_seed_unplaceable")
                     return _cmd_build_once(a)
                 if (outcome == _attempt_ladder.NOT_ROUTED and run.returncode and
-                        native_enable and _enable_cluster_unplaceable(rlog)):
+                        (_unmappable_cell_type(rlog) or _malformed_register_input(rlog) or
+                         (native_enable and _enable_cluster_unplaceable(rlog)))):
                     # Seeds, caps and fanout splitting cannot give the cluster a legal
-                    # tile: end the ladder now.  Everything that follows a full ladder
+                    # tile, create a BEL for an unlowered cell type or reshape a register
+                    # input: end the ladder now.  Everything that follows a full ladder
                     # (selective data-logic retry, candidate exhaustion, compaction and
                     # data-logic fallbacks) accepts this shorter record set unchanged.
-                    print("[build] native clock-enable cluster has no legal same-tile slot assignment; "
-                          "seeds, caps and fanout cannot change that -- ending the ladder after attempt %d"
-                          % attempt_no)
+                    if _unmappable_cell_type(rlog):
+                        why = "a cell type has no BEL in this mapping"
+                    elif _malformed_register_input(rlog):
+                        why = "the packer rejects a register input shape of this mapping"
+                    else:
+                        why = "native clock-enable cluster has no legal same-tile slot assignment"
+                    print("[build] %s; seeds, caps and fanout cannot change that -- ending the ladder after attempt %d"
+                          % (why, attempt_no))
                     ladder_futile = True
                     break
                 if outcome == _attempt_ladder.ABORTED:

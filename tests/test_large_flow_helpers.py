@@ -1610,3 +1610,23 @@ def test_enable_cluster_unplaceable_signature():
     assert cli._enable_cluster_unplaceable(hit)
     assert not cli._enable_cluster_unplaceable("ERROR: Unable to find legal placement for cell 'foo' after 10001 attempts")
     assert not cli._enable_cluster_unplaceable("Info: agrv2k: flexible enable cluster 'x': 4 register(s), 3 legal tile assignment(s)\n")
+
+
+def test_unmappable_cell_type_signature():
+    """A cell type without any BEL ends the ladder; ordinary placement exhaustion does not."""
+    from agamemnon import cli
+    hit = "ERROR: Unable to place cell '$auto$opt_share.cc:244:merge_operators$531', no BELs remaining to implement cell type '$mux'"
+    assert cli._unmappable_cell_type(hit)
+    assert cli._ladder_invariant_failure(hit)
+    assert not cli._unmappable_cell_type("ERROR: Unable to find legal placement for cell 'foo' after 10001 attempts")
+
+
+
+def test_malformed_register_input_signature():
+    from agamemnon import cli
+    hit = ("ERROR: agrv2k: relative cluster rejects malformed register input on "
+           "'$abc$1325$auto$blifparse.cc:557:parse_blif$1386_LC' at tile offset X0Y0Z5: LOCAL_QIN_I2: requires own-Q feedback on I[2]")
+    assert cli._malformed_register_input(hit)
+    assert cli._ladder_invariant_failure(hit)
+    assert not cli._malformed_register_input("ERROR: agrv2k: no compatible free slice bel on assigned tile (14,4) for cell 'x'")
+
