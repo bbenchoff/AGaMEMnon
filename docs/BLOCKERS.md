@@ -108,3 +108,17 @@ Generated from `agamemnon.engine.silicon_negatives` in the integrated checkout: 
 Native, endpoint, retained and worktree-refresh artifacts are retained in AG32-Docs under `tools/vendor_parity/gpt6_release_*_20260906/` and `gpt6_xbar_release_endpoint_retained_20260906/`. Vendor evidence stays there. These historical compiler artifacts do not establish all-site qualification, universal timing or fence closure. The v0.4.0 and OpenOCD releases are now published.
 
 Historical candidate SDK checkpoint (2026-09-07): run `34089520106` failed archive assembly after passing its regression stage. Commit `348f94f` corrected the stale classification of the two required normalized runtime tables; the actual candidate-wheel preflight now passes. Run `34094652131` was cancelled after independently reproducing a release-note test failure. The corrected replacement `34097320224` passed both platforms, and its downloaded release set passed independent checksum and embedded-wheel validation.
+
+## Full test suite: 44 pre-existing failures on main -- 2026-09-19 14:20
+
+`pytest tests/` on main (WSL, oss-cad-suite, qualified nextpnr) reports 3,896 passed, 126 skipped and 44
+failed, and the same 44 fail with the day's working-tree changes stashed. They are outside the five-file
+promotion gate (`test_special_routes`, `test_large_flow_helpers`, `test_research_knowledge_manifest`,
+`test_routing_tiers`, `test_feature_protocol`), so promotions #4-#8 passed their gate while these were
+failing. Signatures: `no bel named X14Y8_CLKEN0` (tests/test_mixed_native_control.py, 14 cases), `PIN_25
+requires exact X14Y11_SLICE4.Q -> X0Y4_IOB0.I ownership` (test_native_constant_driver_semantics), `BRAM output
+DataOutA[0] reaches slice input pins in only 0 tile(s)` (test_native_bram_*), hash-pinned MCU exact-map
+composers, `test_pack.py::test_pack_byte_exact[comb_routed.json]`, `test_wire_timing::...binds_only_certified_
+route_pips`, `test_build_e2e`. The first signature points at a stale generated devdb in the tree; the others need
+triage against the promoted chipdb (ring_witness_conduction.csv / dead_edges_silicon.csv changed the strict graph
+five times today). Log: AG32-Docs side, /root/pipwit/fullgate.log and rerun44_main.log in WSL.

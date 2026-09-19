@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "7fb31f7b0450e17af827ee5a5521e60f8f7de10affa3c7894d054be204932a8b",
+  "fingerprint_sha256": "0c2a96ca30294c1083076ab2a9d681d98fefc3e1d17b61b49057d2bbaf8a227f",
   "file_count": 271,
   "pinned_date": "2026-09-19",
-  "reason": "Ring-oscillator campaign promotion #8 (AG32-Docs tools/pipwit, 2026-09-19 ~10:50): two convictions from forced retests of the release-strict bram_fifo_kat image (X16Y4_OMUX14->X16Y4_RMUX43, X14Y6_RMUX67->X14Y4_RMUX79) plus ring/FF/carry witnesses since #7. Graph identities, census, Port-B pin, physical_graph_profiles.json and the research inventory regenerated."
+  "reason": "Ring-oscillator campaign promotion #9 (2026-09-19 14:45): witnesses since #8, acquittals propagated (correcting release), two-failure conviction rule"
 }
