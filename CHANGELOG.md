@@ -7,6 +7,11 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+- chipdb: `pad_output_approaches_L48.csv` -- board-witnessed additional approaches into a
+  qualified pad-feed source, admitted by the routing graph beside the one qualified approach.
+  2026-09-19: eight fan-ins of PIN_17's feed RMUX85@(18,9) conduct (ring template re-routed
+  through each, FREQ on the pad), two were silent and are in `dead_edges_silicon.csv`. PIN_17
+  no longer has to share RMUX68@(15,9) with PIN_19, so a design can drive both.
 - `build --pcf`: two output ports on qualified pads whose corridors share a feed wire
   (PIN_17 and PIN_19 through RMUX68@(15,9); PIN_13 and PIN_16 through RMUX61@(15,9) and
   RMUX55@(19,9)) are refused right after synthesis with the shared wire and the unshared

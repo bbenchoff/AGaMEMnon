@@ -923,15 +923,16 @@ def test_current_physical_touching_pip_role_matrix_is_exhaustive(
     # must have -- a change to either of those would mean something other than
     # the crossbar moved.
     # 2026-09-18 ring-oscillator promotion (tools/pipwit): board-witnessed pips on physical-I/O catalog wires entered the strict graph: 790 -> 794 touching (incoming/outgoing/internal (269, 531, 10) -> (270, 534, 10)).
-    assert len(touching) == 794
+    # 2026-09-19 ring-oscillator promotion (tools/pipwit): board-witnessed pips on physical-I/O catalog wires entered the strict graph: 794 -> 804 touching (incoming/outgoing/internal (270, 534, 10) -> (272, 542, 10)).
+    assert len(touching) == 804
     assert hashlib.sha256(canonical).hexdigest() == (
-        "1ae6ea3fc42da9f8d7112d790e4830f1c091ecb21892678135152cd03818f5a2"
+        "ea57c0e4c76f6d551136bde41358401f4809f0af5054227466a65da583434f6e"
     )
     incoming = [edge for edge in touching if edge[1] in catalog.wires]
     outgoing = [edge for edge in touching if edge[0] in catalog.wires]
     internal = [edge for edge in touching
                 if edge[0] in catalog.wires and edge[1] in catalog.wires]
-    assert (len(incoming), len(outgoing), len(internal)) == (270, 534, 10)
+    assert (len(incoming), len(outgoing), len(internal)) == (272, 542, 10)
 
     # The census above binds the exact current physical graph.  Avoid 7,656
     # redundant catalog reads while still exercising the public validator for
@@ -1280,6 +1281,8 @@ def _pre_campaign_graph_bytes(admission, shared):
     data = work / "chipdb"
     shutil.copytree(CHIPDB, data)
     (data / "ring_witness_conduction.csv").unlink()
+    # pad-approach witnesses (padapproach.py, 2026-09-19) are campaign output too
+    (data / "pad_output_approaches_L48.csv").unlink(missing_ok=True)
     with (data / "dead_edges_silicon.csv").open("w", newline="", encoding="utf-8") as stream:
         writer = csv.writer(stream, lineterminator=chr(10))     # edges contain commas: keep them quoted
         writer.writerow(["edge"])
@@ -2859,9 +2862,10 @@ def test_portb_exit_graph_is_a_pure_reservation_subset_of_the_base_graph(tmp_pat
     removed = set(base) - set(portb)
     profile = sr.registered_graph_profile("0", "release-strict", options)
     # 2026-09-18 ring-oscillator promotion (tools/pipwit): a board-witnessed RMUX row inside the BRAM exit-corridor tiles entered the strict graph: 221 -> 222 withheld rows.
+    # 2026-09-19 ring-oscillator promotion (tools/pipwit): board-witnessed RMUX rows inside the BRAM exit-corridor tiles entered the strict graph: 222 -> 223 withheld rows.
     assert len(removed) == (
         sr.EXPECTED_PHYSICAL_GRAPH_PIP_COUNT - profile["graph_pip_count"]
-    ) == 222
+    ) == 223
     tiles = {base[name][1].split("_")[0] for name in removed}
     assert all("_RMUX" in base[name][1] for name in removed)
     assert tiles == {

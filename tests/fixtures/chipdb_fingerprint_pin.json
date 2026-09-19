@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "ff48f4c580f97575a811991c140f36f7a519b257e95d69346714a8dfae57b597",
-  "file_count": 269,
-  "pinned_date": "2026-09-18",
-  "reason": "Ring-oscillator campaign promotion (AG32-Docs tools/pipwit, 2026-09-18): ring_witness_conduction.csv adds every pip a ring oscillated through with clean controls on the L48 board (tier 1 via the conduction loader); dead_edges_silicon.csv gains the pips convicted by a failing ring whose every other pip was silicon-witnessed, or by two independently placed failing rings with disjoint unwitnessed scaffolding. Four graph identities, the PRE_RING_WITNESS_20260918 replay ladder, the physical-touching pip census, physical_graph_profiles.json and the research inventory regenerated."
+  "fingerprint_sha256": "a63b8bac35d44d591cf799e129fc2ced421dee3fa2bf053ebdf1e8db5fc513a3",
+  "file_count": 270,
+  "pinned_date": "2026-09-19",
+  "reason": "Ring-oscillator campaign promotion (AG32-Docs tools/pipwit, 2026-09-19): ring_witness_conduction.csv adds every pip a ring oscillated through with clean controls on the L48 board (tier 1 via the conduction loader); dead_edges_silicon.csv gains the pips convicted by a failing ring whose every other pip was silicon-witnessed, or by two independently placed failing rings with disjoint unwitnessed scaffolding; pad_output_approaches_L48.csv carries the additional pad-feed approaches the pad-approach vehicle witnessed (the ring template's output re-routed through each RRG fan-in of the feed wire, FREQ on the pad). Graph identities, census, Port-B pin, physical_graph_profiles.json and the research inventory regenerated."
 }

@@ -847,6 +847,7 @@ class RoutingFeature:
             "exit_feeder_whitelist.csv", "master_conduction.csv",
             "ff2_conduction.csv", "harvest_conduction.csv",
             "ring_witness_conduction.csv",
+            "pad_output_approaches_L48.csv",
             "corpus_conduction.csv", "ff_feedback_map.csv",
             "wire_timing_worst.json", "wire_timing_exact_safe.json",
             "wire_timing_exact_safe_manifest.json", "wire_timing_measured.json",
@@ -1127,6 +1128,19 @@ class RoutingFeature:
             for _qr in _qualified.values()
         }
 
+        # Board-witnessed ADDITIONAL approaches into a pad-feed source (pipwit pad-approach
+        # vehicle, 2026-09-19: the ring template's PIN_17 output re-routed through each RRG
+        # fan-in of RMUX85@(18,9); 8 conducted, 2 were convicted into dead_edges_silicon.csv).
+        # The qualified approach stays; these are admitted beside it, so two output pads whose
+        # qualified approaches share a wire (PIN_17 and PIN_19 via RMUX68@(15,9)) can carry two nets.
+        _extra_approach = {}     # (feed_res, x, y) -> {(approach_res, x, y)}
+        _apath = os.path.join(DATA, "pad_output_approaches_L48.csv")
+        if os.path.exists(_apath):
+            for _ar in csv.DictReader(open(_apath)):
+                _extra_approach.setdefault(
+                    (_ar["feed_res"], int(_ar["feed_x"]), int(_ar["feed_y"])), set()).add(
+                    (_ar["approach_res"], int(_ar["approach_x"]), int(_ar["approach_y"])))
+
         _qual_terminal = {}      # (pad_x, pad_y, z) -> feeder RMUX index
         _qual_feed = {}          # (pad_x, pad_y, feeder) -> (src_res, x, y)
         for _qr in _qualified.values():
@@ -1167,7 +1181,9 @@ class RoutingFeature:
                     (r["dst_res"], dst_tile[0], dst_tile[1])
                 )
                 if approach is not None and src != (
-                        _norm_res(approach[0]), approach[1], approach[2]):
+                        _norm_res(approach[0]), approach[1], approach[2]) and src not in {
+                            (_norm_res(_a[0]), _a[1], _a[2]) for _a in
+                            _extra_approach.get((r["dst_res"], dst_tile[0], dst_tile[1]), ())}:
                     return True
             return False
 
