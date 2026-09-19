@@ -1435,13 +1435,17 @@ def test_silicon_dead_edges_have_absolute_precedence():
         dead = {pat.fullmatch(row["edge"]).groups() for row in csv.DictReader(f)}
     positive = set()
     for name in ("master_conduction.csv", "ff2_conduction.csv",
-                 "harvest_conduction.csv", "corpus_conduction.csv"):
+                 "harvest_conduction.csv", "ring_witness_conduction.csv",
+                 "corpus_conduction.csv"):
         with (data / name).open(newline="") as f:
             positive.update((row["src_res"], row["src_x"], row["src_y"],
                              row["dst_res"], row["dst_x"], row["dst_y"])
                             for row in csv.DictReader(f))
-    assert dead == {("IMUX17", "14", "8", "RMUX69", "14", "8")}
+    # The retained X14Y8 turnaround plus every pip the ring campaign convicted
+    # (a ring through it failed while all its other pips were silicon-witnessed).
+    assert ("IMUX17", "14", "8", "RMUX69", "14", "8") in dead
     assert positive
+    assert not (dead & positive), "a convicted edge must not also carry positive evidence"
 
     # The retained positive corpora still exercise zero-padded resource names
     # (RMUX09 versus normalized RMUX9), so the normalized-key implementation

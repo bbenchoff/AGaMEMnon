@@ -922,15 +922,16 @@ def test_current_physical_touching_pip_role_matrix_is_exhaustive(
     # `internal` (10) are unchanged, which is the shape a BRAM-input widening
     # must have -- a change to either of those would mean something other than
     # the crossbar moved.
-    assert len(touching) == 790
+    # 2026-09-18 ring-oscillator promotion (tools/pipwit): board-witnessed pips on physical-I/O catalog wires entered the strict graph: 790 -> 794 touching (incoming/outgoing/internal (269, 531, 10) -> (270, 534, 10)).
+    assert len(touching) == 794
     assert hashlib.sha256(canonical).hexdigest() == (
-        "17b87d2b19163f71049786c14261b1013479f5d225e9f0f314ca748831081bb7"
+        "1ae6ea3fc42da9f8d7112d790e4830f1c091ecb21892678135152cd03818f5a2"
     )
     incoming = [edge for edge in touching if edge[1] in catalog.wires]
     outgoing = [edge for edge in touching if edge[0] in catalog.wires]
     internal = [edge for edge in touching
                 if edge[0] in catalog.wires and edge[1] in catalog.wires]
-    assert (len(incoming), len(outgoing), len(internal)) == (269, 531, 10)
+    assert (len(incoming), len(outgoing), len(internal)) == (270, 534, 10)
 
     # The census above binds the exact current physical graph.  Avoid 7,656
     # redundant catalog reads while still exercising the public validator for
@@ -1259,8 +1260,77 @@ def test_cold_physical_devdb_rebuild_reaches_final_bitgen_byte_identically(tmp_p
     assert cold_output.read_bytes() == control_output.read_bytes()
 
 
+# ---------------------------------------------------------------------------
+# The ring-oscillator campaign (AG32-Docs tools/pipwit, 2026-09-18) promotes board-witnessed pips
+# into tier 1 through chipdb/ring_witness_conduction.csv and convicts dead ones into
+# dead_edges_silicon.csv. Hiding both tables reproduces the pre-campaign graph exactly, which is the
+# identity every older withdrawal predecessor is expressed against.
+PRE_CAMPAIGN_DEAD_EDGES = ("IMUX17@14,8->RMUX69@14,8",)
+_PRE_CAMPAIGN_CACHE = {}
+
+
+def _pre_campaign_graph_bytes(admission, shared):
+    """dev_pips.csv bytes of the source-fresh graph with the campaign's tables hidden."""
+    key = (admission, shared)
+    if key in _PRE_CAMPAIGN_CACHE:
+        return _PRE_CAMPAIGN_CACHE[key]
+    import tempfile
+    root = Path(__file__).parents[1]
+    work = Path(tempfile.mkdtemp(prefix="pre-campaign-chipdb-"))
+    data = work / "chipdb"
+    shutil.copytree(CHIPDB, data)
+    (data / "ring_witness_conduction.csv").unlink()
+    with (data / "dead_edges_silicon.csv").open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.writer(stream, lineterminator=chr(10))     # edges contain commas: keep them quoted
+        writer.writerow(["edge"])
+        for edge in PRE_CAMPAIGN_DEAD_EDGES:
+            writer.writerow([edge])
+    devdb = work / ("devdb_" + admission + "_sc" + shared)
+    command = [
+        sys.executable,
+        str(root / "agamemnon" / "engine" / "emit_uarch_db.py"),
+        "--arch", str(root / "agamemnon" / "engine" / "arch.py"),
+        "--data", str(data),
+        "--out", str(devdb),
+    ]
+    environ = list(sr.SOURCE_FRESH_PHYSICAL_ENV)
+    if shared == "1":
+        environ.append(sr.SHARED_CONTROL_GRAPH_ENV + "=1")
+    if admission != "release-strict":
+        environ.append("AGAMEMNON_ROUTING_ADMISSION=" + admission)
+    for item in environ:
+        command.extend(("--env", item))
+    emitted = subprocess.run(command, cwd=root, text=True, capture_output=True, timeout=300)
+    assert emitted.returncode == 0, emitted.stdout + emitted.stderr
+    raw = (devdb / "dev_pips.csv").read_bytes()
+    count, digest = sr.PRE_RING_WITNESS_20260918_PHYSICAL_GRAPHS[shared][admission]
+    assert raw.count(b"\n") - 1 == count
+    assert hashlib.sha256(raw).hexdigest() == digest
+    _PRE_CAMPAIGN_CACHE[key] = raw
+    return raw
+
+
+def _check_pre_campaign_predecessor(devdb, tmp_path, admission, shared):
+    previous = tmp_path / ("pre-campaign-" + admission + "-" + shared)
+    shutil.copytree(devdb, previous)
+    raw = _pre_campaign_graph_bytes(admission, shared)
+    (previous / "dev_pips.csv").write_bytes(raw)
+    count, digest = sr.PRE_RING_WITNESS_20260918_PHYSICAL_GRAPHS[shared][admission]
+    _replace_metadata_value(previous / sr.DEV_META_NAME, "graph_pip_count", count)
+    _replace_metadata_value(previous / sr.DEV_META_NAME, "graph_pips_sha256", digest)
+    _replace_metadata_value(previous / "dev_meta.csv", "n_pips", count)
+    assert sr.validate_devdb(previous, CHIPDB)
+
+
+def test_ring_witness_promotion_strict_predecessor_is_the_pre_campaign_graph(tmp_path):
+    _check_pre_campaign_predecessor(PHYSICAL_DEVDB, tmp_path, "release-strict", "0")
+
+
 def _restore_rmux81_rows(raw, admission, shared):
     """Restore the exact predecessor without permitting unrelated drift."""
+    # The ring-witness promotion is the newest graph change: undo it first (see above), then the
+    # withdrawn RMUX81 rows re-enter the pre-campaign graph exactly as before.
+    raw = _pre_campaign_graph_bytes(admission, shared)
     lines = raw.splitlines(keepends=True)
     suffix = "shared" if shared == "1" else "base"
     profile = "strict" if admission == "release-strict" else admission
@@ -1835,6 +1905,7 @@ def test_source_fresh_tiered_physical_devdb_matches_pinned_graph(tmp_path):
     assert sr._csv_dict(devdb / sr.DEV_META_NAME)[sr.SHARED_CONTROL_GRAPH_MARKER] == "0"
     assert sr.validate_devdb(devdb, CHIPDB) is True
 
+    _check_pre_campaign_predecessor(devdb, tmp_path, "tiered", "0")
     _check_rmux14_predecessor(devdb, tmp_path, "0")
     _check_rmux08_predecessor(devdb, tmp_path, "tiered", "0")
     _check_rmux86_predecessor(devdb, tmp_path, "tiered", "0")
@@ -1906,6 +1977,7 @@ def test_source_fresh_shared_control_graph_is_exact_and_tamper_proof(
     assert hashlib.sha256(raw).hexdigest() == digest
     assert sr._csv_dict(devdb / sr.DEV_META_NAME)[sr.SHARED_CONTROL_GRAPH_MARKER] == "1"
     assert sr.validate_devdb(devdb, CHIPDB) is True
+    _check_pre_campaign_predecessor(devdb, tmp_path, admission, "1")
     _check_rmux08_predecessor(devdb, tmp_path, admission, "1")
     _check_rmux86_predecessor(devdb, tmp_path, admission, "1")
     _check_rmux57_predecessor(devdb, tmp_path, admission, "1")
@@ -2786,9 +2858,10 @@ def test_portb_exit_graph_is_a_pure_reservation_subset_of_the_base_graph(tmp_pat
     assert all(portb[name] == base[name] for name in portb)
     removed = set(base) - set(portb)
     profile = sr.registered_graph_profile("0", "release-strict", options)
+    # 2026-09-18 ring-oscillator promotion (tools/pipwit): a board-witnessed RMUX row inside the BRAM exit-corridor tiles entered the strict graph: 221 -> 222 withheld rows.
     assert len(removed) == (
         sr.EXPECTED_PHYSICAL_GRAPH_PIP_COUNT - profile["graph_pip_count"]
-    ) == 221
+    ) == 222
     tiles = {base[name][1].split("_")[0] for name in removed}
     assert all("_RMUX" in base[name][1] for name in removed)
     assert tiles == {

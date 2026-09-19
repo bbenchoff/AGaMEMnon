@@ -846,6 +846,7 @@ class RoutingFeature:
             "rrg_rmux_imux_full.csv", "dead_edges_silicon.csv",
             "exit_feeder_whitelist.csv", "master_conduction.csv",
             "ff2_conduction.csv", "harvest_conduction.csv",
+            "ring_witness_conduction.csv",
             "corpus_conduction.csv", "ff_feedback_map.csv",
             "wire_timing_worst.json", "wire_timing_exact_safe.json",
             "wire_timing_exact_safe_manifest.json", "wire_timing_measured.json",
@@ -1209,6 +1210,7 @@ class RoutingFeature:
         for _cf in ("master_conduction.csv",      # silicon-swept (sweep_all) FF->dout reach edges
                     "ff2_conduction.csv",          # silicon-swept (ff2_sweep) FF->FF INTER-tile directed corridors
                     "harvest_conduction.csv",      # silicon-swept (harvest_sweep) all pips of CONDUCTING designs
+                    "ring_witness_conduction.csv", # ring-oscillator campaign (pipwit, 2026-09): every pip of a ring that oscillated with clean controls
                     "corpus_conduction.csv"):      # vendor-route-mined per-position conducting edges (mine_corpus.py A2)
             _cp = os.path.join(DATA, _cf)
             if os.path.exists(_cp):

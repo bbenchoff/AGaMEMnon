@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "de8a477b25eb5d4e8df6114e3d912885f59c8a216e380bfeaecb6b1f98a3399c",
-  "file_count": 268,
+  "fingerprint_sha256": "ff48f4c580f97575a811991c140f36f7a519b257e95d69346714a8dfae57b597",
+  "file_count": 269,
   "pinned_date": "2026-09-18",
-  "reason": "Add only the independently controlled native X20Y11_RMUX31->X19Y11_RMUX25 selector pair 1/8 while withdrawing its disproven relative translation. All 665112 prior exact entries remain unchanged. Native source/observer and selector-cut controls, image hashes, and scope are recorded in sel_edge_pairs.agdb metadata and docs/ROUTING_SELECTOR_WITHDRAWAL.md. The research inventory binds the changed database. The real chipdb tripwire rebuild passes for every release-strict-relevant retained artifact; the full qualified-pack gate separately checks research artifacts. Strict graph connectivity is unchanged; tiered withdrawal and full retained-image gates are required before publication."
+  "reason": "Ring-oscillator campaign promotion (AG32-Docs tools/pipwit, 2026-09-18): ring_witness_conduction.csv adds every pip a ring oscillated through with clean controls on the L48 board (tier 1 via the conduction loader); dead_edges_silicon.csv gains the pips convicted by a failing ring whose every other pip was silicon-witnessed, or by two independently placed failing rings with disjoint unwitnessed scaffolding. Four graph identities, the PRE_RING_WITNESS_20260918 replay ladder, the physical-touching pip census, physical_graph_profiles.json and the research inventory regenerated."
 }
