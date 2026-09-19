@@ -122,3 +122,11 @@ composers, `test_pack.py::test_pack_byte_exact[comb_routed.json]`, `test_wire_ti
 route_pips`, `test_build_e2e`. The first signature points at a stale generated devdb in the tree; the others need
 triage against the promoted chipdb (ring_witness_conduction.csv / dead_edges_silicon.csv changed the strict graph
 five times today). Log: AG32-Docs side, /root/pipwit/fullgate.log and rerun44_main.log in WSL.
+
+**2026-09-19 15:12 -- the dead combination is native enable + own-Q feedback in the same LUT.** A fifteen-slot
+Johnson-counter scaffold (d_k = q_{k-1}, CE = tick & en) built with `--native-clock-enable` oscillates 15/15 at
+exactly 357,150 Hz; in the 0 Hz counter scaffold all 105 enabled registers feed their own Q back into their LUT
+(pins 0/1/2/3, LUT_COMPUTE_TO_FF), while the Johnson image has none and serv_blinky's 94 enabled registers have
+one, on pin 2 in LOCAL_QIN_I2 mode. Product rule to implement in the packer: under native clock enable, a DFFE
+whose D cone reads its own Q must be lowered to register data logic (or proven separately for LOCAL_QIN_I2);
+with that rule native enable can return as a default for the registers it is safe for. Until then it stays opt-in.
