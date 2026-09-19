@@ -49,6 +49,17 @@ the board. Emit-verified ≠ silicon-proven: a built route can float until witne
 | x36 | emits (opt-in `AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG`) | experimental / untested | board-witness-pending |
 | ByteEn per-byte masking (on x18) | n/a | **SHIPPED + board-proven** (`CFG_KMUX` pos-8 gnd tie; `test_bram_byteen_emission`) | board-proven (obs 0xE4→0xFF) |
 
+**Inference (2026-09-19):** `synth/ag32_brams.txt` never lets a writable memory take a narrow mode: the
+writable block is x18-only (port-level `width 18;`), a second block offers exactly the board-proven SERV shape
+(write-only Port A, read-only Port B, x2), and read-only memories keep every width through a third block. A
+hobbyist's 64x8 RAM therefore maps x18 instead of being refused by the narrow-write guard; the guard stays as
+the fail-closed backstop. A registered driver of AddressA[4] is buffered through an identity LUT
+(`engine/bram_pin_buffer.py`: its qualified source slot X14Y4_SLICE0 presents F and Q on different wires and
+only F reaches the pin), and an output lane whose admitted egress reaches <= 2 tiles (DataOutA[12]) is
+re-driven through a bound identity LUT by the uarch (`pack_bram_output_reach_bridges`). Open: the BRAM
+approach's admitted routing is thin enough that a 256x8 x9 ROM with an 8-bit read still fails to route
+release-strict (and tiered); the ring campaign is witnessing that region first.
+
 **Shipped/promoted to this deliverable:** the hready read corridor + board-proven CtrlMUX02 terminal
 (`bram_site_read_paths.csv`), all `PORTA_WIDTH` configs (admitted, per-width distinct), ByteEn native
 emission. Read emit therefore covers the full single-port width surface (x1..x36) with no further chipdb
