@@ -36,7 +36,7 @@ def _baseline(path, *, state=None):
 
 def _ordinary_args(**changes):
     values = dict(uarch=True, input="top.v", project=None,
-                  no_native_clock_enable=False, qualified_checkpoint=None,
+                  no_native_clock_enable=False, native_clock_enable=True, qualified_checkpoint=None,
                   qualified_bram_write=None, research_unsafe=False,
                   _native_srst_candidate=False)
     values.update(changes)

@@ -1,8 +1,23 @@
 # Native clock enable: supported scope and qualification — 2026-09-08
 
-Native positive-polarity register clock enable is the default for ordinary
-`build --uarch` on main after v0.4.0. No environment flags are needed. Use
-`--no-native-clock-enable` to lower enables into ordinary register data logic.
+**2026-09-19: native clock enable is opt-in** (`--native-clock-enable`, or
+`AGRV2K_SHARED_CONTROL_ENABLE=1`). A fifteen-tile scaffold of select-decoded 7-bit
+counters, `if (en) c <= c + 1`, one counter per tile, built with the default command,
+read 0 Hz on 15/15 tiles with the native mapping; the same Verilog with
+`--no-native-clock-enable` ran at exactly 78,125 Hz per slot. The tile-level control
+bits (line 0 from ctrl_a, CFG_CTRLMUX selectors) and the per-slice CFG_CLKMUX /
+CFG_BYPASSEN bits were identical to serv_blinky's working native tiles, and the
+template's control routes at X15Y7 and X17Y7 were silicon-witnessed pips, so the
+failure lies in the enabled registers' behaviour, not in the control path. It is not
+yet isolated. serv_blinky passes on the board with the data-logic mapping.
+Evidence: AG32-Docs `tools/pipwit/template_ce`, `template_ce_none`, `template_ce_en`,
+`template_ce_en_emul` (images, routed netlists, RESULT files). The text below
+describes the native path as it stands.
+
+Native positive-polarity register clock enable was the default for ordinary
+`build --uarch` on main from 2026-09-08 to 2026-09-19; it now requires
+`--native-clock-enable`. `--no-native-clock-enable` (the default behaviour) lowers
+enables into ordinary register data logic.
 Retained checkpoint and qualified-BRAM replay profiles preserve their historical
 path automatically. The legacy Python architecture still uses data logic.
 Build nextpnr with the supplied `build.sh`; it applies the required Viaduct

@@ -313,7 +313,11 @@ first); it guards the arch admission gate. Fences remain 74.
 
 ## Main after v0.4.0 — 2026-09-09
 
-Ordinary `build --uarch` uses positive-edge, active-high native enables.
+**2026-09-19: native clock enable is opt-in** (`--native-clock-enable` or `AGRV2K_SHARED_CONTROL_ENABLE=1`).
+A fifteen-tile enable-counter scaffold read 0 Hz on every tile with the native mapping and ran exactly with
+register data logic, with identical control bits to a working native image; until that is isolated, ordinary
+builds lower enables into data logic (serv_blinky passes that way). The paragraph below describes the opt-in path.
+Ordinary `build --uarch --native-clock-enable` uses positive-edge, active-high native enables.
 For the qualified MCU bus clock, it separately compares isolated, mixed
 (one native group plus ordinary registers on the idle local line), and dual
 (two native groups, no ordinary registers in that tile) placements. A sharing

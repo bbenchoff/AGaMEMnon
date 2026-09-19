@@ -2516,6 +2516,17 @@ def _routed_native_population(document):
                for cell in module.get("cells", {}).values())
 
 
+def _native_clock_enable_requested(a):
+    """Native clock enable is opt-in since 2026-09-19: --native-clock-enable, or the environment
+    AGRV2K_SHARED_CONTROL_ENABLE=1; --no-native-clock-enable and AGRV2K_SHARED_CONTROL_ENABLE=0 win."""
+    if getattr(a, "no_native_clock_enable", False):
+        return False
+    env = os.environ.get("AGRV2K_SHARED_CONTROL_ENABLE")
+    if env == "0":
+        return False
+    return bool(getattr(a, "native_clock_enable", False)) or env == "1"
+
+
 def _native_mapping_defaults(env):
     """Ordinary-flow policies exercised by the reset/feedback/packing A/Bs.
 
@@ -2743,20 +2754,36 @@ def _cmd_build_once(a):
     # Select both halves together: preserving DFFE without its routing graph
     # would create an unroutable control sink. Keep replay profiles on their
     # historical synthesis/graph; ordinary uarch builds use native enables.
-    native_enable = (a.uarch and not getattr(a, "no_native_clock_enable", False)
-                     and os.environ.get("AGRV2K_SHARED_CONTROL_ENABLE") != "0"
+    native_enable = (a.uarch and _native_clock_enable_requested(a)
                      and not a.qualified_checkpoint
                      and not getattr(a, "qualified_bram_write", None))
-    for control_option in ("AGRV2K_SHARED_CONTROL_ENABLE", "AGRV2K_SHARED_CONTROL_GRAPH"):
-        if native_enable:
-            env[control_option] = "1"
-        else:
-            env.pop(control_option, None)
+    # The shared-control GRAPH (CLKEN bels, control pips) stays part of the ordinary uarch device graph
+    # exactly as before 2026-09-19 -- it is a graph identity that hash-pinned compositions, byte-exact
+    # fixtures and the release-strict devdb depend on.  Only the MAPPING (DFFE -> native enable line)
+    # is opt-in now; without it the packer lowers enables into register data logic.
+    graph_flag = (a.uarch and not getattr(a, "no_native_clock_enable", False)
+                  and os.environ.get("AGRV2K_SHARED_CONTROL_ENABLE") != "0"
+                  and not a.qualified_checkpoint
+                  and not getattr(a, "qualified_bram_write", None))
+    if graph_flag:
+        env["AGRV2K_SHARED_CONTROL_GRAPH"] = "1"
+    else:
+        env.pop("AGRV2K_SHARED_CONTROL_GRAPH", None)
+    if native_enable:
+        env["AGRV2K_SHARED_CONTROL_ENABLE"] = "1"
+    else:
+        env.pop("AGRV2K_SHARED_CONTROL_ENABLE", None)
     if native_enable:
         _native_mapping_defaults(env)
     control_description = "register data logic"
     if native_enable:
         control_description = "native line 0 with isolated register tiles"
+    elif a.uarch and not getattr(a, "no_native_clock_enable", False) and not a.qualified_checkpoint:
+        # 2026-09-19: native clock enable is opt-in. The same enable design read 0 Hz on 15/15 tiles
+        # with the native mapping and ran exactly with register data logic (AG32-Docs
+        # tools/pipwit/template_ce*, BLOCKERS.md 12:30); the control bits matched a working image, so the
+        # cause is not yet isolated.  --native-clock-enable (or AGRV2K_SHARED_CONTROL_ENABLE=1) restores it.
+        control_description = "register data logic (native clock enable is opt-in: --native-clock-enable)"
         sharing = []
         if env.get("AGRV2K_DUAL_NATIVE_CONTROL") == "1":
             sharing.append("two native groups")
@@ -4293,8 +4320,7 @@ def _native_srst_auto_enabled(a):
     """Automatic dual mapping applies only to ordinary native uarch builds."""
     return (getattr(a, "uarch", False) and getattr(a, "input", None) and
             not getattr(a, "project", None) and
-            os.environ.get("AGRV2K_SHARED_CONTROL_ENABLE") != "0" and
-            not getattr(a, "no_native_clock_enable", False) and
+            _native_clock_enable_requested(a) and
             not getattr(a, "qualified_checkpoint", None) and
             not getattr(a, "qualified_bram_write", None) and
             not getattr(a, "research_unsafe", False) and
@@ -4816,8 +4842,12 @@ def main(argv=None):
                        help="[--uarch] compatibility spelling for the default per-chain dedicated-carry allocation")
     carry.add_argument("--no-hard-carry", action="store_true",
                        help="[--uarch] force all arithmetic through the ordinary LUT path")
+    b.add_argument("--native-clock-enable", action="store_true",
+                   help="[--uarch] map clock enables onto the tile's native enable line (isolated register tiles). "
+                        "Opt-in since 2026-09-19: the native mapping read 0 Hz on 15/15 tiles where the "
+                        "register-data-logic mapping ran exactly; see docs/STATUS.md")
     b.add_argument("--no-native-clock-enable", action="store_true",
-                   help="[--uarch] lower clock enables into register data logic instead of isolated native enable tiles")
+                   help="[--uarch] lower clock enables into register data logic (the default); kept for scripts")
     b.add_argument("--qualified-checkpoint", metavar="PROFILE",
                    help="[--uarch] fail-closed exact BEL/route replay from a registered "
                         "qualification profile; source, checkpoint, clocks and output hashes "

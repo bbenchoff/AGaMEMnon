@@ -1120,6 +1120,34 @@ def test_cli_frequency_reaches_the_build_child_environment(monkeypatch, tmp_path
         cli.cmd_build(args)
 
     assert seen["AGAMEMNON_SYSCLK"] == "10"
+    # native clock enable MAPPING is opt-in since 2026-09-19 (0 Hz on 15/15 tiles); the control GRAPH
+    # stays part of the ordinary device graph so identities do not move
+    assert "AGRV2K_SHARED_CONTROL_ENABLE" not in seen
+    assert seen["AGRV2K_SHARED_CONTROL_GRAPH"] == "1"
+
+
+def test_cli_native_clock_enable_is_opt_in(monkeypatch, tmp_path):
+    from agamemnon import cli
+
+    seen = {}
+
+    def stop_after_yosys(command, *, env, capture_output, text):
+        seen.update(env)
+        raise RuntimeError("captured synchronized clock")
+
+    monkeypatch.delenv("AGRV2K_SHARED_CONTROL_ENABLE", raising=False)
+    monkeypatch.delenv("AGRV2K_SHARED_CONTROL_GRAPH", raising=False)
+    monkeypatch.setattr(cli, "_run_child", stop_after_yosys)
+    source = tmp_path / "top.v"
+    source.write_text("module top(input clock); endmodule\n")
+    args = SimpleNamespace(
+        input=str(source), output=str(tmp_path / "top.bin"), uarch=True,
+        hard_carry=False, qualified_checkpoint=None, leds=False, mcu=False,
+        true_topo=False, no_intra_rmux=False, pin=None, baseline=None,
+        pcf=None, freq=10, native_clock_enable=True,
+    )
+    with pytest.raises(RuntimeError, match="captured synchronized clock"):
+        cli.cmd_build(args)
     assert seen["AGRV2K_SHARED_CONTROL_ENABLE"] == "1"
     assert seen["AGRV2K_SHARED_CONTROL_GRAPH"] == "1"
 

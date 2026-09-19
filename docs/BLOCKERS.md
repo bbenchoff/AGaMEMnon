@@ -1,8 +1,13 @@
 # v0.4.0 release status and remaining limitations — 2026-09-07
 
 Main after v0.4.0 supports positive-edge, active-high native enables and
-profitable mixed/dual sharing on the qualified MCU bus clock. Other clock
-profiles, combined controls and broader site qualification remain open.
+profitable mixed/dual sharing on the qualified MCU bus clock -- since 2026-09-19
+as an opt-in (`--native-clock-enable`): a fifteen-tile enable-counter scaffold read
+0 Hz on every tile with the native mapping while the register-data-logic mapping ran
+exactly, with identical control bits to a working native image (AG32-Docs
+`tools/pipwit/template_ce*`). Ordinary builds lower enables into data logic until
+the enabled-register behaviour is isolated. Other clock profiles, combined controls
+and broader site qualification remain open.
 See [sharing limits](LOCAL_CLOCK_SHARING.md). No new release was published;
 the historical v0.4.0 record below is unchanged.
 

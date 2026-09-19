@@ -145,7 +145,7 @@ def test_native_srst_candidate_wrapper_selects_final_route_cost_and_legacy_tie(
     monkeypatch.delenv("AGRV2K_SHARED_CONTROL_SRST_RECOVERY", raising=False)
     output = tmp_path / "out.bin"
     routed = tmp_path / "out.json"
-    args = SimpleNamespace(uarch=True, no_native_clock_enable=False,
+    args = SimpleNamespace(uarch=True, no_native_clock_enable=False, native_clock_enable=True,
                            qualified_checkpoint=None, qualified_bram_write=None,
                            input="design.v", output=str(output),
                            write_routed=str(routed))
@@ -164,7 +164,7 @@ def test_native_srst_candidate_wrapper_propagates_safety_exit(monkeypatch, tmp_p
         raise SystemExit(1)
     monkeypatch.setattr(cli, "_cmd_build_once", unsafe)
     monkeypatch.delenv("AGRV2K_SHARED_CONTROL_SRST_RECOVERY", raising=False)
-    args = SimpleNamespace(uarch=True, no_native_clock_enable=False,
+    args = SimpleNamespace(uarch=True, no_native_clock_enable=False, native_clock_enable=True,
                            qualified_checkpoint=None, qualified_bram_write=None,
                            input="design.v", output=str(tmp_path / "out.bin"),
                            write_routed=None)
@@ -176,13 +176,13 @@ def test_native_srst_auto_wrapper_excludes_project_and_explicit_disable(monkeypa
     calls = []
     monkeypatch.setattr(cli, "_cmd_build_once", lambda candidate: calls.append(candidate))
     project = SimpleNamespace(uarch=True, input=None, project="agamemnon.toml",
-                              no_native_clock_enable=False,
+                              no_native_clock_enable=False, native_clock_enable=True,
                               qualified_checkpoint=None, qualified_bram_write=None)
     cli.cmd_build(project)
     assert calls == [project]
     calls.clear()
     plain = SimpleNamespace(uarch=True, input="design.v", project=None,
-                            no_native_clock_enable=False,
+                            no_native_clock_enable=False, native_clock_enable=True,
                             qualified_checkpoint=None, qualified_bram_write=None)
     monkeypatch.setenv("AGRV2K_SHARED_CONTROL_ENABLE", "0")
     cli.cmd_build(plain)
@@ -193,7 +193,7 @@ def test_native_srst_wrapper_rejects_final_output_aliasing_source(monkeypatch, t
     monkeypatch.delenv("AGRV2K_SHARED_CONTROL_SRST_RECOVERY", raising=False)
     source = tmp_path / "design.v"; source.write_text("module top; endmodule")
     args = SimpleNamespace(uarch=True, input=str(source), project=None,
-                           no_native_clock_enable=False, qualified_checkpoint=None,
+                           no_native_clock_enable=False, native_clock_enable=True, qualified_checkpoint=None,
                            qualified_bram_write=None, research_unsafe=False,
                            output=str(source), write_routed=None, pcf=None, baseline=None)
     with pytest.raises(SystemExit) as error:
@@ -205,7 +205,7 @@ def test_native_srst_wrapper_rejects_policy_aliasing_secondary_source(tmp_path):
     source, secondary = tmp_path / "a.v", tmp_path / "b.v"
     source.write_text("module a; endmodule"); secondary.write_text("module b; endmodule")
     args = SimpleNamespace(uarch=True, input=str(source), sources=[str(secondary)], project=None,
-        no_native_clock_enable=False, qualified_checkpoint=None, qualified_bram_write=None,
+        no_native_clock_enable=False, native_clock_enable=True, qualified_checkpoint=None, qualified_bram_write=None,
         research_unsafe=False, output=str(tmp_path / "out.bin"), write_routed=None,
         pcf=None, baseline=None)
     import os
@@ -234,7 +234,7 @@ def test_native_srst_wrapper_copies_only_recovered_requested_reports(tmp_path, m
     monkeypatch.setenv("AGAMEMNON_POLICY_SIDECAR", str(policy))
     monkeypatch.setenv("AGAMEMNON_OWNERSHIP_TRACE", str(ownership))
     args = SimpleNamespace(uarch=True, input="design.v", project=None,
-        no_native_clock_enable=False, qualified_checkpoint=None, qualified_bram_write=None,
+        no_native_clock_enable=False, native_clock_enable=True, qualified_checkpoint=None, qualified_bram_write=None,
         research_unsafe=False, output=str(tmp_path / "out.bin"), write_routed=None,
         pcf=None, baseline=None)
     cli.cmd_build(args)
@@ -252,7 +252,7 @@ def test_native_srst_wrapper_restores_report_environment_on_error(tmp_path, monk
     policy = str(tmp_path / "policy.json"); ownership = str(tmp_path / "ownership.json")
     monkeypatch.setenv("AGAMEMNON_POLICY_SIDECAR", policy)
     monkeypatch.setenv("AGAMEMNON_OWNERSHIP_TRACE", ownership)
-    args = SimpleNamespace(uarch=True, input="design.v", project=None, no_native_clock_enable=False,
+    args = SimpleNamespace(uarch=True, input="design.v", project=None, no_native_clock_enable=False, native_clock_enable=True,
         qualified_checkpoint=None, qualified_bram_write=None, research_unsafe=False,
         output=str(tmp_path / "out.bin"), write_routed=None, pcf=None, baseline=None)
     with pytest.raises(SystemExit): cli.cmd_build(args)
@@ -272,7 +272,7 @@ def test_native_srst_candidates_use_distinct_missing_only_mapping_defaults(tmp_p
     monkeypatch.setattr(cli, "_cmd_build_once", fake)
     for key in cli._NATIVE_MAPPING_OPTION_KEYS: monkeypatch.delenv(key, raising=False)
     monkeypatch.delenv("AGRV2K_SHARED_CONTROL_SRST_RECOVERY", raising=False)
-    args=SimpleNamespace(uarch=True,input="design.v",sources=[],project=None,no_native_clock_enable=False,
+    args=SimpleNamespace(uarch=True,input="design.v",sources=[],project=None,no_native_clock_enable=False, native_clock_enable=True,
         qualified_checkpoint=None,qualified_bram_write=None,research_unsafe=False,
         output=str(tmp_path/"out.bin"),write_routed=None,pcf=None,baseline=None)
     cli.cmd_build(args)
@@ -321,7 +321,7 @@ def test_native_srst_candidates_keep_compaction_retry_local_and_legacy_mapping(
         monkeypatch.delenv(key, raising=False)
     args = SimpleNamespace(
         uarch=True, input="design.v", sources=[], project=None,
-        no_native_clock_enable=False, qualified_checkpoint=None,
+        no_native_clock_enable=False, native_clock_enable=True, qualified_checkpoint=None,
         qualified_bram_write=None, research_unsafe=False,
         output=str(tmp_path / "out.bin"), write_routed=None,
         pcf=None, baseline=None)
@@ -350,7 +350,7 @@ def test_native_srst_candidate_mapping_overrides_survive_success_and_error(tmp_p
         return {"output":str(output),"routed_json":str(routed),"slice_count":1,
                 "routed_sha256":"x","eligible_srst_cells":0}
     monkeypatch.setattr(cli, "_cmd_build_once", fake)
-    args=SimpleNamespace(uarch=True,input="design.v",sources=[],project=None,no_native_clock_enable=False,
+    args=SimpleNamespace(uarch=True,input="design.v",sources=[],project=None,no_native_clock_enable=False, native_clock_enable=True,
         qualified_checkpoint=None,qualified_bram_write=None,research_unsafe=False,
         output=str(tmp_path/"out.bin"),write_routed=None,pcf=None,baseline=None)
     cli.cmd_build(args)

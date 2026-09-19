@@ -7,6 +7,15 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+- cli: native clock enable is now OPT-IN (`--native-clock-enable`, or `AGRV2K_SHARED_CONTROL_ENABLE=1`);
+  ordinary `build --uarch` lowers clock enables into register data logic and says so
+  (`[build] clock enables: register data logic (native clock enable is opt-in: --native-clock-enable)`).
+  Silicon, 2026-09-19 (AG32-Docs `tools/pipwit/template_ce*`): fifteen select-decoded 7-bit counters with
+  `if (en) c <= c + 1`, one per tile, read 0 Hz on 15/15 tiles with the native mapping while the same Verilog
+  with `--no-native-clock-enable` ran at exactly 78,125 Hz; tile-level and per-slice control bits were identical
+  to serv_blinky's working native tiles and the control routes were silicon-witnessed, so the cause is in the
+  enabled registers' behaviour and is not yet isolated. `examples/serv_blinky` with the data-logic mapping passes
+  on the board (1 min build, 6 edges/s as expected). `--no-native-clock-enable` is kept for scripts.
 - chipdb: `pad_output_approaches_L48.csv` -- board-witnessed additional approaches into a
   qualified pad-feed source, admitted by the routing graph beside the one qualified approach.
   2026-09-19: eight fan-ins of PIN_17's feed RMUX85@(18,9) conduct (ring template re-routed
