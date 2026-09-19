@@ -8910,6 +8910,99 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
         }
         return true;
     };
+    // Mirror of the validity check's local_output_can_reach: the downhill reach of a
+    // slice output wire, cached per source and capped at 4096 wires (a broader output
+    // is optimistically accepted, exactly as isBelLocationValid does).  A slot's Q/F
+    // wire decides whether a bound inter-tile consumer can ever be reached:
+    // bram_fifo_kat failed 40/40 attempts on "local output topology cannot conduct
+    // net count[4] from X18Y12_SLICE4.Q to X20Y12_SLICE14.I[0]" because the slot was
+    // chosen without this check (2026-09-19).
+    std::unordered_map<int, std::unordered_set<int>> output_reach_cache;
+    std::unordered_set<int> output_broad;
+    auto output_reach_ok = [&](WireId source, WireId target) -> bool {
+        if (source == WireId() || target == WireId())
+            return false;
+        if (output_broad.count(source.index))
+            return true;
+        auto found = output_reach_cache.find(source.index);
+        if (found == output_reach_cache.end()) {
+            std::unordered_set<int> seen{source.index};
+            std::vector<WireId> queue{source};
+            for (size_t head = 0; head < queue.size(); ++head) {
+                for (PipId pip : ctx->getPipsDownhill(queue[head])) {
+                    WireId dst = ctx->getPipDstWire(pip);
+                    if (seen.insert(dst.index).second)
+                        queue.push_back(dst);
+                    if (seen.size() > 4096) {
+                        output_broad.insert(source.index);
+                        return true;
+                    }
+                }
+            }
+            found = output_reach_cache.emplace(source.index, std::move(seen)).first;
+        }
+        return found->second.count(target.index) != 0;
+    };
+    // A bound (pin-packed or already placed) producer/consumer in another tile
+    // fixes the far end of an arc; the candidate tile must offer at least one
+    // free slot whose output (or input) wire reaches it under the capped
+    // downhill-reach rule, or every slot the binding loop tries will be
+    // rejected by isBelLocationValid ("local output topology cannot conduct
+    // net ... from X16Y4_SLICE2.F to X20Y12_SLICE14.I[0]", bram_fifo_kat
+    // 2026-09-19: the consumer was pin-packed, the driver's tile was chosen by
+    // tile-level conduction only).
+    std::unordered_map<uint64_t, bool> tile_reach_cache;
+    auto tile_has_reaching_slot = [&](CellInfo *ci, int t) -> bool {
+        const IdString slice_t = ctx->id("GENERIC_SLICE");
+        const IdString clk_port = ctx->id("CLK");
+        struct Arc { bool out; WireId far; IdString port; };
+        std::vector<Arc> arcs;
+        for (auto &port : ci->ports) {
+            NetInfo *net = port.second.net;
+            if (net == nullptr || port.first == clk_port)
+                continue;
+            if (port.second.type == PORT_IN && net->driver.cell != nullptr &&
+                net->driver.cell->bel != BelId() && net->driver.cell->type == slice_t) {
+                Loc other = ctx->getBelLocation(net->driver.cell->bel);
+                if (tkey(other.x, other.y) != t)
+                    arcs.push_back({false, ctx->getBelPinWire(net->driver.cell->bel, net->driver.port), port.first});
+            }
+            if (port.second.type == PORT_OUT)
+                for (auto &user : net->users) {
+                    if (user.cell == nullptr || user.cell->bel == BelId() ||
+                        user.cell->type != slice_t || user.port == clk_port)
+                        continue;
+                    Loc other = ctx->getBelLocation(user.cell->bel);
+                    if (tkey(other.x, other.y) != t)
+                        arcs.push_back({true, ctx->getBelPinWire(user.cell->bel, user.port), port.first});
+                }
+        }
+        if (arcs.empty())
+            return true;
+        uint64_t key = (uint64_t(uint32_t(t)) << 32) | uint32_t(reinterpret_cast<uintptr_t>(ci) & 0xffffffffu);
+        auto cached = tile_reach_cache.find(key);
+        if (cached != tile_reach_cache.end())
+            return cached->second;
+        bool ok = false;
+        for (int z = 0; z < 16 && !ok; ++z) {
+            std::string bn = "X" + std::to_string(t >> 8) + "Y" + std::to_string(t & 0xff) +
+                             "_SLICE" + std::to_string(z);
+            BelId b = ctx->getBelByName(IdStringList(ctx->id(bn)));
+            if (b == BelId() || !ctx->checkBelAvail(b))
+                continue;
+            bool all = true;
+            for (const Arc &arc : arcs) {
+                WireId here = ctx->getBelPinWire(b, arc.port);
+                if (arc.out ? !output_reach_ok(here, arc.far) : !output_reach_ok(arc.far, here)) {
+                    all = false;
+                    break;
+                }
+            }
+            ok = all;
+        }
+        tile_reach_cache[key] = ok;
+        return ok;
+    };
     auto feasible = [&](CellInfo *ci, int t) -> bool {
         if (!slice_tiles.count(t)) // neighbour tiles from tile_adj may be bel-less (BRAM/IO columns)
             return false;
@@ -8920,6 +9013,8 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
         if (is_combinational(ci) && occ_comb[t] >= available_slot_cap(t, ci))
             return false;
         if (exitdrv.count(ci) && !reaches_exit(t))
+            return false;
+        if (!tile_has_reaching_slot(ci, t))
             return false;
         if (compact_maxd > 0 && compact_anchor >= 0) { // keep this cell inside the design's bounding box
             int ax = compact_anchor >> 8, ay = compact_anchor & 0xff;
@@ -9316,33 +9411,47 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
         local_reach_cache[key] = found;
         return found;
     };
-    auto preserves_bound_local_arcs = [&](CellInfo *ci, BelId candidate, int tile) -> bool {
+    auto preserves_bound_local_arcs = [&](CellInfo *ci, BelId candidate, int tile, bool inter_tile) -> bool {
         // Odd slots make full vendor-like density possible, but the intra-tile
         // crossbar has a small set of dead endpoint pairs.  Validate every
         // already concrete same-tile producer/consumer arc against the loaded
         // strict graph before committing this BEL.  Later cells perform the
         // corresponding check back to this cell, so every local pair is covered.
+        // With inter_tile, bound producers/consumers in OTHER tiles are checked
+        // through the capped output reach as well (the validity check's rule).
+        const IdString slice_t = ctx->id("GENERIC_SLICE");
+        const IdString clk_port = ctx->id("CLK");
         for (auto &port : ci->ports) {
             NetInfo *net = port.second.net;
             if (net == nullptr)
                 continue;
             if (port.second.type == PORT_IN && net->driver.cell != nullptr &&
-                net->driver.cell->bel != BelId()) {
+                net->driver.cell->bel != BelId() && port.first != clk_port &&
+                net->driver.cell->type == slice_t) {
                 Loc other = ctx->getBelLocation(net->driver.cell->bel);
-                if (tkey(other.x, other.y) == tile &&
-                    !wire_reaches(ctx->getBelPinWire(net->driver.cell->bel, net->driver.port),
-                                  ctx->getBelPinWire(candidate, port.first)))
+                WireId src = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
+                WireId dst = ctx->getBelPinWire(candidate, port.first);
+                if (tkey(other.x, other.y) == tile) {
+                    if (!wire_reaches(src, dst))
+                        return false;
+                } else if (inter_tile && !output_reach_ok(src, dst)) {
                     return false;
+                }
             }
             if (port.second.type == PORT_OUT)
                 for (auto &user : net->users) {
-                    if (user.cell == nullptr || user.cell->bel == BelId())
+                    if (user.cell == nullptr || user.cell->bel == BelId() ||
+                        user.cell->type != slice_t || user.port == clk_port)
                         continue;
                     Loc other = ctx->getBelLocation(user.cell->bel);
-                    if (tkey(other.x, other.y) == tile &&
-                        !wire_reaches(ctx->getBelPinWire(candidate, port.first),
-                                      ctx->getBelPinWire(user.cell->bel, user.port)))
+                    WireId src = ctx->getBelPinWire(candidate, port.first);
+                    WireId dst = ctx->getBelPinWire(user.cell->bel, user.port);
+                    if (tkey(other.x, other.y) == tile) {
+                        if (!wire_reaches(src, dst))
+                            return false;
+                    } else if (inter_tile && !output_reach_ok(src, dst)) {
                         return false;
+                    }
                 }
         }
         return true;
@@ -9357,6 +9466,9 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
         int slot_step = typed_odd_slots ? 1 : 2;
         if (dense_mcu_odd)
             ci->attrs[ctx->id("AGRV2K_DENSE_MCU_ODD_OK")] = Property(1);
+        // First look for a slot whose output wire can also reach every bound
+        // consumer in other tiles; fall back to the historical same-tile check.
+        for (int attempt = 0; attempt < 2 && b == BelId(); attempt++)
         for (int pass = 0; pass < passes && b == BelId(); pass++)
             for (int z = pass; z < 16; z += slot_step) {
                 // The strict graph shows that the combinational output of
@@ -9374,7 +9486,7 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
                 if (try_b != BelId() && ctx->checkBelAvail(try_b) &&
                     slice_data_inputs_have_ingress(ctx, ci, try_b) &&
                     slots_fit(nullptr, t, ci, try_b) &&
-                    preserves_bound_local_arcs(ci, try_b, t)) {
+                    preserves_bound_local_arcs(ci, try_b, t, attempt == 0)) {
                     b = try_b;
                     break;
                 }
