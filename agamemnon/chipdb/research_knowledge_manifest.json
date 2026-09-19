@@ -367,22 +367,22 @@
       "sha256": "ba19518ab48ac1f39c73b65b7e5fc862934dd27fa755cf1ea28d7f014f857192"
     },
     {
-      "bytes": 5312,
-      "data_rows": 89,
+      "bytes": 6143,
+      "data_rows": 103,
       "path": "agamemnon/chipdb/conduction_retired_by_conviction.csv",
-      "sha256": "e93ac99eccd9015889c1e7b40785965d7fc6737e30f6bf36ee49141a7da7533a"
+      "sha256": "e63425815530f34f21f0b78df8061be05f69ff92121b9dddcc7fb1270bf4c48a"
     },
     {
-      "bytes": 9766748,
-      "data_rows": 257927,
+      "bytes": 9766225,
+      "data_rows": 257913,
       "path": "agamemnon/chipdb/corpus_conduction.csv",
-      "sha256": "1578425d704f7d852a584b6d7efaf70f5d9993a83c3d5839f0033a0082059dcb"
+      "sha256": "ac41de167b2a607f11c210a78189968d4e0e6fc39b83ab386b820053d4538ee7"
     },
     {
-      "bytes": 56905,
-      "data_rows": 2116,
+      "bytes": 57940,
+      "data_rows": 2154,
       "path": "agamemnon/chipdb/dead_edges_silicon.csv",
-      "sha256": "8f460033adf2c8f9719da212c28751ffa179adc6cb56d75eec01ce00792000f3"
+      "sha256": "a71443f99d76adff5506f7051d36120c9c5b267ef29aa301c6164efc763af544"
     },
     {
       "bytes": 380,
@@ -1435,10 +1435,10 @@
       "sha256": "1115d38a900f328b8e1f1a89f767296b26db8f54f5aea5299148d974944c05b7"
     },
     {
-      "bytes": 4667443,
-      "data_rows": 126666,
+      "bytes": 4688008,
+      "data_rows": 127223,
       "path": "agamemnon/chipdb/ring_witness_conduction.csv",
-      "sha256": "586d065804a3d72ac941e9377b500d26a36b1d726a9ef05500d2b7482f575257"
+      "sha256": "8f87319c2c94f37edfe5f0e2e3f3d82a79b7251d0b13fea89d671cd8831d9fb6"
     },
     {
       "bytes": 1607,

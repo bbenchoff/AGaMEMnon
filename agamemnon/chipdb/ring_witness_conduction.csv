@@ -586,6 +586,7 @@ RMUX39,10,1,RMUX63,10,2,silicon_ring
 RMUX39,10,1,RMUX68,10,2,silicon_ring
 RMUX39,10,1,RMUX69,10,2,silicon_ring
 RMUX39,10,1,RMUX52,10,3,silicon_ring
+RMUX39,10,1,RMUX69,10,3,silicon_ring
 RMUX39,10,1,RMUX52,10,4,silicon_ring
 RMUX39,10,1,RMUX58,10,4,silicon_ring
 RMUX40,10,1,IMUX08,10,1,silicon_ring
@@ -688,6 +689,7 @@ RMUX74,10,1,RMUX02,14,1,silicon_ring
 RMUX74,10,1,RMUX09,14,1,silicon_ring
 RMUX75,10,1,RMUX77,10,1,silicon_ring
 RMUX75,10,1,RMUX10,10,2,silicon_ring
+RMUX75,10,1,RMUX11,10,2,silicon_ring
 RMUX75,10,1,RMUX15,10,2,silicon_ring
 RMUX75,10,1,RMUX20,10,2,silicon_ring
 RMUX75,10,1,RMUX21,10,2,silicon_ring
@@ -710,8 +712,14 @@ RMUX77,10,1,IMUX23,10,1,silicon_ring
 RMUX77,10,1,IMUX27,10,1,silicon_ring
 RMUX77,10,1,IMUX33,10,1,silicon_ring
 RMUX77,10,1,IMUX35,10,1,silicon_ring
+RMUX77,10,1,IMUX39,10,1,silicon_ring
 RMUX77,10,1,IMUX41,10,1,silicon_ring
+RMUX77,10,1,IMUX43,10,1,silicon_ring
+RMUX77,10,1,IMUX47,10,1,silicon_ring
 RMUX77,10,1,IMUX49,10,1,silicon_ring
+RMUX77,10,1,IMUX55,10,1,silicon_ring
+RMUX77,10,1,IMUX59,10,1,silicon_ring
+RMUX77,10,1,IMUX63,10,1,silicon_ring
 RMUX79,10,1,RMUX24,6,1,silicon_ring
 RMUX79,10,1,RMUX30,6,1,silicon_ring
 RMUX79,10,1,RMUX40,6,1,silicon_ring
@@ -1332,6 +1340,7 @@ RMUX13,10,2,RMUX54,6,2,silicon_ring
 RMUX13,10,2,RMUX70,6,2,silicon_ring
 RMUX13,10,2,RMUX64,8,2,silicon_ring
 RMUX13,10,2,RMUX49,9,2,silicon_ring
+RMUX13,10,2,RMUX55,9,2,silicon_ring
 RMUX13,10,2,RMUX64,9,2,silicon_ring
 RMUX13,10,2,RMUX70,9,2,silicon_ring
 RMUX14,10,2,RMUX61,10,1,silicon_ring
@@ -1344,6 +1353,7 @@ RMUX15,10,2,RMUX68,11,2,silicon_ring
 RMUX15,10,2,RMUX69,11,2,silicon_ring
 RMUX15,10,2,RMUX52,12,2,silicon_ring
 RMUX15,10,2,RMUX62,12,2,silicon_ring
+RMUX15,10,2,RMUX68,13,2,silicon_ring
 RMUX15,10,2,RMUX69,14,2,silicon_ring
 RMUX16,10,2,IMUX16,10,2,silicon_ring
 RMUX17,10,2,IMUX01,10,2,silicon_ring
@@ -1428,6 +1438,7 @@ RMUX32,10,2,RMUX32,10,3,silicon_ring
 RMUX32,10,2,RMUX33,10,3,silicon_ring
 RMUX32,10,2,RMUX37,10,3,silicon_ring
 RMUX32,10,2,RMUX43,10,4,silicon_ring
+RMUX33,10,2,RMUX44,6,2,silicon_ring
 RMUX33,10,2,RMUX39,8,2,silicon_ring
 RMUX33,10,2,RMUX44,8,2,silicon_ring
 RMUX33,10,2,RMUX28,9,2,silicon_ring
@@ -1509,10 +1520,18 @@ RMUX52,10,2,IMUX52,10,2,silicon_ring
 RMUX52,10,2,IMUX60,10,2,silicon_ring
 RMUX53,10,2,IMUX09,10,2,silicon_ring
 RMUX53,10,2,IMUX35,10,2,silicon_ring
+RMUX53,10,2,IMUX39,10,2,silicon_ring
+RMUX53,10,2,IMUX43,10,2,silicon_ring
+RMUX53,10,2,IMUX47,10,2,silicon_ring
+RMUX53,10,2,IMUX51,10,2,silicon_ring
+RMUX53,10,2,IMUX55,10,2,silicon_ring
+RMUX53,10,2,IMUX59,10,2,silicon_ring
+RMUX53,10,2,IMUX63,10,2,silicon_ring
 RMUX55,10,2,RMUX31,10,3,silicon_ring
 RMUX55,10,2,RMUX31,10,4,silicon_ring
 RMUX56,10,2,RMUX37,6,2,silicon_ring
 RMUX56,10,2,RMUX27,8,2,silicon_ring
+RMUX56,10,2,RMUX37,8,2,silicon_ring
 RMUX56,10,2,RMUX43,8,2,silicon_ring
 RMUX56,10,2,RMUX27,9,2,silicon_ring
 RMUX56,10,2,RMUX43,9,2,silicon_ring
@@ -1590,8 +1609,10 @@ RMUX75,10,2,RMUX21,10,3,silicon_ring
 RMUX75,10,2,RMUX15,10,4,silicon_ring
 RMUX76,10,2,IMUX12,10,2,silicon_ring
 RMUX76,10,2,IMUX32,10,2,silicon_ring
+RMUX77,10,2,IMUX01,10,2,silicon_ring
 RMUX77,10,2,IMUX09,10,2,silicon_ring
 RMUX77,10,2,IMUX17,10,2,silicon_ring
+RMUX77,10,2,IMUX25,10,2,silicon_ring
 RMUX77,10,2,IMUX33,10,2,silicon_ring
 RMUX77,10,2,IMUX37,10,2,silicon_ring
 RMUX77,10,2,IMUX41,10,2,silicon_ring
@@ -2323,6 +2344,7 @@ RMUX37,10,3,RMUX64,10,2,silicon_ring
 RMUX37,10,3,RMUX70,10,2,silicon_ring
 RMUX37,10,3,RMUX71,10,2,silicon_ring
 RMUX38,10,3,RMUX50,11,3,silicon_ring
+RMUX38,10,3,RMUX51,11,3,silicon_ring
 RMUX38,10,3,RMUX56,11,3,silicon_ring
 RMUX38,10,3,RMUX61,11,3,silicon_ring
 RMUX38,10,3,RMUX67,12,3,silicon_ring
@@ -2404,6 +2426,7 @@ RMUX56,10,3,RMUX58,10,3,silicon_ring
 RMUX56,10,3,RMUX33,6,3,silicon_ring
 RMUX56,10,3,RMUX43,6,3,silicon_ring
 RMUX56,10,3,RMUX27,7,3,silicon_ring
+RMUX56,10,3,RMUX33,7,3,silicon_ring
 RMUX56,10,3,RMUX27,8,3,silicon_ring
 RMUX56,10,3,RMUX27,9,3,silicon_ring
 RMUX56,10,3,RMUX33,9,3,silicon_ring
@@ -2492,11 +2515,18 @@ RMUX77,10,3,IMUX27,10,3,silicon_ring
 RMUX77,10,3,IMUX33,10,3,silicon_ring
 RMUX77,10,3,IMUX35,10,3,silicon_ring
 RMUX77,10,3,IMUX37,10,3,silicon_ring
+RMUX77,10,3,IMUX39,10,3,silicon_ring
 RMUX77,10,3,IMUX41,10,3,silicon_ring
+RMUX77,10,3,IMUX43,10,3,silicon_ring
 RMUX77,10,3,IMUX45,10,3,silicon_ring
+RMUX77,10,3,IMUX47,10,3,silicon_ring
+RMUX77,10,3,IMUX51,10,3,silicon_ring
 RMUX77,10,3,IMUX53,10,3,silicon_ring
+RMUX77,10,3,IMUX55,10,3,silicon_ring
 RMUX77,10,3,IMUX57,10,3,silicon_ring
+RMUX77,10,3,IMUX59,10,3,silicon_ring
 RMUX77,10,3,IMUX61,10,3,silicon_ring
+RMUX77,10,3,IMUX63,10,3,silicon_ring
 RMUX79,10,3,RMUX24,6,3,silicon_ring
 RMUX79,10,3,RMUX25,6,3,silicon_ring
 RMUX79,10,3,RMUX40,6,3,silicon_ring
@@ -2510,8 +2540,10 @@ RMUX79,10,3,RMUX31,9,3,silicon_ring
 RMUX79,10,3,RMUX40,9,3,silicon_ring
 RMUX80,10,3,RMUX26,10,1,silicon_ring
 RMUX80,10,3,RMUX27,10,2,silicon_ring
+RMUX80,10,3,RMUX43,10,2,silicon_ring
 RMUX80,10,3,RMUX82,10,3,silicon_ring
 RMUX81,10,3,RMUX38,11,3,silicon_ring
+RMUX81,10,3,RMUX44,11,3,silicon_ring
 RMUX81,10,3,RMUX45,11,3,silicon_ring
 RMUX81,10,3,RMUX45,12,3,silicon_ring
 RMUX81,10,3,RMUX45,13,3,silicon_ring
@@ -2525,6 +2557,7 @@ RMUX82,10,3,IMUX40,10,3,silicon_ring
 RMUX82,10,3,IMUX52,10,3,silicon_ring
 RMUX85,10,3,RMUX55,10,3,silicon_ring
 RMUX85,10,3,RMUX49,10,4,silicon_ring
+RMUX86,10,3,RMUX56,6,3,silicon_ring
 RMUX86,10,3,RMUX57,6,3,silicon_ring
 RMUX86,10,3,RMUX56,7,3,silicon_ring
 RMUX86,10,3,RMUX61,8,3,silicon_ring
@@ -3088,6 +3121,7 @@ RMUX03,10,4,RMUX20,8,4,silicon_ring
 RMUX03,10,4,RMUX21,8,4,silicon_ring
 RMUX03,10,4,RMUX10,9,4,silicon_ring
 RMUX03,10,4,RMUX15,9,4,silicon_ring
+RMUX03,10,4,RMUX20,9,4,silicon_ring
 RMUX03,10,4,RMUX21,9,4,silicon_ring
 RMUX04,10,4,IMUX04,10,4,silicon_ring
 RMUX04,10,4,IMUX12,10,4,silicon_ring
@@ -3278,6 +3312,7 @@ RMUX50,10,4,RMUX13,10,3,silicon_ring
 RMUX50,10,4,RMUX19,10,3,silicon_ring
 RMUX51,10,4,RMUX10,11,4,silicon_ring
 RMUX51,10,4,RMUX11,11,4,silicon_ring
+RMUX51,10,4,RMUX14,11,4,silicon_ring
 RMUX51,10,4,RMUX15,11,4,silicon_ring
 RMUX51,10,4,RMUX20,11,4,silicon_ring
 RMUX51,10,4,RMUX21,11,4,silicon_ring
@@ -3411,7 +3446,9 @@ RMUX81,10,4,RMUX45,14,4,silicon_ring
 RMUX82,10,4,IMUX40,10,4,silicon_ring
 RMUX82,10,4,IMUX48,10,4,silicon_ring
 RMUX86,10,4,RMUX50,6,4,silicon_ring
+RMUX86,10,4,RMUX56,6,4,silicon_ring
 RMUX86,10,4,RMUX67,6,4,silicon_ring
+RMUX86,10,4,RMUX56,7,4,silicon_ring
 RMUX86,10,4,RMUX67,7,4,silicon_ring
 RMUX86,10,4,RMUX67,8,4,silicon_ring
 RMUX86,10,4,RMUX50,9,4,silicon_ring
@@ -3986,6 +4023,7 @@ RMUX13,11,1,RMUX55,10,1,silicon_ring
 RMUX13,11,1,RMUX64,10,1,silicon_ring
 RMUX13,11,1,RMUX48,7,1,silicon_ring
 RMUX13,11,1,RMUX55,7,1,silicon_ring
+RMUX13,11,1,RMUX55,9,1,silicon_ring
 RMUX13,11,1,RMUX70,9,1,silicon_ring
 RMUX15,11,1,RMUX62,12,1,silicon_ring
 RMUX15,11,1,RMUX63,12,1,silicon_ring
@@ -4065,6 +4103,7 @@ RMUX32,11,1,RMUX27,11,2,silicon_ring
 RMUX32,11,1,RMUX32,11,2,silicon_ring
 RMUX32,11,1,RMUX33,11,2,silicon_ring
 RMUX32,11,1,RMUX37,11,2,silicon_ring
+RMUX32,11,1,RMUX43,11,3,silicon_ring
 RMUX33,11,1,RMUX28,10,1,silicon_ring
 RMUX33,11,1,RMUX34,10,1,silicon_ring
 RMUX33,11,1,RMUX38,10,1,silicon_ring
@@ -4192,6 +4231,7 @@ RMUX74,11,1,RMUX09,12,1,silicon_ring
 RMUX74,11,1,RMUX13,12,1,silicon_ring
 RMUX74,11,1,RMUX19,12,1,silicon_ring
 RMUX74,11,1,RMUX19,13,1,silicon_ring
+RMUX74,11,1,RMUX08,14,1,silicon_ring
 RMUX74,11,1,RMUX02,15,1,silicon_ring
 RMUX74,11,1,RMUX08,15,1,silicon_ring
 RMUX74,11,1,RMUX09,15,1,silicon_ring
@@ -4905,6 +4945,7 @@ RMUX26,11,2,RMUX03,10,2,silicon_ring
 RMUX26,11,2,RMUX09,10,2,silicon_ring
 RMUX26,11,2,RMUX13,7,2,silicon_ring
 RMUX26,11,2,RMUX09,8,2,silicon_ring
+RMUX26,11,2,RMUX13,9,2,silicon_ring
 RMUX27,11,2,RMUX10,11,1,silicon_ring
 RMUX27,11,2,RMUX15,11,1,silicon_ring
 RMUX27,11,2,RMUX15,11,3,silicon_ring
@@ -5035,13 +5076,16 @@ RMUX62,11,2,RMUX51,11,4,silicon_ring
 RMUX62,11,2,RMUX61,11,4,silicon_ring
 RMUX62,11,2,RMUX67,11,4,silicon_ring
 RMUX63,11,2,RMUX52,10,2,silicon_ring
+RMUX63,11,2,RMUX53,10,2,silicon_ring
 RMUX63,11,2,RMUX58,10,2,silicon_ring
 RMUX63,11,2,RMUX63,10,2,silicon_ring
 RMUX63,11,2,RMUX68,10,2,silicon_ring
 RMUX63,11,2,RMUX53,7,2,silicon_ring
+RMUX63,11,2,RMUX62,7,2,silicon_ring
 RMUX63,11,2,RMUX63,7,2,silicon_ring
 RMUX63,11,2,RMUX53,8,2,silicon_ring
 RMUX63,11,2,RMUX63,8,2,silicon_ring
+RMUX63,11,2,RMUX69,8,2,silicon_ring
 RMUX63,11,2,RMUX53,9,2,silicon_ring
 RMUX64,11,2,IMUX16,11,2,silicon_ring
 RMUX64,11,2,IMUX52,11,2,silicon_ring
@@ -5133,6 +5177,7 @@ RMUX81,11,2,RMUX45,15,2,silicon_ring
 RMUX82,11,2,IMUX00,11,2,silicon_ring
 RMUX82,11,2,IMUX40,11,2,silicon_ring
 RMUX83,11,2,IMUX31,11,2,silicon_ring
+RMUX85,11,2,RMUX64,11,3,silicon_ring
 RMUX85,11,2,RMUX70,11,3,silicon_ring
 RMUX85,11,2,RMUX49,11,4,silicon_ring
 RMUX85,11,2,RMUX64,11,4,silicon_ring
@@ -5760,6 +5805,7 @@ RMUX13,11,3,RMUX49,9,3,silicon_ring
 RMUX13,11,3,RMUX64,9,3,silicon_ring
 RMUX13,11,3,RMUX65,9,3,silicon_ring
 RMUX14,11,3,RMUX61,11,1,silicon_ring
+RMUX14,11,3,RMUX50,11,2,silicon_ring
 RMUX14,11,3,RMUX51,11,2,silicon_ring
 RMUX14,11,3,RMUX56,11,2,silicon_ring
 RMUX14,11,3,RMUX61,11,2,silicon_ring
@@ -5821,6 +5867,7 @@ RMUX26,11,3,RMUX09,10,3,silicon_ring
 RMUX26,11,3,RMUX03,7,3,silicon_ring
 RMUX26,11,3,RMUX13,7,3,silicon_ring
 RMUX26,11,3,RMUX03,8,3,silicon_ring
+RMUX26,11,3,RMUX09,8,3,silicon_ring
 RMUX26,11,3,RMUX13,8,3,silicon_ring
 RMUX26,11,3,RMUX13,9,3,silicon_ring
 RMUX27,11,3,RMUX05,11,1,silicon_ring
@@ -5854,11 +5901,13 @@ RMUX33,11,3,RMUX34,7,3,silicon_ring
 RMUX33,11,3,RMUX34,8,3,silicon_ring
 RMUX34,11,3,IMUX24,11,3,silicon_ring
 RMUX37,11,3,RMUX48,11,2,silicon_ring
+RMUX37,11,3,RMUX49,11,2,silicon_ring
 RMUX37,11,3,RMUX70,11,2,silicon_ring
 RMUX38,11,3,RMUX50,12,3,silicon_ring
 RMUX38,11,3,RMUX56,12,3,silicon_ring
 RMUX38,11,3,RMUX57,12,3,silicon_ring
 RMUX38,11,3,RMUX51,13,3,silicon_ring
+RMUX38,11,3,RMUX51,14,3,silicon_ring
 RMUX38,11,3,RMUX57,14,3,silicon_ring
 RMUX38,11,3,RMUX61,14,3,silicon_ring
 RMUX38,11,3,RMUX67,14,3,silicon_ring
@@ -6003,6 +6052,7 @@ RMUX75,11,3,RMUX15,11,3,silicon_ring
 RMUX75,11,3,RMUX04,11,4,silicon_ring
 RMUX75,11,3,RMUX10,11,4,silicon_ring
 RMUX75,11,3,RMUX15,11,4,silicon_ring
+RMUX75,11,3,RMUX20,11,4,silicon_ring
 RMUX75,11,3,RMUX21,11,4,silicon_ring
 RMUX76,11,3,IMUX00,11,3,silicon_ring
 RMUX76,11,3,IMUX12,11,3,silicon_ring
@@ -6031,6 +6081,7 @@ RMUX81,11,3,RMUX34,14,3,silicon_ring
 RMUX81,11,3,RMUX39,14,3,silicon_ring
 RMUX81,11,3,RMUX38,15,3,silicon_ring
 RMUX81,11,3,RMUX39,15,3,silicon_ring
+RMUX81,11,3,RMUX45,15,3,silicon_ring
 RMUX82,11,3,IMUX40,11,3,silicon_ring
 RMUX85,11,3,RMUX49,11,4,silicon_ring
 RMUX85,11,3,RMUX64,11,4,silicon_ring
@@ -6082,6 +6133,7 @@ RMUX93,11,3,RMUX77,7,3,silicon_ring
 RMUX93,11,3,RMUX93,7,3,silicon_ring
 RMUX93,11,3,RMUX76,8,3,silicon_ring
 RMUX93,11,3,RMUX82,8,3,silicon_ring
+RMUX93,11,3,RMUX87,8,3,silicon_ring
 RMUX93,11,3,RMUX82,9,3,silicon_ring
 RMUX93,11,3,RMUX93,9,3,silicon_ring
 OMUX01,11,4,IMUX04,11,4,silicon_ring
@@ -6190,6 +6242,7 @@ OMUX07,11,4,IMUX58,11,4,silicon_ring
 OMUX07,11,4,IMUX60,11,4,silicon_ring
 OMUX07,11,4,IMUX62,11,4,silicon_ring
 OMUX08,11,4,OMUX07,11,4,silicon_ring
+OMUX08,11,4,RMUX03,11,4,silicon_ring
 OMUX08,11,4,RMUX05,11,4,silicon_ring
 OMUX08,11,4,RMUX07,11,4,silicon_ring
 OMUX08,11,4,RMUX09,11,4,silicon_ring
@@ -6261,6 +6314,7 @@ OMUX13,11,4,IMUX54,11,4,silicon_ring
 OMUX13,11,4,IMUX56,11,4,silicon_ring
 OMUX14,11,4,OMUX13,11,4,silicon_ring
 OMUX14,11,4,RMUX26,11,4,silicon_ring
+OMUX14,11,4,RMUX41,11,4,silicon_ring
 OMUX14,11,4,RMUX43,11,4,silicon_ring
 OMUX14,11,4,RMUX45,11,4,silicon_ring
 OMUX16,11,4,IMUX01,11,4,silicon_ring
@@ -6618,6 +6672,7 @@ RMUX03,11,4,RMUX21,8,4,silicon_ring
 RMUX03,11,4,RMUX05,9,4,silicon_ring
 RMUX03,11,4,RMUX11,9,4,silicon_ring
 RMUX03,11,4,RMUX14,9,4,silicon_ring
+RMUX03,11,4,RMUX20,9,4,silicon_ring
 RMUX04,11,4,IMUX12,11,4,silicon_ring
 RMUX05,11,4,IMUX21,11,4,silicon_ring
 RMUX05,11,4,IMUX29,11,4,silicon_ring
@@ -6946,6 +7001,7 @@ RMUX79,11,4,RMUX40,9,4,silicon_ring
 RMUX80,11,4,RMUX26,11,1,silicon_ring
 RMUX80,11,4,RMUX33,11,1,silicon_ring
 RMUX80,11,4,RMUX43,11,1,silicon_ring
+RMUX80,11,4,RMUX27,11,2,silicon_ring
 RMUX80,11,4,RMUX33,11,2,silicon_ring
 RMUX80,11,4,RMUX26,11,3,silicon_ring
 RMUX80,11,4,RMUX43,11,3,silicon_ring
@@ -7521,6 +7577,7 @@ RMUX03,12,1,RMUX10,10,1,silicon_ring
 RMUX03,12,1,RMUX20,10,1,silicon_ring
 RMUX03,12,1,RMUX10,11,1,silicon_ring
 RMUX03,12,1,RMUX05,8,1,silicon_ring
+RMUX03,12,1,RMUX20,8,1,silicon_ring
 RMUX03,12,1,RMUX04,9,1,silicon_ring
 RMUX03,12,1,RMUX20,9,1,silicon_ring
 RMUX04,12,1,IMUX08,12,1,silicon_ring
@@ -7565,6 +7622,7 @@ RMUX15,12,1,RMUX69,16,1,silicon_ring
 RMUX16,12,1,IMUX12,12,1,silicon_ring
 RMUX16,12,1,IMUX40,12,1,silicon_ring
 RMUX16,12,1,IMUX60,12,1,silicon_ring
+RMUX17,12,1,IMUX09,12,1,silicon_ring
 RMUX17,12,1,IMUX13,12,1,silicon_ring
 RMUX17,12,1,IMUX17,12,1,silicon_ring
 RMUX17,12,1,IMUX21,12,1,silicon_ring
@@ -7695,6 +7753,7 @@ RMUX55,12,1,RMUX24,12,4,silicon_ring
 RMUX55,12,1,RMUX31,12,4,silicon_ring
 RMUX55,12,1,RMUX40,12,4,silicon_ring
 RMUX55,12,1,RMUX46,12,4,silicon_ring
+RMUX56,12,1,RMUX33,11,1,silicon_ring
 RMUX56,12,1,RMUX26,8,1,silicon_ring
 RMUX56,12,1,RMUX33,8,1,silicon_ring
 RMUX58,12,1,IMUX00,12,1,silicon_ring
@@ -7706,6 +7765,7 @@ RMUX61,12,1,RMUX55,15,1,silicon_ring
 RMUX62,12,1,RMUX50,12,2,silicon_ring
 RMUX62,12,1,RMUX67,12,2,silicon_ring
 RMUX62,12,1,RMUX51,12,3,silicon_ring
+RMUX62,12,1,RMUX56,12,3,silicon_ring
 RMUX62,12,1,RMUX51,12,4,silicon_ring
 RMUX62,12,1,RMUX56,12,4,silicon_ring
 RMUX62,12,1,RMUX57,12,4,silicon_ring
@@ -7718,6 +7778,7 @@ RMUX63,12,1,RMUX68,11,1,silicon_ring
 RMUX63,12,1,RMUX69,11,1,silicon_ring
 RMUX63,12,1,RMUX58,8,1,silicon_ring
 RMUX63,12,1,RMUX62,8,1,silicon_ring
+RMUX63,12,1,RMUX63,8,1,silicon_ring
 RMUX63,12,1,RMUX52,9,1,silicon_ring
 RMUX63,12,1,RMUX63,9,1,silicon_ring
 RMUX63,12,1,RMUX69,9,1,silicon_ring
@@ -8612,6 +8673,7 @@ RMUX63,12,2,RMUX52,11,2,silicon_ring
 RMUX63,12,2,RMUX53,11,2,silicon_ring
 RMUX63,12,2,RMUX63,11,2,silicon_ring
 RMUX63,12,2,RMUX68,11,2,silicon_ring
+RMUX63,12,2,RMUX69,11,2,silicon_ring
 RMUX63,12,2,RMUX58,8,2,silicon_ring
 RMUX63,12,2,RMUX52,9,2,silicon_ring
 RMUX63,12,2,RMUX53,9,2,silicon_ring
@@ -8763,6 +8825,7 @@ OMUX02,12,3,OMUX01,12,3,silicon_ring
 OMUX02,12,3,RMUX08,12,3,silicon_ring
 OMUX02,12,3,RMUX15,12,3,silicon_ring
 OMUX02,12,3,RMUX17,12,3,silicon_ring
+OMUX02,12,3,RMUX19,12,3,silicon_ring
 OMUX02,12,3,RMUX21,12,3,silicon_ring
 OMUX04,12,3,IMUX00,12,3,silicon_ring
 OMUX04,12,3,IMUX01,12,3,silicon_ring
@@ -8871,6 +8934,7 @@ OMUX10,12,3,IMUX57,12,3,silicon_ring
 OMUX10,12,3,IMUX59,12,3,silicon_ring
 OMUX10,12,3,IMUX61,12,3,silicon_ring
 OMUX11,12,3,OMUX10,12,3,silicon_ring
+OMUX11,12,3,RMUX03,12,3,silicon_ring
 OMUX11,12,3,RMUX07,12,3,silicon_ring
 OMUX11,12,3,RMUX09,12,3,silicon_ring
 OMUX11,12,3,RMUX20,12,3,silicon_ring
@@ -9284,6 +9348,7 @@ RMUX08,12,3,RMUX27,16,3,silicon_ring
 RMUX08,12,3,RMUX32,16,3,silicon_ring
 RMUX08,12,3,RMUX37,16,3,silicon_ring
 RMUX09,12,3,RMUX38,12,2,silicon_ring
+RMUX09,12,3,RMUX45,12,2,silicon_ring
 RMUX09,12,3,RMUX38,12,3,silicon_ring
 RMUX09,12,3,RMUX28,12,4,silicon_ring
 RMUX09,12,3,RMUX38,12,4,silicon_ring
@@ -9549,9 +9614,11 @@ RMUX62,12,3,RMUX51,12,4,silicon_ring
 RMUX62,12,3,RMUX56,12,4,silicon_ring
 RMUX62,12,3,RMUX61,12,4,silicon_ring
 RMUX62,12,3,RMUX67,12,4,silicon_ring
+RMUX63,12,3,RMUX52,11,3,silicon_ring
 RMUX63,12,3,RMUX58,11,3,silicon_ring
 RMUX63,12,3,RMUX63,8,3,silicon_ring
 RMUX63,12,3,RMUX69,8,3,silicon_ring
+RMUX63,12,3,RMUX69,9,3,silicon_ring
 RMUX64,12,3,IMUX16,12,3,silicon_ring
 RMUX65,12,3,IMUX13,12,3,silicon_ring
 RMUX65,12,3,IMUX19,12,3,silicon_ring
@@ -9694,6 +9761,7 @@ RMUX93,12,3,RMUX92,11,3,silicon_ring
 RMUX93,12,3,RMUX76,8,3,silicon_ring
 RMUX93,12,3,RMUX82,8,3,silicon_ring
 RMUX93,12,3,RMUX77,9,3,silicon_ring
+RMUX93,12,3,RMUX87,9,3,silicon_ring
 RMUX93,12,3,RMUX92,9,3,silicon_ring
 RMUX95,12,3,IMUX07,12,3,silicon_ring
 OMUX01,12,4,IMUX04,12,4,silicon_ring
@@ -10291,12 +10359,14 @@ RMUX15,12,4,RMUX62,14,4,silicon_ring
 RMUX15,12,4,RMUX68,14,4,silicon_ring
 RMUX15,12,4,RMUX69,14,4,silicon_ring
 RMUX15,12,4,RMUX62,15,4,silicon_ring
+RMUX15,12,4,RMUX68,15,4,silicon_ring
 RMUX15,12,4,RMUX69,15,4,silicon_ring
 RMUX15,12,4,RMUX52,16,4,silicon_ring
 RMUX15,12,4,RMUX53,16,4,silicon_ring
 RMUX15,12,4,RMUX58,16,4,silicon_ring
 RMUX15,12,4,RMUX62,16,4,silicon_ring
 RMUX15,12,4,RMUX68,16,4,silicon_ring
+RMUX15,12,4,RMUX69,16,4,silicon_ring
 RMUX16,12,4,IMUX12,12,4,silicon_ring
 RMUX17,12,4,IMUX13,12,4,silicon_ring
 RMUX17,12,4,IMUX15,12,4,silicon_ring
@@ -10351,6 +10421,7 @@ RMUX27,12,4,RMUX05,12,1,silicon_ring
 RMUX27,12,4,RMUX15,12,1,silicon_ring
 RMUX27,12,4,RMUX20,12,1,silicon_ring
 RMUX27,12,4,RMUX10,12,2,silicon_ring
+RMUX27,12,4,RMUX21,12,2,silicon_ring
 RMUX27,12,4,RMUX10,12,3,silicon_ring
 RMUX27,12,4,RMUX14,12,3,silicon_ring
 RMUX27,12,4,RMUX15,12,3,silicon_ring
@@ -10394,10 +10465,12 @@ RMUX38,12,4,RMUX50,14,4,silicon_ring
 RMUX38,12,4,RMUX51,14,4,silicon_ring
 RMUX38,12,4,RMUX57,14,4,silicon_ring
 RMUX38,12,4,RMUX67,14,4,silicon_ring
+RMUX38,12,4,RMUX51,15,4,silicon_ring
 RMUX38,12,4,RMUX57,15,4,silicon_ring
 RMUX38,12,4,RMUX61,15,4,silicon_ring
 RMUX38,12,4,RMUX67,15,4,silicon_ring
 RMUX38,12,4,RMUX51,16,4,silicon_ring
+RMUX38,12,4,RMUX57,16,4,silicon_ring
 RMUX38,12,4,RMUX67,16,4,silicon_ring
 RMUX40,12,4,IMUX08,12,4,silicon_ring
 RMUX40,12,4,IMUX14,12,4,silicon_ring
@@ -10570,6 +10643,7 @@ RMUX77,12,4,IMUX61,12,4,silicon_ring
 RMUX79,12,4,RMUX40,10,4,silicon_ring
 RMUX79,12,4,RMUX31,11,4,silicon_ring
 RMUX79,12,4,RMUX40,11,4,silicon_ring
+RMUX79,12,4,RMUX46,11,4,silicon_ring
 RMUX79,12,4,RMUX47,11,4,silicon_ring
 RMUX79,12,4,RMUX47,8,4,silicon_ring
 RMUX79,12,4,RMUX40,9,4,silicon_ring
@@ -10657,6 +10731,7 @@ RMUX21,13,1,RMUX82,13,4,silicon_ring
 RMUX25,13,1,RMUX01,13,3,silicon_ring
 RMUX27,13,1,RMUX15,13,3,silicon_ring
 RMUX27,13,1,RMUX20,13,3,silicon_ring
+RMUX27,13,1,RMUX15,13,4,silicon_ring
 RMUX27,13,1,RMUX20,13,4,silicon_ring
 RMUX32,13,1,RMUX26,13,3,silicon_ring
 RMUX32,13,1,RMUX33,13,3,silicon_ring
@@ -10668,6 +10743,7 @@ RMUX50,13,1,RMUX08,13,2,silicon_ring
 RMUX50,13,1,RMUX08,13,3,silicon_ring
 RMUX50,13,1,RMUX13,13,3,silicon_ring
 RMUX51,13,1,RMUX11,14,1,silicon_ring
+RMUX51,13,1,RMUX15,14,1,silicon_ring
 RMUX55,13,1,RMUX31,13,2,silicon_ring
 RMUX55,13,1,RMUX31,13,3,silicon_ring
 RMUX57,13,1,RMUX39,13,3,silicon_ring
@@ -10750,6 +10826,7 @@ RMUX74,13,2,RMUX02,16,2,silicon_ring
 RMUX74,13,2,RMUX09,16,2,silicon_ring
 RMUX75,13,2,RMUX15,13,3,silicon_ring
 RMUX81,13,2,RMUX39,14,2,silicon_ring
+RMUX81,13,2,RMUX39,16,2,silicon_ring
 RMUX81,13,2,RMUX39,17,2,silicon_ring
 RMUX85,13,2,RMUX55,13,4,silicon_ring
 RMUX87,13,2,RMUX62,13,1,silicon_ring
@@ -10776,6 +10853,7 @@ RMUX09,13,3,RMUX44,13,4,silicon_ring
 RMUX09,13,3,RMUX45,13,4,silicon_ring
 RMUX13,13,3,RMUX64,11,3,silicon_ring
 RMUX13,13,3,RMUX49,9,3,silicon_ring
+RMUX14,13,3,RMUX51,13,1,silicon_ring
 RMUX14,13,3,RMUX57,13,1,silicon_ring
 RMUX14,13,3,RMUX61,13,1,silicon_ring
 RMUX14,13,3,RMUX67,13,1,silicon_ring
@@ -10847,6 +10925,8 @@ BufMUX14,13,4,RMUX80,14,4,silicon_ring
 BufMUX15,13,4,RMUX74,14,4,silicon_ring
 BufMUX16,13,4,RMUX08,13,4,silicon_ring
 BufMUX17,13,4,RMUX08,13,4,silicon_ring
+BufMUX17,13,4,RMUX15,13,4,silicon_ring
+BufMUX18,13,4,RMUX03,13,4,silicon_ring
 BufMUX18,13,4,RMUX20,13,4,silicon_ring
 BufMUX19,13,4,RMUX20,13,4,silicon_ring
 BufMUX20,13,4,RMUX45,13,4,silicon_ring
@@ -10861,8 +10941,10 @@ RMUX03,13,4,RMUX15,12,4,silicon_ring
 RMUX03,13,4,RMUX20,12,4,silicon_ring
 RMUX05,13,4,IMUX29,13,4,silicon_ring
 RMUX06,13,4,IMUX02,13,4,silicon_ring
+RMUX07,13,4,RMUX25,13,1,silicon_ring
 RMUX08,13,4,RMUX27,14,4,silicon_ring
 RMUX08,13,4,RMUX32,14,4,silicon_ring
+RMUX08,13,4,RMUX26,16,4,silicon_ring
 RMUX08,13,4,RMUX27,16,4,silicon_ring
 RMUX08,13,4,RMUX32,16,4,silicon_ring
 RMUX08,13,4,RMUX32,17,4,silicon_ring
@@ -10874,7 +10956,9 @@ RMUX13,13,4,RMUX49,9,4,silicon_ring
 RMUX14,13,4,RMUX61,13,1,silicon_ring
 RMUX14,13,4,RMUX67,13,1,silicon_ring
 RMUX15,13,4,RMUX62,16,4,silicon_ring
+RMUX15,13,4,RMUX69,17,4,silicon_ring
 RMUX19,13,4,RMUX73,13,1,silicon_ring
+RMUX20,13,4,RMUX80,11,4,silicon_ring
 RMUX20,13,4,RMUX74,12,4,silicon_ring
 RMUX20,13,4,RMUX81,12,4,silicon_ring
 RMUX20,13,4,RMUX80,9,4,silicon_ring
@@ -10885,6 +10969,7 @@ RMUX23,13,4,IMUX11,13,4,silicon_ring
 RMUX23,13,4,IMUX23,13,4,silicon_ring
 RMUX24,13,4,IMUX28,13,4,silicon_ring
 RMUX25,13,4,RMUX07,13,1,silicon_ring
+RMUX25,13,4,RMUX01,13,3,silicon_ring
 RMUX26,13,4,RMUX08,12,4,silicon_ring
 RMUX27,13,4,RMUX15,13,2,silicon_ring
 RMUX27,13,4,RMUX20,13,2,silicon_ring
@@ -10895,6 +10980,7 @@ RMUX28,13,4,IMUX58,13,4,silicon_ring
 RMUX31,13,4,RMUX25,14,4,silicon_ring
 RMUX33,13,4,RMUX29,11,4,silicon_ring
 RMUX34,13,4,IMUX26,13,4,silicon_ring
+RMUX37,13,4,RMUX55,13,1,silicon_ring
 RMUX38,13,4,RMUX50,14,4,silicon_ring
 RMUX38,13,4,RMUX51,14,4,silicon_ring
 RMUX38,13,4,RMUX67,14,4,silicon_ring
@@ -10903,6 +10989,7 @@ RMUX38,13,4,RMUX61,15,4,silicon_ring
 RMUX38,13,4,RMUX56,16,4,silicon_ring
 RMUX38,13,4,RMUX57,16,4,silicon_ring
 RMUX38,13,4,RMUX50,17,4,silicon_ring
+RMUX38,13,4,RMUX51,17,4,silicon_ring
 RMUX39,13,4,RMUX68,13,1,silicon_ring
 RMUX39,13,4,RMUX63,13,2,silicon_ring
 RMUX41,13,4,IMUX25,13,4,silicon_ring
@@ -10916,6 +11003,7 @@ RMUX45,13,4,RMUX92,17,4,silicon_ring
 RMUX48,13,4,IMUX40,12,4,silicon_ring
 RMUX49,13,4,RMUX07,9,4,silicon_ring
 RMUX50,13,4,RMUX08,13,2,silicon_ring
+RMUX50,13,4,RMUX19,13,2,silicon_ring
 RMUX50,13,4,RMUX08,13,3,silicon_ring
 RMUX50,13,4,RMUX09,13,3,silicon_ring
 RMUX50,13,4,RMUX13,13,3,silicon_ring
@@ -10952,8 +11040,10 @@ RMUX73,13,4,RMUX07,13,1,silicon_ring
 RMUX74,13,4,RMUX02,14,4,silicon_ring
 RMUX74,13,4,RMUX09,14,4,silicon_ring
 RMUX74,13,4,RMUX13,14,4,silicon_ring
+RMUX74,13,4,RMUX19,14,4,silicon_ring
 RMUX74,13,4,RMUX08,15,4,silicon_ring
 RMUX74,13,4,RMUX19,15,4,silicon_ring
+RMUX74,13,4,RMUX09,16,4,silicon_ring
 RMUX74,13,4,RMUX19,16,4,silicon_ring
 RMUX74,13,4,RMUX02,17,4,silicon_ring
 RMUX75,13,4,RMUX15,13,3,silicon_ring
@@ -11488,6 +11578,7 @@ RMUX07,14,10,RMUX40,14,9,silicon_ring
 RMUX08,14,10,RMUX26,15,10,silicon_ring
 RMUX08,14,10,RMUX27,15,10,silicon_ring
 RMUX08,14,10,RMUX33,15,10,silicon_ring
+RMUX08,14,10,RMUX37,15,10,silicon_ring
 RMUX08,14,10,RMUX43,15,10,silicon_ring
 RMUX08,14,10,RMUX26,16,10,silicon_ring
 RMUX08,14,10,RMUX27,16,10,silicon_ring
@@ -11621,6 +11712,7 @@ RMUX38,14,10,RMUX50,15,10,silicon_ring
 RMUX38,14,10,RMUX56,15,10,silicon_ring
 RMUX38,14,10,RMUX57,15,10,silicon_ring
 RMUX38,14,10,RMUX67,15,10,silicon_ring
+RMUX38,14,10,RMUX51,16,10,silicon_ring
 RMUX38,14,10,RMUX67,16,10,silicon_ring
 RMUX38,14,10,RMUX57,17,10,silicon_ring
 RMUX38,14,10,RMUX67,17,10,silicon_ring
@@ -11820,6 +11912,7 @@ RMUX85,14,10,RMUX65,14,11,silicon_ring
 RMUX85,14,10,RMUX65,14,12,silicon_ring
 RMUX85,14,10,RMUX70,14,12,silicon_ring
 RMUX85,14,10,RMUX71,14,12,silicon_ring
+RMUX87,14,10,RMUX68,14,6,silicon_ring
 RMUX87,14,10,RMUX68,14,7,silicon_ring
 RMUX87,14,10,RMUX53,14,9,silicon_ring
 RMUX87,14,10,RMUX58,14,9,silicon_ring
@@ -12302,11 +12395,13 @@ RMUX11,14,11,IMUX57,14,11,silicon_ring
 RMUX11,14,11,IMUX61,14,11,silicon_ring
 RMUX14,14,11,RMUX50,14,10,silicon_ring
 RMUX14,14,11,RMUX51,14,10,silicon_ring
+RMUX14,14,11,RMUX50,14,7,silicon_ring
 RMUX14,14,11,RMUX51,14,7,silicon_ring
 RMUX14,14,11,RMUX57,14,7,silicon_ring
 RMUX14,14,11,RMUX67,14,7,silicon_ring
 RMUX14,14,11,RMUX50,14,8,silicon_ring
 RMUX14,14,11,RMUX51,14,8,silicon_ring
+RMUX14,14,11,RMUX57,14,8,silicon_ring
 RMUX14,14,11,RMUX61,14,8,silicon_ring
 RMUX14,14,11,RMUX61,14,9,silicon_ring
 RMUX15,14,11,RMUX52,15,11,silicon_ring
@@ -12354,6 +12449,7 @@ RMUX27,14,11,RMUX10,14,10,silicon_ring
 RMUX27,14,11,RMUX11,14,10,silicon_ring
 RMUX27,14,11,RMUX14,14,10,silicon_ring
 RMUX27,14,11,RMUX15,14,10,silicon_ring
+RMUX27,14,11,RMUX21,14,10,silicon_ring
 RMUX27,14,11,RMUX14,14,7,silicon_ring
 RMUX27,14,11,RMUX15,14,7,silicon_ring
 RMUX27,14,11,RMUX21,14,7,silicon_ring
@@ -12528,6 +12624,7 @@ RMUX81,14,11,RMUX83,14,11,silicon_ring
 RMUX81,14,11,RMUX28,15,11,silicon_ring
 RMUX81,14,11,RMUX34,15,11,silicon_ring
 RMUX81,14,11,RMUX35,15,11,silicon_ring
+RMUX81,14,11,RMUX38,15,11,silicon_ring
 RMUX81,14,11,RMUX44,15,11,silicon_ring
 RMUX81,14,11,RMUX45,15,11,silicon_ring
 RMUX81,14,11,RMUX38,16,11,silicon_ring
@@ -13841,6 +13938,7 @@ RMUX31,14,1,RMUX25,16,1,silicon_ring
 RMUX31,14,1,RMUX25,17,1,silicon_ring
 RMUX32,14,1,RMUX34,14,1,silicon_ring
 RMUX32,14,1,RMUX27,14,2,silicon_ring
+RMUX32,14,1,RMUX33,14,2,silicon_ring
 RMUX32,14,1,RMUX37,14,2,silicon_ring
 RMUX32,14,1,RMUX43,14,2,silicon_ring
 RMUX32,14,1,RMUX27,14,3,silicon_ring
@@ -13909,6 +14007,7 @@ RMUX50,14,1,RMUX52,14,1,silicon_ring
 RMUX51,14,1,RMUX15,15,1,silicon_ring
 RMUX51,14,1,RMUX20,15,1,silicon_ring
 RMUX51,14,1,RMUX15,16,1,silicon_ring
+RMUX51,14,1,RMUX05,17,1,silicon_ring
 RMUX51,14,1,RMUX15,17,1,silicon_ring
 RMUX51,14,1,RMUX05,18,1,silicon_ring
 RMUX51,14,1,RMUX15,18,1,silicon_ring
@@ -13955,6 +14054,7 @@ RMUX61,14,1,RMUX55,16,1,silicon_ring
 RMUX61,14,1,RMUX65,16,1,silicon_ring
 RMUX61,14,1,RMUX55,17,1,silicon_ring
 RMUX61,14,1,RMUX55,18,1,silicon_ring
+RMUX62,14,1,RMUX50,14,2,silicon_ring
 RMUX62,14,1,RMUX51,14,2,silicon_ring
 RMUX62,14,1,RMUX56,14,2,silicon_ring
 RMUX62,14,1,RMUX67,14,2,silicon_ring
@@ -14871,6 +14971,7 @@ RMUX33,14,2,RMUX44,10,2,silicon_ring
 RMUX33,14,2,RMUX34,11,2,silicon_ring
 RMUX33,14,2,RMUX39,11,2,silicon_ring
 RMUX33,14,2,RMUX44,11,2,silicon_ring
+RMUX33,14,2,RMUX39,12,2,silicon_ring
 RMUX34,14,2,IMUX00,14,2,silicon_ring
 RMUX34,14,2,IMUX08,14,2,silicon_ring
 RMUX34,14,2,IMUX14,14,2,silicon_ring
@@ -14895,6 +14996,7 @@ RMUX39,14,2,RMUX53,14,3,silicon_ring
 RMUX39,14,2,RMUX58,14,3,silicon_ring
 RMUX39,14,2,RMUX62,14,3,silicon_ring
 RMUX39,14,2,RMUX68,14,3,silicon_ring
+RMUX39,14,2,RMUX52,14,4,silicon_ring
 RMUX39,14,2,RMUX58,14,4,silicon_ring
 RMUX39,14,2,RMUX62,14,4,silicon_ring
 RMUX39,14,2,RMUX63,14,4,silicon_ring
@@ -15022,6 +15124,7 @@ RMUX62,14,2,RMUX56,14,4,silicon_ring
 RMUX62,14,2,RMUX67,14,4,silicon_ring
 RMUX62,14,2,RMUX51,14,5,silicon_ring
 RMUX62,14,2,RMUX57,14,5,silicon_ring
+RMUX62,14,2,RMUX61,14,5,silicon_ring
 RMUX62,14,2,RMUX51,14,6,silicon_ring
 RMUX62,14,2,RMUX57,14,6,silicon_ring
 RMUX63,14,2,RMUX62,10,2,silicon_ring
@@ -15165,6 +15268,7 @@ RMUX87,14,2,RMUX69,14,1,silicon_ring
 RMUX87,14,2,RMUX69,14,2,silicon_ring
 RMUX87,14,2,RMUX52,14,3,silicon_ring
 RMUX87,14,2,RMUX59,14,3,silicon_ring
+RMUX87,14,2,RMUX68,14,3,silicon_ring
 RMUX88,14,2,IMUX32,14,2,silicon_ring
 RMUX88,14,2,IMUX40,14,2,silicon_ring
 RMUX89,14,2,IMUX01,14,2,silicon_ring
@@ -15818,6 +15922,7 @@ RMUX03,14,3,RMUX04,11,3,silicon_ring
 RMUX03,14,3,RMUX05,11,3,silicon_ring
 RMUX03,14,3,RMUX14,11,3,silicon_ring
 RMUX03,14,3,RMUX20,11,3,silicon_ring
+RMUX03,14,3,RMUX21,11,3,silicon_ring
 RMUX03,14,3,RMUX05,12,3,silicon_ring
 RMUX03,14,3,RMUX10,12,3,silicon_ring
 RMUX03,14,3,RMUX11,12,3,silicon_ring
@@ -16103,6 +16208,7 @@ RMUX46,14,3,IMUX00,14,3,silicon_ring
 RMUX46,14,3,IMUX04,14,3,silicon_ring
 RMUX46,14,3,IMUX16,14,3,silicon_ring
 RMUX46,14,3,IMUX36,14,3,silicon_ring
+RMUX47,14,3,IMUX01,14,3,silicon_ring
 RMUX49,14,3,RMUX06,10,3,silicon_ring
 RMUX49,14,3,RMUX07,10,3,silicon_ring
 RMUX49,14,3,RMUX22,10,3,silicon_ring
@@ -16169,6 +16275,7 @@ RMUX56,14,3,RMUX27,12,3,silicon_ring
 RMUX56,14,3,RMUX37,12,3,silicon_ring
 RMUX56,14,3,RMUX43,12,3,silicon_ring
 RMUX56,14,3,RMUX27,13,3,silicon_ring
+RMUX56,14,3,RMUX37,13,3,silicon_ring
 RMUX56,14,3,RMUX43,13,3,silicon_ring
 RMUX57,14,3,RMUX38,14,1,silicon_ring
 RMUX57,14,3,RMUX45,14,1,silicon_ring
@@ -16379,6 +16486,7 @@ RMUX91,14,3,RMUX89,18,3,silicon_ring
 RMUX92,14,3,RMUX75,14,4,silicon_ring
 RMUX92,14,3,RMUX80,14,4,silicon_ring
 RMUX92,14,3,RMUX81,14,4,silicon_ring
+RMUX92,14,3,RMUX85,14,4,silicon_ring
 RMUX92,14,3,RMUX91,14,4,silicon_ring
 RMUX92,14,3,RMUX75,14,5,silicon_ring
 RMUX92,14,3,RMUX81,14,5,silicon_ring
@@ -16565,6 +16673,7 @@ OMUX14,14,4,RMUX24,14,4,silicon_ring
 OMUX14,14,4,RMUX26,14,4,silicon_ring
 OMUX14,14,4,RMUX32,14,4,silicon_ring
 OMUX14,14,4,RMUX41,14,4,silicon_ring
+OMUX14,14,4,RMUX43,14,4,silicon_ring
 OMUX16,14,4,IMUX01,14,4,silicon_ring
 OMUX16,14,4,IMUX03,14,4,silicon_ring
 OMUX16,14,4,IMUX05,14,4,silicon_ring
@@ -17363,6 +17472,7 @@ RMUX49,14,4,RMUX17,12,4,silicon_ring
 RMUX49,14,4,RMUX23,12,4,silicon_ring
 RMUX50,14,4,RMUX08,14,1,silicon_ring
 RMUX50,14,4,RMUX03,14,2,silicon_ring
+RMUX50,14,4,RMUX08,14,2,silicon_ring
 RMUX50,14,4,RMUX09,14,2,silicon_ring
 RMUX50,14,4,RMUX13,14,2,silicon_ring
 RMUX50,14,4,RMUX08,14,3,silicon_ring
@@ -18353,6 +18463,7 @@ RMUX11,14,5,IMUX37,14,5,silicon_ring
 RMUX11,14,5,IMUX39,14,5,silicon_ring
 RMUX14,14,5,RMUX56,14,1,silicon_ring
 RMUX14,14,5,RMUX61,14,1,silicon_ring
+RMUX14,14,5,RMUX50,14,2,silicon_ring
 RMUX14,14,5,RMUX51,14,2,silicon_ring
 RMUX14,14,5,RMUX56,14,2,silicon_ring
 RMUX14,14,5,RMUX57,14,2,silicon_ring
@@ -18435,6 +18546,7 @@ RMUX25,14,5,RMUX16,14,8,silicon_ring
 RMUX25,14,5,RMUX01,14,9,silicon_ring
 RMUX25,14,5,RMUX22,14,9,silicon_ring
 RMUX27,14,5,RMUX15,14,1,silicon_ring
+RMUX27,14,5,RMUX20,14,1,silicon_ring
 RMUX27,14,5,RMUX10,14,2,silicon_ring
 RMUX27,14,5,RMUX14,14,2,silicon_ring
 RMUX27,14,5,RMUX21,14,2,silicon_ring
@@ -18700,6 +18812,7 @@ RMUX77,14,5,IMUX21,14,5,silicon_ring
 RMUX77,14,5,IMUX33,14,5,silicon_ring
 RMUX77,14,5,IMUX41,14,5,silicon_ring
 RMUX80,14,5,RMUX26,14,1,silicon_ring
+RMUX80,14,5,RMUX26,14,2,silicon_ring
 RMUX80,14,5,RMUX37,14,2,silicon_ring
 RMUX80,14,5,RMUX43,14,2,silicon_ring
 RMUX80,14,5,RMUX26,14,3,silicon_ring
@@ -18709,6 +18822,7 @@ RMUX80,14,5,RMUX37,14,3,silicon_ring
 RMUX80,14,5,RMUX43,14,3,silicon_ring
 RMUX80,14,5,RMUX26,14,4,silicon_ring
 RMUX80,14,5,RMUX27,14,4,silicon_ring
+RMUX80,14,5,RMUX33,14,4,silicon_ring
 RMUX80,14,5,RMUX37,14,4,silicon_ring
 RMUX80,14,5,RMUX43,14,4,silicon_ring
 RMUX81,14,5,RMUX83,14,5,silicon_ring
@@ -19307,6 +19421,7 @@ RMUX08,14,6,RMUX27,15,6,silicon_ring
 RMUX08,14,6,RMUX33,15,6,silicon_ring
 RMUX08,14,6,RMUX37,15,6,silicon_ring
 RMUX08,14,6,RMUX43,15,6,silicon_ring
+RMUX08,14,6,RMUX26,16,6,silicon_ring
 RMUX08,14,6,RMUX27,16,6,silicon_ring
 RMUX08,14,6,RMUX37,16,6,silicon_ring
 RMUX08,14,6,RMUX27,17,6,silicon_ring
@@ -19528,6 +19643,7 @@ RMUX41,14,6,IMUX41,14,6,silicon_ring
 RMUX41,14,6,IMUX45,14,6,silicon_ring
 RMUX44,14,6,RMUX74,14,2,silicon_ring
 RMUX44,14,6,RMUX75,14,2,silicon_ring
+RMUX44,14,6,RMUX80,14,2,silicon_ring
 RMUX44,14,6,RMUX81,14,2,silicon_ring
 RMUX44,14,6,RMUX91,14,2,silicon_ring
 RMUX44,14,6,RMUX80,14,3,silicon_ring
@@ -19645,6 +19761,7 @@ RMUX64,14,6,IMUX36,14,6,silicon_ring
 RMUX65,14,6,IMUX25,14,6,silicon_ring
 RMUX67,14,6,RMUX79,14,2,silicon_ring
 RMUX67,14,6,RMUX73,14,3,silicon_ring
+RMUX67,14,6,RMUX79,14,3,silicon_ring
 RMUX67,14,6,RMUX88,14,3,silicon_ring
 RMUX67,14,6,RMUX72,14,4,silicon_ring
 RMUX67,14,6,RMUX73,14,4,silicon_ring
@@ -19740,6 +19857,7 @@ RMUX80,14,6,RMUX27,14,2,silicon_ring
 RMUX80,14,6,RMUX37,14,2,silicon_ring
 RMUX80,14,6,RMUX43,14,2,silicon_ring
 RMUX80,14,6,RMUX27,14,3,silicon_ring
+RMUX80,14,6,RMUX33,14,3,silicon_ring
 RMUX80,14,6,RMUX37,14,3,silicon_ring
 RMUX80,14,6,RMUX43,14,3,silicon_ring
 RMUX80,14,6,RMUX26,14,4,silicon_ring
@@ -19756,6 +19874,7 @@ RMUX81,14,6,RMUX38,15,6,silicon_ring
 RMUX81,14,6,RMUX44,15,6,silicon_ring
 RMUX81,14,6,RMUX45,15,6,silicon_ring
 RMUX81,14,6,RMUX35,16,6,silicon_ring
+RMUX81,14,6,RMUX38,16,6,silicon_ring
 RMUX81,14,6,RMUX39,16,6,silicon_ring
 RMUX81,14,6,RMUX29,17,6,silicon_ring
 RMUX81,14,6,RMUX39,17,6,silicon_ring
@@ -20420,6 +20539,7 @@ RMUX14,14,7,RMUX50,14,6,silicon_ring
 RMUX14,14,7,RMUX51,14,6,silicon_ring
 RMUX14,14,7,RMUX57,14,6,silicon_ring
 RMUX14,14,7,RMUX61,14,6,silicon_ring
+RMUX14,14,7,RMUX67,14,6,silicon_ring
 RMUX15,14,7,RMUX52,15,7,silicon_ring
 RMUX15,14,7,RMUX53,15,7,silicon_ring
 RMUX15,14,7,RMUX58,15,7,silicon_ring
@@ -20489,6 +20609,7 @@ RMUX27,14,7,RMUX15,14,3,silicon_ring
 RMUX27,14,7,RMUX20,14,3,silicon_ring
 RMUX27,14,7,RMUX21,14,3,silicon_ring
 RMUX27,14,7,RMUX10,14,4,silicon_ring
+RMUX27,14,7,RMUX11,14,4,silicon_ring
 RMUX27,14,7,RMUX15,14,4,silicon_ring
 RMUX27,14,7,RMUX20,14,4,silicon_ring
 RMUX27,14,7,RMUX21,14,4,silicon_ring
@@ -21617,6 +21738,7 @@ RMUX62,14,8,RMUX50,14,11,silicon_ring
 RMUX62,14,8,RMUX51,14,11,silicon_ring
 RMUX62,14,8,RMUX57,14,11,silicon_ring
 RMUX62,14,8,RMUX51,14,12,silicon_ring
+RMUX62,14,8,RMUX57,14,12,silicon_ring
 RMUX62,14,8,RMUX50,14,9,silicon_ring
 RMUX62,14,8,RMUX51,14,9,silicon_ring
 RMUX62,14,8,RMUX67,14,9,silicon_ring
@@ -21705,6 +21827,7 @@ RMUX80,14,8,RMUX33,14,4,silicon_ring
 RMUX80,14,8,RMUX37,14,4,silicon_ring
 RMUX80,14,8,RMUX43,14,4,silicon_ring
 RMUX80,14,8,RMUX27,14,5,silicon_ring
+RMUX80,14,8,RMUX32,14,6,silicon_ring
 RMUX80,14,8,RMUX37,14,6,silicon_ring
 RMUX80,14,8,RMUX37,14,7,silicon_ring
 RMUX81,14,8,RMUX29,15,8,silicon_ring
@@ -22613,6 +22736,7 @@ RMUX92,14,9,RMUX80,14,11,silicon_ring
 RMUX92,14,9,RMUX81,14,11,silicon_ring
 RMUX92,14,9,RMUX80,14,12,silicon_ring
 RMUX92,14,9,RMUX81,14,12,silicon_ring
+RMUX92,14,9,RMUX91,14,12,silicon_ring
 OMUX01,15,10,IMUX04,15,10,silicon_ring
 OMUX01,15,10,IMUX05,15,10,silicon_ring
 OMUX01,15,10,IMUX06,15,10,silicon_ring
@@ -23232,6 +23356,7 @@ RMUX21,15,10,RMUX86,15,6,silicon_ring
 RMUX21,15,10,RMUX87,15,6,silicon_ring
 RMUX21,15,10,RMUX92,15,6,silicon_ring
 RMUX21,15,10,RMUX93,15,6,silicon_ring
+RMUX21,15,10,RMUX86,15,7,silicon_ring
 RMUX21,15,10,RMUX86,15,8,silicon_ring
 RMUX21,15,10,RMUX87,15,8,silicon_ring
 RMUX21,15,10,RMUX93,15,8,silicon_ring
@@ -23271,6 +23396,7 @@ RMUX27,15,10,RMUX15,15,6,silicon_ring
 RMUX27,15,10,RMUX20,15,6,silicon_ring
 RMUX27,15,10,RMUX21,15,6,silicon_ring
 RMUX27,15,10,RMUX10,15,7,silicon_ring
+RMUX27,15,10,RMUX15,15,7,silicon_ring
 RMUX27,15,10,RMUX20,15,7,silicon_ring
 RMUX27,15,10,RMUX21,15,7,silicon_ring
 RMUX27,15,10,RMUX10,15,8,silicon_ring
@@ -23318,6 +23444,7 @@ RMUX34,15,10,IMUX24,15,10,silicon_ring
 RMUX34,15,10,IMUX36,15,10,silicon_ring
 RMUX35,15,10,IMUX41,15,10,silicon_ring
 RMUX37,15,10,RMUX48,15,6,silicon_ring
+RMUX37,15,10,RMUX49,15,7,silicon_ring
 RMUX37,15,10,RMUX64,15,7,silicon_ring
 RMUX37,15,10,RMUX49,15,8,silicon_ring
 RMUX37,15,10,RMUX49,15,9,silicon_ring
@@ -23333,6 +23460,8 @@ RMUX38,15,10,RMUX51,19,10,silicon_ring
 RMUX39,15,10,RMUX52,15,11,silicon_ring
 RMUX39,15,10,RMUX58,15,11,silicon_ring
 RMUX39,15,10,RMUX62,15,11,silicon_ring
+RMUX39,15,10,RMUX68,15,11,silicon_ring
+RMUX39,15,10,RMUX69,15,11,silicon_ring
 RMUX39,15,10,RMUX68,15,12,silicon_ring
 RMUX40,15,10,IMUX06,15,10,silicon_ring
 RMUX40,15,10,IMUX08,15,10,silicon_ring
@@ -23544,6 +23673,7 @@ RMUX79,15,10,RMUX31,14,10,silicon_ring
 RMUX79,15,10,RMUX40,14,10,silicon_ring
 RMUX79,15,10,RMUX46,14,10,silicon_ring
 RMUX79,15,10,RMUX47,14,10,silicon_ring
+RMUX80,15,10,RMUX26,15,6,silicon_ring
 RMUX80,15,10,RMUX27,15,6,silicon_ring
 RMUX80,15,10,RMUX33,15,6,silicon_ring
 RMUX80,15,10,RMUX37,15,6,silicon_ring
@@ -24178,9 +24308,12 @@ RMUX10,15,11,IMUX24,15,11,silicon_ring
 RMUX10,15,11,IMUX32,15,11,silicon_ring
 RMUX10,15,11,IMUX36,15,11,silicon_ring
 RMUX14,15,11,RMUX51,15,10,silicon_ring
+RMUX14,15,11,RMUX56,15,10,silicon_ring
+RMUX14,15,11,RMUX57,15,10,silicon_ring
 RMUX14,15,11,RMUX67,15,10,silicon_ring
 RMUX14,15,11,RMUX50,15,7,silicon_ring
 RMUX14,15,11,RMUX57,15,7,silicon_ring
+RMUX14,15,11,RMUX61,15,7,silicon_ring
 RMUX14,15,11,RMUX50,15,8,silicon_ring
 RMUX14,15,11,RMUX57,15,8,silicon_ring
 RMUX14,15,11,RMUX61,15,8,silicon_ring
@@ -24319,6 +24452,7 @@ RMUX45,15,11,RMUX82,16,11,silicon_ring
 RMUX45,15,11,RMUX86,16,11,silicon_ring
 RMUX45,15,11,RMUX87,16,11,silicon_ring
 RMUX45,15,11,RMUX93,16,11,silicon_ring
+RMUX45,15,11,RMUX87,17,11,silicon_ring
 RMUX45,15,11,RMUX93,17,11,silicon_ring
 RMUX45,15,11,RMUX76,19,11,silicon_ring
 RMUX45,15,11,RMUX77,19,11,silicon_ring
@@ -24405,6 +24539,7 @@ RMUX67,15,11,RMUX73,15,7,silicon_ring
 RMUX67,15,11,RMUX79,15,8,silicon_ring
 RMUX68,15,11,RMUX74,16,11,silicon_ring
 RMUX68,15,11,RMUX80,16,11,silicon_ring
+RMUX68,15,11,RMUX91,16,11,silicon_ring
 RMUX68,15,11,RMUX74,17,11,silicon_ring
 RMUX68,15,11,RMUX74,18,11,silicon_ring
 RMUX68,15,11,RMUX80,18,11,silicon_ring
@@ -24459,6 +24594,8 @@ RMUX80,15,11,RMUX37,15,7,silicon_ring
 RMUX80,15,11,RMUX27,15,8,silicon_ring
 RMUX80,15,11,RMUX33,15,8,silicon_ring
 RMUX80,15,11,RMUX37,15,8,silicon_ring
+RMUX80,15,11,RMUX26,15,9,silicon_ring
+RMUX80,15,11,RMUX27,15,9,silicon_ring
 RMUX80,15,11,RMUX33,15,9,silicon_ring
 RMUX81,15,11,RMUX28,16,11,silicon_ring
 RMUX81,15,11,RMUX44,16,11,silicon_ring
@@ -24472,6 +24609,7 @@ RMUX81,15,11,RMUX44,18,11,silicon_ring
 RMUX81,15,11,RMUX28,19,11,silicon_ring
 RMUX81,15,11,RMUX29,19,11,silicon_ring
 RMUX81,15,11,RMUX38,19,11,silicon_ring
+RMUX81,15,11,RMUX45,19,11,silicon_ring
 RMUX82,15,11,IMUX00,15,11,silicon_ring
 RMUX82,15,11,IMUX08,15,11,silicon_ring
 RMUX82,15,11,IMUX40,15,11,silicon_ring
@@ -24481,6 +24619,7 @@ RMUX85,15,11,RMUX71,15,12,silicon_ring
 RMUX86,15,11,RMUX51,14,11,silicon_ring
 RMUX86,15,11,RMUX57,14,11,silicon_ring
 RMUX86,15,11,RMUX67,14,11,silicon_ring
+RMUX86,15,11,RMUX57,15,11,silicon_ring
 RMUX87,15,11,RMUX52,15,10,silicon_ring
 RMUX87,15,11,RMUX53,15,10,silicon_ring
 RMUX87,15,11,RMUX63,15,10,silicon_ring
@@ -25148,8 +25287,10 @@ RMUX37,15,12,RMUX49,15,10,silicon_ring
 RMUX37,15,12,RMUX49,15,11,silicon_ring
 RMUX37,15,12,RMUX64,15,11,silicon_ring
 RMUX37,15,12,RMUX48,15,8,silicon_ring
+RMUX37,15,12,RMUX49,15,8,silicon_ring
 RMUX37,15,12,RMUX49,15,9,silicon_ring
 RMUX38,15,12,RMUX50,16,12,silicon_ring
+RMUX38,15,12,RMUX51,16,12,silicon_ring
 RMUX38,15,12,RMUX56,16,12,silicon_ring
 RMUX38,15,12,RMUX57,16,12,silicon_ring
 RMUX38,15,12,RMUX67,17,12,silicon_ring
@@ -25158,6 +25299,7 @@ RMUX38,15,12,RMUX57,18,12,silicon_ring
 RMUX38,15,12,RMUX67,18,12,silicon_ring
 RMUX38,15,12,RMUX51,19,12,silicon_ring
 RMUX38,15,12,RMUX57,19,12,silicon_ring
+RMUX38,15,12,RMUX67,19,12,silicon_ring
 RMUX40,15,12,IMUX20,15,12,silicon_ring
 RMUX40,15,12,IMUX48,15,12,silicon_ring
 RMUX41,15,12,IMUX21,15,12,silicon_ring
@@ -25198,6 +25340,7 @@ RMUX49,15,12,RMUX01,14,12,silicon_ring
 RMUX49,15,12,RMUX07,14,12,silicon_ring
 RMUX49,15,12,RMUX07,15,12,silicon_ring
 RMUX49,15,12,RMUX07,16,12,silicon_ring
+RMUX50,15,12,RMUX08,15,10,silicon_ring
 RMUX50,15,12,RMUX09,15,11,silicon_ring
 RMUX50,15,12,RMUX19,15,11,silicon_ring
 RMUX50,15,12,RMUX03,15,8,silicon_ring
@@ -25212,6 +25355,7 @@ RMUX51,15,12,RMUX05,17,12,silicon_ring
 RMUX51,15,12,RMUX10,17,12,silicon_ring
 RMUX51,15,12,RMUX14,17,12,silicon_ring
 RMUX51,15,12,RMUX15,17,12,silicon_ring
+RMUX51,15,12,RMUX21,17,12,silicon_ring
 RMUX51,15,12,RMUX05,18,12,silicon_ring
 RMUX51,15,12,RMUX10,18,12,silicon_ring
 RMUX51,15,12,RMUX14,18,12,silicon_ring
@@ -25314,6 +25458,7 @@ RMUX80,15,12,RMUX26,15,8,silicon_ring
 RMUX80,15,12,RMUX27,15,8,silicon_ring
 RMUX80,15,12,RMUX37,15,8,silicon_ring
 RMUX80,15,12,RMUX26,15,9,silicon_ring
+RMUX80,15,12,RMUX33,15,9,silicon_ring
 RMUX80,15,12,RMUX37,15,9,silicon_ring
 RMUX81,15,12,RMUX28,16,12,silicon_ring
 RMUX81,15,12,RMUX38,16,12,silicon_ring
@@ -26144,6 +26289,7 @@ RMUX61,15,1,RMUX55,18,1,silicon_ring
 RMUX61,15,1,RMUX64,19,1,silicon_ring
 RMUX61,15,1,RMUX70,19,1,silicon_ring
 RMUX62,15,1,RMUX50,15,2,silicon_ring
+RMUX62,15,1,RMUX51,15,2,silicon_ring
 RMUX62,15,1,RMUX56,15,2,silicon_ring
 RMUX62,15,1,RMUX51,15,3,silicon_ring
 RMUX62,15,1,RMUX56,15,3,silicon_ring
@@ -26187,6 +26333,7 @@ RMUX69,15,1,RMUX93,15,3,silicon_ring
 RMUX69,15,1,RMUX82,15,4,silicon_ring
 RMUX69,15,1,RMUX86,15,4,silicon_ring
 RMUX69,15,1,RMUX87,15,4,silicon_ring
+RMUX69,15,1,RMUX92,15,4,silicon_ring
 RMUX69,15,1,RMUX93,15,4,silicon_ring
 RMUX69,15,1,RMUX76,15,5,silicon_ring
 RMUX69,15,1,RMUX92,15,5,silicon_ring
@@ -26239,6 +26386,7 @@ RMUX79,15,1,RMUX25,13,1,silicon_ring
 RMUX79,15,1,RMUX25,14,1,silicon_ring
 RMUX79,15,1,RMUX31,14,1,silicon_ring
 RMUX79,15,1,RMUX41,14,1,silicon_ring
+RMUX81,15,1,RMUX38,16,1,silicon_ring
 RMUX81,15,1,RMUX45,16,1,silicon_ring
 RMUX81,15,1,RMUX35,17,1,silicon_ring
 RMUX81,15,1,RMUX39,17,1,silicon_ring
@@ -26795,6 +26943,7 @@ RMUX08,15,2,RMUX43,16,2,silicon_ring
 RMUX08,15,2,RMUX26,17,2,silicon_ring
 RMUX08,15,2,RMUX27,17,2,silicon_ring
 RMUX08,15,2,RMUX37,17,2,silicon_ring
+RMUX08,15,2,RMUX27,18,2,silicon_ring
 RMUX08,15,2,RMUX26,19,2,silicon_ring
 RMUX08,15,2,RMUX27,19,2,silicon_ring
 RMUX08,15,2,RMUX32,19,2,silicon_ring
@@ -26891,6 +27040,7 @@ RMUX20,15,2,RMUX81,11,2,silicon_ring
 RMUX20,15,2,RMUX85,11,2,silicon_ring
 RMUX20,15,2,RMUX91,11,2,silicon_ring
 RMUX20,15,2,RMUX80,12,2,silicon_ring
+RMUX20,15,2,RMUX75,13,2,silicon_ring
 RMUX20,15,2,RMUX74,14,2,silicon_ring
 RMUX20,15,2,RMUX75,14,2,silicon_ring
 RMUX20,15,2,RMUX80,14,2,silicon_ring
@@ -26996,6 +27146,7 @@ RMUX32,15,2,RMUX43,15,6,silicon_ring
 RMUX33,15,2,RMUX44,11,2,silicon_ring
 RMUX33,15,2,RMUX28,12,2,silicon_ring
 RMUX33,15,2,RMUX34,12,2,silicon_ring
+RMUX33,15,2,RMUX39,12,2,silicon_ring
 RMUX33,15,2,RMUX44,12,2,silicon_ring
 RMUX33,15,2,RMUX28,14,2,silicon_ring
 RMUX33,15,2,RMUX29,14,2,silicon_ring
@@ -27032,6 +27183,7 @@ RMUX39,15,2,RMUX58,15,5,silicon_ring
 RMUX39,15,2,RMUX63,15,5,silicon_ring
 RMUX39,15,2,RMUX68,15,5,silicon_ring
 RMUX39,15,2,RMUX69,15,5,silicon_ring
+RMUX39,15,2,RMUX62,15,6,silicon_ring
 RMUX39,15,2,RMUX63,15,6,silicon_ring
 RMUX39,15,2,RMUX68,15,6,silicon_ring
 RMUX39,15,2,RMUX69,15,6,silicon_ring
@@ -27095,6 +27247,7 @@ RMUX50,15,2,RMUX02,15,2,silicon_ring
 RMUX50,15,2,RMUX52,15,2,silicon_ring
 RMUX50,15,2,RMUX08,15,3,silicon_ring
 RMUX50,15,2,RMUX09,15,3,silicon_ring
+RMUX51,15,2,RMUX14,16,2,silicon_ring
 RMUX51,15,2,RMUX15,16,2,silicon_ring
 RMUX51,15,2,RMUX20,16,2,silicon_ring
 RMUX51,15,2,RMUX21,16,2,silicon_ring
@@ -27243,6 +27396,7 @@ RMUX69,15,2,RMUX93,15,5,silicon_ring
 RMUX69,15,2,RMUX77,15,6,silicon_ring
 RMUX69,15,2,RMUX82,15,6,silicon_ring
 RMUX69,15,2,RMUX92,15,6,silicon_ring
+RMUX69,15,2,RMUX93,15,6,silicon_ring
 RMUX70,15,2,IMUX08,15,2,silicon_ring
 RMUX70,15,2,IMUX12,15,2,silicon_ring
 RMUX70,15,2,IMUX24,15,2,silicon_ring
@@ -27931,6 +28085,7 @@ OMUX43,15,3,IMUX62,15,3,silicon_ring
 OMUX43,15,3,IMUX63,15,3,silicon_ring
 OMUX44,15,3,OMUX43,15,3,silicon_ring
 OMUX44,15,3,RMUX77,15,3,silicon_ring
+OMUX44,15,3,RMUX81,15,3,silicon_ring
 OMUX44,15,3,RMUX86,15,3,silicon_ring
 OMUX46,15,3,IMUX01,15,3,silicon_ring
 OMUX46,15,3,IMUX03,15,3,silicon_ring
@@ -28001,7 +28156,9 @@ RMUX03,15,3,RMUX04,12,3,silicon_ring
 RMUX03,15,3,RMUX14,12,3,silicon_ring
 RMUX03,15,3,RMUX20,12,3,silicon_ring
 RMUX03,15,3,RMUX21,12,3,silicon_ring
+RMUX03,15,3,RMUX14,13,3,silicon_ring
 RMUX03,15,3,RMUX20,13,3,silicon_ring
+RMUX03,15,3,RMUX21,13,3,silicon_ring
 RMUX03,15,3,RMUX10,14,3,silicon_ring
 RMUX03,15,3,RMUX11,14,3,silicon_ring
 RMUX03,15,3,RMUX14,14,3,silicon_ring
@@ -28064,6 +28221,7 @@ RMUX11,15,3,IMUX05,15,3,silicon_ring
 RMUX11,15,3,IMUX17,15,3,silicon_ring
 RMUX13,15,3,RMUX49,11,3,silicon_ring
 RMUX13,15,3,RMUX70,14,3,silicon_ring
+RMUX14,15,3,RMUX56,15,1,silicon_ring
 RMUX14,15,3,RMUX61,15,1,silicon_ring
 RMUX14,15,3,RMUX50,15,2,silicon_ring
 RMUX14,15,3,RMUX51,15,2,silicon_ring
@@ -28192,12 +28350,14 @@ RMUX32,15,3,RMUX33,15,4,silicon_ring
 RMUX32,15,3,RMUX37,15,4,silicon_ring
 RMUX32,15,3,RMUX43,15,4,silicon_ring
 RMUX32,15,3,RMUX32,15,5,silicon_ring
+RMUX32,15,3,RMUX33,15,5,silicon_ring
 RMUX32,15,3,RMUX43,15,5,silicon_ring
 RMUX32,15,3,RMUX27,15,6,silicon_ring
 RMUX32,15,3,RMUX32,15,6,silicon_ring
 RMUX32,15,3,RMUX43,15,6,silicon_ring
 RMUX32,15,3,RMUX32,15,7,silicon_ring
 RMUX32,15,3,RMUX33,15,7,silicon_ring
+RMUX33,15,3,RMUX39,11,3,silicon_ring
 RMUX33,15,3,RMUX44,11,3,silicon_ring
 RMUX33,15,3,RMUX35,12,3,silicon_ring
 RMUX33,15,3,RMUX39,12,3,silicon_ring
@@ -28601,6 +28761,7 @@ RMUX92,15,3,RMUX80,15,4,silicon_ring
 RMUX92,15,3,RMUX81,15,4,silicon_ring
 RMUX92,15,3,RMUX85,15,4,silicon_ring
 RMUX92,15,3,RMUX91,15,4,silicon_ring
+RMUX92,15,3,RMUX74,15,5,silicon_ring
 RMUX92,15,3,RMUX81,15,5,silicon_ring
 RMUX92,15,3,RMUX85,15,5,silicon_ring
 RMUX92,15,3,RMUX74,15,6,silicon_ring
@@ -29164,6 +29325,7 @@ OMUX40,15,4,IMUX63,15,4,silicon_ring
 OMUX41,15,4,OMUX40,15,4,silicon_ring
 OMUX41,15,4,RMUX74,15,4,silicon_ring
 OMUX41,15,4,RMUX80,15,4,silicon_ring
+OMUX41,15,4,RMUX87,15,4,silicon_ring
 OMUX41,15,4,RMUX91,15,4,silicon_ring
 OMUX41,15,4,RMUX93,15,4,silicon_ring
 OMUX43,15,4,IMUX00,15,4,silicon_ring
@@ -29259,6 +29421,7 @@ RMUX02,15,4,RMUX09,15,6,silicon_ring
 RMUX02,15,4,RMUX13,15,6,silicon_ring
 RMUX02,15,4,RMUX19,15,6,silicon_ring
 RMUX02,15,4,RMUX03,15,7,silicon_ring
+RMUX02,15,4,RMUX02,15,8,silicon_ring
 RMUX02,15,4,RMUX03,15,8,silicon_ring
 RMUX02,15,4,RMUX19,15,8,silicon_ring
 RMUX03,15,4,RMUX04,11,4,silicon_ring
@@ -29270,6 +29433,7 @@ RMUX03,15,4,RMUX04,12,4,silicon_ring
 RMUX03,15,4,RMUX05,12,4,silicon_ring
 RMUX03,15,4,RMUX14,12,4,silicon_ring
 RMUX03,15,4,RMUX05,13,4,silicon_ring
+RMUX03,15,4,RMUX21,13,4,silicon_ring
 RMUX03,15,4,RMUX05,14,4,silicon_ring
 RMUX03,15,4,RMUX10,14,4,silicon_ring
 RMUX03,15,4,RMUX11,14,4,silicon_ring
@@ -29614,6 +29778,7 @@ RMUX44,15,4,RMUX75,15,3,silicon_ring
 RMUX44,15,4,RMUX80,15,3,silicon_ring
 RMUX44,15,4,RMUX81,15,3,silicon_ring
 RMUX44,15,4,RMUX85,15,3,silicon_ring
+RMUX44,15,4,RMUX91,15,3,silicon_ring
 RMUX45,15,4,RMUX77,16,4,silicon_ring
 RMUX45,15,4,RMUX82,16,4,silicon_ring
 RMUX45,15,4,RMUX86,16,4,silicon_ring
@@ -29642,6 +29807,7 @@ RMUX48,15,4,IMUX48,14,4,silicon_ring
 RMUX48,15,4,IMUX56,14,4,silicon_ring
 RMUX49,15,4,RMUX00,11,4,silicon_ring
 RMUX49,15,4,RMUX07,11,4,silicon_ring
+RMUX49,15,4,RMUX07,12,4,silicon_ring
 RMUX49,15,4,RMUX22,13,4,silicon_ring
 RMUX49,15,4,RMUX23,13,4,silicon_ring
 RMUX49,15,4,RMUX01,14,4,silicon_ring
@@ -29698,6 +29864,7 @@ RMUX56,15,4,RMUX27,12,4,silicon_ring
 RMUX56,15,4,RMUX33,12,4,silicon_ring
 RMUX56,15,4,RMUX43,12,4,silicon_ring
 RMUX56,15,4,RMUX27,13,4,silicon_ring
+RMUX56,15,4,RMUX37,13,4,silicon_ring
 RMUX56,15,4,RMUX27,14,4,silicon_ring
 RMUX56,15,4,RMUX33,14,4,silicon_ring
 RMUX56,15,4,RMUX37,14,4,silicon_ring
@@ -29816,6 +29983,7 @@ RMUX69,15,4,RMUX92,15,7,silicon_ring
 RMUX69,15,4,RMUX93,15,7,silicon_ring
 RMUX69,15,4,RMUX82,15,8,silicon_ring
 RMUX69,15,4,RMUX92,15,8,silicon_ring
+RMUX69,15,4,RMUX93,15,8,silicon_ring
 RMUX70,15,4,IMUX08,15,4,silicon_ring
 RMUX70,15,4,IMUX44,15,4,silicon_ring
 RMUX70,15,4,IMUX60,15,4,silicon_ring
@@ -30669,6 +30837,7 @@ RMUX08,15,5,RMUX43,16,5,silicon_ring
 RMUX08,15,5,RMUX27,17,5,silicon_ring
 RMUX08,15,5,RMUX37,17,5,silicon_ring
 RMUX08,15,5,RMUX26,19,5,silicon_ring
+RMUX08,15,5,RMUX27,19,5,silicon_ring
 RMUX09,15,5,RMUX28,15,6,silicon_ring
 RMUX09,15,5,RMUX39,15,6,silicon_ring
 RMUX09,15,5,RMUX44,15,6,silicon_ring
@@ -30685,6 +30854,7 @@ RMUX13,15,5,RMUX65,14,5,silicon_ring
 RMUX13,15,5,RMUX70,14,5,silicon_ring
 RMUX13,15,5,RMUX71,14,5,silicon_ring
 RMUX13,15,5,RMUX55,16,5,silicon_ring
+RMUX14,15,5,RMUX51,15,1,silicon_ring
 RMUX14,15,5,RMUX56,15,1,silicon_ring
 RMUX14,15,5,RMUX50,15,2,silicon_ring
 RMUX14,15,5,RMUX56,15,2,silicon_ring
@@ -30779,6 +30949,7 @@ RMUX25,15,5,RMUX00,15,7,silicon_ring
 RMUX25,15,5,RMUX01,15,7,silicon_ring
 RMUX25,15,5,RMUX06,15,7,silicon_ring
 RMUX25,15,5,RMUX01,15,8,silicon_ring
+RMUX25,15,5,RMUX07,15,8,silicon_ring
 RMUX25,15,5,RMUX16,15,8,silicon_ring
 RMUX25,15,5,RMUX22,15,8,silicon_ring
 RMUX25,15,5,RMUX00,15,9,silicon_ring
@@ -31069,6 +31240,7 @@ RMUX68,15,5,RMUX74,19,5,silicon_ring
 RMUX68,15,5,RMUX80,19,5,silicon_ring
 RMUX68,15,5,RMUX85,19,5,silicon_ring
 RMUX69,15,5,RMUX76,15,6,silicon_ring
+RMUX69,15,5,RMUX86,15,6,silicon_ring
 RMUX69,15,5,RMUX87,15,6,silicon_ring
 RMUX69,15,5,RMUX92,15,6,silicon_ring
 RMUX69,15,5,RMUX93,15,6,silicon_ring
@@ -31210,6 +31382,7 @@ RMUX91,15,5,RMUX79,17,5,silicon_ring
 RMUX91,15,5,RMUX88,18,5,silicon_ring
 RMUX91,15,5,RMUX94,18,5,silicon_ring
 RMUX92,15,5,RMUX80,15,6,silicon_ring
+RMUX92,15,5,RMUX81,15,6,silicon_ring
 RMUX92,15,5,RMUX85,15,6,silicon_ring
 RMUX92,15,5,RMUX91,15,6,silicon_ring
 RMUX92,15,5,RMUX74,15,7,silicon_ring
@@ -31917,6 +32090,7 @@ RMUX14,15,6,RMUX56,15,3,silicon_ring
 RMUX14,15,6,RMUX57,15,3,silicon_ring
 RMUX14,15,6,RMUX50,15,4,silicon_ring
 RMUX14,15,6,RMUX56,15,4,silicon_ring
+RMUX14,15,6,RMUX61,15,4,silicon_ring
 RMUX14,15,6,RMUX66,15,4,silicon_ring
 RMUX14,15,6,RMUX67,15,4,silicon_ring
 RMUX14,15,6,RMUX50,15,5,silicon_ring
@@ -32076,6 +32250,7 @@ RMUX37,15,6,RMUX48,15,2,silicon_ring
 RMUX37,15,6,RMUX64,15,2,silicon_ring
 RMUX37,15,6,RMUX49,15,3,silicon_ring
 RMUX37,15,6,RMUX64,15,3,silicon_ring
+RMUX37,15,6,RMUX49,15,4,silicon_ring
 RMUX37,15,6,RMUX64,15,4,silicon_ring
 RMUX37,15,6,RMUX48,15,5,silicon_ring
 RMUX37,15,6,RMUX49,15,5,silicon_ring
@@ -32210,6 +32385,7 @@ RMUX55,15,6,RMUX30,15,10,silicon_ring
 RMUX55,15,6,RMUX47,15,7,silicon_ring
 RMUX55,15,6,RMUX24,15,9,silicon_ring
 RMUX56,15,6,RMUX32,14,6,silicon_ring
+RMUX56,15,6,RMUX33,14,6,silicon_ring
 RMUX56,15,6,RMUX37,14,6,silicon_ring
 RMUX57,15,6,RMUX28,15,2,silicon_ring
 RMUX57,15,6,RMUX44,15,2,silicon_ring
@@ -32283,6 +32459,7 @@ RMUX68,15,6,RMUX80,18,6,silicon_ring
 RMUX68,15,6,RMUX81,18,6,silicon_ring
 RMUX68,15,6,RMUX85,18,6,silicon_ring
 RMUX68,15,6,RMUX91,18,6,silicon_ring
+RMUX68,15,6,RMUX74,19,6,silicon_ring
 RMUX68,15,6,RMUX75,19,6,silicon_ring
 RMUX68,15,6,RMUX81,19,6,silicon_ring
 RMUX68,15,6,RMUX85,19,6,silicon_ring
@@ -33061,6 +33238,7 @@ RMUX08,15,7,RMUX27,17,7,silicon_ring
 RMUX08,15,7,RMUX37,17,7,silicon_ring
 RMUX08,15,7,RMUX26,19,7,silicon_ring
 RMUX08,15,7,RMUX27,19,7,silicon_ring
+RMUX08,15,7,RMUX37,19,7,silicon_ring
 RMUX09,15,7,RMUX38,15,10,silicon_ring
 RMUX09,15,7,RMUX39,15,10,silicon_ring
 RMUX09,15,7,RMUX45,15,10,silicon_ring
@@ -33097,6 +33275,7 @@ RMUX14,15,7,RMUX50,15,5,silicon_ring
 RMUX14,15,7,RMUX56,15,5,silicon_ring
 RMUX14,15,7,RMUX61,15,5,silicon_ring
 RMUX14,15,7,RMUX66,15,5,silicon_ring
+RMUX14,15,7,RMUX67,15,5,silicon_ring
 RMUX14,15,7,RMUX50,15,6,silicon_ring
 RMUX14,15,7,RMUX51,15,6,silicon_ring
 RMUX14,15,7,RMUX56,15,6,silicon_ring
@@ -33357,6 +33536,7 @@ RMUX51,15,7,RMUX10,16,7,silicon_ring
 RMUX51,15,7,RMUX20,16,7,silicon_ring
 RMUX51,15,7,RMUX10,17,7,silicon_ring
 RMUX51,15,7,RMUX14,17,7,silicon_ring
+RMUX51,15,7,RMUX15,17,7,silicon_ring
 RMUX51,15,7,RMUX21,17,7,silicon_ring
 RMUX51,15,7,RMUX10,18,7,silicon_ring
 RMUX51,15,7,RMUX14,18,7,silicon_ring
@@ -33584,6 +33764,7 @@ RMUX83,15,7,IMUX49,15,7,silicon_ring
 RMUX83,15,7,IMUX53,15,7,silicon_ring
 RMUX83,15,7,IMUX61,15,7,silicon_ring
 RMUX85,15,7,RMUX48,15,10,silicon_ring
+RMUX85,15,7,RMUX49,15,10,silicon_ring
 RMUX85,15,7,RMUX54,15,10,silicon_ring
 RMUX85,15,7,RMUX55,15,10,silicon_ring
 RMUX85,15,7,RMUX64,15,10,silicon_ring
@@ -33646,6 +33827,7 @@ RMUX92,15,7,RMUX74,15,9,silicon_ring
 RMUX92,15,7,RMUX85,15,9,silicon_ring
 RMUX93,15,7,RMUX76,14,7,silicon_ring
 RMUX93,15,7,RMUX77,14,7,silicon_ring
+RMUX93,15,7,RMUX83,14,7,silicon_ring
 RMUX93,15,7,RMUX92,14,7,silicon_ring
 RMUX93,15,7,RMUX87,16,7,silicon_ring
 RMUX94,15,7,IMUX38,15,7,silicon_ring
@@ -34225,6 +34407,7 @@ RMUX08,15,8,RMUX26,17,8,silicon_ring
 RMUX08,15,8,RMUX36,17,8,silicon_ring
 RMUX08,15,8,RMUX27,18,8,silicon_ring
 RMUX08,15,8,RMUX26,19,8,silicon_ring
+RMUX08,15,8,RMUX27,19,8,silicon_ring
 RMUX09,15,8,RMUX38,15,10,silicon_ring
 RMUX09,15,8,RMUX39,15,10,silicon_ring
 RMUX09,15,8,RMUX44,15,10,silicon_ring
@@ -34253,6 +34436,7 @@ RMUX14,15,8,RMUX56,15,4,silicon_ring
 RMUX14,15,8,RMUX57,15,4,silicon_ring
 RMUX14,15,8,RMUX61,15,4,silicon_ring
 RMUX14,15,8,RMUX67,15,4,silicon_ring
+RMUX14,15,8,RMUX50,15,5,silicon_ring
 RMUX14,15,8,RMUX51,15,5,silicon_ring
 RMUX14,15,8,RMUX56,15,5,silicon_ring
 RMUX14,15,8,RMUX57,15,5,silicon_ring
@@ -34529,6 +34713,7 @@ RMUX57,15,8,RMUX28,15,4,silicon_ring
 RMUX57,15,8,RMUX34,15,4,silicon_ring
 RMUX57,15,8,RMUX44,15,4,silicon_ring
 RMUX57,15,8,RMUX45,15,4,silicon_ring
+RMUX57,15,8,RMUX38,15,5,silicon_ring
 RMUX57,15,8,RMUX45,15,5,silicon_ring
 RMUX57,15,8,RMUX38,15,6,silicon_ring
 RMUX57,15,8,RMUX44,15,6,silicon_ring
@@ -34557,6 +34742,7 @@ RMUX62,15,8,RMUX57,15,12,silicon_ring
 RMUX62,15,8,RMUX61,15,12,silicon_ring
 RMUX62,15,8,RMUX64,15,8,silicon_ring
 RMUX62,15,8,RMUX50,15,9,silicon_ring
+RMUX62,15,8,RMUX51,15,9,silicon_ring
 RMUX62,15,8,RMUX67,15,9,silicon_ring
 RMUX63,15,8,RMUX68,14,8,silicon_ring
 RMUX63,15,8,RMUX69,14,8,silicon_ring
@@ -35363,6 +35549,7 @@ RMUX13,15,9,RMUX55,14,9,silicon_ring
 RMUX13,15,9,RMUX64,14,9,silicon_ring
 RMUX13,15,9,RMUX65,14,9,silicon_ring
 RMUX13,15,9,RMUX70,14,9,silicon_ring
+RMUX13,15,9,RMUX71,14,9,silicon_ring
 RMUX14,15,9,RMUX50,15,5,silicon_ring
 RMUX14,15,9,RMUX51,15,5,silicon_ring
 RMUX14,15,9,RMUX56,15,5,silicon_ring
@@ -35476,6 +35663,7 @@ RMUX31,15,9,RMUX40,16,9,silicon_ring
 RMUX31,15,9,RMUX31,17,9,silicon_ring
 RMUX32,15,9,RMUX26,15,10,silicon_ring
 RMUX32,15,9,RMUX27,15,10,silicon_ring
+RMUX32,15,9,RMUX33,15,10,silicon_ring
 RMUX32,15,9,RMUX37,15,10,silicon_ring
 RMUX32,15,9,RMUX32,15,11,silicon_ring
 RMUX32,15,9,RMUX33,15,11,silicon_ring
@@ -36472,6 +36660,7 @@ RMUX27,16,10,RMUX15,16,6,silicon_ring
 RMUX27,16,10,RMUX21,16,6,silicon_ring
 RMUX27,16,10,RMUX10,16,7,silicon_ring
 RMUX27,16,10,RMUX11,16,7,silicon_ring
+RMUX27,16,10,RMUX14,16,7,silicon_ring
 RMUX27,16,10,RMUX21,16,7,silicon_ring
 RMUX27,16,10,RMUX21,16,8,silicon_ring
 RMUX27,16,10,RMUX04,16,9,silicon_ring
@@ -36676,6 +36865,7 @@ RMUX67,16,10,RMUX79,16,6,silicon_ring
 RMUX67,16,10,RMUX72,16,7,silicon_ring
 RMUX67,16,10,RMUX79,16,7,silicon_ring
 RMUX67,16,10,RMUX72,16,8,silicon_ring
+RMUX67,16,10,RMUX73,16,8,silicon_ring
 RMUX67,16,10,RMUX79,16,8,silicon_ring
 RMUX67,16,10,RMUX88,16,8,silicon_ring
 RMUX67,16,10,RMUX73,16,9,silicon_ring
@@ -36740,6 +36930,7 @@ RMUX75,16,10,RMUX77,16,10,silicon_ring
 RMUX75,16,10,RMUX20,16,11,silicon_ring
 RMUX75,16,10,RMUX21,16,11,silicon_ring
 RMUX75,16,10,RMUX15,16,12,silicon_ring
+RMUX75,16,10,RMUX20,16,12,silicon_ring
 RMUX76,16,10,IMUX00,16,10,silicon_ring
 RMUX76,16,10,IMUX46,16,10,silicon_ring
 RMUX76,16,10,IMUX62,16,10,silicon_ring
@@ -36751,6 +36942,7 @@ RMUX77,16,10,IMUX53,16,10,silicon_ring
 RMUX78,16,10,IMUX05,15,10,silicon_ring
 RMUX79,16,10,RMUX31,15,10,silicon_ring
 RMUX79,16,10,RMUX78,16,10,silicon_ring
+RMUX80,16,10,RMUX26,16,6,silicon_ring
 RMUX80,16,10,RMUX27,16,6,silicon_ring
 RMUX80,16,10,RMUX33,16,6,silicon_ring
 RMUX80,16,10,RMUX37,16,6,silicon_ring
@@ -37354,6 +37546,7 @@ RMUX07,16,11,RMUX24,16,10,silicon_ring
 RMUX07,16,11,RMUX25,16,10,silicon_ring
 RMUX07,16,11,RMUX31,16,10,silicon_ring
 RMUX07,16,11,RMUX24,16,7,silicon_ring
+RMUX07,16,11,RMUX25,16,7,silicon_ring
 RMUX07,16,11,RMUX40,16,7,silicon_ring
 RMUX07,16,11,RMUX24,16,8,silicon_ring
 RMUX07,16,11,RMUX40,16,8,silicon_ring
@@ -37749,6 +37942,7 @@ RMUX92,16,11,RMUX80,16,12,silicon_ring
 RMUX92,16,11,RMUX81,16,12,silicon_ring
 RMUX92,16,11,RMUX91,16,12,silicon_ring
 RMUX93,16,11,RMUX87,14,11,silicon_ring
+RMUX93,16,11,RMUX77,15,11,silicon_ring
 RMUX93,16,11,RMUX82,15,11,silicon_ring
 RMUX93,16,11,RMUX87,15,11,silicon_ring
 RMUX93,16,11,RMUX92,15,11,silicon_ring
@@ -38249,6 +38443,7 @@ RMUX07,16,12,RMUX40,16,9,silicon_ring
 RMUX07,16,12,RMUX47,16,9,silicon_ring
 RMUX08,16,12,RMUX26,17,12,silicon_ring
 RMUX08,16,12,RMUX33,17,12,silicon_ring
+RMUX08,16,12,RMUX37,17,12,silicon_ring
 RMUX08,16,12,RMUX43,17,12,silicon_ring
 RMUX08,16,12,RMUX26,18,12,silicon_ring
 RMUX08,16,12,RMUX27,18,12,silicon_ring
@@ -38300,6 +38495,7 @@ RMUX20,16,12,RMUX74,15,12,silicon_ring
 RMUX20,16,12,RMUX81,15,12,silicon_ring
 RMUX20,16,12,RMUX91,15,12,silicon_ring
 RMUX21,16,12,RMUX83,16,10,silicon_ring
+RMUX21,16,12,RMUX86,16,10,silicon_ring
 RMUX21,16,12,RMUX87,16,10,silicon_ring
 RMUX21,16,12,RMUX76,16,11,silicon_ring
 RMUX21,16,12,RMUX86,16,11,silicon_ring
@@ -39232,6 +39428,7 @@ RMUX19,16,1,RMUX89,16,5,silicon_ring
 RMUX20,16,1,RMUX74,12,1,silicon_ring
 RMUX20,16,1,RMUX75,12,1,silicon_ring
 RMUX20,16,1,RMUX81,12,1,silicon_ring
+RMUX20,16,1,RMUX85,12,1,silicon_ring
 RMUX20,16,1,RMUX91,12,1,silicon_ring
 RMUX20,16,1,RMUX75,13,1,silicon_ring
 RMUX20,16,1,RMUX85,13,1,silicon_ring
@@ -39272,6 +39469,7 @@ RMUX26,16,1,RMUX03,12,1,silicon_ring
 RMUX26,16,1,RMUX08,12,1,silicon_ring
 RMUX26,16,1,RMUX09,12,1,silicon_ring
 RMUX26,16,1,RMUX13,12,1,silicon_ring
+RMUX26,16,1,RMUX19,12,1,silicon_ring
 RMUX26,16,1,RMUX09,13,1,silicon_ring
 RMUX26,16,1,RMUX13,13,1,silicon_ring
 RMUX26,16,1,RMUX19,13,1,silicon_ring
@@ -39323,6 +39521,7 @@ RMUX34,16,1,IMUX28,16,1,silicon_ring
 RMUX38,16,1,RMUX51,17,1,silicon_ring
 RMUX38,16,1,RMUX56,17,1,silicon_ring
 RMUX38,16,1,RMUX51,18,1,silicon_ring
+RMUX38,16,1,RMUX51,19,1,silicon_ring
 RMUX39,16,1,RMUX52,16,2,silicon_ring
 RMUX39,16,1,RMUX62,16,2,silicon_ring
 RMUX39,16,1,RMUX63,16,2,silicon_ring
@@ -39372,6 +39571,7 @@ RMUX48,16,1,IMUX32,15,1,silicon_ring
 RMUX48,16,1,IMUX48,15,1,silicon_ring
 RMUX49,16,1,RMUX06,12,1,silicon_ring
 RMUX49,16,1,RMUX17,12,1,silicon_ring
+RMUX49,16,1,RMUX07,13,1,silicon_ring
 RMUX49,16,1,RMUX16,14,1,silicon_ring
 RMUX49,16,1,RMUX01,15,1,silicon_ring
 RMUX51,16,1,RMUX10,17,1,silicon_ring
@@ -39430,6 +39630,7 @@ RMUX62,16,1,RMUX51,16,3,silicon_ring
 RMUX62,16,1,RMUX56,16,3,silicon_ring
 RMUX62,16,1,RMUX61,16,3,silicon_ring
 RMUX62,16,1,RMUX67,16,3,silicon_ring
+RMUX62,16,1,RMUX51,16,4,silicon_ring
 RMUX62,16,1,RMUX56,16,4,silicon_ring
 RMUX62,16,1,RMUX51,16,5,silicon_ring
 RMUX62,16,1,RMUX56,16,5,silicon_ring
@@ -39443,6 +39644,7 @@ RMUX63,16,1,RMUX58,14,1,silicon_ring
 RMUX63,16,1,RMUX69,14,1,silicon_ring
 RMUX63,16,1,RMUX52,15,1,silicon_ring
 RMUX63,16,1,RMUX59,15,1,silicon_ring
+RMUX63,16,1,RMUX63,15,1,silicon_ring
 RMUX63,16,1,RMUX68,15,1,silicon_ring
 RMUX63,16,1,RMUX69,15,1,silicon_ring
 RMUX65,16,1,IMUX13,16,1,silicon_ring
@@ -40177,6 +40379,7 @@ RMUX09,16,2,RMUX45,16,4,silicon_ring
 RMUX09,16,2,RMUX28,16,5,silicon_ring
 RMUX09,16,2,RMUX29,16,5,silicon_ring
 RMUX09,16,2,RMUX34,16,5,silicon_ring
+RMUX09,16,2,RMUX38,16,5,silicon_ring
 RMUX09,16,2,RMUX39,16,5,silicon_ring
 RMUX09,16,2,RMUX45,16,5,silicon_ring
 RMUX09,16,2,RMUX28,16,6,silicon_ring
@@ -40330,6 +40533,7 @@ RMUX32,16,2,RMUX43,16,3,silicon_ring
 RMUX32,16,2,RMUX32,16,4,silicon_ring
 RMUX32,16,2,RMUX33,16,4,silicon_ring
 RMUX32,16,2,RMUX43,16,4,silicon_ring
+RMUX32,16,2,RMUX26,16,5,silicon_ring
 RMUX32,16,2,RMUX27,16,5,silicon_ring
 RMUX32,16,2,RMUX32,16,5,silicon_ring
 RMUX32,16,2,RMUX43,16,5,silicon_ring
@@ -40350,6 +40554,7 @@ RMUX34,16,2,IMUX24,16,2,silicon_ring
 RMUX34,16,2,IMUX28,16,2,silicon_ring
 RMUX36,16,2,IMUX54,15,2,silicon_ring
 RMUX37,16,2,RMUX48,16,1,silicon_ring
+RMUX37,16,2,RMUX49,16,1,silicon_ring
 RMUX37,16,2,RMUX49,16,3,silicon_ring
 RMUX38,16,2,RMUX50,17,2,silicon_ring
 RMUX38,16,2,RMUX51,17,2,silicon_ring
@@ -40448,6 +40653,7 @@ RMUX53,16,2,IMUX45,16,2,silicon_ring
 RMUX53,16,2,IMUX49,16,2,silicon_ring
 RMUX53,16,2,IMUX57,16,2,silicon_ring
 RMUX53,16,2,IMUX61,16,2,silicon_ring
+RMUX55,16,2,RMUX31,16,3,silicon_ring
 RMUX55,16,2,RMUX40,16,3,silicon_ring
 RMUX55,16,2,RMUX46,16,3,silicon_ring
 RMUX55,16,2,RMUX25,16,4,silicon_ring
@@ -40650,6 +40856,7 @@ RMUX91,16,2,RMUX89,18,2,silicon_ring
 RMUX92,16,2,RMUX75,16,3,silicon_ring
 RMUX92,16,2,RMUX80,16,3,silicon_ring
 RMUX92,16,2,RMUX81,16,3,silicon_ring
+RMUX92,16,2,RMUX85,16,3,silicon_ring
 RMUX92,16,2,RMUX91,16,3,silicon_ring
 RMUX92,16,2,RMUX74,16,4,silicon_ring
 RMUX92,16,2,RMUX75,16,4,silicon_ring
@@ -40861,6 +41068,7 @@ OMUX14,16,3,OMUX13,16,3,silicon_ring
 OMUX14,16,3,RMUX26,16,3,silicon_ring
 OMUX14,16,3,RMUX32,16,3,silicon_ring
 OMUX14,16,3,RMUX37,16,3,silicon_ring
+OMUX14,16,3,RMUX39,16,3,silicon_ring
 OMUX14,16,3,RMUX41,16,3,silicon_ring
 OMUX16,16,3,IMUX01,16,3,silicon_ring
 OMUX16,16,3,IMUX03,16,3,silicon_ring
@@ -41200,6 +41408,7 @@ OMUX40,16,3,IMUX63,16,3,silicon_ring
 OMUX41,16,3,OMUX40,16,3,silicon_ring
 OMUX41,16,3,RMUX85,16,3,silicon_ring
 OMUX41,16,3,RMUX91,16,3,silicon_ring
+OMUX41,16,3,RMUX93,16,3,silicon_ring
 OMUX43,16,3,IMUX00,16,3,silicon_ring
 OMUX43,16,3,IMUX02,16,3,silicon_ring
 OMUX43,16,3,IMUX04,16,3,silicon_ring
@@ -41703,6 +41912,7 @@ RMUX62,16,3,RMUX51,16,5,silicon_ring
 RMUX62,16,3,RMUX56,16,5,silicon_ring
 RMUX62,16,3,RMUX67,16,5,silicon_ring
 RMUX62,16,3,RMUX51,16,6,silicon_ring
+RMUX62,16,3,RMUX56,16,6,silicon_ring
 RMUX62,16,3,RMUX57,16,6,silicon_ring
 RMUX62,16,3,RMUX51,16,7,silicon_ring
 RMUX62,16,3,RMUX56,16,7,silicon_ring
@@ -41817,6 +42027,7 @@ RMUX79,16,3,RMUX25,14,3,silicon_ring
 RMUX79,16,3,RMUX40,14,3,silicon_ring
 RMUX79,16,3,RMUX41,14,3,silicon_ring
 RMUX79,16,3,RMUX46,14,3,silicon_ring
+RMUX79,16,3,RMUX47,14,3,silicon_ring
 RMUX79,16,3,RMUX31,15,3,silicon_ring
 RMUX79,16,3,RMUX40,15,3,silicon_ring
 RMUX79,16,3,RMUX46,15,3,silicon_ring
@@ -41867,6 +42078,7 @@ RMUX86,16,3,RMUX57,14,3,silicon_ring
 RMUX86,16,3,RMUX61,14,3,silicon_ring
 RMUX86,16,3,RMUX50,15,3,silicon_ring
 RMUX86,16,3,RMUX51,15,3,silicon_ring
+RMUX86,16,3,RMUX57,15,3,silicon_ring
 RMUX86,16,3,RMUX61,15,3,silicon_ring
 RMUX86,16,3,RMUX67,15,3,silicon_ring
 RMUX87,16,3,RMUX53,16,1,silicon_ring
@@ -42587,6 +42799,7 @@ RMUX08,16,4,RMUX26,18,4,silicon_ring
 RMUX08,16,4,RMUX27,18,4,silicon_ring
 RMUX08,16,4,RMUX37,18,4,silicon_ring
 RMUX08,16,4,RMUX27,19,4,silicon_ring
+RMUX08,16,4,RMUX37,19,4,silicon_ring
 RMUX08,16,4,RMUX26,20,4,silicon_ring
 RMUX08,16,4,RMUX27,20,4,silicon_ring
 RMUX09,16,4,RMUX28,16,5,silicon_ring
@@ -42765,6 +42978,7 @@ RMUX29,16,4,IMUX61,16,4,silicon_ring
 RMUX31,16,4,RMUX25,17,4,silicon_ring
 RMUX31,16,4,RMUX25,18,4,silicon_ring
 RMUX31,16,4,RMUX40,20,4,silicon_ring
+RMUX32,16,4,RMUX26,16,5,silicon_ring
 RMUX32,16,4,RMUX27,16,5,silicon_ring
 RMUX32,16,4,RMUX32,16,5,silicon_ring
 RMUX32,16,4,RMUX33,16,5,silicon_ring
@@ -42856,6 +43070,7 @@ RMUX44,16,4,RMUX75,16,3,silicon_ring
 RMUX44,16,4,RMUX80,16,3,silicon_ring
 RMUX44,16,4,RMUX81,16,3,silicon_ring
 RMUX44,16,4,RMUX85,16,3,silicon_ring
+RMUX44,16,4,RMUX91,16,3,silicon_ring
 RMUX44,16,4,RMUX46,16,4,silicon_ring
 RMUX45,16,4,RMUX77,17,4,silicon_ring
 RMUX45,16,4,RMUX82,17,4,silicon_ring
@@ -42888,6 +43103,7 @@ RMUX48,16,4,IMUX56,15,4,silicon_ring
 RMUX49,16,4,RMUX07,12,4,silicon_ring
 RMUX49,16,4,RMUX22,12,4,silicon_ring
 RMUX49,16,4,RMUX06,13,4,silicon_ring
+RMUX49,16,4,RMUX07,13,4,silicon_ring
 RMUX49,16,4,RMUX07,14,4,silicon_ring
 RMUX49,16,4,RMUX16,14,4,silicon_ring
 RMUX49,16,4,RMUX17,14,4,silicon_ring
@@ -42951,6 +43167,7 @@ RMUX56,16,4,RMUX33,12,4,silicon_ring
 RMUX56,16,4,RMUX37,12,4,silicon_ring
 RMUX56,16,4,RMUX43,12,4,silicon_ring
 RMUX56,16,4,RMUX27,13,4,silicon_ring
+RMUX56,16,4,RMUX37,13,4,silicon_ring
 RMUX56,16,4,RMUX27,14,4,silicon_ring
 RMUX56,16,4,RMUX37,14,4,silicon_ring
 RMUX56,16,4,RMUX27,15,4,silicon_ring
@@ -43146,6 +43363,7 @@ RMUX81,16,4,RMUX39,19,4,silicon_ring
 RMUX81,16,4,RMUX45,19,4,silicon_ring
 RMUX81,16,4,RMUX28,20,4,silicon_ring
 RMUX81,16,4,RMUX29,20,4,silicon_ring
+RMUX81,16,4,RMUX38,20,4,silicon_ring
 RMUX81,16,4,RMUX39,20,4,silicon_ring
 RMUX81,16,4,RMUX44,20,4,silicon_ring
 RMUX81,16,4,RMUX45,20,4,silicon_ring
@@ -43156,6 +43374,7 @@ RMUX82,16,4,IMUX40,16,4,silicon_ring
 RMUX83,16,4,IMUX11,16,4,silicon_ring
 RMUX83,16,4,IMUX13,16,4,silicon_ring
 RMUX83,16,4,IMUX49,16,4,silicon_ring
+RMUX85,16,4,RMUX49,16,5,silicon_ring
 RMUX85,16,4,RMUX55,16,5,silicon_ring
 RMUX85,16,4,RMUX64,16,5,silicon_ring
 RMUX85,16,4,RMUX65,16,5,silicon_ring
@@ -43661,6 +43880,7 @@ OMUX32,16,5,RMUX51,16,5,silicon_ring
 OMUX32,16,5,RMUX53,16,5,silicon_ring
 OMUX32,16,5,RMUX55,16,5,silicon_ring
 OMUX32,16,5,RMUX57,16,5,silicon_ring
+OMUX32,16,5,RMUX59,16,5,silicon_ring
 OMUX32,16,5,RMUX62,16,5,silicon_ring
 OMUX32,16,5,RMUX68,16,5,silicon_ring
 OMUX34,16,5,IMUX01,16,5,silicon_ring
@@ -43904,6 +44124,7 @@ RMUX07,16,5,RMUX46,16,1,silicon_ring
 RMUX07,16,5,RMUX24,16,2,silicon_ring
 RMUX07,16,5,RMUX46,16,2,silicon_ring
 RMUX07,16,5,RMUX24,16,3,silicon_ring
+RMUX07,16,5,RMUX46,16,3,silicon_ring
 RMUX07,16,5,RMUX24,16,4,silicon_ring
 RMUX07,16,5,RMUX25,16,4,silicon_ring
 RMUX07,16,5,RMUX31,16,4,silicon_ring
@@ -43960,6 +44181,7 @@ RMUX14,16,5,RMUX61,16,2,silicon_ring
 RMUX14,16,5,RMUX50,16,3,silicon_ring
 RMUX14,16,5,RMUX56,16,3,silicon_ring
 RMUX14,16,5,RMUX61,16,3,silicon_ring
+RMUX14,16,5,RMUX67,16,3,silicon_ring
 RMUX14,16,5,RMUX50,16,4,silicon_ring
 RMUX14,16,5,RMUX51,16,4,silicon_ring
 RMUX14,16,5,RMUX56,16,4,silicon_ring
@@ -44024,6 +44246,7 @@ RMUX21,16,5,RMUX83,16,4,silicon_ring
 RMUX21,16,5,RMUX86,16,4,silicon_ring
 RMUX21,16,5,RMUX87,16,4,silicon_ring
 RMUX21,16,5,RMUX92,16,4,silicon_ring
+RMUX21,16,5,RMUX93,16,4,silicon_ring
 RMUX22,16,5,IMUX00,16,5,silicon_ring
 RMUX22,16,5,IMUX16,16,5,silicon_ring
 RMUX22,16,5,IMUX18,16,5,silicon_ring
@@ -44154,6 +44377,7 @@ RMUX39,16,5,RMUX52,16,8,silicon_ring
 RMUX39,16,5,RMUX63,16,8,silicon_ring
 RMUX39,16,5,RMUX52,16,9,silicon_ring
 RMUX39,16,5,RMUX53,16,9,silicon_ring
+RMUX39,16,5,RMUX62,16,9,silicon_ring
 RMUX39,16,5,RMUX63,16,9,silicon_ring
 RMUX39,16,5,RMUX68,16,9,silicon_ring
 RMUX39,16,5,RMUX69,16,9,silicon_ring
@@ -44215,6 +44439,7 @@ RMUX50,16,5,RMUX09,16,1,silicon_ring
 RMUX50,16,5,RMUX13,16,1,silicon_ring
 RMUX50,16,5,RMUX08,16,2,silicon_ring
 RMUX50,16,5,RMUX13,16,2,silicon_ring
+RMUX50,16,5,RMUX03,16,3,silicon_ring
 RMUX50,16,5,RMUX08,16,3,silicon_ring
 RMUX50,16,5,RMUX13,16,3,silicon_ring
 RMUX50,16,5,RMUX03,16,4,silicon_ring
@@ -44233,6 +44458,7 @@ RMUX51,16,5,RMUX14,19,5,silicon_ring
 RMUX51,16,5,RMUX15,19,5,silicon_ring
 RMUX51,16,5,RMUX04,20,5,silicon_ring
 RMUX51,16,5,RMUX05,20,5,silicon_ring
+RMUX51,16,5,RMUX14,20,5,silicon_ring
 RMUX51,16,5,RMUX21,20,5,silicon_ring
 RMUX52,16,5,IMUX18,16,5,silicon_ring
 RMUX52,16,5,IMUX20,16,5,silicon_ring
@@ -44274,6 +44500,7 @@ RMUX57,16,5,RMUX45,16,2,silicon_ring
 RMUX57,16,5,RMUX34,16,3,silicon_ring
 RMUX57,16,5,RMUX38,16,3,silicon_ring
 RMUX57,16,5,RMUX44,16,3,silicon_ring
+RMUX57,16,5,RMUX45,16,3,silicon_ring
 RMUX57,16,5,RMUX29,16,4,silicon_ring
 RMUX57,16,5,RMUX34,16,4,silicon_ring
 RMUX57,16,5,RMUX35,16,4,silicon_ring
@@ -44281,6 +44508,7 @@ RMUX57,16,5,RMUX38,16,4,silicon_ring
 RMUX57,16,5,RMUX39,16,4,silicon_ring
 RMUX57,16,5,RMUX44,16,4,silicon_ring
 RMUX57,16,5,RMUX45,16,4,silicon_ring
+RMUX57,16,5,RMUX59,16,5,silicon_ring
 RMUX58,16,5,IMUX06,16,5,silicon_ring
 RMUX58,16,5,IMUX32,16,5,silicon_ring
 RMUX59,16,5,IMUX09,16,5,silicon_ring
@@ -44382,8 +44610,10 @@ RMUX74,16,5,RMUX02,17,5,silicon_ring
 RMUX74,16,5,RMUX03,17,5,silicon_ring
 RMUX74,16,5,RMUX13,17,5,silicon_ring
 RMUX74,16,5,RMUX19,17,5,silicon_ring
+RMUX74,16,5,RMUX02,18,5,silicon_ring
 RMUX74,16,5,RMUX08,18,5,silicon_ring
 RMUX74,16,5,RMUX08,19,5,silicon_ring
+RMUX74,16,5,RMUX09,19,5,silicon_ring
 RMUX74,16,5,RMUX19,19,5,silicon_ring
 RMUX74,16,5,RMUX08,20,5,silicon_ring
 RMUX74,16,5,RMUX09,20,5,silicon_ring
@@ -45101,6 +45331,7 @@ OMUX43,16,6,IMUX61,16,6,silicon_ring
 OMUX43,16,6,IMUX62,16,6,silicon_ring
 OMUX43,16,6,IMUX63,16,6,silicon_ring
 OMUX44,16,6,OMUX43,16,6,silicon_ring
+OMUX44,16,6,RMUX73,16,6,silicon_ring
 OMUX44,16,6,RMUX75,16,6,silicon_ring
 OMUX44,16,6,RMUX77,16,6,silicon_ring
 OMUX44,16,6,RMUX86,16,6,silicon_ring
@@ -45156,6 +45387,7 @@ RMUX02,16,6,RMUX13,16,10,silicon_ring
 RMUX02,16,6,RMUX08,16,7,silicon_ring
 RMUX02,16,6,RMUX03,16,8,silicon_ring
 RMUX02,16,6,RMUX09,16,8,silicon_ring
+RMUX02,16,6,RMUX13,16,9,silicon_ring
 RMUX03,16,6,RMUX05,14,6,silicon_ring
 RMUX03,16,6,RMUX14,14,6,silicon_ring
 RMUX03,16,6,RMUX21,14,6,silicon_ring
@@ -45182,6 +45414,7 @@ RMUX07,16,6,RMUX40,16,3,silicon_ring
 RMUX07,16,6,RMUX46,16,3,silicon_ring
 RMUX07,16,6,RMUX24,16,4,silicon_ring
 RMUX07,16,6,RMUX41,16,4,silicon_ring
+RMUX07,16,6,RMUX46,16,4,silicon_ring
 RMUX07,16,6,RMUX24,16,5,silicon_ring
 RMUX07,16,6,RMUX25,16,5,silicon_ring
 RMUX07,16,6,RMUX31,16,5,silicon_ring
@@ -45482,6 +45715,7 @@ RMUX50,16,6,RMUX03,16,4,silicon_ring
 RMUX50,16,6,RMUX08,16,4,silicon_ring
 RMUX50,16,6,RMUX09,16,4,silicon_ring
 RMUX50,16,6,RMUX13,16,4,silicon_ring
+RMUX50,16,6,RMUX03,16,5,silicon_ring
 RMUX50,16,6,RMUX08,16,5,silicon_ring
 RMUX50,16,6,RMUX09,16,5,silicon_ring
 RMUX50,16,6,RMUX13,16,5,silicon_ring
@@ -45620,6 +45854,7 @@ RMUX73,16,6,RMUX06,16,2,silicon_ring
 RMUX73,16,6,RMUX07,16,2,silicon_ring
 RMUX73,16,6,RMUX17,16,2,silicon_ring
 RMUX73,16,6,RMUX00,16,3,silicon_ring
+RMUX73,16,6,RMUX07,16,3,silicon_ring
 RMUX73,16,6,RMUX16,16,3,silicon_ring
 RMUX73,16,6,RMUX22,16,3,silicon_ring
 RMUX73,16,6,RMUX01,16,4,silicon_ring
@@ -45679,6 +45914,7 @@ RMUX80,16,6,RMUX43,16,3,silicon_ring
 RMUX80,16,6,RMUX26,16,4,silicon_ring
 RMUX80,16,6,RMUX33,16,4,silicon_ring
 RMUX80,16,6,RMUX37,16,4,silicon_ring
+RMUX80,16,6,RMUX43,16,4,silicon_ring
 RMUX80,16,6,RMUX26,16,5,silicon_ring
 RMUX80,16,6,RMUX27,16,5,silicon_ring
 RMUX80,16,6,RMUX33,16,5,silicon_ring
@@ -46393,6 +46629,7 @@ RMUX14,16,7,RMUX51,16,3,silicon_ring
 RMUX14,16,7,RMUX56,16,3,silicon_ring
 RMUX14,16,7,RMUX57,16,3,silicon_ring
 RMUX14,16,7,RMUX61,16,3,silicon_ring
+RMUX14,16,7,RMUX67,16,3,silicon_ring
 RMUX14,16,7,RMUX50,16,4,silicon_ring
 RMUX14,16,7,RMUX51,16,4,silicon_ring
 RMUX14,16,7,RMUX56,16,4,silicon_ring
@@ -46546,6 +46783,7 @@ RMUX36,16,7,IMUX14,15,7,silicon_ring
 RMUX37,16,7,RMUX48,16,3,silicon_ring
 RMUX37,16,7,RMUX49,16,3,silicon_ring
 RMUX37,16,7,RMUX49,16,4,silicon_ring
+RMUX37,16,7,RMUX64,16,4,silicon_ring
 RMUX37,16,7,RMUX70,16,4,silicon_ring
 RMUX37,16,7,RMUX49,16,5,silicon_ring
 RMUX37,16,7,RMUX48,16,6,silicon_ring
@@ -46641,6 +46879,7 @@ RMUX50,16,7,RMUX13,16,3,silicon_ring
 RMUX50,16,7,RMUX03,16,4,silicon_ring
 RMUX50,16,7,RMUX08,16,4,silicon_ring
 RMUX50,16,7,RMUX13,16,4,silicon_ring
+RMUX50,16,7,RMUX03,16,5,silicon_ring
 RMUX50,16,7,RMUX08,16,5,silicon_ring
 RMUX50,16,7,RMUX13,16,5,silicon_ring
 RMUX50,16,7,RMUX03,16,6,silicon_ring
@@ -47541,6 +47780,7 @@ RMUX14,16,8,RMUX61,16,5,silicon_ring
 RMUX14,16,8,RMUX67,16,5,silicon_ring
 RMUX14,16,8,RMUX50,16,6,silicon_ring
 RMUX14,16,8,RMUX51,16,6,silicon_ring
+RMUX14,16,8,RMUX56,16,6,silicon_ring
 RMUX14,16,8,RMUX61,16,6,silicon_ring
 RMUX14,16,8,RMUX67,16,6,silicon_ring
 RMUX14,16,8,RMUX50,16,7,silicon_ring
@@ -47628,6 +47868,7 @@ RMUX27,16,8,RMUX10,16,5,silicon_ring
 RMUX27,16,8,RMUX14,16,5,silicon_ring
 RMUX27,16,8,RMUX15,16,5,silicon_ring
 RMUX27,16,8,RMUX20,16,5,silicon_ring
+RMUX27,16,8,RMUX21,16,5,silicon_ring
 RMUX27,16,8,RMUX14,16,6,silicon_ring
 RMUX27,16,8,RMUX15,16,6,silicon_ring
 RMUX27,16,8,RMUX21,16,6,silicon_ring
@@ -47736,6 +47977,7 @@ RMUX44,16,8,RMUX80,16,5,silicon_ring
 RMUX44,16,8,RMUX81,16,5,silicon_ring
 RMUX44,16,8,RMUX85,16,5,silicon_ring
 RMUX44,16,8,RMUX80,16,6,silicon_ring
+RMUX44,16,8,RMUX91,16,6,silicon_ring
 RMUX44,16,8,RMUX74,16,7,silicon_ring
 RMUX44,16,8,RMUX75,16,7,silicon_ring
 RMUX44,16,8,RMUX81,16,7,silicon_ring
@@ -47940,6 +48182,7 @@ RMUX73,16,8,RMUX01,16,5,silicon_ring
 RMUX73,16,8,RMUX07,16,5,silicon_ring
 RMUX73,16,8,RMUX17,16,5,silicon_ring
 RMUX73,16,8,RMUX22,16,5,silicon_ring
+RMUX73,16,8,RMUX07,16,6,silicon_ring
 RMUX73,16,8,RMUX00,16,7,silicon_ring
 RMUX73,16,8,RMUX07,16,7,silicon_ring
 RMUX73,16,8,RMUX16,16,7,silicon_ring
@@ -47986,6 +48229,7 @@ RMUX80,16,8,RMUX27,16,4,silicon_ring
 RMUX80,16,8,RMUX33,16,4,silicon_ring
 RMUX80,16,8,RMUX37,16,4,silicon_ring
 RMUX80,16,8,RMUX43,16,4,silicon_ring
+RMUX80,16,8,RMUX26,16,5,silicon_ring
 RMUX80,16,8,RMUX27,16,5,silicon_ring
 RMUX80,16,8,RMUX33,16,5,silicon_ring
 RMUX80,16,8,RMUX37,16,5,silicon_ring
@@ -48000,6 +48244,7 @@ RMUX80,16,8,RMUX33,16,7,silicon_ring
 RMUX80,16,8,RMUX37,16,7,silicon_ring
 RMUX81,16,8,RMUX28,17,8,silicon_ring
 RMUX81,16,8,RMUX34,17,8,silicon_ring
+RMUX81,16,8,RMUX38,17,8,silicon_ring
 RMUX81,16,8,RMUX44,17,8,silicon_ring
 RMUX81,16,8,RMUX45,17,8,silicon_ring
 RMUX81,16,8,RMUX38,18,8,silicon_ring
@@ -48690,6 +48935,7 @@ RMUX14,16,9,RMUX57,16,5,silicon_ring
 RMUX14,16,9,RMUX61,16,5,silicon_ring
 RMUX14,16,9,RMUX67,16,5,silicon_ring
 RMUX14,16,9,RMUX50,16,6,silicon_ring
+RMUX14,16,9,RMUX51,16,6,silicon_ring
 RMUX14,16,9,RMUX56,16,6,silicon_ring
 RMUX14,16,9,RMUX57,16,6,silicon_ring
 RMUX14,16,9,RMUX61,16,6,silicon_ring
@@ -48726,11 +48972,13 @@ RMUX20,16,9,RMUX74,15,9,silicon_ring
 RMUX20,16,9,RMUX75,15,9,silicon_ring
 RMUX20,16,9,RMUX80,15,9,silicon_ring
 RMUX20,16,9,RMUX91,15,9,silicon_ring
+RMUX21,16,9,RMUX86,16,5,silicon_ring
 RMUX21,16,9,RMUX87,16,5,silicon_ring
 RMUX21,16,9,RMUX92,16,5,silicon_ring
 RMUX21,16,9,RMUX93,16,5,silicon_ring
 RMUX21,16,9,RMUX86,16,6,silicon_ring
 RMUX21,16,9,RMUX87,16,6,silicon_ring
+RMUX21,16,9,RMUX93,16,6,silicon_ring
 RMUX21,16,9,RMUX76,16,7,silicon_ring
 RMUX21,16,9,RMUX87,16,7,silicon_ring
 RMUX21,16,9,RMUX82,16,8,silicon_ring
@@ -48878,6 +49126,7 @@ RMUX44,16,9,RMUX81,16,6,silicon_ring
 RMUX44,16,9,RMUX85,16,6,silicon_ring
 RMUX44,16,9,RMUX91,16,6,silicon_ring
 RMUX44,16,9,RMUX81,16,7,silicon_ring
+RMUX44,16,9,RMUX91,16,7,silicon_ring
 RMUX44,16,9,RMUX74,16,8,silicon_ring
 RMUX44,16,9,RMUX75,16,8,silicon_ring
 RMUX44,16,9,RMUX81,16,8,silicon_ring
@@ -48968,6 +49217,7 @@ RMUX61,16,9,RMUX55,19,9,silicon_ring
 RMUX61,16,9,RMUX55,20,9,silicon_ring
 RMUX62,16,9,RMUX50,16,10,silicon_ring
 RMUX62,16,9,RMUX51,16,10,silicon_ring
+RMUX62,16,9,RMUX67,16,10,silicon_ring
 RMUX62,16,9,RMUX51,16,11,silicon_ring
 RMUX62,16,9,RMUX67,16,11,silicon_ring
 RMUX62,16,9,RMUX51,16,12,silicon_ring
@@ -48979,6 +49229,7 @@ RMUX63,16,9,RMUX69,14,9,silicon_ring
 RMUX63,16,9,RMUX52,15,9,silicon_ring
 RMUX63,16,9,RMUX53,15,9,silicon_ring
 RMUX63,16,9,RMUX58,15,9,silicon_ring
+RMUX63,16,9,RMUX59,15,9,silicon_ring
 RMUX63,16,9,RMUX63,15,9,silicon_ring
 RMUX63,16,9,RMUX68,15,9,silicon_ring
 RMUX64,16,9,IMUX16,16,9,silicon_ring
@@ -48990,6 +49241,7 @@ RMUX65,16,9,IMUX57,16,9,silicon_ring
 RMUX65,16,9,IMUX61,16,9,silicon_ring
 RMUX67,16,9,RMUX72,16,5,silicon_ring
 RMUX67,16,9,RMUX73,16,5,silicon_ring
+RMUX67,16,9,RMUX79,16,5,silicon_ring
 RMUX67,16,9,RMUX73,16,6,silicon_ring
 RMUX67,16,9,RMUX79,16,6,silicon_ring
 RMUX67,16,9,RMUX73,16,7,silicon_ring
@@ -49151,6 +49403,7 @@ RMUX91,16,9,RMUX73,19,9,silicon_ring
 RMUX91,16,9,RMUX88,19,9,silicon_ring
 RMUX91,16,9,RMUX73,20,9,silicon_ring
 RMUX91,16,9,RMUX88,20,9,silicon_ring
+RMUX92,16,9,RMUX80,16,10,silicon_ring
 RMUX92,16,9,RMUX91,16,10,silicon_ring
 RMUX92,16,9,RMUX81,16,11,silicon_ring
 RMUX92,16,9,RMUX80,16,12,silicon_ring
@@ -49712,6 +49965,7 @@ RMUX02,17,10,RMUX19,17,11,silicon_ring
 RMUX02,17,10,RMUX03,17,12,silicon_ring
 RMUX03,17,10,RMUX10,14,10,silicon_ring
 RMUX03,17,10,RMUX11,14,10,silicon_ring
+RMUX03,17,10,RMUX14,14,10,silicon_ring
 RMUX03,17,10,RMUX14,15,10,silicon_ring
 RMUX03,17,10,RMUX20,15,10,silicon_ring
 RMUX03,17,10,RMUX21,15,10,silicon_ring
@@ -49780,6 +50034,7 @@ RMUX15,17,10,RMUX68,18,10,silicon_ring
 RMUX15,17,10,RMUX69,18,10,silicon_ring
 RMUX15,17,10,RMUX52,19,10,silicon_ring
 RMUX15,17,10,RMUX68,19,10,silicon_ring
+RMUX15,17,10,RMUX69,19,10,silicon_ring
 RMUX15,17,10,RMUX68,20,10,silicon_ring
 RMUX15,17,10,RMUX69,20,10,silicon_ring
 RMUX16,17,10,IMUX04,17,10,silicon_ring
@@ -49917,6 +50172,7 @@ RMUX38,17,10,RMUX56,18,10,silicon_ring
 RMUX38,17,10,RMUX57,18,10,silicon_ring
 RMUX38,17,10,RMUX67,18,10,silicon_ring
 RMUX38,17,10,RMUX51,19,10,silicon_ring
+RMUX38,17,10,RMUX67,19,10,silicon_ring
 RMUX38,17,10,RMUX67,20,10,silicon_ring
 RMUX39,17,10,RMUX52,17,11,silicon_ring
 RMUX39,17,10,RMUX62,17,11,silicon_ring
@@ -50043,6 +50299,7 @@ RMUX61,17,10,RMUX55,19,10,silicon_ring
 RMUX61,17,10,RMUX64,20,10,silicon_ring
 RMUX62,17,10,RMUX50,17,11,silicon_ring
 RMUX62,17,10,RMUX56,17,11,silicon_ring
+RMUX62,17,10,RMUX67,17,11,silicon_ring
 RMUX62,17,10,RMUX51,17,12,silicon_ring
 RMUX62,17,10,RMUX56,17,12,silicon_ring
 RMUX62,17,10,RMUX67,17,12,silicon_ring
@@ -50142,6 +50399,7 @@ RMUX79,17,10,RMUX46,16,10,silicon_ring
 RMUX80,17,10,RMUX33,17,6,silicon_ring
 RMUX80,17,10,RMUX37,17,6,silicon_ring
 RMUX80,17,10,RMUX26,17,7,silicon_ring
+RMUX80,17,10,RMUX43,17,7,silicon_ring
 RMUX80,17,10,RMUX37,17,8,silicon_ring
 RMUX80,17,10,RMUX43,17,8,silicon_ring
 RMUX80,17,10,RMUX26,17,9,silicon_ring
@@ -50771,6 +51029,7 @@ RMUX08,17,11,RMUX26,19,11,silicon_ring
 RMUX08,17,11,RMUX27,19,11,silicon_ring
 RMUX08,17,11,RMUX37,19,11,silicon_ring
 RMUX08,17,11,RMUX37,20,11,silicon_ring
+RMUX09,17,11,RMUX38,17,10,silicon_ring
 RMUX09,17,11,RMUX44,17,10,silicon_ring
 RMUX09,17,11,RMUX38,17,11,silicon_ring
 RMUX09,17,11,RMUX28,17,12,silicon_ring
@@ -50858,6 +51117,7 @@ RMUX25,17,11,RMUX16,17,12,silicon_ring
 RMUX25,17,11,RMUX22,17,12,silicon_ring
 RMUX26,17,11,RMUX02,15,11,silicon_ring
 RMUX26,17,11,RMUX03,15,11,silicon_ring
+RMUX26,17,11,RMUX19,15,11,silicon_ring
 RMUX26,17,11,RMUX03,16,11,silicon_ring
 RMUX26,17,11,RMUX09,16,11,silicon_ring
 RMUX27,17,11,RMUX04,17,10,silicon_ring
@@ -50932,6 +51192,7 @@ RMUX41,17,11,IMUX61,17,11,silicon_ring
 RMUX43,17,11,RMUX73,14,11,silicon_ring
 RMUX43,17,11,RMUX73,15,11,silicon_ring
 RMUX43,17,11,RMUX73,16,11,silicon_ring
+RMUX43,17,11,RMUX89,16,11,silicon_ring
 RMUX44,17,11,RMUX75,17,10,silicon_ring
 RMUX44,17,11,RMUX85,17,10,silicon_ring
 RMUX44,17,11,RMUX91,17,10,silicon_ring
@@ -50998,6 +51259,7 @@ RMUX57,17,11,RMUX28,17,7,silicon_ring
 RMUX57,17,11,RMUX34,17,7,silicon_ring
 RMUX57,17,11,RMUX44,17,7,silicon_ring
 RMUX57,17,11,RMUX34,17,8,silicon_ring
+RMUX57,17,11,RMUX45,17,8,silicon_ring
 RMUX57,17,11,RMUX38,17,9,silicon_ring
 RMUX57,17,11,RMUX44,17,9,silicon_ring
 RMUX57,17,11,RMUX45,17,9,silicon_ring
@@ -51687,6 +51949,7 @@ RMUX14,17,12,RMUX50,17,11,silicon_ring
 RMUX14,17,12,RMUX61,17,11,silicon_ring
 RMUX14,17,12,RMUX67,17,11,silicon_ring
 RMUX14,17,12,RMUX56,17,8,silicon_ring
+RMUX14,17,12,RMUX61,17,8,silicon_ring
 RMUX14,17,12,RMUX50,17,9,silicon_ring
 RMUX14,17,12,RMUX51,17,9,silicon_ring
 RMUX14,17,12,RMUX61,17,9,silicon_ring
@@ -51875,6 +52138,7 @@ RMUX67,17,12,RMUX72,17,10,silicon_ring
 RMUX67,17,12,RMUX79,17,10,silicon_ring
 RMUX67,17,12,RMUX89,17,10,silicon_ring
 RMUX67,17,12,RMUX73,17,11,silicon_ring
+RMUX67,17,12,RMUX79,17,11,silicon_ring
 RMUX67,17,12,RMUX72,17,8,silicon_ring
 RMUX68,17,12,RMUX74,18,12,silicon_ring
 RMUX68,17,12,RMUX80,18,12,silicon_ring
@@ -52478,6 +52742,7 @@ RMUX03,17,1,RMUX20,16,1,silicon_ring
 RMUX04,17,1,IMUX12,17,1,silicon_ring
 RMUX04,17,1,IMUX56,17,1,silicon_ring
 RMUX05,17,1,IMUX05,17,1,silicon_ring
+RMUX05,17,1,IMUX13,17,1,silicon_ring
 RMUX05,17,1,IMUX21,17,1,silicon_ring
 RMUX05,17,1,IMUX29,17,1,silicon_ring
 RMUX05,17,1,IMUX37,17,1,silicon_ring
@@ -52544,6 +52809,7 @@ RMUX19,17,1,RMUX79,17,4,silicon_ring
 RMUX19,17,1,RMUX88,17,4,silicon_ring
 RMUX19,17,1,RMUX88,17,5,silicon_ring
 RMUX20,17,1,RMUX74,13,1,silicon_ring
+RMUX20,17,1,RMUX75,13,1,silicon_ring
 RMUX20,17,1,RMUX75,14,1,silicon_ring
 RMUX20,17,1,RMUX74,15,1,silicon_ring
 RMUX20,17,1,RMUX75,15,1,silicon_ring
@@ -52703,6 +52969,7 @@ RMUX68,17,1,RMUX85,18,1,silicon_ring
 RMUX68,17,1,RMUX91,18,1,silicon_ring
 RMUX68,17,1,RMUX74,19,1,silicon_ring
 RMUX68,17,1,RMUX75,19,1,silicon_ring
+RMUX68,17,1,RMUX81,19,1,silicon_ring
 RMUX68,17,1,RMUX85,19,1,silicon_ring
 RMUX68,17,1,RMUX91,19,1,silicon_ring
 RMUX68,17,1,RMUX74,20,1,silicon_ring
@@ -52785,6 +53052,7 @@ RMUX85,17,1,RMUX49,17,4,silicon_ring
 RMUX85,17,1,RMUX55,17,4,silicon_ring
 RMUX85,17,1,RMUX64,17,4,silicon_ring
 RMUX85,17,1,RMUX48,17,5,silicon_ring
+RMUX85,17,1,RMUX49,17,5,silicon_ring
 RMUX86,17,1,RMUX50,13,1,silicon_ring
 RMUX86,17,1,RMUX57,13,1,silicon_ring
 RMUX86,17,1,RMUX56,14,1,silicon_ring
@@ -53524,6 +53792,7 @@ RMUX33,17,2,RMUX28,15,2,silicon_ring
 RMUX33,17,2,RMUX44,15,2,silicon_ring
 RMUX33,17,2,RMUX28,16,2,silicon_ring
 RMUX33,17,2,RMUX29,16,2,silicon_ring
+RMUX33,17,2,RMUX39,16,2,silicon_ring
 RMUX33,17,2,RMUX44,16,2,silicon_ring
 RMUX33,17,2,RMUX45,16,2,silicon_ring
 RMUX34,17,2,IMUX08,17,2,silicon_ring
@@ -53612,6 +53881,7 @@ RMUX55,17,2,RMUX46,17,5,silicon_ring
 RMUX55,17,2,RMUX31,17,6,silicon_ring
 RMUX55,17,2,RMUX40,17,6,silicon_ring
 RMUX55,17,2,RMUX46,17,6,silicon_ring
+RMUX56,17,2,RMUX33,14,2,silicon_ring
 RMUX56,17,2,RMUX43,14,2,silicon_ring
 RMUX56,17,2,RMUX27,15,2,silicon_ring
 RMUX56,17,2,RMUX37,15,2,silicon_ring
@@ -54580,6 +54850,7 @@ RMUX46,17,3,IMUX00,17,3,silicon_ring
 RMUX46,17,3,IMUX04,17,3,silicon_ring
 RMUX46,17,3,IMUX16,17,3,silicon_ring
 RMUX46,17,3,IMUX24,17,3,silicon_ring
+RMUX48,17,3,IMUX00,16,3,silicon_ring
 RMUX48,17,3,IMUX08,16,3,silicon_ring
 RMUX48,17,3,IMUX24,16,3,silicon_ring
 RMUX48,17,3,IMUX32,16,3,silicon_ring
@@ -54629,6 +54900,7 @@ RMUX55,17,3,RMUX40,17,7,silicon_ring
 RMUX55,17,3,RMUX46,17,7,silicon_ring
 RMUX56,17,3,RMUX26,13,3,silicon_ring
 RMUX56,17,3,RMUX27,13,3,silicon_ring
+RMUX56,17,3,RMUX37,13,3,silicon_ring
 RMUX56,17,3,RMUX27,14,3,silicon_ring
 RMUX56,17,3,RMUX32,14,3,silicon_ring
 RMUX56,17,3,RMUX33,14,3,silicon_ring
@@ -54743,6 +55015,7 @@ RMUX79,17,3,RMUX41,15,3,silicon_ring
 RMUX79,17,3,RMUX46,15,3,silicon_ring
 RMUX79,17,3,RMUX25,16,3,silicon_ring
 RMUX79,17,3,RMUX40,16,3,silicon_ring
+RMUX79,17,3,RMUX41,16,3,silicon_ring
 RMUX79,17,3,RMUX46,16,3,silicon_ring
 RMUX79,17,3,RMUX47,16,3,silicon_ring
 RMUX80,17,3,RMUX26,17,2,silicon_ring
@@ -54926,6 +55199,7 @@ OMUX08,17,4,RMUX03,17,4,silicon_ring
 OMUX08,17,4,RMUX05,17,4,silicon_ring
 OMUX08,17,4,RMUX07,17,4,silicon_ring
 OMUX08,17,4,RMUX09,17,4,silicon_ring
+OMUX08,17,4,RMUX11,17,4,silicon_ring
 OMUX08,17,4,RMUX14,17,4,silicon_ring
 OMUX08,17,4,RMUX20,17,4,silicon_ring
 OMUX10,17,4,IMUX01,17,4,silicon_ring
@@ -55377,6 +55651,7 @@ RMUX03,17,4,RMUX10,16,4,silicon_ring
 RMUX03,17,4,RMUX11,16,4,silicon_ring
 RMUX03,17,4,RMUX14,16,4,silicon_ring
 RMUX03,17,4,RMUX15,16,4,silicon_ring
+RMUX03,17,4,RMUX20,16,4,silicon_ring
 RMUX03,17,4,RMUX21,16,4,silicon_ring
 RMUX04,17,4,IMUX12,17,4,silicon_ring
 RMUX04,17,4,IMUX28,17,4,silicon_ring
@@ -55400,10 +55675,12 @@ RMUX08,17,4,RMUX33,18,4,silicon_ring
 RMUX08,17,4,RMUX37,18,4,silicon_ring
 RMUX08,17,4,RMUX43,18,4,silicon_ring
 RMUX08,17,4,RMUX27,19,4,silicon_ring
+RMUX08,17,4,RMUX37,19,4,silicon_ring
 RMUX09,17,4,RMUX34,17,5,silicon_ring
 RMUX09,17,4,RMUX38,17,5,silicon_ring
 RMUX09,17,4,RMUX39,17,5,silicon_ring
 RMUX09,17,4,RMUX44,17,5,silicon_ring
+RMUX09,17,4,RMUX45,17,5,silicon_ring
 RMUX09,17,4,RMUX38,17,6,silicon_ring
 RMUX09,17,4,RMUX39,17,6,silicon_ring
 RMUX09,17,4,RMUX45,17,6,silicon_ring
@@ -55666,6 +55943,7 @@ RMUX48,17,4,IMUX32,16,4,silicon_ring
 RMUX48,17,4,IMUX40,16,4,silicon_ring
 RMUX48,17,4,IMUX48,16,4,silicon_ring
 RMUX48,17,4,IMUX56,16,4,silicon_ring
+RMUX49,17,4,RMUX07,13,4,silicon_ring
 RMUX49,17,4,RMUX07,14,4,silicon_ring
 RMUX49,17,4,RMUX16,14,4,silicon_ring
 RMUX49,17,4,RMUX22,14,4,silicon_ring
@@ -55705,6 +55983,7 @@ RMUX55,17,4,RMUX46,17,5,silicon_ring
 RMUX55,17,4,RMUX40,17,6,silicon_ring
 RMUX55,17,4,RMUX31,17,7,silicon_ring
 RMUX55,17,4,RMUX24,17,8,silicon_ring
+RMUX55,17,4,RMUX31,17,8,silicon_ring
 RMUX55,17,4,RMUX40,17,8,silicon_ring
 RMUX56,17,4,RMUX27,13,4,silicon_ring
 RMUX56,17,4,RMUX33,13,4,silicon_ring
@@ -55716,6 +55995,7 @@ RMUX56,17,4,RMUX32,15,4,silicon_ring
 RMUX56,17,4,RMUX37,15,4,silicon_ring
 RMUX56,17,4,RMUX43,15,4,silicon_ring
 RMUX56,17,4,RMUX27,16,4,silicon_ring
+RMUX56,17,4,RMUX32,16,4,silicon_ring
 RMUX56,17,4,RMUX33,16,4,silicon_ring
 RMUX56,17,4,RMUX37,16,4,silicon_ring
 RMUX56,17,4,RMUX43,16,4,silicon_ring
@@ -55757,6 +56037,7 @@ RMUX63,17,4,RMUX63,13,4,silicon_ring
 RMUX63,17,4,RMUX52,14,4,silicon_ring
 RMUX63,17,4,RMUX58,14,4,silicon_ring
 RMUX63,17,4,RMUX63,14,4,silicon_ring
+RMUX63,17,4,RMUX69,14,4,silicon_ring
 RMUX63,17,4,RMUX58,15,4,silicon_ring
 RMUX63,17,4,RMUX69,15,4,silicon_ring
 RMUX63,17,4,RMUX52,16,4,silicon_ring
@@ -55868,6 +56149,7 @@ RMUX80,17,4,RMUX33,17,1,silicon_ring
 RMUX80,17,4,RMUX26,17,2,silicon_ring
 RMUX80,17,4,RMUX27,17,2,silicon_ring
 RMUX80,17,4,RMUX33,17,2,silicon_ring
+RMUX80,17,4,RMUX37,17,2,silicon_ring
 RMUX80,17,4,RMUX43,17,2,silicon_ring
 RMUX80,17,4,RMUX26,17,3,silicon_ring
 RMUX80,17,4,RMUX33,17,3,silicon_ring
@@ -55904,6 +56186,7 @@ RMUX86,17,4,RMUX56,13,4,silicon_ring
 RMUX86,17,4,RMUX57,13,4,silicon_ring
 RMUX86,17,4,RMUX56,14,4,silicon_ring
 RMUX86,17,4,RMUX57,14,4,silicon_ring
+RMUX86,17,4,RMUX50,15,4,silicon_ring
 RMUX86,17,4,RMUX56,15,4,silicon_ring
 RMUX86,17,4,RMUX61,15,4,silicon_ring
 RMUX86,17,4,RMUX67,15,4,silicon_ring
@@ -55937,6 +56220,7 @@ RMUX91,17,4,RMUX94,20,4,silicon_ring
 RMUX92,17,4,RMUX80,17,5,silicon_ring
 RMUX92,17,4,RMUX81,17,5,silicon_ring
 RMUX92,17,4,RMUX85,17,5,silicon_ring
+RMUX92,17,4,RMUX74,17,6,silicon_ring
 RMUX92,17,4,RMUX75,17,6,silicon_ring
 RMUX92,17,4,RMUX85,17,6,silicon_ring
 RMUX92,17,4,RMUX75,17,7,silicon_ring
@@ -56551,6 +56835,7 @@ RMUX09,17,5,RMUX39,17,7,silicon_ring
 RMUX09,17,5,RMUX34,17,8,silicon_ring
 RMUX09,17,5,RMUX38,17,8,silicon_ring
 RMUX09,17,5,RMUX28,17,9,silicon_ring
+RMUX09,17,5,RMUX38,17,9,silicon_ring
 RMUX09,17,5,RMUX45,17,9,silicon_ring
 RMUX10,17,5,IMUX00,17,5,silicon_ring
 RMUX10,17,5,IMUX04,17,5,silicon_ring
@@ -56669,6 +56954,7 @@ RMUX26,17,5,RMUX19,16,5,silicon_ring
 RMUX27,17,5,RMUX20,17,1,silicon_ring
 RMUX27,17,5,RMUX14,17,2,silicon_ring
 RMUX27,17,5,RMUX15,17,2,silicon_ring
+RMUX27,17,5,RMUX20,17,2,silicon_ring
 RMUX27,17,5,RMUX21,17,2,silicon_ring
 RMUX27,17,5,RMUX14,17,3,silicon_ring
 RMUX27,17,5,RMUX15,17,3,silicon_ring
@@ -56734,6 +57020,7 @@ RMUX38,17,5,RMUX56,18,5,silicon_ring
 RMUX38,17,5,RMUX57,18,5,silicon_ring
 RMUX38,17,5,RMUX67,18,5,silicon_ring
 RMUX38,17,5,RMUX51,20,5,silicon_ring
+RMUX38,17,5,RMUX57,20,5,silicon_ring
 RMUX38,17,5,RMUX67,20,5,silicon_ring
 RMUX39,17,5,RMUX53,17,6,silicon_ring
 RMUX39,17,5,RMUX58,17,6,silicon_ring
@@ -56892,6 +57179,7 @@ RMUX67,17,5,RMUX79,17,1,silicon_ring
 RMUX67,17,5,RMUX79,17,2,silicon_ring
 RMUX67,17,5,RMUX73,17,3,silicon_ring
 RMUX67,17,5,RMUX79,17,3,silicon_ring
+RMUX67,17,5,RMUX73,17,4,silicon_ring
 RMUX67,17,5,RMUX79,17,4,silicon_ring
 RMUX68,17,5,RMUX80,18,5,silicon_ring
 RMUX68,17,5,RMUX85,18,5,silicon_ring
@@ -57785,6 +58073,7 @@ RMUX32,17,6,RMUX34,17,6,silicon_ring
 RMUX32,17,6,RMUX27,17,7,silicon_ring
 RMUX32,17,6,RMUX37,17,7,silicon_ring
 RMUX32,17,6,RMUX43,17,8,silicon_ring
+RMUX32,17,6,RMUX32,17,9,silicon_ring
 RMUX32,17,6,RMUX43,17,9,silicon_ring
 RMUX33,17,6,RMUX28,14,6,silicon_ring
 RMUX33,17,6,RMUX34,14,6,silicon_ring
@@ -58092,6 +58381,7 @@ RMUX80,17,6,RMUX27,17,4,silicon_ring
 RMUX80,17,6,RMUX33,17,4,silicon_ring
 RMUX80,17,6,RMUX37,17,4,silicon_ring
 RMUX80,17,6,RMUX27,17,5,silicon_ring
+RMUX80,17,6,RMUX33,17,5,silicon_ring
 RMUX80,17,6,RMUX37,17,5,silicon_ring
 RMUX80,17,6,RMUX43,17,5,silicon_ring
 RMUX81,17,6,RMUX38,18,6,silicon_ring
@@ -58880,6 +59170,7 @@ RMUX26,17,7,RMUX09,14,7,silicon_ring
 RMUX26,17,7,RMUX02,15,7,silicon_ring
 RMUX26,17,7,RMUX03,15,7,silicon_ring
 RMUX26,17,7,RMUX09,15,7,silicon_ring
+RMUX26,17,7,RMUX19,15,7,silicon_ring
 RMUX26,17,7,RMUX03,16,7,silicon_ring
 RMUX27,17,7,RMUX11,17,3,silicon_ring
 RMUX27,17,7,RMUX20,17,3,silicon_ring
@@ -58919,6 +59210,7 @@ RMUX31,17,7,RMUX25,20,7,silicon_ring
 RMUX31,17,7,RMUX40,20,7,silicon_ring
 RMUX32,17,7,RMUX27,17,10,silicon_ring
 RMUX32,17,7,RMUX27,17,11,silicon_ring
+RMUX32,17,7,RMUX33,17,11,silicon_ring
 RMUX32,17,7,RMUX43,17,11,silicon_ring
 RMUX32,17,7,RMUX32,17,8,silicon_ring
 RMUX32,17,7,RMUX33,17,8,silicon_ring
@@ -58951,6 +59243,7 @@ RMUX37,17,7,RMUX48,17,3,silicon_ring
 RMUX37,17,7,RMUX49,17,3,silicon_ring
 RMUX37,17,7,RMUX49,17,4,silicon_ring
 RMUX37,17,7,RMUX64,17,4,silicon_ring
+RMUX37,17,7,RMUX49,17,5,silicon_ring
 RMUX37,17,7,RMUX64,17,5,silicon_ring
 RMUX37,17,7,RMUX48,17,6,silicon_ring
 RMUX37,17,7,RMUX65,17,6,silicon_ring
@@ -59056,6 +59349,7 @@ RMUX56,17,7,RMUX43,15,7,silicon_ring
 RMUX56,17,7,RMUX27,16,7,silicon_ring
 RMUX56,17,7,RMUX33,16,7,silicon_ring
 RMUX56,17,7,RMUX36,16,7,silicon_ring
+RMUX56,17,7,RMUX37,16,7,silicon_ring
 RMUX56,17,7,RMUX43,16,7,silicon_ring
 RMUX57,17,7,RMUX28,17,3,silicon_ring
 RMUX57,17,7,RMUX45,17,3,silicon_ring
@@ -59214,6 +59508,7 @@ RMUX85,17,7,RMUX49,17,8,silicon_ring
 RMUX85,17,7,RMUX55,17,8,silicon_ring
 RMUX85,17,7,RMUX64,17,8,silicon_ring
 RMUX85,17,7,RMUX65,17,8,silicon_ring
+RMUX85,17,7,RMUX49,17,9,silicon_ring
 RMUX85,17,7,RMUX55,17,9,silicon_ring
 RMUX85,17,7,RMUX64,17,9,silicon_ring
 RMUX85,17,7,RMUX70,17,9,silicon_ring
@@ -60163,6 +60458,7 @@ RMUX56,17,8,RMUX37,14,8,silicon_ring
 RMUX56,17,8,RMUX26,15,8,silicon_ring
 RMUX56,17,8,RMUX27,15,8,silicon_ring
 RMUX56,17,8,RMUX37,15,8,silicon_ring
+RMUX56,17,8,RMUX43,15,8,silicon_ring
 RMUX56,17,8,RMUX27,16,8,silicon_ring
 RMUX56,17,8,RMUX33,16,8,silicon_ring
 RMUX56,17,8,RMUX37,16,8,silicon_ring
@@ -60189,6 +60485,7 @@ RMUX61,17,8,RMUX64,18,8,silicon_ring
 RMUX61,17,8,RMUX70,20,8,silicon_ring
 RMUX61,17,8,RMUX71,20,8,silicon_ring
 RMUX62,17,8,RMUX51,17,10,silicon_ring
+RMUX62,17,8,RMUX56,17,10,silicon_ring
 RMUX62,17,8,RMUX67,17,10,silicon_ring
 RMUX62,17,8,RMUX51,17,11,silicon_ring
 RMUX62,17,8,RMUX57,17,11,silicon_ring
@@ -60309,6 +60606,7 @@ RMUX78,17,8,IMUX53,16,8,silicon_ring
 RMUX79,17,8,RMUX25,14,8,silicon_ring
 RMUX79,17,8,RMUX25,15,8,silicon_ring
 RMUX79,17,8,RMUX46,15,8,silicon_ring
+RMUX79,17,8,RMUX25,16,8,silicon_ring
 RMUX79,17,8,RMUX31,16,8,silicon_ring
 RMUX79,17,8,RMUX46,16,8,silicon_ring
 RMUX80,17,8,RMUX26,17,4,silicon_ring
@@ -61263,6 +61561,7 @@ RMUX54,17,9,IMUX09,16,9,silicon_ring
 RMUX55,17,9,RMUX41,17,10,silicon_ring
 RMUX55,17,9,RMUX46,17,10,silicon_ring
 RMUX55,17,9,RMUX25,17,11,silicon_ring
+RMUX55,17,9,RMUX31,17,11,silicon_ring
 RMUX55,17,9,RMUX24,17,12,silicon_ring
 RMUX56,17,9,RMUX27,14,9,silicon_ring
 RMUX56,17,9,RMUX27,15,9,silicon_ring
@@ -62149,6 +62448,7 @@ RMUX21,18,10,RMUX93,18,8,silicon_ring
 RMUX21,18,10,RMUX76,18,9,silicon_ring
 RMUX21,18,10,RMUX87,18,9,silicon_ring
 RMUX21,18,10,RMUX92,18,9,silicon_ring
+RMUX21,18,10,RMUX93,18,9,silicon_ring
 RMUX22,18,10,IMUX00,18,10,silicon_ring
 RMUX22,18,10,IMUX20,18,10,silicon_ring
 RMUX22,18,10,IMUX24,18,10,silicon_ring
@@ -63221,6 +63521,7 @@ RMUX15,18,11,RMUX62,19,11,silicon_ring
 RMUX15,18,11,RMUX63,19,11,silicon_ring
 RMUX15,18,11,RMUX68,19,11,silicon_ring
 RMUX15,18,11,RMUX69,19,11,silicon_ring
+RMUX15,18,11,RMUX62,20,11,silicon_ring
 RMUX15,18,11,RMUX68,20,11,silicon_ring
 RMUX15,18,11,RMUX69,20,11,silicon_ring
 RMUX16,18,11,IMUX10,18,11,silicon_ring
@@ -63392,6 +63693,7 @@ RMUX44,18,11,RMUX91,18,10,silicon_ring
 RMUX44,18,11,RMUX81,18,8,silicon_ring
 RMUX44,18,11,RMUX85,18,8,silicon_ring
 RMUX44,18,11,RMUX80,18,9,silicon_ring
+RMUX44,18,11,RMUX81,18,9,silicon_ring
 RMUX44,18,11,RMUX84,18,9,silicon_ring
 RMUX45,18,11,RMUX77,19,11,silicon_ring
 RMUX45,18,11,RMUX82,19,11,silicon_ring
@@ -64555,6 +64857,7 @@ RMUX73,18,12,RMUX22,18,11,silicon_ring
 RMUX73,18,12,RMUX23,18,11,silicon_ring
 RMUX73,18,12,RMUX22,18,8,silicon_ring
 RMUX73,18,12,RMUX00,18,9,silicon_ring
+RMUX73,18,12,RMUX01,18,9,silicon_ring
 RMUX73,18,12,RMUX07,18,9,silicon_ring
 RMUX73,18,12,RMUX17,18,9,silicon_ring
 RMUX74,18,12,RMUX76,18,12,silicon_ring
@@ -65174,6 +65477,7 @@ RMUX09,18,1,RMUX28,18,2,silicon_ring
 RMUX09,18,1,RMUX35,18,2,silicon_ring
 RMUX09,18,1,RMUX38,18,2,silicon_ring
 RMUX09,18,1,RMUX44,18,2,silicon_ring
+RMUX09,18,1,RMUX45,18,2,silicon_ring
 RMUX09,18,1,RMUX34,18,3,silicon_ring
 RMUX09,18,1,RMUX39,18,3,silicon_ring
 RMUX09,18,1,RMUX45,18,3,silicon_ring
@@ -65274,6 +65578,7 @@ RMUX31,18,1,RMUX40,20,1,silicon_ring
 RMUX32,18,1,RMUX26,18,2,silicon_ring
 RMUX32,18,1,RMUX27,18,2,silicon_ring
 RMUX32,18,1,RMUX37,18,2,silicon_ring
+RMUX32,18,1,RMUX32,18,3,silicon_ring
 RMUX33,18,1,RMUX39,14,1,silicon_ring
 RMUX33,18,1,RMUX28,15,1,silicon_ring
 RMUX33,18,1,RMUX39,15,1,silicon_ring
@@ -65371,6 +65676,7 @@ RMUX63,18,1,RMUX58,14,1,silicon_ring
 RMUX63,18,1,RMUX62,14,1,silicon_ring
 RMUX63,18,1,RMUX63,14,1,silicon_ring
 RMUX63,18,1,RMUX69,14,1,silicon_ring
+RMUX63,18,1,RMUX63,15,1,silicon_ring
 RMUX63,18,1,RMUX63,16,1,silicon_ring
 RMUX63,18,1,RMUX69,16,1,silicon_ring
 RMUX63,18,1,RMUX68,17,1,silicon_ring
@@ -66157,12 +66463,14 @@ RMUX32,18,2,RMUX33,18,3,silicon_ring
 RMUX32,18,2,RMUX37,18,3,silicon_ring
 RMUX32,18,2,RMUX43,18,5,silicon_ring
 RMUX32,18,2,RMUX32,18,6,silicon_ring
+RMUX32,18,2,RMUX33,18,6,silicon_ring
 RMUX33,18,2,RMUX34,14,2,silicon_ring
 RMUX33,18,2,RMUX44,14,2,silicon_ring
 RMUX33,18,2,RMUX28,15,2,silicon_ring
 RMUX33,18,2,RMUX34,15,2,silicon_ring
 RMUX33,18,2,RMUX35,15,2,silicon_ring
 RMUX33,18,2,RMUX28,16,2,silicon_ring
+RMUX33,18,2,RMUX39,16,2,silicon_ring
 RMUX33,18,2,RMUX44,16,2,silicon_ring
 RMUX33,18,2,RMUX28,17,2,silicon_ring
 RMUX33,18,2,RMUX34,17,2,silicon_ring
@@ -66267,6 +66575,7 @@ RMUX55,18,2,RMUX40,18,6,silicon_ring
 RMUX56,18,2,RMUX26,14,2,silicon_ring
 RMUX56,18,2,RMUX27,14,2,silicon_ring
 RMUX56,18,2,RMUX37,14,2,silicon_ring
+RMUX56,18,2,RMUX43,14,2,silicon_ring
 RMUX56,18,2,RMUX26,15,2,silicon_ring
 RMUX56,18,2,RMUX27,15,2,silicon_ring
 RMUX56,18,2,RMUX26,16,2,silicon_ring
@@ -66304,6 +66613,7 @@ RMUX63,18,2,RMUX69,14,2,silicon_ring
 RMUX63,18,2,RMUX58,15,2,silicon_ring
 RMUX63,18,2,RMUX69,15,2,silicon_ring
 RMUX63,18,2,RMUX52,17,2,silicon_ring
+RMUX63,18,2,RMUX53,17,2,silicon_ring
 RMUX63,18,2,RMUX68,17,2,silicon_ring
 RMUX63,18,2,RMUX69,17,2,silicon_ring
 RMUX64,18,2,IMUX04,18,2,silicon_ring
@@ -66472,6 +66782,7 @@ OMUX01,18,3,IMUX54,18,3,silicon_ring
 OMUX01,18,3,IMUX56,18,3,silicon_ring
 OMUX01,18,3,IMUX62,18,3,silicon_ring
 OMUX02,18,3,OMUX01,18,3,silicon_ring
+OMUX02,18,3,RMUX02,18,3,silicon_ring
 OMUX02,18,3,RMUX04,18,3,silicon_ring
 OMUX02,18,3,RMUX15,18,3,silicon_ring
 OMUX02,18,3,RMUX17,18,3,silicon_ring
@@ -66954,12 +67265,18 @@ RMUX01,18,3,RMUX17,19,3,silicon_ring
 RMUX01,18,3,RMUX22,19,3,silicon_ring
 RMUX01,18,3,RMUX23,19,3,silicon_ring
 RMUX01,18,3,RMUX07,20,3,silicon_ring
+RMUX02,18,3,RMUX13,18,4,silicon_ring
+RMUX02,18,3,RMUX03,18,5,silicon_ring
 RMUX02,18,3,RMUX12,18,5,silicon_ring
+RMUX02,18,3,RMUX13,18,5,silicon_ring
+RMUX02,18,3,RMUX03,18,6,silicon_ring
+RMUX02,18,3,RMUX13,18,6,silicon_ring
 RMUX03,18,3,RMUX10,14,3,silicon_ring
 RMUX03,18,3,RMUX14,14,3,silicon_ring
 RMUX03,18,3,RMUX20,14,3,silicon_ring
 RMUX03,18,3,RMUX21,14,3,silicon_ring
 RMUX03,18,3,RMUX14,15,3,silicon_ring
+RMUX03,18,3,RMUX21,15,3,silicon_ring
 RMUX03,18,3,RMUX10,16,3,silicon_ring
 RMUX03,18,3,RMUX20,16,3,silicon_ring
 RMUX03,18,3,RMUX10,17,3,silicon_ring
@@ -67120,6 +67437,7 @@ RMUX32,18,3,RMUX32,18,4,silicon_ring
 RMUX32,18,3,RMUX37,18,4,silicon_ring
 RMUX32,18,3,RMUX32,18,6,silicon_ring
 RMUX32,18,3,RMUX43,18,6,silicon_ring
+RMUX32,18,3,RMUX32,18,7,silicon_ring
 RMUX33,18,3,RMUX28,14,3,silicon_ring
 RMUX33,18,3,RMUX34,14,3,silicon_ring
 RMUX33,18,3,RMUX39,14,3,silicon_ring
@@ -67142,6 +67460,7 @@ RMUX37,18,3,RMUX48,18,2,silicon_ring
 RMUX37,18,3,RMUX49,18,2,silicon_ring
 RMUX37,18,3,RMUX64,18,2,silicon_ring
 RMUX37,18,3,RMUX70,18,2,silicon_ring
+RMUX38,18,3,RMUX50,19,3,silicon_ring
 RMUX38,18,3,RMUX56,19,3,silicon_ring
 RMUX38,18,3,RMUX51,20,3,silicon_ring
 RMUX39,18,3,RMUX58,18,4,silicon_ring
@@ -67177,6 +67496,7 @@ RMUX44,18,3,RMUX81,18,1,silicon_ring
 RMUX44,18,3,RMUX75,18,2,silicon_ring
 RMUX44,18,3,RMUX80,18,2,silicon_ring
 RMUX44,18,3,RMUX85,18,2,silicon_ring
+RMUX44,18,3,RMUX91,18,2,silicon_ring
 RMUX45,18,3,RMUX82,19,3,silicon_ring
 RMUX45,18,3,RMUX93,19,3,silicon_ring
 RMUX45,18,3,RMUX87,20,3,silicon_ring
@@ -67189,6 +67509,7 @@ RMUX49,18,3,RMUX16,14,3,silicon_ring
 RMUX49,18,3,RMUX22,14,3,silicon_ring
 RMUX49,18,3,RMUX07,15,3,silicon_ring
 RMUX49,18,3,RMUX22,15,3,silicon_ring
+RMUX49,18,3,RMUX07,16,3,silicon_ring
 RMUX49,18,3,RMUX16,16,3,silicon_ring
 RMUX49,18,3,RMUX22,16,3,silicon_ring
 RMUX49,18,3,RMUX01,17,3,silicon_ring
@@ -67353,6 +67674,7 @@ RMUX77,18,3,IMUX49,18,3,silicon_ring
 RMUX79,18,3,RMUX25,14,3,silicon_ring
 RMUX79,18,3,RMUX40,14,3,silicon_ring
 RMUX79,18,3,RMUX46,14,3,silicon_ring
+RMUX79,18,3,RMUX47,14,3,silicon_ring
 RMUX79,18,3,RMUX25,15,3,silicon_ring
 RMUX79,18,3,RMUX40,15,3,silicon_ring
 RMUX79,18,3,RMUX46,15,3,silicon_ring
@@ -67369,6 +67691,7 @@ RMUX80,18,3,RMUX26,18,2,silicon_ring
 RMUX80,18,3,RMUX27,18,2,silicon_ring
 RMUX80,18,3,RMUX33,18,2,silicon_ring
 RMUX80,18,3,RMUX43,18,2,silicon_ring
+RMUX80,18,3,RMUX82,18,3,silicon_ring
 RMUX81,18,3,RMUX28,19,3,silicon_ring
 RMUX81,18,3,RMUX34,19,3,silicon_ring
 RMUX81,18,3,RMUX44,19,3,silicon_ring
@@ -67386,6 +67709,7 @@ RMUX85,18,3,RMUX55,18,5,silicon_ring
 RMUX85,18,3,RMUX64,18,5,silicon_ring
 RMUX85,18,3,RMUX70,18,5,silicon_ring
 RMUX85,18,3,RMUX48,18,6,silicon_ring
+RMUX85,18,3,RMUX49,18,6,silicon_ring
 RMUX85,18,3,RMUX64,18,6,silicon_ring
 RMUX85,18,3,RMUX48,18,7,silicon_ring
 RMUX85,18,3,RMUX49,18,7,silicon_ring
@@ -67396,6 +67720,7 @@ RMUX86,18,3,RMUX67,14,3,silicon_ring
 RMUX86,18,3,RMUX56,15,3,silicon_ring
 RMUX86,18,3,RMUX57,15,3,silicon_ring
 RMUX86,18,3,RMUX60,15,3,silicon_ring
+RMUX86,18,3,RMUX66,15,3,silicon_ring
 RMUX86,18,3,RMUX67,15,3,silicon_ring
 RMUX86,18,3,RMUX50,16,3,silicon_ring
 RMUX86,18,3,RMUX56,16,3,silicon_ring
@@ -67955,6 +68280,7 @@ RMUX01,18,4,RMUX22,19,4,silicon_ring
 RMUX02,18,4,RMUX08,18,5,silicon_ring
 RMUX02,18,4,RMUX09,18,5,silicon_ring
 RMUX02,18,4,RMUX13,18,5,silicon_ring
+RMUX02,18,4,RMUX19,18,5,silicon_ring
 RMUX02,18,4,RMUX03,18,6,silicon_ring
 RMUX02,18,4,RMUX13,18,6,silicon_ring
 RMUX02,18,4,RMUX03,18,7,silicon_ring
@@ -68052,6 +68378,7 @@ RMUX19,18,4,RMUX72,18,5,silicon_ring
 RMUX19,18,4,RMUX73,18,5,silicon_ring
 RMUX19,18,4,RMUX88,18,5,silicon_ring
 RMUX19,18,4,RMUX94,18,5,silicon_ring
+RMUX19,18,4,RMUX79,18,6,silicon_ring
 RMUX19,18,4,RMUX72,18,7,silicon_ring
 RMUX19,18,4,RMUX94,18,7,silicon_ring
 RMUX19,18,4,RMUX79,18,8,silicon_ring
@@ -68205,6 +68532,7 @@ RMUX43,18,4,RMUX73,14,4,silicon_ring
 RMUX43,18,4,RMUX79,14,4,silicon_ring
 RMUX43,18,4,RMUX88,14,4,silicon_ring
 RMUX43,18,4,RMUX94,14,4,silicon_ring
+RMUX43,18,4,RMUX73,15,4,silicon_ring
 RMUX43,18,4,RMUX94,15,4,silicon_ring
 RMUX43,18,4,RMUX88,16,4,silicon_ring
 RMUX43,18,4,RMUX94,16,4,silicon_ring
@@ -68266,6 +68594,7 @@ RMUX55,18,4,RMUX40,18,5,silicon_ring
 RMUX55,18,4,RMUX25,18,6,silicon_ring
 RMUX55,18,4,RMUX40,18,6,silicon_ring
 RMUX55,18,4,RMUX25,18,7,silicon_ring
+RMUX55,18,4,RMUX31,18,7,silicon_ring
 RMUX55,18,4,RMUX40,18,7,silicon_ring
 RMUX55,18,4,RMUX46,18,7,silicon_ring
 RMUX55,18,4,RMUX24,18,8,silicon_ring
@@ -69059,6 +69388,7 @@ RMUX03,18,5,RMUX20,16,5,silicon_ring
 RMUX03,18,5,RMUX21,16,5,silicon_ring
 RMUX03,18,5,RMUX05,17,5,silicon_ring
 RMUX03,18,5,RMUX10,17,5,silicon_ring
+RMUX03,18,5,RMUX14,17,5,silicon_ring
 RMUX03,18,5,RMUX15,17,5,silicon_ring
 RMUX03,18,5,RMUX20,17,5,silicon_ring
 RMUX03,18,5,RMUX21,17,5,silicon_ring
@@ -70163,6 +70493,7 @@ RMUX03,18,6,RMUX14,14,6,silicon_ring
 RMUX03,18,6,RMUX21,14,6,silicon_ring
 RMUX03,18,6,RMUX14,15,6,silicon_ring
 RMUX03,18,6,RMUX21,15,6,silicon_ring
+RMUX03,18,6,RMUX14,16,6,silicon_ring
 RMUX03,18,6,RMUX21,16,6,silicon_ring
 RMUX03,18,6,RMUX04,17,6,silicon_ring
 RMUX03,18,6,RMUX10,17,6,silicon_ring
@@ -70226,6 +70557,7 @@ RMUX13,18,6,RMUX64,17,6,silicon_ring
 RMUX13,18,6,RMUX71,17,6,silicon_ring
 RMUX14,18,6,RMUX57,18,2,silicon_ring
 RMUX14,18,6,RMUX67,18,2,silicon_ring
+RMUX14,18,6,RMUX56,18,3,silicon_ring
 RMUX14,18,6,RMUX61,18,3,silicon_ring
 RMUX14,18,6,RMUX67,18,3,silicon_ring
 RMUX14,18,6,RMUX50,18,4,silicon_ring
@@ -70376,6 +70708,7 @@ RMUX31,18,6,RMUX40,20,6,silicon_ring
 RMUX31,18,6,RMUX46,20,6,silicon_ring
 RMUX32,18,6,RMUX32,18,10,silicon_ring
 RMUX32,18,6,RMUX33,18,10,silicon_ring
+RMUX32,18,6,RMUX26,18,7,silicon_ring
 RMUX32,18,6,RMUX27,18,7,silicon_ring
 RMUX32,18,6,RMUX32,18,7,silicon_ring
 RMUX32,18,6,RMUX33,18,7,silicon_ring
@@ -70587,6 +70920,7 @@ RMUX67,18,6,RMUX73,18,5,silicon_ring
 RMUX67,18,6,RMUX79,18,5,silicon_ring
 RMUX67,18,6,RMUX88,18,5,silicon_ring
 RMUX67,18,6,RMUX94,18,5,silicon_ring
+RMUX68,18,6,RMUX75,19,6,silicon_ring
 RMUX68,18,6,RMUX85,19,6,silicon_ring
 RMUX68,18,6,RMUX91,19,6,silicon_ring
 RMUX68,18,6,RMUX75,20,6,silicon_ring
@@ -70662,6 +70996,7 @@ RMUX80,18,6,RMUX33,18,2,silicon_ring
 RMUX80,18,6,RMUX43,18,2,silicon_ring
 RMUX80,18,6,RMUX26,18,3,silicon_ring
 RMUX80,18,6,RMUX33,18,3,silicon_ring
+RMUX80,18,6,RMUX37,18,3,silicon_ring
 RMUX80,18,6,RMUX43,18,3,silicon_ring
 RMUX80,18,6,RMUX33,18,4,silicon_ring
 RMUX80,18,6,RMUX37,18,4,silicon_ring
@@ -70714,6 +71049,7 @@ RMUX87,18,6,RMUX63,18,2,silicon_ring
 RMUX87,18,6,RMUX68,18,2,silicon_ring
 RMUX87,18,6,RMUX52,18,3,silicon_ring
 RMUX87,18,6,RMUX63,18,3,silicon_ring
+RMUX87,18,6,RMUX68,18,3,silicon_ring
 RMUX87,18,6,RMUX63,18,4,silicon_ring
 RMUX87,18,6,RMUX52,18,5,silicon_ring
 RMUX87,18,6,RMUX58,18,5,silicon_ring
@@ -71524,6 +71860,7 @@ RMUX37,18,7,RMUX70,18,6,silicon_ring
 RMUX38,18,7,RMUX50,19,7,silicon_ring
 RMUX38,18,7,RMUX51,19,7,silicon_ring
 RMUX38,18,7,RMUX56,19,7,silicon_ring
+RMUX38,18,7,RMUX67,19,7,silicon_ring
 RMUX39,18,7,RMUX68,18,10,silicon_ring
 RMUX39,18,7,RMUX69,18,10,silicon_ring
 RMUX39,18,7,RMUX58,18,11,silicon_ring
@@ -71634,6 +71971,7 @@ RMUX55,18,7,RMUX47,18,8,silicon_ring
 RMUX55,18,7,RMUX25,18,9,silicon_ring
 RMUX55,18,7,RMUX31,18,9,silicon_ring
 RMUX56,18,7,RMUX27,14,7,silicon_ring
+RMUX56,18,7,RMUX32,14,7,silicon_ring
 RMUX56,18,7,RMUX27,15,7,silicon_ring
 RMUX56,18,7,RMUX33,15,7,silicon_ring
 RMUX56,18,7,RMUX43,15,7,silicon_ring
@@ -72433,6 +72771,7 @@ RMUX01,18,8,RMUX16,20,8,silicon_ring
 RMUX02,18,8,RMUX03,18,10,silicon_ring
 RMUX02,18,8,RMUX19,18,10,silicon_ring
 RMUX02,18,8,RMUX03,18,11,silicon_ring
+RMUX02,18,8,RMUX09,18,11,silicon_ring
 RMUX02,18,8,RMUX03,18,12,silicon_ring
 RMUX02,18,8,RMUX08,18,9,silicon_ring
 RMUX02,18,8,RMUX09,18,9,silicon_ring
@@ -72449,6 +72788,7 @@ RMUX03,18,8,RMUX21,16,8,silicon_ring
 RMUX03,18,8,RMUX04,17,8,silicon_ring
 RMUX03,18,8,RMUX10,17,8,silicon_ring
 RMUX03,18,8,RMUX11,17,8,silicon_ring
+RMUX03,18,8,RMUX14,17,8,silicon_ring
 RMUX03,18,8,RMUX15,17,8,silicon_ring
 RMUX03,18,8,RMUX20,17,8,silicon_ring
 RMUX03,18,8,RMUX21,17,8,silicon_ring
@@ -72489,6 +72829,7 @@ RMUX09,18,8,RMUX45,18,10,silicon_ring
 RMUX09,18,8,RMUX38,18,11,silicon_ring
 RMUX09,18,8,RMUX39,18,11,silicon_ring
 RMUX09,18,8,RMUX38,18,12,silicon_ring
+RMUX09,18,8,RMUX45,18,12,silicon_ring
 RMUX09,18,8,RMUX34,18,9,silicon_ring
 RMUX09,18,8,RMUX35,18,9,silicon_ring
 RMUX09,18,8,RMUX38,18,9,silicon_ring
@@ -72617,6 +72958,7 @@ RMUX26,18,8,RMUX09,14,8,silicon_ring
 RMUX26,18,8,RMUX19,14,8,silicon_ring
 RMUX26,18,8,RMUX03,15,8,silicon_ring
 RMUX26,18,8,RMUX09,15,8,silicon_ring
+RMUX26,18,8,RMUX19,15,8,silicon_ring
 RMUX26,18,8,RMUX03,16,8,silicon_ring
 RMUX26,18,8,RMUX13,16,8,silicon_ring
 RMUX26,18,8,RMUX03,17,8,silicon_ring
@@ -72932,6 +73274,7 @@ RMUX74,18,8,RMUX13,19,8,silicon_ring
 RMUX74,18,8,RMUX19,19,8,silicon_ring
 RMUX74,18,8,RMUX02,20,8,silicon_ring
 RMUX74,18,8,RMUX08,20,8,silicon_ring
+RMUX74,18,8,RMUX09,20,8,silicon_ring
 RMUX75,18,8,RMUX15,18,10,silicon_ring
 RMUX75,18,8,RMUX20,18,10,silicon_ring
 RMUX75,18,8,RMUX14,18,11,silicon_ring
@@ -72962,6 +73305,7 @@ RMUX80,18,8,RMUX27,18,4,silicon_ring
 RMUX80,18,8,RMUX33,18,4,silicon_ring
 RMUX80,18,8,RMUX37,18,4,silicon_ring
 RMUX80,18,8,RMUX43,18,4,silicon_ring
+RMUX80,18,8,RMUX33,18,5,silicon_ring
 RMUX80,18,8,RMUX37,18,5,silicon_ring
 RMUX80,18,8,RMUX43,18,5,silicon_ring
 RMUX80,18,8,RMUX26,18,6,silicon_ring
@@ -73027,6 +73371,7 @@ RMUX91,18,8,RMUX73,19,8,silicon_ring
 RMUX91,18,8,RMUX79,19,8,silicon_ring
 RMUX91,18,8,RMUX79,20,8,silicon_ring
 RMUX92,18,8,RMUX74,18,10,silicon_ring
+RMUX92,18,8,RMUX81,18,10,silicon_ring
 RMUX92,18,8,RMUX85,18,10,silicon_ring
 RMUX92,18,8,RMUX74,18,11,silicon_ring
 RMUX92,18,8,RMUX75,18,11,silicon_ring
@@ -73599,6 +73944,7 @@ RMUX01,18,9,RMUX07,20,9,silicon_ring
 RMUX01,18,9,RMUX16,20,9,silicon_ring
 RMUX01,18,9,RMUX22,20,9,silicon_ring
 RMUX02,18,9,RMUX08,18,10,silicon_ring
+RMUX02,18,9,RMUX09,18,10,silicon_ring
 RMUX02,18,9,RMUX19,18,10,silicon_ring
 RMUX02,18,9,RMUX03,18,11,silicon_ring
 RMUX02,18,9,RMUX19,18,11,silicon_ring
@@ -73790,6 +74136,7 @@ RMUX32,18,9,RMUX37,18,10,silicon_ring
 RMUX32,18,9,RMUX43,18,10,silicon_ring
 RMUX32,18,9,RMUX32,18,11,silicon_ring
 RMUX32,18,9,RMUX33,18,11,silicon_ring
+RMUX32,18,9,RMUX43,18,11,silicon_ring
 RMUX32,18,9,RMUX27,18,12,silicon_ring
 RMUX32,18,9,RMUX43,18,12,silicon_ring
 RMUX32,18,9,RMUX34,18,9,silicon_ring
@@ -73856,6 +74203,7 @@ RMUX41,18,9,IMUX25,18,9,silicon_ring
 RMUX41,18,9,IMUX37,18,9,silicon_ring
 RMUX41,18,9,IMUX57,18,9,silicon_ring
 RMUX41,18,9,IMUX61,18,9,silicon_ring
+RMUX43,18,9,RMUX73,14,9,silicon_ring
 RMUX43,18,9,RMUX88,14,9,silicon_ring
 RMUX43,18,9,RMUX73,15,9,silicon_ring
 RMUX43,18,9,RMUX94,15,9,silicon_ring
@@ -73865,6 +74213,7 @@ RMUX43,18,9,RMUX89,17,9,silicon_ring
 RMUX43,18,9,RMUX94,17,9,silicon_ring
 RMUX44,18,9,RMUX80,18,5,silicon_ring
 RMUX44,18,9,RMUX85,18,6,silicon_ring
+RMUX44,18,9,RMUX91,18,7,silicon_ring
 RMUX44,18,9,RMUX75,18,8,silicon_ring
 RMUX44,18,9,RMUX80,18,8,silicon_ring
 RMUX44,18,9,RMUX85,18,8,silicon_ring
@@ -73902,6 +74251,7 @@ RMUX49,18,9,RMUX22,17,9,silicon_ring
 RMUX50,18,9,RMUX03,18,5,silicon_ring
 RMUX50,18,9,RMUX09,18,5,silicon_ring
 RMUX50,18,9,RMUX08,18,6,silicon_ring
+RMUX50,18,9,RMUX13,18,6,silicon_ring
 RMUX50,18,9,RMUX03,18,8,silicon_ring
 RMUX50,18,9,RMUX09,18,8,silicon_ring
 RMUX50,18,9,RMUX13,18,8,silicon_ring
@@ -73943,6 +74293,7 @@ RMUX56,18,9,RMUX27,15,9,silicon_ring
 RMUX56,18,9,RMUX33,15,9,silicon_ring
 RMUX56,18,9,RMUX26,16,9,silicon_ring
 RMUX56,18,9,RMUX27,16,9,silicon_ring
+RMUX56,18,9,RMUX37,16,9,silicon_ring
 RMUX56,18,9,RMUX43,16,9,silicon_ring
 RMUX56,18,9,RMUX37,17,9,silicon_ring
 RMUX57,18,9,RMUX28,18,5,silicon_ring
@@ -74009,6 +74360,7 @@ RMUX68,18,9,RMUX75,20,9,silicon_ring
 RMUX68,18,9,RMUX85,20,9,silicon_ring
 RMUX69,18,9,RMUX87,18,10,silicon_ring
 RMUX69,18,9,RMUX92,18,10,silicon_ring
+RMUX69,18,9,RMUX93,18,10,silicon_ring
 RMUX69,18,9,RMUX86,18,11,silicon_ring
 RMUX69,18,9,RMUX87,18,11,silicon_ring
 RMUX69,18,9,RMUX92,18,11,silicon_ring
@@ -74735,6 +75087,7 @@ RMUX09,19,10,RMUX34,19,11,silicon_ring
 RMUX09,19,10,RMUX38,19,11,silicon_ring
 RMUX09,19,10,RMUX39,19,11,silicon_ring
 RMUX09,19,10,RMUX44,19,11,silicon_ring
+RMUX09,19,10,RMUX45,19,11,silicon_ring
 RMUX09,19,10,RMUX28,19,12,silicon_ring
 RMUX09,19,10,RMUX35,19,12,silicon_ring
 RMUX09,19,10,RMUX38,19,12,silicon_ring
@@ -74757,6 +75110,7 @@ RMUX13,19,10,RMUX70,18,10,silicon_ring
 RMUX14,19,10,RMUX56,19,7,silicon_ring
 RMUX14,19,10,RMUX67,19,7,silicon_ring
 RMUX14,19,10,RMUX50,19,8,silicon_ring
+RMUX14,19,10,RMUX56,19,8,silicon_ring
 RMUX14,19,10,RMUX60,19,8,silicon_ring
 RMUX14,19,10,RMUX50,19,9,silicon_ring
 RMUX14,19,10,RMUX56,19,9,silicon_ring
@@ -74823,6 +75177,7 @@ RMUX25,19,10,RMUX16,19,12,silicon_ring
 RMUX25,19,10,RMUX22,19,12,silicon_ring
 RMUX25,19,10,RMUX23,19,12,silicon_ring
 RMUX26,19,10,RMUX03,15,10,silicon_ring
+RMUX26,19,10,RMUX08,15,10,silicon_ring
 RMUX26,19,10,RMUX03,16,10,silicon_ring
 RMUX26,19,10,RMUX13,16,10,silicon_ring
 RMUX26,19,10,RMUX13,17,10,silicon_ring
@@ -74861,6 +75216,7 @@ RMUX33,19,10,RMUX44,17,10,silicon_ring
 RMUX33,19,10,RMUX34,18,10,silicon_ring
 RMUX33,19,10,RMUX35,18,10,silicon_ring
 RMUX33,19,10,RMUX38,18,10,silicon_ring
+RMUX33,19,10,RMUX39,18,10,silicon_ring
 RMUX33,19,10,RMUX45,18,10,silicon_ring
 RMUX34,19,10,IMUX08,19,10,silicon_ring
 RMUX34,19,10,IMUX24,19,10,silicon_ring
@@ -74878,6 +75234,7 @@ RMUX37,19,10,RMUX65,19,9,silicon_ring
 RMUX38,19,10,RMUX50,20,10,silicon_ring
 RMUX38,19,10,RMUX56,20,10,silicon_ring
 RMUX38,19,10,RMUX57,20,10,silicon_ring
+RMUX38,19,10,RMUX67,20,10,silicon_ring
 RMUX39,19,10,RMUX52,19,11,silicon_ring
 RMUX39,19,10,RMUX53,19,11,silicon_ring
 RMUX39,19,10,RMUX58,19,11,silicon_ring
@@ -74899,6 +75256,7 @@ RMUX42,19,10,IMUX31,18,10,silicon_ring
 RMUX43,19,10,RMUX73,15,10,silicon_ring
 RMUX43,19,10,RMUX79,15,10,silicon_ring
 RMUX43,19,10,RMUX73,16,10,silicon_ring
+RMUX43,19,10,RMUX73,17,10,silicon_ring
 RMUX43,19,10,RMUX88,17,10,silicon_ring
 RMUX43,19,10,RMUX94,17,10,silicon_ring
 RMUX43,19,10,RMUX95,17,10,silicon_ring
@@ -74956,6 +75314,7 @@ RMUX55,19,10,RMUX31,19,11,silicon_ring
 RMUX55,19,10,RMUX40,19,11,silicon_ring
 RMUX55,19,10,RMUX46,19,11,silicon_ring
 RMUX55,19,10,RMUX46,19,12,silicon_ring
+RMUX56,19,10,RMUX32,15,10,silicon_ring
 RMUX56,19,10,RMUX33,15,10,silicon_ring
 RMUX56,19,10,RMUX37,15,10,silicon_ring
 RMUX56,19,10,RMUX26,16,10,silicon_ring
@@ -74986,6 +75345,7 @@ RMUX63,19,10,RMUX63,16,10,silicon_ring
 RMUX63,19,10,RMUX53,17,10,silicon_ring
 RMUX63,19,10,RMUX69,17,10,silicon_ring
 RMUX63,19,10,RMUX52,18,10,silicon_ring
+RMUX63,19,10,RMUX58,18,10,silicon_ring
 RMUX63,19,10,RMUX68,18,10,silicon_ring
 RMUX64,19,10,IMUX16,19,10,silicon_ring
 RMUX64,19,10,IMUX52,19,10,silicon_ring
@@ -75095,6 +75455,8 @@ RMUX86,19,10,RMUX50,15,10,silicon_ring
 RMUX86,19,10,RMUX57,15,10,silicon_ring
 RMUX86,19,10,RMUX56,16,10,silicon_ring
 RMUX86,19,10,RMUX67,16,10,silicon_ring
+RMUX86,19,10,RMUX50,17,10,silicon_ring
+RMUX86,19,10,RMUX56,17,10,silicon_ring
 RMUX86,19,10,RMUX57,17,10,silicon_ring
 RMUX86,19,10,RMUX61,17,10,silicon_ring
 RMUX86,19,10,RMUX67,17,10,silicon_ring
@@ -75988,6 +76350,7 @@ RMUX55,19,11,RMUX47,19,12,silicon_ring
 RMUX56,19,11,RMUX27,15,11,silicon_ring
 RMUX56,19,11,RMUX33,15,11,silicon_ring
 RMUX56,19,11,RMUX26,16,11,silicon_ring
+RMUX56,19,11,RMUX27,16,11,silicon_ring
 RMUX56,19,11,RMUX27,18,11,silicon_ring
 RMUX56,19,11,RMUX33,18,11,silicon_ring
 RMUX56,19,11,RMUX37,18,11,silicon_ring
@@ -76135,6 +76498,7 @@ RMUX80,19,11,RMUX26,19,7,silicon_ring
 RMUX80,19,11,RMUX27,19,7,silicon_ring
 RMUX80,19,11,RMUX36,19,7,silicon_ring
 RMUX80,19,11,RMUX43,19,7,silicon_ring
+RMUX80,19,11,RMUX26,19,8,silicon_ring
 RMUX80,19,11,RMUX27,19,8,silicon_ring
 RMUX80,19,11,RMUX32,19,8,silicon_ring
 RMUX80,19,11,RMUX33,19,8,silicon_ring
@@ -76185,6 +76549,7 @@ RMUX87,19,11,RMUX63,19,10,silicon_ring
 RMUX87,19,11,RMUX68,19,10,silicon_ring
 RMUX87,19,11,RMUX69,19,10,silicon_ring
 RMUX87,19,11,RMUX53,19,7,silicon_ring
+RMUX87,19,11,RMUX63,19,7,silicon_ring
 RMUX87,19,11,RMUX68,19,7,silicon_ring
 RMUX87,19,11,RMUX59,19,8,silicon_ring
 RMUX87,19,11,RMUX63,19,8,silicon_ring
@@ -76901,6 +77266,7 @@ RMUX24,19,12,IMUX44,18,12,silicon_ring
 RMUX24,19,12,IMUX60,18,12,silicon_ring
 RMUX26,19,12,RMUX03,15,12,silicon_ring
 RMUX26,19,12,RMUX08,15,12,silicon_ring
+RMUX26,19,12,RMUX03,16,12,silicon_ring
 RMUX26,19,12,RMUX03,17,12,silicon_ring
 RMUX26,19,12,RMUX13,17,12,silicon_ring
 RMUX26,19,12,RMUX03,18,12,silicon_ring
@@ -76972,6 +77338,7 @@ RMUX37,19,12,RMUX49,19,11,silicon_ring
 RMUX37,19,12,RMUX64,19,11,silicon_ring
 RMUX37,19,12,RMUX65,19,11,silicon_ring
 RMUX37,19,12,RMUX71,19,11,silicon_ring
+RMUX37,19,12,RMUX49,19,8,silicon_ring
 RMUX37,19,12,RMUX49,19,9,silicon_ring
 RMUX38,19,12,RMUX50,20,12,silicon_ring
 RMUX38,19,12,RMUX57,20,12,silicon_ring
@@ -77878,6 +78245,7 @@ RMUX25,19,1,RMUX22,19,5,silicon_ring
 RMUX26,19,1,RMUX08,15,1,silicon_ring
 RMUX26,19,1,RMUX09,15,1,silicon_ring
 RMUX26,19,1,RMUX13,15,1,silicon_ring
+RMUX26,19,1,RMUX19,15,1,silicon_ring
 RMUX26,19,1,RMUX03,16,1,silicon_ring
 RMUX26,19,1,RMUX09,16,1,silicon_ring
 RMUX26,19,1,RMUX13,16,1,silicon_ring
@@ -77989,10 +78357,12 @@ RMUX58,19,1,IMUX00,19,1,silicon_ring
 RMUX58,19,1,IMUX20,19,1,silicon_ring
 RMUX59,19,1,IMUX41,19,1,silicon_ring
 RMUX61,19,1,RMUX55,20,1,silicon_ring
+RMUX62,19,1,RMUX51,19,2,silicon_ring
 RMUX62,19,1,RMUX56,19,2,silicon_ring
 RMUX62,19,1,RMUX67,19,2,silicon_ring
 RMUX62,19,1,RMUX51,19,3,silicon_ring
 RMUX62,19,1,RMUX56,19,3,silicon_ring
+RMUX62,19,1,RMUX67,19,3,silicon_ring
 RMUX62,19,1,RMUX51,19,4,silicon_ring
 RMUX62,19,1,RMUX56,19,4,silicon_ring
 RMUX62,19,1,RMUX51,19,5,silicon_ring
@@ -78095,6 +78465,7 @@ RMUX92,19,1,RMUX74,19,4,silicon_ring
 RMUX92,19,1,RMUX75,19,4,silicon_ring
 RMUX92,19,1,RMUX80,19,4,silicon_ring
 RMUX92,19,1,RMUX91,19,4,silicon_ring
+RMUX92,19,1,RMUX74,19,5,silicon_ring
 RMUX92,19,1,RMUX81,19,5,silicon_ring
 RMUX93,19,1,RMUX93,15,1,silicon_ring
 RMUX93,19,1,RMUX93,16,1,silicon_ring
@@ -79548,6 +79919,7 @@ RMUX02,19,3,RMUX03,19,6,silicon_ring
 RMUX02,19,3,RMUX03,19,7,silicon_ring
 RMUX03,19,3,RMUX14,15,3,silicon_ring
 RMUX03,19,3,RMUX21,15,3,silicon_ring
+RMUX03,19,3,RMUX14,16,3,silicon_ring
 RMUX03,19,3,RMUX20,16,3,silicon_ring
 RMUX03,19,3,RMUX21,16,3,silicon_ring
 RMUX03,19,3,RMUX04,18,3,silicon_ring
@@ -79569,6 +79941,7 @@ RMUX07,19,3,RMUX25,19,2,silicon_ring
 RMUX07,19,3,RMUX31,19,2,silicon_ring
 RMUX07,19,3,RMUX40,19,2,silicon_ring
 RMUX08,19,3,RMUX26,20,3,silicon_ring
+RMUX08,19,3,RMUX27,20,3,silicon_ring
 RMUX08,19,3,RMUX33,20,3,silicon_ring
 RMUX08,19,3,RMUX37,20,3,silicon_ring
 RMUX08,19,3,RMUX43,20,3,silicon_ring
@@ -79602,6 +79975,7 @@ RMUX15,19,3,RMUX52,20,3,silicon_ring
 RMUX15,19,3,RMUX53,20,3,silicon_ring
 RMUX15,19,3,RMUX62,20,3,silicon_ring
 RMUX15,19,3,RMUX63,20,3,silicon_ring
+RMUX15,19,3,RMUX69,20,3,silicon_ring
 RMUX16,19,3,IMUX16,19,3,silicon_ring
 RMUX16,19,3,IMUX20,19,3,silicon_ring
 RMUX16,19,3,IMUX40,19,3,silicon_ring
@@ -79770,6 +80144,7 @@ RMUX46,19,3,IMUX16,19,3,silicon_ring
 RMUX48,19,3,IMUX00,18,3,silicon_ring
 RMUX48,19,3,IMUX56,18,3,silicon_ring
 RMUX49,19,3,RMUX00,15,3,silicon_ring
+RMUX49,19,3,RMUX07,15,3,silicon_ring
 RMUX49,19,3,RMUX07,16,3,silicon_ring
 RMUX49,19,3,RMUX16,16,3,silicon_ring
 RMUX49,19,3,RMUX22,16,3,silicon_ring
@@ -79931,6 +80306,7 @@ RMUX80,19,3,RMUX26,19,1,silicon_ring
 RMUX80,19,3,RMUX33,19,1,silicon_ring
 RMUX80,19,3,RMUX26,19,2,silicon_ring
 RMUX80,19,3,RMUX33,19,2,silicon_ring
+RMUX80,19,3,RMUX43,19,2,silicon_ring
 RMUX81,19,3,RMUX28,20,3,silicon_ring
 RMUX81,19,3,RMUX34,20,3,silicon_ring
 RMUX81,19,3,RMUX45,20,3,silicon_ring
@@ -80528,6 +80904,8 @@ RMUX03,19,4,RMUX20,15,4,silicon_ring
 RMUX03,19,4,RMUX21,15,4,silicon_ring
 RMUX03,19,4,RMUX04,16,4,silicon_ring
 RMUX03,19,4,RMUX14,16,4,silicon_ring
+RMUX03,19,4,RMUX20,16,4,silicon_ring
+RMUX03,19,4,RMUX21,16,4,silicon_ring
 RMUX03,19,4,RMUX10,17,4,silicon_ring
 RMUX03,19,4,RMUX10,18,4,silicon_ring
 RMUX03,19,4,RMUX11,18,4,silicon_ring
@@ -80579,6 +80957,7 @@ RMUX13,19,4,RMUX54,15,4,silicon_ring
 RMUX13,19,4,RMUX55,15,4,silicon_ring
 RMUX13,19,4,RMUX49,16,4,silicon_ring
 RMUX13,19,4,RMUX49,17,4,silicon_ring
+RMUX13,19,4,RMUX55,17,4,silicon_ring
 RMUX13,19,4,RMUX49,18,4,silicon_ring
 RMUX13,19,4,RMUX55,18,4,silicon_ring
 RMUX13,19,4,RMUX70,18,4,silicon_ring
@@ -80677,6 +81056,7 @@ RMUX27,19,4,RMUX20,19,2,silicon_ring
 RMUX27,19,4,RMUX04,19,3,silicon_ring
 RMUX27,19,4,RMUX10,19,3,silicon_ring
 RMUX27,19,4,RMUX15,19,3,silicon_ring
+RMUX27,19,4,RMUX20,19,3,silicon_ring
 RMUX27,19,4,RMUX21,19,3,silicon_ring
 RMUX28,19,4,IMUX00,19,4,silicon_ring
 RMUX28,19,4,IMUX04,19,4,silicon_ring
@@ -80696,12 +81076,15 @@ RMUX32,19,4,RMUX27,19,5,silicon_ring
 RMUX32,19,4,RMUX37,19,5,silicon_ring
 RMUX32,19,4,RMUX43,19,5,silicon_ring
 RMUX32,19,4,RMUX32,19,6,silicon_ring
+RMUX32,19,4,RMUX27,19,7,silicon_ring
+RMUX32,19,4,RMUX32,19,7,silicon_ring
 RMUX32,19,4,RMUX43,19,7,silicon_ring
 RMUX32,19,4,RMUX33,19,8,silicon_ring
 RMUX32,19,4,RMUX43,19,8,silicon_ring
 RMUX33,19,4,RMUX29,15,4,silicon_ring
 RMUX33,19,4,RMUX34,15,4,silicon_ring
 RMUX33,19,4,RMUX39,15,4,silicon_ring
+RMUX33,19,4,RMUX44,15,4,silicon_ring
 RMUX33,19,4,RMUX28,16,4,silicon_ring
 RMUX33,19,4,RMUX34,16,4,silicon_ring
 RMUX33,19,4,RMUX44,16,4,silicon_ring
@@ -81626,6 +82009,7 @@ RMUX14,19,5,RMUX67,19,3,silicon_ring
 RMUX14,19,5,RMUX50,19,4,silicon_ring
 RMUX14,19,5,RMUX51,19,4,silicon_ring
 RMUX14,19,5,RMUX56,19,4,silicon_ring
+RMUX14,19,5,RMUX57,19,4,silicon_ring
 RMUX14,19,5,RMUX61,19,4,silicon_ring
 RMUX14,19,5,RMUX67,19,4,silicon_ring
 RMUX15,19,5,RMUX52,20,5,silicon_ring
@@ -81650,6 +82034,7 @@ RMUX19,19,5,RMUX73,19,6,silicon_ring
 RMUX19,19,5,RMUX88,19,6,silicon_ring
 RMUX19,19,5,RMUX94,19,6,silicon_ring
 RMUX19,19,5,RMUX95,19,6,silicon_ring
+RMUX19,19,5,RMUX79,19,7,silicon_ring
 RMUX19,19,5,RMUX72,19,9,silicon_ring
 RMUX19,19,5,RMUX79,19,9,silicon_ring
 RMUX20,19,5,RMUX74,15,5,silicon_ring
@@ -81657,6 +82042,7 @@ RMUX20,19,5,RMUX75,15,5,silicon_ring
 RMUX20,19,5,RMUX81,15,5,silicon_ring
 RMUX20,19,5,RMUX85,15,5,silicon_ring
 RMUX20,19,5,RMUX91,15,5,silicon_ring
+RMUX20,19,5,RMUX75,16,5,silicon_ring
 RMUX20,19,5,RMUX80,16,5,silicon_ring
 RMUX20,19,5,RMUX85,16,5,silicon_ring
 RMUX20,19,5,RMUX74,17,5,silicon_ring
@@ -81873,6 +82259,7 @@ RMUX55,19,5,RMUX24,19,8,silicon_ring
 RMUX55,19,5,RMUX40,19,8,silicon_ring
 RMUX55,19,5,RMUX24,19,9,silicon_ring
 RMUX55,19,5,RMUX40,19,9,silicon_ring
+RMUX56,19,5,RMUX26,15,5,silicon_ring
 RMUX56,19,5,RMUX27,15,5,silicon_ring
 RMUX56,19,5,RMUX32,15,5,silicon_ring
 RMUX56,19,5,RMUX33,15,5,silicon_ring
@@ -81975,6 +82362,7 @@ RMUX75,19,5,RMUX05,19,6,silicon_ring
 RMUX75,19,5,RMUX10,19,6,silicon_ring
 RMUX75,19,5,RMUX15,19,6,silicon_ring
 RMUX75,19,5,RMUX21,19,6,silicon_ring
+RMUX75,19,5,RMUX20,19,7,silicon_ring
 RMUX75,19,5,RMUX04,19,8,silicon_ring
 RMUX75,19,5,RMUX14,19,8,silicon_ring
 RMUX75,19,5,RMUX10,19,9,silicon_ring
@@ -82033,6 +82421,7 @@ RMUX85,19,5,RMUX49,19,9,silicon_ring
 RMUX86,19,5,RMUX50,15,5,silicon_ring
 RMUX86,19,5,RMUX56,15,5,silicon_ring
 RMUX86,19,5,RMUX57,15,5,silicon_ring
+RMUX86,19,5,RMUX67,15,5,silicon_ring
 RMUX86,19,5,RMUX56,16,5,silicon_ring
 RMUX86,19,5,RMUX57,16,5,silicon_ring
 RMUX86,19,5,RMUX67,16,5,silicon_ring
@@ -82623,6 +83012,7 @@ RMUX02,19,6,RMUX02,19,10,silicon_ring
 RMUX02,19,6,RMUX03,19,10,silicon_ring
 RMUX02,19,6,RMUX13,19,10,silicon_ring
 RMUX02,19,6,RMUX08,19,7,silicon_ring
+RMUX02,19,6,RMUX03,19,8,silicon_ring
 RMUX02,19,6,RMUX13,19,8,silicon_ring
 RMUX02,19,6,RMUX03,19,9,silicon_ring
 RMUX03,19,6,RMUX14,15,6,silicon_ring
@@ -82693,6 +83083,7 @@ RMUX13,19,6,RMUX49,18,6,silicon_ring
 RMUX13,19,6,RMUX55,18,6,silicon_ring
 RMUX13,19,6,RMUX70,18,6,silicon_ring
 RMUX14,19,6,RMUX50,19,2,silicon_ring
+RMUX14,19,6,RMUX51,19,2,silicon_ring
 RMUX14,19,6,RMUX57,19,2,silicon_ring
 RMUX14,19,6,RMUX61,19,2,silicon_ring
 RMUX14,19,6,RMUX50,19,3,silicon_ring
@@ -83003,6 +83394,7 @@ RMUX69,19,6,RMUX82,19,9,silicon_ring
 RMUX69,19,6,RMUX86,19,9,silicon_ring
 RMUX69,19,6,RMUX87,19,9,silicon_ring
 RMUX69,19,6,RMUX92,19,9,silicon_ring
+RMUX69,19,6,RMUX93,19,9,silicon_ring
 RMUX70,19,6,IMUX08,19,6,silicon_ring
 RMUX70,19,6,IMUX56,19,6,silicon_ring
 RMUX71,19,6,IMUX05,19,6,silicon_ring
@@ -83035,6 +83427,7 @@ RMUX75,19,6,RMUX10,19,8,silicon_ring
 RMUX75,19,6,RMUX20,19,8,silicon_ring
 RMUX75,19,6,RMUX05,19,9,silicon_ring
 RMUX75,19,6,RMUX14,19,9,silicon_ring
+RMUX75,19,6,RMUX15,19,9,silicon_ring
 RMUX76,19,6,IMUX00,19,6,silicon_ring
 RMUX76,19,6,IMUX32,19,6,silicon_ring
 RMUX76,19,6,IMUX36,19,6,silicon_ring
@@ -83676,6 +84069,7 @@ RMUX02,19,7,RMUX13,19,10,silicon_ring
 RMUX02,19,7,RMUX02,19,11,silicon_ring
 RMUX02,19,7,RMUX08,19,11,silicon_ring
 RMUX02,19,7,RMUX08,19,8,silicon_ring
+RMUX02,19,7,RMUX09,19,8,silicon_ring
 RMUX02,19,7,RMUX03,19,9,silicon_ring
 RMUX02,19,7,RMUX12,19,9,silicon_ring
 RMUX02,19,7,RMUX19,19,9,silicon_ring
@@ -84200,6 +84594,7 @@ RMUX92,19,7,RMUX74,19,8,silicon_ring
 RMUX92,19,7,RMUX80,19,8,silicon_ring
 RMUX92,19,7,RMUX81,19,8,silicon_ring
 RMUX92,19,7,RMUX91,19,8,silicon_ring
+RMUX92,19,7,RMUX74,19,9,silicon_ring
 RMUX92,19,7,RMUX85,19,9,silicon_ring
 RMUX93,19,7,RMUX86,15,7,silicon_ring
 RMUX93,19,7,RMUX76,16,7,silicon_ring
@@ -84876,6 +85271,7 @@ RMUX21,19,8,RMUX92,19,4,silicon_ring
 RMUX21,19,8,RMUX93,19,4,silicon_ring
 RMUX21,19,8,RMUX86,19,5,silicon_ring
 RMUX21,19,8,RMUX87,19,5,silicon_ring
+RMUX21,19,8,RMUX87,19,6,silicon_ring
 RMUX21,19,8,RMUX93,19,6,silicon_ring
 RMUX21,19,8,RMUX76,19,7,silicon_ring
 RMUX21,19,8,RMUX82,19,7,silicon_ring
@@ -84947,6 +85343,7 @@ RMUX32,19,8,RMUX43,19,10,silicon_ring
 RMUX32,19,8,RMUX27,19,11,silicon_ring
 RMUX32,19,8,RMUX32,19,11,silicon_ring
 RMUX32,19,8,RMUX43,19,11,silicon_ring
+RMUX32,19,8,RMUX33,19,12,silicon_ring
 RMUX32,19,8,RMUX43,19,12,silicon_ring
 RMUX32,19,8,RMUX34,19,8,silicon_ring
 RMUX32,19,8,RMUX27,19,9,silicon_ring
@@ -85078,6 +85475,7 @@ RMUX55,19,8,RMUX46,19,11,silicon_ring
 RMUX55,19,8,RMUX47,19,11,silicon_ring
 RMUX55,19,8,RMUX24,19,12,silicon_ring
 RMUX55,19,8,RMUX31,19,7,silicon_ring
+RMUX55,19,8,RMUX31,19,9,silicon_ring
 RMUX55,19,8,RMUX40,19,9,silicon_ring
 RMUX55,19,8,RMUX46,19,9,silicon_ring
 RMUX56,19,8,RMUX26,15,8,silicon_ring
@@ -85089,6 +85487,7 @@ RMUX56,19,8,RMUX27,16,8,silicon_ring
 RMUX56,19,8,RMUX33,16,8,silicon_ring
 RMUX56,19,8,RMUX43,16,8,silicon_ring
 RMUX56,19,8,RMUX37,17,8,silicon_ring
+RMUX56,19,8,RMUX26,18,8,silicon_ring
 RMUX56,19,8,RMUX27,18,8,silicon_ring
 RMUX56,19,8,RMUX37,18,8,silicon_ring
 RMUX57,19,8,RMUX44,19,4,silicon_ring
@@ -85096,6 +85495,7 @@ RMUX57,19,8,RMUX45,19,4,silicon_ring
 RMUX57,19,8,RMUX38,19,5,silicon_ring
 RMUX57,19,8,RMUX44,19,5,silicon_ring
 RMUX57,19,8,RMUX45,19,5,silicon_ring
+RMUX57,19,8,RMUX38,19,6,silicon_ring
 RMUX57,19,8,RMUX44,19,6,silicon_ring
 RMUX57,19,8,RMUX45,19,6,silicon_ring
 RMUX57,19,8,RMUX39,19,7,silicon_ring
@@ -85816,6 +86216,7 @@ RMUX02,19,9,RMUX03,19,11,silicon_ring
 RMUX02,19,9,RMUX12,19,11,silicon_ring
 RMUX02,19,9,RMUX13,19,12,silicon_ring
 RMUX03,19,9,RMUX21,15,9,silicon_ring
+RMUX03,19,9,RMUX14,16,9,silicon_ring
 RMUX03,19,9,RMUX20,16,9,silicon_ring
 RMUX03,19,9,RMUX05,17,9,silicon_ring
 RMUX03,19,9,RMUX10,17,9,silicon_ring
@@ -85893,6 +86294,7 @@ RMUX14,19,9,RMUX50,19,5,silicon_ring
 RMUX14,19,9,RMUX51,19,5,silicon_ring
 RMUX14,19,9,RMUX56,19,5,silicon_ring
 RMUX14,19,9,RMUX50,19,6,silicon_ring
+RMUX14,19,9,RMUX51,19,6,silicon_ring
 RMUX14,19,9,RMUX61,19,6,silicon_ring
 RMUX14,19,9,RMUX50,19,7,silicon_ring
 RMUX14,19,9,RMUX61,19,7,silicon_ring
@@ -85980,6 +86382,7 @@ RMUX26,19,9,RMUX19,18,9,silicon_ring
 RMUX26,19,9,RMUX28,19,9,silicon_ring
 RMUX27,19,9,RMUX15,19,5,silicon_ring
 RMUX27,19,9,RMUX20,19,5,silicon_ring
+RMUX27,19,9,RMUX15,19,6,silicon_ring
 RMUX27,19,9,RMUX20,19,6,silicon_ring
 RMUX27,19,9,RMUX21,19,6,silicon_ring
 RMUX27,19,9,RMUX14,19,7,silicon_ring
@@ -86058,6 +86461,7 @@ RMUX43,19,9,RMUX88,15,9,silicon_ring
 RMUX43,19,9,RMUX88,17,9,silicon_ring
 RMUX43,19,9,RMUX94,17,9,silicon_ring
 RMUX43,19,9,RMUX88,18,9,silicon_ring
+RMUX43,19,9,RMUX89,18,9,silicon_ring
 RMUX43,19,9,RMUX95,18,9,silicon_ring
 RMUX44,19,9,RMUX80,19,5,silicon_ring
 RMUX44,19,9,RMUX81,19,5,silicon_ring
@@ -86164,6 +86568,7 @@ RMUX62,19,9,RMUX67,19,10,silicon_ring
 RMUX62,19,9,RMUX56,19,11,silicon_ring
 RMUX62,19,9,RMUX67,19,11,silicon_ring
 RMUX62,19,9,RMUX57,19,12,silicon_ring
+RMUX63,19,9,RMUX62,15,9,silicon_ring
 RMUX63,19,9,RMUX63,15,9,silicon_ring
 RMUX63,19,9,RMUX63,16,9,silicon_ring
 RMUX63,19,9,RMUX69,16,9,silicon_ring
@@ -86247,6 +86652,7 @@ RMUX79,19,9,RMUX47,18,9,silicon_ring
 RMUX80,19,9,RMUX26,19,5,silicon_ring
 RMUX80,19,9,RMUX33,19,5,silicon_ring
 RMUX80,19,9,RMUX43,19,5,silicon_ring
+RMUX80,19,9,RMUX27,19,6,silicon_ring
 RMUX80,19,9,RMUX33,19,6,silicon_ring
 RMUX80,19,9,RMUX37,19,6,silicon_ring
 RMUX80,19,9,RMUX43,19,6,silicon_ring
@@ -87220,6 +87626,7 @@ RMUX74,1,2,RMUX08,3,2,silicon_ring
 RMUX74,1,2,RMUX09,3,2,silicon_ring
 RMUX74,1,2,RMUX08,4,2,silicon_ring
 RMUX74,1,2,RMUX09,4,2,silicon_ring
+RMUX74,1,2,RMUX08,5,2,silicon_ring
 RMUX74,1,2,RMUX09,5,2,silicon_ring
 RMUX77,1,2,IMUX17,1,2,silicon_ring
 RMUX77,1,2,IMUX21,1,2,silicon_ring
@@ -87890,6 +88297,7 @@ RMUX68,1,3,RMUX85,2,3,silicon_ring
 RMUX68,1,3,RMUX74,3,3,silicon_ring
 RMUX68,1,3,RMUX75,3,3,silicon_ring
 RMUX68,1,3,RMUX81,3,3,silicon_ring
+RMUX68,1,3,RMUX85,3,3,silicon_ring
 RMUX68,1,3,RMUX91,3,3,silicon_ring
 RMUX68,1,3,RMUX75,4,3,silicon_ring
 RMUX68,1,3,RMUX80,4,3,silicon_ring
@@ -88527,6 +88935,7 @@ RMUX58,1,4,IMUX20,1,4,silicon_ring
 RMUX59,1,4,IMUX49,1,4,silicon_ring
 RMUX65,1,4,IMUX49,1,4,silicon_ring
 RMUX65,1,4,IMUX61,1,4,silicon_ring
+RMUX67,1,4,RMUX88,1,2,silicon_ring
 RMUX67,1,4,RMUX73,1,3,silicon_ring
 RMUX67,1,4,RMUX88,1,3,silicon_ring
 RMUX67,1,4,RMUX89,1,3,silicon_ring
@@ -88546,6 +88955,7 @@ RMUX73,1,4,RMUX22,1,1,silicon_ring
 RMUX73,1,4,RMUX07,1,2,silicon_ring
 RMUX73,1,4,RMUX07,1,3,silicon_ring
 RMUX74,1,4,RMUX03,2,4,silicon_ring
+RMUX74,1,4,RMUX08,3,4,silicon_ring
 RMUX74,1,4,RMUX08,4,4,silicon_ring
 RMUX74,1,4,RMUX08,5,4,silicon_ring
 RMUX76,1,4,IMUX00,1,4,silicon_ring
@@ -89103,6 +89513,7 @@ RMUX03,20,10,RMUX21,18,10,silicon_ring
 RMUX03,20,10,RMUX04,19,10,silicon_ring
 RMUX03,20,10,RMUX05,19,10,silicon_ring
 RMUX03,20,10,RMUX10,19,10,silicon_ring
+RMUX03,20,10,RMUX11,19,10,silicon_ring
 RMUX03,20,10,RMUX14,19,10,silicon_ring
 RMUX03,20,10,RMUX15,19,10,silicon_ring
 RMUX03,20,10,RMUX20,19,10,silicon_ring
@@ -89129,6 +89540,7 @@ RMUX08,20,10,RMUX26,19,10,silicon_ring
 RMUX08,20,10,RMUX27,19,10,silicon_ring
 RMUX08,20,10,RMUX33,19,10,silicon_ring
 RMUX08,20,10,RMUX37,19,10,silicon_ring
+RMUX09,20,10,RMUX39,20,11,silicon_ring
 RMUX09,20,10,RMUX45,20,11,silicon_ring
 RMUX09,20,10,RMUX28,20,12,silicon_ring
 RMUX09,20,10,RMUX29,20,12,silicon_ring
@@ -89177,6 +89589,7 @@ RMUX20,20,10,RMUX80,19,10,silicon_ring
 RMUX20,20,10,RMUX81,19,10,silicon_ring
 RMUX20,20,10,RMUX90,19,10,silicon_ring
 RMUX20,20,10,RMUX91,19,10,silicon_ring
+RMUX21,20,10,RMUX86,20,6,silicon_ring
 RMUX21,20,10,RMUX87,20,6,silicon_ring
 RMUX21,20,10,RMUX92,20,6,silicon_ring
 RMUX21,20,10,RMUX93,20,6,silicon_ring
@@ -89218,11 +89631,14 @@ RMUX26,20,10,RMUX03,19,10,silicon_ring
 RMUX26,20,10,RMUX19,19,10,silicon_ring
 RMUX27,20,10,RMUX10,20,6,silicon_ring
 RMUX27,20,10,RMUX14,20,6,silicon_ring
+RMUX27,20,10,RMUX15,20,6,silicon_ring
 RMUX27,20,10,RMUX10,20,7,silicon_ring
 RMUX27,20,10,RMUX14,20,7,silicon_ring
+RMUX27,20,10,RMUX15,20,7,silicon_ring
 RMUX27,20,10,RMUX20,20,7,silicon_ring
 RMUX27,20,10,RMUX21,20,7,silicon_ring
 RMUX27,20,10,RMUX04,20,8,silicon_ring
+RMUX27,20,10,RMUX15,20,8,silicon_ring
 RMUX27,20,10,RMUX20,20,8,silicon_ring
 RMUX27,20,10,RMUX04,20,9,silicon_ring
 RMUX27,20,10,RMUX05,20,9,silicon_ring
@@ -89349,6 +89765,7 @@ RMUX57,20,10,RMUX38,20,7,silicon_ring
 RMUX57,20,10,RMUX44,20,7,silicon_ring
 RMUX57,20,10,RMUX35,20,8,silicon_ring
 RMUX57,20,10,RMUX38,20,8,silicon_ring
+RMUX57,20,10,RMUX45,20,8,silicon_ring
 RMUX57,20,10,RMUX29,20,9,silicon_ring
 RMUX57,20,10,RMUX39,20,9,silicon_ring
 RMUX58,20,10,IMUX14,20,10,silicon_ring
@@ -90026,6 +90443,7 @@ RMUX09,20,11,RMUX34,20,12,silicon_ring
 RMUX09,20,11,RMUX35,20,12,silicon_ring
 RMUX09,20,11,RMUX38,20,12,silicon_ring
 RMUX09,20,11,RMUX44,20,12,silicon_ring
+RMUX09,20,11,RMUX45,20,12,silicon_ring
 RMUX10,20,11,IMUX24,20,11,silicon_ring
 RMUX10,20,11,IMUX28,20,11,silicon_ring
 RMUX10,20,11,IMUX32,20,11,silicon_ring
@@ -90107,6 +90525,7 @@ RMUX26,20,11,RMUX03,17,11,silicon_ring
 RMUX26,20,11,RMUX13,17,11,silicon_ring
 RMUX26,20,11,RMUX03,18,11,silicon_ring
 RMUX26,20,11,RMUX19,18,11,silicon_ring
+RMUX26,20,11,RMUX03,19,11,silicon_ring
 RMUX26,20,11,RMUX19,19,11,silicon_ring
 RMUX27,20,11,RMUX04,20,10,silicon_ring
 RMUX27,20,11,RMUX10,20,10,silicon_ring
@@ -90318,6 +90737,7 @@ RMUX80,20,11,RMUX33,20,10,silicon_ring
 RMUX80,20,11,RMUX37,20,10,silicon_ring
 RMUX80,20,11,RMUX26,20,7,silicon_ring
 RMUX80,20,11,RMUX33,20,7,silicon_ring
+RMUX80,20,11,RMUX43,20,7,silicon_ring
 RMUX80,20,11,RMUX27,20,8,silicon_ring
 RMUX80,20,11,RMUX33,20,8,silicon_ring
 RMUX80,20,11,RMUX37,20,8,silicon_ring
@@ -90351,6 +90771,7 @@ RMUX87,20,11,RMUX52,20,8,silicon_ring
 RMUX87,20,11,RMUX63,20,8,silicon_ring
 RMUX87,20,11,RMUX68,20,8,silicon_ring
 RMUX87,20,11,RMUX58,20,9,silicon_ring
+RMUX87,20,11,RMUX63,20,9,silicon_ring
 RMUX87,20,11,RMUX68,20,9,silicon_ring
 RMUX88,20,11,IMUX32,20,11,silicon_ring
 RMUX89,20,11,IMUX25,20,11,silicon_ring
@@ -91935,6 +92356,7 @@ RMUX39,20,1,RMUX52,20,2,silicon_ring
 RMUX39,20,1,RMUX69,20,2,silicon_ring
 RMUX39,20,1,RMUX63,20,3,silicon_ring
 RMUX39,20,1,RMUX69,20,3,silicon_ring
+RMUX39,20,1,RMUX63,20,4,silicon_ring
 RMUX39,20,1,RMUX68,20,4,silicon_ring
 RMUX39,20,1,RMUX69,20,4,silicon_ring
 RMUX39,20,1,RMUX52,20,5,silicon_ring
@@ -91990,7 +92412,9 @@ RMUX58,20,1,IMUX36,20,1,silicon_ring
 RMUX58,20,1,IMUX48,20,1,silicon_ring
 RMUX58,20,1,IMUX60,20,1,silicon_ring
 RMUX62,20,1,RMUX50,20,2,silicon_ring
+RMUX62,20,1,RMUX56,20,2,silicon_ring
 RMUX62,20,1,RMUX67,20,2,silicon_ring
+RMUX62,20,1,RMUX51,20,3,silicon_ring
 RMUX62,20,1,RMUX56,20,3,silicon_ring
 RMUX62,20,1,RMUX67,20,3,silicon_ring
 RMUX62,20,1,RMUX51,20,4,silicon_ring
@@ -92028,6 +92452,7 @@ RMUX69,20,1,RMUX87,20,4,silicon_ring
 RMUX69,20,1,RMUX93,20,4,silicon_ring
 RMUX69,20,1,RMUX76,20,5,silicon_ring
 RMUX69,20,1,RMUX82,20,5,silicon_ring
+RMUX69,20,1,RMUX86,20,5,silicon_ring
 RMUX69,20,1,RMUX93,20,5,silicon_ring
 RMUX70,20,1,IMUX12,20,1,silicon_ring
 RMUX70,20,1,IMUX52,20,1,silicon_ring
@@ -92948,9 +93373,13 @@ RMUX85,20,2,RMUX48,20,5,silicon_ring
 RMUX85,20,2,RMUX55,20,5,silicon_ring
 RMUX85,20,2,RMUX49,20,6,silicon_ring
 RMUX85,20,2,RMUX55,20,6,silicon_ring
+RMUX86,20,2,RMUX56,16,2,silicon_ring
 RMUX86,20,2,RMUX57,16,2,silicon_ring
+RMUX86,20,2,RMUX67,16,2,silicon_ring
 RMUX86,20,2,RMUX67,17,2,silicon_ring
+RMUX86,20,2,RMUX57,18,2,silicon_ring
 RMUX86,20,2,RMUX61,18,2,silicon_ring
+RMUX86,20,2,RMUX67,18,2,silicon_ring
 RMUX86,20,2,RMUX50,19,2,silicon_ring
 RMUX86,20,2,RMUX51,19,2,silicon_ring
 RMUX86,20,2,RMUX56,19,2,silicon_ring
@@ -93624,6 +94053,7 @@ RMUX26,20,3,RMUX19,18,3,silicon_ring
 RMUX26,20,3,RMUX03,19,3,silicon_ring
 RMUX27,20,3,RMUX04,20,1,silicon_ring
 RMUX27,20,3,RMUX20,20,1,silicon_ring
+RMUX27,20,3,RMUX14,20,2,silicon_ring
 RMUX27,20,3,RMUX20,20,2,silicon_ring
 RMUX27,20,3,RMUX21,20,2,silicon_ring
 RMUX27,20,3,RMUX29,20,3,silicon_ring
@@ -93768,6 +94198,7 @@ RMUX67,20,3,RMUX95,20,2,silicon_ring
 RMUX68,20,3,RMUX80,19,3,silicon_ring
 RMUX68,20,3,RMUX85,19,3,silicon_ring
 RMUX69,20,3,RMUX82,20,4,silicon_ring
+RMUX69,20,3,RMUX86,20,4,silicon_ring
 RMUX69,20,3,RMUX87,20,4,silicon_ring
 RMUX69,20,3,RMUX92,20,4,silicon_ring
 RMUX69,20,3,RMUX76,20,5,silicon_ring
@@ -94386,6 +94817,7 @@ RMUX02,20,4,RMUX13,20,5,silicon_ring
 RMUX02,20,4,RMUX19,20,5,silicon_ring
 RMUX02,20,4,RMUX03,20,6,silicon_ring
 RMUX02,20,4,RMUX13,20,7,silicon_ring
+RMUX02,20,4,RMUX02,20,8,silicon_ring
 RMUX02,20,4,RMUX03,20,8,silicon_ring
 RMUX02,20,4,RMUX09,20,8,silicon_ring
 RMUX02,20,4,RMUX19,20,8,silicon_ring
@@ -94446,6 +94878,7 @@ RMUX13,20,4,RMUX48,16,4,silicon_ring
 RMUX13,20,4,RMUX49,16,4,silicon_ring
 RMUX13,20,4,RMUX55,16,4,silicon_ring
 RMUX13,20,4,RMUX70,16,4,silicon_ring
+RMUX13,20,4,RMUX49,17,4,silicon_ring
 RMUX13,20,4,RMUX54,17,4,silicon_ring
 RMUX13,20,4,RMUX49,18,4,silicon_ring
 RMUX13,20,4,RMUX55,18,4,silicon_ring
@@ -94567,6 +95000,7 @@ RMUX32,20,4,RMUX33,20,5,silicon_ring
 RMUX32,20,4,RMUX37,20,5,silicon_ring
 RMUX32,20,4,RMUX27,20,7,silicon_ring
 RMUX32,20,4,RMUX32,20,7,silicon_ring
+RMUX32,20,4,RMUX33,20,7,silicon_ring
 RMUX32,20,4,RMUX43,20,7,silicon_ring
 RMUX32,20,4,RMUX32,20,8,silicon_ring
 RMUX32,20,4,RMUX43,20,8,silicon_ring
@@ -94813,6 +95247,7 @@ RMUX86,20,4,RMUX57,17,4,silicon_ring
 RMUX86,20,4,RMUX67,17,4,silicon_ring
 RMUX86,20,4,RMUX50,18,4,silicon_ring
 RMUX86,20,4,RMUX61,18,4,silicon_ring
+RMUX86,20,4,RMUX67,18,4,silicon_ring
 RMUX86,20,4,RMUX50,19,4,silicon_ring
 RMUX86,20,4,RMUX51,19,4,silicon_ring
 RMUX86,20,4,RMUX57,19,4,silicon_ring
@@ -94852,10 +95287,12 @@ RMUX93,20,4,RMUX76,17,4,silicon_ring
 RMUX93,20,4,RMUX86,17,4,silicon_ring
 RMUX93,20,4,RMUX92,17,4,silicon_ring
 RMUX93,20,4,RMUX93,17,4,silicon_ring
+RMUX93,20,4,RMUX86,18,4,silicon_ring
 RMUX93,20,4,RMUX93,18,4,silicon_ring
 RMUX93,20,4,RMUX77,19,4,silicon_ring
 RMUX93,20,4,RMUX82,19,4,silicon_ring
 RMUX93,20,4,RMUX92,19,4,silicon_ring
+RMUX93,20,4,RMUX93,19,4,silicon_ring
 RMUX94,20,4,IMUX36,20,4,silicon_ring
 RMUX94,20,4,IMUX58,20,4,silicon_ring
 RMUX95,20,4,IMUX01,20,4,silicon_ring
@@ -95455,6 +95892,7 @@ RMUX14,20,5,RMUX57,20,3,silicon_ring
 RMUX14,20,5,RMUX67,20,3,silicon_ring
 RMUX14,20,5,RMUX50,20,4,silicon_ring
 RMUX14,20,5,RMUX56,20,4,silicon_ring
+RMUX14,20,5,RMUX67,20,4,silicon_ring
 RMUX15,20,5,RMUX63,19,5,silicon_ring
 RMUX15,20,5,RMUX69,20,5,silicon_ring
 RMUX15,20,5,RMUX63,21,5,silicon_ring
@@ -95524,6 +95962,7 @@ RMUX25,20,5,RMUX16,20,6,silicon_ring
 RMUX25,20,5,RMUX22,20,6,silicon_ring
 RMUX25,20,5,RMUX07,20,8,silicon_ring
 RMUX26,20,5,RMUX02,16,5,silicon_ring
+RMUX26,20,5,RMUX03,16,5,silicon_ring
 RMUX26,20,5,RMUX08,16,5,silicon_ring
 RMUX26,20,5,RMUX09,16,5,silicon_ring
 RMUX26,20,5,RMUX13,16,5,silicon_ring
@@ -95656,6 +96095,8 @@ RMUX49,20,5,RMUX07,16,5,silicon_ring
 RMUX49,20,5,RMUX07,18,5,silicon_ring
 RMUX49,20,5,RMUX16,18,5,silicon_ring
 RMUX49,20,5,RMUX01,19,5,silicon_ring
+RMUX49,20,5,RMUX07,19,5,silicon_ring
+RMUX50,20,5,RMUX03,20,1,silicon_ring
 RMUX50,20,5,RMUX09,20,1,silicon_ring
 RMUX50,20,5,RMUX13,20,1,silicon_ring
 RMUX50,20,5,RMUX13,20,3,silicon_ring
@@ -95680,11 +96121,13 @@ RMUX55,20,5,RMUX24,20,8,silicon_ring
 RMUX55,20,5,RMUX25,20,8,silicon_ring
 RMUX55,20,5,RMUX46,20,8,silicon_ring
 RMUX55,20,5,RMUX25,20,9,silicon_ring
+RMUX56,20,5,RMUX26,16,5,silicon_ring
 RMUX56,20,5,RMUX27,16,5,silicon_ring
 RMUX56,20,5,RMUX32,16,5,silicon_ring
 RMUX56,20,5,RMUX33,16,5,silicon_ring
 RMUX56,20,5,RMUX37,16,5,silicon_ring
 RMUX56,20,5,RMUX43,16,5,silicon_ring
+RMUX56,20,5,RMUX27,17,5,silicon_ring
 RMUX56,20,5,RMUX32,17,5,silicon_ring
 RMUX56,20,5,RMUX33,17,5,silicon_ring
 RMUX56,20,5,RMUX43,17,5,silicon_ring
@@ -95751,6 +96194,7 @@ RMUX69,20,5,RMUX93,20,7,silicon_ring
 RMUX69,20,5,RMUX82,20,8,silicon_ring
 RMUX69,20,5,RMUX87,20,8,silicon_ring
 RMUX69,20,5,RMUX92,20,8,silicon_ring
+RMUX69,20,5,RMUX93,20,8,silicon_ring
 RMUX69,20,5,RMUX76,20,9,silicon_ring
 RMUX69,20,5,RMUX82,20,9,silicon_ring
 RMUX69,20,5,RMUX93,20,9,silicon_ring
@@ -95835,6 +96279,7 @@ RMUX86,20,5,RMUX56,16,5,silicon_ring
 RMUX86,20,5,RMUX57,16,5,silicon_ring
 RMUX86,20,5,RMUX67,16,5,silicon_ring
 RMUX86,20,5,RMUX56,17,5,silicon_ring
+RMUX86,20,5,RMUX67,17,5,silicon_ring
 RMUX86,20,5,RMUX50,18,5,silicon_ring
 RMUX86,20,5,RMUX56,18,5,silicon_ring
 RMUX86,20,5,RMUX57,18,5,silicon_ring
@@ -96394,6 +96839,7 @@ RMUX02,20,6,RMUX13,20,9,silicon_ring
 RMUX03,20,6,RMUX14,16,6,silicon_ring
 RMUX03,20,6,RMUX21,16,6,silicon_ring
 RMUX03,20,6,RMUX14,17,6,silicon_ring
+RMUX03,20,6,RMUX20,17,6,silicon_ring
 RMUX03,20,6,RMUX21,17,6,silicon_ring
 RMUX03,20,6,RMUX14,18,6,silicon_ring
 RMUX03,20,6,RMUX20,18,6,silicon_ring
@@ -96441,6 +96887,7 @@ RMUX10,20,6,IMUX24,20,6,silicon_ring
 RMUX10,20,6,IMUX28,20,6,silicon_ring
 RMUX10,20,6,IMUX32,20,6,silicon_ring
 RMUX10,20,6,IMUX36,20,6,silicon_ring
+RMUX13,20,6,RMUX49,16,6,silicon_ring
 RMUX13,20,6,RMUX55,16,6,silicon_ring
 RMUX13,20,6,RMUX71,16,6,silicon_ring
 RMUX13,20,6,RMUX49,17,6,silicon_ring
@@ -96488,6 +96935,7 @@ RMUX20,20,6,RMUX84,18,6,silicon_ring
 RMUX20,20,6,RMUX85,18,6,silicon_ring
 RMUX20,20,6,RMUX91,18,6,silicon_ring
 RMUX20,20,6,RMUX74,19,6,silicon_ring
+RMUX20,20,6,RMUX75,19,6,silicon_ring
 RMUX20,20,6,RMUX81,19,6,silicon_ring
 RMUX20,20,6,RMUX91,19,6,silicon_ring
 RMUX21,20,6,RMUX76,20,2,silicon_ring
@@ -96528,6 +96976,7 @@ RMUX25,20,6,RMUX07,20,9,silicon_ring
 RMUX25,20,6,RMUX16,20,9,silicon_ring
 RMUX26,20,6,RMUX02,16,6,silicon_ring
 RMUX26,20,6,RMUX03,16,6,silicon_ring
+RMUX26,20,6,RMUX08,16,6,silicon_ring
 RMUX26,20,6,RMUX09,16,6,silicon_ring
 RMUX26,20,6,RMUX13,16,6,silicon_ring
 RMUX26,20,6,RMUX19,16,6,silicon_ring
@@ -96567,6 +97016,7 @@ RMUX29,20,6,IMUX49,20,6,silicon_ring
 RMUX29,20,6,IMUX57,20,6,silicon_ring
 RMUX29,20,6,IMUX61,20,6,silicon_ring
 RMUX31,20,6,RMUX25,19,6,silicon_ring
+RMUX32,20,6,RMUX32,20,10,silicon_ring
 RMUX32,20,6,RMUX33,20,10,silicon_ring
 RMUX32,20,6,RMUX36,20,10,silicon_ring
 RMUX32,20,6,RMUX43,20,10,silicon_ring
@@ -96758,6 +97208,7 @@ RMUX73,20,6,RMUX22,20,5,silicon_ring
 RMUX74,20,6,RMUX03,19,6,silicon_ring
 RMUX75,20,6,RMUX04,20,10,silicon_ring
 RMUX75,20,6,RMUX10,20,10,silicon_ring
+RMUX75,20,6,RMUX20,20,10,silicon_ring
 RMUX75,20,6,RMUX04,20,7,silicon_ring
 RMUX75,20,6,RMUX05,20,7,silicon_ring
 RMUX75,20,6,RMUX10,20,7,silicon_ring
@@ -96783,6 +97234,7 @@ RMUX79,20,6,RMUX31,19,6,silicon_ring
 RMUX79,20,6,RMUX40,19,6,silicon_ring
 RMUX79,20,6,RMUX46,19,6,silicon_ring
 RMUX80,20,6,RMUX26,20,2,silicon_ring
+RMUX80,20,6,RMUX27,20,2,silicon_ring
 RMUX80,20,6,RMUX32,20,2,silicon_ring
 RMUX80,20,6,RMUX33,20,2,silicon_ring
 RMUX80,20,6,RMUX37,20,2,silicon_ring
@@ -96792,6 +97244,7 @@ RMUX80,20,6,RMUX33,20,3,silicon_ring
 RMUX80,20,6,RMUX26,20,4,silicon_ring
 RMUX80,20,6,RMUX33,20,4,silicon_ring
 RMUX80,20,6,RMUX37,20,4,silicon_ring
+RMUX80,20,6,RMUX26,20,5,silicon_ring
 RMUX80,20,6,RMUX27,20,5,silicon_ring
 RMUX80,20,6,RMUX33,20,5,silicon_ring
 RMUX80,20,6,RMUX37,20,5,silicon_ring
@@ -96868,6 +97321,7 @@ RMUX93,20,6,RMUX93,18,6,silicon_ring
 RMUX93,20,6,RMUX82,19,6,silicon_ring
 RMUX93,20,6,RMUX86,19,6,silicon_ring
 RMUX93,20,6,RMUX93,19,6,silicon_ring
+RMUX94,20,6,IMUX50,20,6,silicon_ring
 OMUX01,20,7,IMUX04,20,7,silicon_ring
 OMUX01,20,7,IMUX05,20,7,silicon_ring
 OMUX01,20,7,IMUX06,20,7,silicon_ring
@@ -97670,12 +98124,14 @@ RMUX55,20,7,RMUX31,20,9,silicon_ring
 RMUX56,20,7,RMUX27,16,7,silicon_ring
 RMUX56,20,7,RMUX33,16,7,silicon_ring
 RMUX56,20,7,RMUX37,16,7,silicon_ring
+RMUX56,20,7,RMUX27,18,7,silicon_ring
 RMUX56,20,7,RMUX37,18,7,silicon_ring
 RMUX56,20,7,RMUX33,19,7,silicon_ring
 RMUX56,20,7,RMUX36,19,7,silicon_ring
 RMUX56,20,7,RMUX37,19,7,silicon_ring
 RMUX57,20,7,RMUX44,20,3,silicon_ring
 RMUX57,20,7,RMUX45,20,3,silicon_ring
+RMUX57,20,7,RMUX38,20,4,silicon_ring
 RMUX57,20,7,RMUX44,20,4,silicon_ring
 RMUX57,20,7,RMUX45,20,4,silicon_ring
 RMUX57,20,7,RMUX38,20,5,silicon_ring
@@ -97717,10 +98173,12 @@ RMUX65,20,7,IMUX13,20,7,silicon_ring
 RMUX65,20,7,IMUX37,20,7,silicon_ring
 RMUX67,20,7,RMUX79,20,4,silicon_ring
 RMUX67,20,7,RMUX72,20,5,silicon_ring
+RMUX67,20,7,RMUX73,20,5,silicon_ring
 RMUX67,20,7,RMUX79,20,5,silicon_ring
 RMUX67,20,7,RMUX73,20,6,silicon_ring
 RMUX67,20,7,RMUX79,20,6,silicon_ring
 RMUX67,20,7,RMUX88,20,6,silicon_ring
+RMUX67,20,7,RMUX94,20,6,silicon_ring
 RMUX68,20,7,RMUX80,19,7,silicon_ring
 RMUX68,20,7,RMUX85,19,7,silicon_ring
 RMUX69,20,7,RMUX86,20,10,silicon_ring
@@ -97789,6 +98247,7 @@ RMUX79,20,7,RMUX46,18,7,silicon_ring
 RMUX79,20,7,RMUX40,19,7,silicon_ring
 RMUX79,20,7,RMUX46,19,7,silicon_ring
 RMUX80,20,7,RMUX26,20,3,silicon_ring
+RMUX80,20,7,RMUX43,20,3,silicon_ring
 RMUX80,20,7,RMUX26,20,4,silicon_ring
 RMUX80,20,7,RMUX43,20,4,silicon_ring
 RMUX80,20,7,RMUX27,20,5,silicon_ring
@@ -98505,6 +98964,7 @@ RMUX21,20,8,RMUX93,20,4,silicon_ring
 RMUX21,20,8,RMUX77,20,5,silicon_ring
 RMUX21,20,8,RMUX87,20,5,silicon_ring
 RMUX21,20,8,RMUX93,20,5,silicon_ring
+RMUX21,20,8,RMUX86,20,6,silicon_ring
 RMUX21,20,8,RMUX93,20,6,silicon_ring
 RMUX21,20,8,RMUX82,20,7,silicon_ring
 RMUX21,20,8,RMUX92,20,7,silicon_ring
@@ -98601,6 +99061,7 @@ RMUX39,20,8,RMUX69,20,10,silicon_ring
 RMUX39,20,8,RMUX52,20,11,silicon_ring
 RMUX39,20,8,RMUX53,20,11,silicon_ring
 RMUX39,20,8,RMUX58,20,11,silicon_ring
+RMUX39,20,8,RMUX63,20,11,silicon_ring
 RMUX39,20,8,RMUX68,20,11,silicon_ring
 RMUX39,20,8,RMUX52,20,12,silicon_ring
 RMUX39,20,8,RMUX58,20,12,silicon_ring
@@ -98723,6 +99184,7 @@ RMUX64,20,8,IMUX32,20,8,silicon_ring
 RMUX64,20,8,IMUX36,20,8,silicon_ring
 RMUX64,20,8,IMUX52,20,8,silicon_ring
 RMUX67,20,8,RMUX73,20,4,silicon_ring
+RMUX67,20,8,RMUX79,20,4,silicon_ring
 RMUX67,20,8,RMUX73,20,5,silicon_ring
 RMUX67,20,8,RMUX73,20,6,silicon_ring
 RMUX67,20,8,RMUX79,20,6,silicon_ring
@@ -98822,6 +99284,7 @@ RMUX85,20,8,RMUX55,20,9,silicon_ring
 RMUX85,20,8,RMUX64,20,9,silicon_ring
 RMUX85,20,8,RMUX65,20,9,silicon_ring
 RMUX86,20,8,RMUX50,16,8,silicon_ring
+RMUX86,20,8,RMUX57,16,8,silicon_ring
 RMUX86,20,8,RMUX67,16,8,silicon_ring
 RMUX86,20,8,RMUX56,17,8,silicon_ring
 RMUX86,20,8,RMUX57,17,8,silicon_ring
@@ -99391,6 +99854,7 @@ RMUX03,20,9,RMUX20,16,9,silicon_ring
 RMUX03,20,9,RMUX04,17,9,silicon_ring
 RMUX03,20,9,RMUX20,17,9,silicon_ring
 RMUX03,20,9,RMUX04,18,9,silicon_ring
+RMUX03,20,9,RMUX21,18,9,silicon_ring
 RMUX03,20,9,RMUX04,19,9,silicon_ring
 RMUX03,20,9,RMUX05,19,9,silicon_ring
 RMUX03,20,9,RMUX10,19,9,silicon_ring
@@ -99440,8 +99904,10 @@ RMUX13,20,9,RMUX54,18,9,silicon_ring
 RMUX13,20,9,RMUX55,18,9,silicon_ring
 RMUX13,20,9,RMUX55,19,9,silicon_ring
 RMUX14,20,9,RMUX50,20,6,silicon_ring
+RMUX14,20,9,RMUX56,20,6,silicon_ring
 RMUX14,20,9,RMUX67,20,6,silicon_ring
 RMUX14,20,9,RMUX50,20,7,silicon_ring
+RMUX14,20,9,RMUX56,20,7,silicon_ring
 RMUX14,20,9,RMUX67,20,7,silicon_ring
 RMUX14,20,9,RMUX50,20,8,silicon_ring
 RMUX14,20,9,RMUX51,20,8,silicon_ring
@@ -99617,7 +100083,9 @@ RMUX49,20,9,RMUX07,18,9,silicon_ring
 RMUX49,20,9,RMUX01,19,9,silicon_ring
 RMUX49,20,9,RMUX07,19,9,silicon_ring
 RMUX49,20,9,RMUX16,19,9,silicon_ring
+RMUX50,20,9,RMUX03,20,5,silicon_ring
 RMUX50,20,9,RMUX09,20,5,silicon_ring
+RMUX50,20,9,RMUX13,20,5,silicon_ring
 RMUX50,20,9,RMUX03,20,6,silicon_ring
 RMUX50,20,9,RMUX03,20,7,silicon_ring
 RMUX50,20,9,RMUX08,20,7,silicon_ring
@@ -99672,6 +100140,7 @@ RMUX63,20,9,RMUX63,16,9,silicon_ring
 RMUX63,20,9,RMUX58,17,9,silicon_ring
 RMUX63,20,9,RMUX58,18,9,silicon_ring
 RMUX63,20,9,RMUX69,18,9,silicon_ring
+RMUX63,20,9,RMUX53,19,9,silicon_ring
 RMUX63,20,9,RMUX58,19,9,silicon_ring
 RMUX63,20,9,RMUX59,19,9,silicon_ring
 RMUX63,20,9,RMUX68,19,9,silicon_ring
@@ -99704,6 +100173,7 @@ RMUX69,20,9,RMUX86,20,11,silicon_ring
 RMUX69,20,9,RMUX87,20,11,silicon_ring
 RMUX69,20,9,RMUX86,20,12,silicon_ring
 RMUX69,20,9,RMUX87,20,12,silicon_ring
+RMUX69,20,9,RMUX93,20,12,silicon_ring
 RMUX70,20,9,IMUX04,20,9,silicon_ring
 RMUX70,20,9,IMUX08,20,9,silicon_ring
 RMUX70,20,9,IMUX12,20,9,silicon_ring
@@ -99776,11 +100246,13 @@ RMUX85,20,9,RMUX64,20,12,silicon_ring
 RMUX86,20,9,RMUX50,16,9,silicon_ring
 RMUX86,20,9,RMUX56,17,9,silicon_ring
 RMUX86,20,9,RMUX67,17,9,silicon_ring
+RMUX86,20,9,RMUX57,18,9,silicon_ring
 RMUX86,20,9,RMUX61,18,9,silicon_ring
 RMUX86,20,9,RMUX51,19,9,silicon_ring
 RMUX86,20,9,RMUX57,19,9,silicon_ring
 RMUX86,20,9,RMUX61,19,9,silicon_ring
 RMUX86,20,9,RMUX67,19,9,silicon_ring
+RMUX87,20,9,RMUX63,20,5,silicon_ring
 RMUX87,20,9,RMUX68,20,5,silicon_ring
 RMUX87,20,9,RMUX52,20,6,silicon_ring
 RMUX87,20,9,RMUX68,20,6,silicon_ring
@@ -99803,6 +100275,7 @@ RMUX93,20,9,RMUX83,16,9,silicon_ring
 RMUX93,20,9,RMUX93,16,9,silicon_ring
 RMUX93,20,9,RMUX86,17,9,silicon_ring
 RMUX93,20,9,RMUX92,17,9,silicon_ring
+RMUX93,20,9,RMUX93,17,9,silicon_ring
 RMUX93,20,9,RMUX77,18,9,silicon_ring
 RMUX93,20,9,RMUX82,18,9,silicon_ring
 RMUX93,20,9,RMUX86,18,9,silicon_ring
@@ -101139,6 +101612,7 @@ RMUX07,2,2,RMUX40,2,1,silicon_ring
 RMUX07,2,2,RMUX46,2,1,silicon_ring
 RMUX07,2,2,RMUX46,2,3,silicon_ring
 RMUX08,2,2,RMUX26,3,2,silicon_ring
+RMUX08,2,2,RMUX27,3,2,silicon_ring
 RMUX08,2,2,RMUX33,3,2,silicon_ring
 RMUX08,2,2,RMUX43,3,2,silicon_ring
 RMUX08,2,2,RMUX26,4,2,silicon_ring
@@ -101950,6 +102424,7 @@ RMUX08,2,3,RMUX26,4,3,silicon_ring
 RMUX08,2,3,RMUX27,5,3,silicon_ring
 RMUX08,2,3,RMUX37,5,3,silicon_ring
 RMUX08,2,3,RMUX26,6,3,silicon_ring
+RMUX08,2,3,RMUX27,6,3,silicon_ring
 RMUX09,2,3,RMUX28,2,4,silicon_ring
 RMUX09,2,3,RMUX34,2,4,silicon_ring
 RMUX09,2,3,RMUX35,2,4,silicon_ring
@@ -102053,6 +102528,7 @@ RMUX32,2,3,RMUX27,2,4,silicon_ring
 RMUX32,2,3,RMUX37,2,4,silicon_ring
 RMUX33,2,3,RMUX34,1,3,silicon_ring
 RMUX33,2,3,RMUX38,1,3,silicon_ring
+RMUX33,2,3,RMUX39,1,3,silicon_ring
 RMUX33,2,3,RMUX45,2,3,silicon_ring
 RMUX33,2,3,RMUX39,3,3,silicon_ring
 RMUX34,2,3,IMUX08,2,3,silicon_ring
@@ -102070,6 +102546,7 @@ RMUX38,2,3,RMUX56,3,3,silicon_ring
 RMUX38,2,3,RMUX57,3,3,silicon_ring
 RMUX38,2,3,RMUX67,4,3,silicon_ring
 RMUX38,2,3,RMUX67,5,3,silicon_ring
+RMUX38,2,3,RMUX57,6,3,silicon_ring
 RMUX38,2,3,RMUX67,6,3,silicon_ring
 RMUX39,2,3,RMUX53,2,2,silicon_ring
 RMUX39,2,3,RMUX52,2,4,silicon_ring
@@ -102194,11 +102671,13 @@ RMUX81,2,3,RMUX29,3,3,silicon_ring
 RMUX81,2,3,RMUX38,3,3,silicon_ring
 RMUX81,2,3,RMUX44,3,3,silicon_ring
 RMUX81,2,3,RMUX35,4,3,silicon_ring
+RMUX81,2,3,RMUX38,4,3,silicon_ring
 RMUX81,2,3,RMUX39,4,3,silicon_ring
 RMUX81,2,3,RMUX28,5,3,silicon_ring
 RMUX81,2,3,RMUX35,5,3,silicon_ring
 RMUX81,2,3,RMUX45,5,3,silicon_ring
 RMUX81,2,3,RMUX38,6,3,silicon_ring
+RMUX81,2,3,RMUX45,6,3,silicon_ring
 RMUX82,2,3,IMUX00,2,3,silicon_ring
 RMUX82,2,3,IMUX40,2,3,silicon_ring
 RMUX83,2,3,IMUX19,2,3,silicon_ring
@@ -102854,6 +103333,7 @@ RMUX44,2,4,RMUX81,2,3,silicon_ring
 RMUX44,2,4,RMUX85,2,3,silicon_ring
 RMUX45,2,4,RMUX86,3,4,silicon_ring
 RMUX45,2,4,RMUX93,3,4,silicon_ring
+RMUX45,2,4,RMUX87,4,4,silicon_ring
 RMUX45,2,4,RMUX93,4,4,silicon_ring
 RMUX45,2,4,RMUX87,5,4,silicon_ring
 RMUX45,2,4,RMUX87,6,4,silicon_ring
@@ -104661,6 +105141,7 @@ RMUX80,3,2,RMUX43,3,1,silicon_ring
 RMUX80,3,2,RMUX82,3,2,silicon_ring
 RMUX81,3,2,RMUX28,4,2,silicon_ring
 RMUX81,3,2,RMUX34,4,2,silicon_ring
+RMUX81,3,2,RMUX38,4,2,silicon_ring
 RMUX81,3,2,RMUX44,4,2,silicon_ring
 RMUX81,3,2,RMUX45,4,2,silicon_ring
 RMUX81,3,2,RMUX38,5,2,silicon_ring
@@ -105268,6 +105749,7 @@ RMUX15,3,3,RMUX62,5,3,silicon_ring
 RMUX15,3,3,RMUX68,5,3,silicon_ring
 RMUX15,3,3,RMUX69,5,3,silicon_ring
 RMUX15,3,3,RMUX69,6,3,silicon_ring
+RMUX15,3,3,RMUX62,7,3,silicon_ring
 RMUX15,3,3,RMUX69,7,3,silicon_ring
 RMUX16,3,3,IMUX16,3,3,silicon_ring
 RMUX17,3,3,IMUX17,3,3,silicon_ring
@@ -105446,6 +105928,7 @@ RMUX57,3,3,RMUX45,3,1,silicon_ring
 RMUX57,3,3,RMUX38,3,2,silicon_ring
 RMUX57,3,3,RMUX39,3,2,silicon_ring
 RMUX57,3,3,RMUX44,3,2,silicon_ring
+RMUX57,3,3,RMUX45,3,2,silicon_ring
 RMUX58,3,3,IMUX20,3,3,silicon_ring
 RMUX58,3,3,IMUX32,3,3,silicon_ring
 RMUX59,3,3,IMUX13,3,3,silicon_ring
@@ -106202,6 +106685,7 @@ RMUX37,3,4,RMUX64,3,3,silicon_ring
 RMUX37,3,4,RMUX65,3,3,silicon_ring
 RMUX37,3,4,RMUX70,3,3,silicon_ring
 RMUX38,3,4,RMUX50,4,4,silicon_ring
+RMUX38,3,4,RMUX51,4,4,silicon_ring
 RMUX38,3,4,RMUX56,4,4,silicon_ring
 RMUX38,3,4,RMUX57,4,4,silicon_ring
 RMUX38,3,4,RMUX51,5,4,silicon_ring
@@ -106269,6 +106753,7 @@ RMUX51,3,4,RMUX10,6,4,silicon_ring
 RMUX51,3,4,RMUX14,6,4,silicon_ring
 RMUX51,3,4,RMUX15,6,4,silicon_ring
 RMUX51,3,4,RMUX10,7,4,silicon_ring
+RMUX51,3,4,RMUX15,7,4,silicon_ring
 RMUX51,3,4,RMUX21,7,4,silicon_ring
 RMUX52,3,4,IMUX08,3,4,silicon_ring
 RMUX52,3,4,IMUX20,3,4,silicon_ring
@@ -106897,6 +107382,7 @@ RMUX01,4,1,RMUX22,5,1,silicon_ring
 RMUX01,4,1,RMUX23,5,1,silicon_ring
 RMUX02,4,1,RMUX08,4,2,silicon_ring
 RMUX02,4,1,RMUX19,4,2,silicon_ring
+RMUX02,4,1,RMUX03,4,4,silicon_ring
 RMUX03,4,1,RMUX11,1,1,silicon_ring
 RMUX03,4,1,RMUX04,2,1,silicon_ring
 RMUX03,4,1,RMUX20,2,1,silicon_ring
@@ -107008,6 +107494,7 @@ RMUX31,4,1,RMUX25,6,1,silicon_ring
 RMUX31,4,1,RMUX31,8,1,silicon_ring
 RMUX32,4,1,RMUX26,4,2,silicon_ring
 RMUX32,4,1,RMUX27,4,2,silicon_ring
+RMUX32,4,1,RMUX37,4,2,silicon_ring
 RMUX32,4,1,RMUX43,4,2,silicon_ring
 RMUX32,4,1,RMUX43,4,4,silicon_ring
 RMUX33,4,1,RMUX29,1,1,silicon_ring
@@ -107017,6 +107504,7 @@ RMUX33,4,1,RMUX29,2,1,silicon_ring
 RMUX33,4,1,RMUX39,2,1,silicon_ring
 RMUX33,4,1,RMUX34,3,1,silicon_ring
 RMUX33,4,1,RMUX38,3,1,silicon_ring
+RMUX33,4,1,RMUX39,3,1,silicon_ring
 RMUX33,4,1,RMUX45,3,1,silicon_ring
 RMUX34,4,1,IMUX08,4,1,silicon_ring
 RMUX34,4,1,IMUX60,4,1,silicon_ring
@@ -107124,6 +107612,7 @@ RMUX68,4,1,RMUX85,6,1,silicon_ring
 RMUX68,4,1,RMUX75,7,1,silicon_ring
 RMUX68,4,1,RMUX91,7,1,silicon_ring
 RMUX68,4,1,RMUX75,8,1,silicon_ring
+RMUX68,4,1,RMUX81,8,1,silicon_ring
 RMUX68,4,1,RMUX91,8,1,silicon_ring
 RMUX69,4,1,RMUX76,4,2,silicon_ring
 RMUX69,4,1,RMUX82,4,2,silicon_ring
@@ -107874,6 +108363,7 @@ RMUX39,4,2,RMUX58,4,3,silicon_ring
 RMUX39,4,2,RMUX59,4,3,silicon_ring
 RMUX39,4,2,RMUX62,4,3,silicon_ring
 RMUX39,4,2,RMUX63,4,3,silicon_ring
+RMUX39,4,2,RMUX68,4,3,silicon_ring
 RMUX39,4,2,RMUX69,4,3,silicon_ring
 RMUX39,4,2,RMUX68,4,4,silicon_ring
 RMUX40,4,2,IMUX20,4,2,silicon_ring
@@ -108076,6 +108566,7 @@ RMUX91,4,2,RMUX73,8,2,silicon_ring
 RMUX92,4,2,RMUX80,4,3,silicon_ring
 RMUX92,4,2,RMUX81,4,3,silicon_ring
 RMUX92,4,2,RMUX85,4,3,silicon_ring
+RMUX92,4,2,RMUX91,4,3,silicon_ring
 RMUX92,4,2,RMUX74,4,4,silicon_ring
 RMUX92,4,2,RMUX81,4,4,silicon_ring
 RMUX93,4,2,RMUX77,1,2,silicon_ring
@@ -108659,9 +109150,11 @@ RMUX13,4,3,RMUX64,3,3,silicon_ring
 RMUX13,4,3,RMUX70,3,3,silicon_ring
 RMUX14,4,3,RMUX50,4,2,silicon_ring
 RMUX14,4,3,RMUX56,4,2,silicon_ring
+RMUX14,4,3,RMUX67,4,2,silicon_ring
 RMUX15,4,3,RMUX58,5,3,silicon_ring
 RMUX15,4,3,RMUX62,5,3,silicon_ring
 RMUX15,4,3,RMUX63,5,3,silicon_ring
+RMUX15,4,3,RMUX68,5,3,silicon_ring
 RMUX15,4,3,RMUX69,5,3,silicon_ring
 RMUX15,4,3,RMUX52,6,3,silicon_ring
 RMUX15,4,3,RMUX58,6,3,silicon_ring
@@ -108747,6 +109240,7 @@ RMUX33,4,3,RMUX29,3,3,silicon_ring
 RMUX33,4,3,RMUX34,3,3,silicon_ring
 RMUX33,4,3,RMUX39,3,3,silicon_ring
 RMUX33,4,3,RMUX44,3,3,silicon_ring
+RMUX33,4,3,RMUX45,3,3,silicon_ring
 RMUX34,4,3,IMUX24,4,3,silicon_ring
 RMUX34,4,3,IMUX28,4,3,silicon_ring
 RMUX35,4,3,IMUX21,4,3,silicon_ring
@@ -108785,6 +109279,7 @@ RMUX41,4,3,IMUX49,4,3,silicon_ring
 RMUX41,4,3,IMUX53,4,3,silicon_ring
 RMUX41,4,3,IMUX57,4,3,silicon_ring
 RMUX41,4,3,IMUX61,4,3,silicon_ring
+RMUX43,4,3,RMUX73,1,3,silicon_ring
 RMUX43,4,3,RMUX73,2,3,silicon_ring
 RMUX43,4,3,RMUX88,2,3,silicon_ring
 RMUX43,4,3,RMUX94,2,3,silicon_ring
@@ -108921,6 +109416,7 @@ RMUX80,4,3,RMUX33,4,1,silicon_ring
 RMUX80,4,3,RMUX26,4,2,silicon_ring
 RMUX80,4,3,RMUX27,4,2,silicon_ring
 RMUX80,4,3,RMUX33,4,2,silicon_ring
+RMUX80,4,3,RMUX37,4,2,silicon_ring
 RMUX80,4,3,RMUX43,4,2,silicon_ring
 RMUX81,4,3,RMUX28,5,3,silicon_ring
 RMUX81,4,3,RMUX29,5,3,silicon_ring
@@ -110354,6 +110850,7 @@ RMUX08,5,1,RMUX26,7,1,silicon_ring
 RMUX08,5,1,RMUX26,9,1,silicon_ring
 RMUX08,5,1,RMUX32,9,1,silicon_ring
 RMUX09,5,1,RMUX34,5,2,silicon_ring
+RMUX09,5,1,RMUX38,5,2,silicon_ring
 RMUX09,5,1,RMUX39,5,2,silicon_ring
 RMUX09,5,1,RMUX44,5,2,silicon_ring
 RMUX09,5,1,RMUX45,5,2,silicon_ring
@@ -110455,6 +110952,7 @@ RMUX26,5,1,RMUX02,3,1,silicon_ring
 RMUX26,5,1,RMUX19,3,1,silicon_ring
 RMUX26,5,1,RMUX03,4,1,silicon_ring
 RMUX26,5,1,RMUX09,4,1,silicon_ring
+RMUX26,5,1,RMUX19,4,1,silicon_ring
 RMUX28,5,1,IMUX00,5,1,silicon_ring
 RMUX28,5,1,IMUX08,5,1,silicon_ring
 RMUX28,5,1,IMUX28,5,1,silicon_ring
@@ -110495,6 +110993,7 @@ RMUX39,5,1,RMUX52,5,2,silicon_ring
 RMUX39,5,1,RMUX58,5,2,silicon_ring
 RMUX39,5,1,RMUX59,5,2,silicon_ring
 RMUX39,5,1,RMUX62,5,2,silicon_ring
+RMUX39,5,1,RMUX63,5,2,silicon_ring
 RMUX39,5,1,RMUX68,5,2,silicon_ring
 RMUX39,5,1,RMUX69,5,2,silicon_ring
 RMUX39,5,1,RMUX69,5,3,silicon_ring
@@ -110592,6 +111091,7 @@ RMUX68,5,1,RMUX74,7,1,silicon_ring
 RMUX68,5,1,RMUX85,7,1,silicon_ring
 RMUX68,5,1,RMUX74,8,1,silicon_ring
 RMUX68,5,1,RMUX81,8,1,silicon_ring
+RMUX68,5,1,RMUX85,8,1,silicon_ring
 RMUX68,5,1,RMUX85,9,1,silicon_ring
 RMUX68,5,1,RMUX91,9,1,silicon_ring
 RMUX69,5,1,RMUX86,5,2,silicon_ring
@@ -110614,6 +111114,7 @@ RMUX74,5,1,RMUX13,6,1,silicon_ring
 RMUX74,5,1,RMUX19,6,1,silicon_ring
 RMUX74,5,1,RMUX02,7,1,silicon_ring
 RMUX74,5,1,RMUX09,7,1,silicon_ring
+RMUX74,5,1,RMUX08,9,1,silicon_ring
 RMUX75,5,1,RMUX77,5,1,silicon_ring
 RMUX75,5,1,RMUX04,5,2,silicon_ring
 RMUX75,5,1,RMUX10,5,2,silicon_ring
@@ -110621,6 +111122,7 @@ RMUX75,5,1,RMUX15,5,2,silicon_ring
 RMUX75,5,1,RMUX20,5,2,silicon_ring
 RMUX75,5,1,RMUX21,5,2,silicon_ring
 RMUX75,5,1,RMUX10,5,3,silicon_ring
+RMUX75,5,1,RMUX15,5,3,silicon_ring
 RMUX75,5,1,RMUX20,5,3,silicon_ring
 RMUX75,5,1,RMUX10,5,4,silicon_ring
 RMUX75,5,1,RMUX14,5,4,silicon_ring
@@ -111216,6 +111718,7 @@ RMUX03,5,2,RMUX04,4,2,silicon_ring
 RMUX03,5,2,RMUX10,4,2,silicon_ring
 RMUX03,5,2,RMUX15,4,2,silicon_ring
 RMUX03,5,2,RMUX20,4,2,silicon_ring
+RMUX03,5,2,RMUX21,4,2,silicon_ring
 RMUX04,5,2,IMUX12,5,2,silicon_ring
 RMUX04,5,2,IMUX24,5,2,silicon_ring
 RMUX04,5,2,IMUX56,5,2,silicon_ring
@@ -111241,6 +111744,7 @@ RMUX08,5,2,RMUX37,7,2,silicon_ring
 RMUX08,5,2,RMUX27,8,2,silicon_ring
 RMUX08,5,2,RMUX37,8,2,silicon_ring
 RMUX08,5,2,RMUX26,9,2,silicon_ring
+RMUX08,5,2,RMUX27,9,2,silicon_ring
 RMUX09,5,2,RMUX11,5,2,silicon_ring
 RMUX09,5,2,RMUX28,5,3,silicon_ring
 RMUX09,5,2,RMUX39,5,3,silicon_ring
@@ -111495,6 +111999,7 @@ RMUX69,5,2,RMUX76,5,3,silicon_ring
 RMUX69,5,2,RMUX82,5,3,silicon_ring
 RMUX69,5,2,RMUX86,5,3,silicon_ring
 RMUX69,5,2,RMUX87,5,3,silicon_ring
+RMUX69,5,2,RMUX93,5,3,silicon_ring
 RMUX69,5,2,RMUX77,5,4,silicon_ring
 RMUX69,5,2,RMUX86,5,4,silicon_ring
 RMUX69,5,2,RMUX87,5,4,silicon_ring
@@ -111515,6 +112020,7 @@ RMUX74,5,2,RMUX13,6,2,silicon_ring
 RMUX74,5,2,RMUX08,7,2,silicon_ring
 RMUX74,5,2,RMUX09,7,2,silicon_ring
 RMUX74,5,2,RMUX08,8,2,silicon_ring
+RMUX74,5,2,RMUX08,9,2,silicon_ring
 RMUX75,5,2,RMUX77,5,2,silicon_ring
 RMUX75,5,2,RMUX04,5,3,silicon_ring
 RMUX75,5,2,RMUX10,5,3,silicon_ring
@@ -112167,6 +112673,7 @@ RMUX15,5,3,RMUX62,6,3,silicon_ring
 RMUX15,5,3,RMUX69,6,3,silicon_ring
 RMUX15,5,3,RMUX62,7,3,silicon_ring
 RMUX15,5,3,RMUX68,7,3,silicon_ring
+RMUX15,5,3,RMUX69,7,3,silicon_ring
 RMUX15,5,3,RMUX62,8,3,silicon_ring
 RMUX15,5,3,RMUX69,8,3,silicon_ring
 RMUX15,5,3,RMUX68,9,3,silicon_ring
@@ -112311,6 +112818,7 @@ RMUX43,5,3,RMUX73,1,3,silicon_ring
 RMUX43,5,3,RMUX88,1,3,silicon_ring
 RMUX43,5,3,RMUX73,3,3,silicon_ring
 RMUX43,5,3,RMUX73,4,3,silicon_ring
+RMUX43,5,3,RMUX88,4,3,silicon_ring
 RMUX44,5,3,RMUX91,5,1,silicon_ring
 RMUX44,5,3,RMUX74,5,2,silicon_ring
 RMUX44,5,3,RMUX75,5,2,silicon_ring
@@ -112445,6 +112953,7 @@ RMUX75,5,3,RMUX04,5,4,silicon_ring
 RMUX75,5,3,RMUX05,5,4,silicon_ring
 RMUX75,5,3,RMUX10,5,4,silicon_ring
 RMUX75,5,3,RMUX15,5,4,silicon_ring
+RMUX75,5,3,RMUX20,5,4,silicon_ring
 RMUX75,5,3,RMUX21,5,4,silicon_ring
 RMUX76,5,3,IMUX12,5,3,silicon_ring
 RMUX76,5,3,IMUX32,5,3,silicon_ring
@@ -113304,7 +113813,9 @@ RMUX67,5,4,RMUX73,5,3,silicon_ring
 RMUX67,5,4,RMUX79,5,3,silicon_ring
 RMUX67,5,4,RMUX88,5,3,silicon_ring
 RMUX67,5,4,RMUX89,5,3,silicon_ring
+RMUX68,5,4,RMUX80,6,4,silicon_ring
 RMUX68,5,4,RMUX91,6,4,silicon_ring
+RMUX68,5,4,RMUX74,9,4,silicon_ring
 RMUX68,5,4,RMUX80,9,4,silicon_ring
 RMUX68,5,4,RMUX81,9,4,silicon_ring
 RMUX68,5,4,RMUX91,9,4,silicon_ring
@@ -113345,6 +113856,7 @@ RMUX80,5,4,RMUX37,5,3,silicon_ring
 RMUX80,5,4,RMUX43,5,3,silicon_ring
 RMUX81,5,4,RMUX28,6,4,silicon_ring
 RMUX81,5,4,RMUX34,6,4,silicon_ring
+RMUX81,5,4,RMUX38,6,4,silicon_ring
 RMUX81,5,4,RMUX44,6,4,silicon_ring
 RMUX81,5,4,RMUX38,7,4,silicon_ring
 RMUX81,5,4,RMUX45,7,4,silicon_ring
@@ -113907,6 +114419,7 @@ RMUX02,6,1,RMUX13,6,2,silicon_ring
 RMUX02,6,1,RMUX19,6,2,silicon_ring
 RMUX02,6,1,RMUX13,6,3,silicon_ring
 RMUX02,6,1,RMUX19,6,3,silicon_ring
+RMUX02,6,1,RMUX03,6,4,silicon_ring
 RMUX03,6,1,RMUX04,2,1,silicon_ring
 RMUX03,6,1,RMUX05,2,1,silicon_ring
 RMUX03,6,1,RMUX10,2,1,silicon_ring
@@ -113944,6 +114457,7 @@ RMUX10,6,1,IMUX36,6,1,silicon_ring
 RMUX11,6,1,IMUX05,6,1,silicon_ring
 RMUX13,6,1,RMUX48,2,1,silicon_ring
 RMUX13,6,1,RMUX49,2,1,silicon_ring
+RMUX13,6,1,RMUX55,2,1,silicon_ring
 RMUX13,6,1,RMUX64,2,1,silicon_ring
 RMUX13,6,1,RMUX70,2,1,silicon_ring
 RMUX13,6,1,RMUX64,4,1,silicon_ring
@@ -114113,6 +114627,7 @@ RMUX63,6,1,RMUX63,2,1,silicon_ring
 RMUX63,6,1,RMUX58,3,1,silicon_ring
 RMUX63,6,1,RMUX63,3,1,silicon_ring
 RMUX63,6,1,RMUX53,4,1,silicon_ring
+RMUX63,6,1,RMUX69,4,1,silicon_ring
 RMUX63,6,1,RMUX52,5,1,silicon_ring
 RMUX63,6,1,RMUX58,5,1,silicon_ring
 RMUX63,6,1,RMUX63,5,1,silicon_ring
@@ -114206,6 +114721,7 @@ RMUX81,6,1,RMUX38,7,1,silicon_ring
 RMUX81,6,1,RMUX45,7,1,silicon_ring
 RMUX81,6,1,RMUX38,8,1,silicon_ring
 RMUX81,6,1,RMUX39,9,1,silicon_ring
+RMUX81,6,1,RMUX45,9,1,silicon_ring
 RMUX82,6,1,IMUX00,6,1,silicon_ring
 RMUX82,6,1,IMUX08,6,1,silicon_ring
 RMUX82,6,1,IMUX36,6,1,silicon_ring
@@ -114798,6 +115314,7 @@ RMUX15,6,2,RMUX58,8,2,silicon_ring
 RMUX15,6,2,RMUX62,8,2,silicon_ring
 RMUX15,6,2,RMUX68,8,2,silicon_ring
 RMUX15,6,2,RMUX69,8,2,silicon_ring
+RMUX15,6,2,RMUX68,9,2,silicon_ring
 RMUX16,6,2,IMUX12,6,2,silicon_ring
 RMUX16,6,2,IMUX40,6,2,silicon_ring
 RMUX16,6,2,IMUX62,6,2,silicon_ring
@@ -114809,6 +115326,7 @@ RMUX19,6,2,RMUX73,6,3,silicon_ring
 RMUX19,6,2,RMUX88,6,3,silicon_ring
 RMUX19,6,2,RMUX72,6,4,silicon_ring
 RMUX19,6,2,RMUX79,6,4,silicon_ring
+RMUX20,6,2,RMUX81,2,2,silicon_ring
 RMUX20,6,2,RMUX91,2,2,silicon_ring
 RMUX20,6,2,RMUX75,3,2,silicon_ring
 RMUX20,6,2,RMUX84,3,2,silicon_ring
@@ -114897,6 +115415,7 @@ RMUX44,6,2,RMUX74,6,1,silicon_ring
 RMUX44,6,2,RMUX75,6,1,silicon_ring
 RMUX44,6,2,RMUX81,6,1,silicon_ring
 RMUX44,6,2,RMUX91,6,1,silicon_ring
+RMUX45,6,2,RMUX87,10,2,silicon_ring
 RMUX45,6,2,RMUX87,7,2,silicon_ring
 RMUX45,6,2,RMUX93,7,2,silicon_ring
 RMUX45,6,2,RMUX87,9,2,silicon_ring
@@ -115801,6 +116320,7 @@ RMUX34,6,3,IMUX08,6,3,silicon_ring
 RMUX34,6,3,IMUX28,6,3,silicon_ring
 RMUX37,6,3,RMUX49,6,1,silicon_ring
 RMUX37,6,3,RMUX48,6,2,silicon_ring
+RMUX37,6,3,RMUX49,6,2,silicon_ring
 RMUX37,6,3,RMUX64,6,2,silicon_ring
 RMUX37,6,3,RMUX65,6,2,silicon_ring
 RMUX37,6,3,RMUX70,6,2,silicon_ring
@@ -116754,6 +117274,7 @@ RMUX56,6,4,RMUX43,3,4,silicon_ring
 RMUX56,6,4,RMUX27,4,4,silicon_ring
 RMUX56,6,4,RMUX43,4,4,silicon_ring
 RMUX56,6,4,RMUX33,5,4,silicon_ring
+RMUX56,6,4,RMUX37,5,4,silicon_ring
 RMUX56,6,4,RMUX43,5,4,silicon_ring
 RMUX57,6,4,RMUX38,6,2,silicon_ring
 RMUX57,6,4,RMUX44,6,2,silicon_ring
@@ -116873,6 +117394,7 @@ RMUX91,6,4,RMUX88,9,4,silicon_ring
 RMUX93,6,4,RMUX77,2,4,silicon_ring
 RMUX93,6,4,RMUX86,2,4,silicon_ring
 RMUX93,6,4,RMUX87,2,4,silicon_ring
+RMUX93,6,4,RMUX93,2,4,silicon_ring
 RMUX93,6,4,RMUX77,3,4,silicon_ring
 RMUX93,6,4,RMUX86,3,4,silicon_ring
 RMUX93,6,4,RMUX87,3,4,silicon_ring
@@ -117606,6 +118128,7 @@ RMUX53,7,1,IMUX57,7,1,silicon_ring
 RMUX53,7,1,IMUX61,7,1,silicon_ring
 RMUX55,7,1,RMUX25,7,3,silicon_ring
 RMUX56,7,1,RMUX26,3,1,silicon_ring
+RMUX56,7,1,RMUX32,3,1,silicon_ring
 RMUX56,7,1,RMUX36,3,1,silicon_ring
 RMUX56,7,1,RMUX33,4,1,silicon_ring
 RMUX56,7,1,RMUX33,6,1,silicon_ring
@@ -118268,6 +118791,7 @@ RMUX01,7,2,RMUX07,9,2,silicon_ring
 RMUX03,7,2,RMUX05,3,2,silicon_ring
 RMUX03,7,2,RMUX04,4,2,silicon_ring
 RMUX03,7,2,RMUX05,4,2,silicon_ring
+RMUX03,7,2,RMUX20,4,2,silicon_ring
 RMUX03,7,2,RMUX20,5,2,silicon_ring
 RMUX03,7,2,RMUX04,6,2,silicon_ring
 RMUX03,7,2,RMUX10,6,2,silicon_ring
@@ -118380,6 +118904,7 @@ RMUX26,7,2,RMUX09,3,2,silicon_ring
 RMUX26,7,2,RMUX03,4,2,silicon_ring
 RMUX26,7,2,RMUX19,4,2,silicon_ring
 RMUX26,7,2,RMUX02,5,2,silicon_ring
+RMUX26,7,2,RMUX03,5,2,silicon_ring
 RMUX26,7,2,RMUX03,6,2,silicon_ring
 RMUX26,7,2,RMUX09,6,2,silicon_ring
 RMUX27,7,2,RMUX04,7,1,silicon_ring
@@ -118427,6 +118952,7 @@ RMUX38,7,2,RMUX56,8,2,silicon_ring
 RMUX38,7,2,RMUX67,8,2,silicon_ring
 RMUX39,7,2,RMUX68,7,3,silicon_ring
 RMUX39,7,2,RMUX69,7,3,silicon_ring
+RMUX39,7,2,RMUX63,7,4,silicon_ring
 RMUX39,7,2,RMUX68,7,4,silicon_ring
 RMUX40,7,2,IMUX48,7,2,silicon_ring
 RMUX41,7,2,IMUX21,7,2,silicon_ring
@@ -118487,7 +119013,9 @@ RMUX50,7,2,RMUX08,7,3,silicon_ring
 RMUX51,7,2,RMUX15,10,2,silicon_ring
 RMUX51,7,2,RMUX15,11,2,silicon_ring
 RMUX51,7,2,RMUX20,11,2,silicon_ring
+RMUX51,7,2,RMUX21,11,2,silicon_ring
 RMUX51,7,2,RMUX20,8,2,silicon_ring
+RMUX51,7,2,RMUX21,8,2,silicon_ring
 RMUX51,7,2,RMUX14,9,2,silicon_ring
 RMUX51,7,2,RMUX15,9,2,silicon_ring
 RMUX52,7,2,IMUX40,7,2,silicon_ring
@@ -118610,6 +119138,7 @@ RMUX85,7,2,RMUX49,7,4,silicon_ring
 RMUX85,7,2,RMUX64,7,4,silicon_ring
 RMUX86,7,2,RMUX57,3,2,silicon_ring
 RMUX86,7,2,RMUX67,3,2,silicon_ring
+RMUX86,7,2,RMUX67,4,2,silicon_ring
 RMUX86,7,2,RMUX50,5,2,silicon_ring
 RMUX86,7,2,RMUX56,5,2,silicon_ring
 RMUX86,7,2,RMUX50,6,2,silicon_ring
@@ -118627,6 +119156,7 @@ RMUX88,7,2,IMUX40,7,2,silicon_ring
 RMUX89,7,2,IMUX21,7,2,silicon_ring
 RMUX89,7,2,IMUX25,7,2,silicon_ring
 RMUX91,7,2,RMUX73,10,2,silicon_ring
+RMUX91,7,2,RMUX73,8,2,silicon_ring
 RMUX91,7,2,RMUX79,8,2,silicon_ring
 RMUX91,7,2,RMUX79,9,2,silicon_ring
 RMUX92,7,2,RMUX75,7,3,silicon_ring
@@ -119274,6 +119804,7 @@ RMUX25,7,3,RMUX23,7,4,silicon_ring
 RMUX27,7,3,RMUX15,7,1,silicon_ring
 RMUX27,7,3,RMUX04,7,2,silicon_ring
 RMUX27,7,3,RMUX10,7,2,silicon_ring
+RMUX27,7,3,RMUX15,7,2,silicon_ring
 RMUX27,7,3,RMUX21,7,2,silicon_ring
 RMUX28,7,3,IMUX00,7,3,silicon_ring
 RMUX28,7,3,IMUX04,7,3,silicon_ring
@@ -119290,6 +119821,7 @@ RMUX31,7,3,RMUX40,10,3,silicon_ring
 RMUX31,7,3,RMUX31,11,3,silicon_ring
 RMUX31,7,3,RMUX40,11,3,silicon_ring
 RMUX31,7,3,RMUX25,8,3,silicon_ring
+RMUX31,7,3,RMUX31,8,3,silicon_ring
 RMUX32,7,3,RMUX26,7,4,silicon_ring
 RMUX32,7,3,RMUX27,7,4,silicon_ring
 RMUX32,7,3,RMUX37,7,4,silicon_ring
@@ -119326,6 +119858,7 @@ RMUX40,7,3,IMUX20,7,3,silicon_ring
 RMUX40,7,3,IMUX46,7,3,silicon_ring
 RMUX40,7,3,IMUX48,7,3,silicon_ring
 RMUX43,7,3,RMUX73,3,3,silicon_ring
+RMUX43,7,3,RMUX73,4,3,silicon_ring
 RMUX43,7,3,RMUX88,5,3,silicon_ring
 RMUX43,7,3,RMUX73,6,3,silicon_ring
 RMUX44,7,3,RMUX75,7,2,silicon_ring
@@ -120162,6 +120695,7 @@ RMUX31,7,4,RMUX31,11,4,silicon_ring
 RMUX31,7,4,RMUX41,8,4,silicon_ring
 RMUX31,7,4,RMUX46,9,4,silicon_ring
 RMUX33,7,4,RMUX44,3,4,silicon_ring
+RMUX33,7,4,RMUX44,4,4,silicon_ring
 RMUX33,7,4,RMUX44,6,4,silicon_ring
 RMUX33,7,4,RMUX45,6,4,silicon_ring
 RMUX34,7,4,IMUX08,7,4,silicon_ring
@@ -120949,6 +121483,7 @@ RMUX13,8,1,RMUX49,5,1,silicon_ring
 RMUX13,8,1,RMUX70,6,1,silicon_ring
 RMUX13,8,1,RMUX49,7,1,silicon_ring
 RMUX13,8,1,RMUX64,7,1,silicon_ring
+RMUX15,8,1,RMUX62,10,1,silicon_ring
 RMUX15,8,1,RMUX68,10,1,silicon_ring
 RMUX15,8,1,RMUX69,10,1,silicon_ring
 RMUX15,8,1,RMUX52,11,1,silicon_ring
@@ -121191,6 +121726,7 @@ RMUX79,8,1,RMUX40,4,1,silicon_ring
 RMUX79,8,1,RMUX46,4,1,silicon_ring
 RMUX79,8,1,RMUX40,5,1,silicon_ring
 RMUX79,8,1,RMUX46,5,1,silicon_ring
+RMUX79,8,1,RMUX25,6,1,silicon_ring
 RMUX79,8,1,RMUX46,6,1,silicon_ring
 RMUX79,8,1,RMUX31,7,1,silicon_ring
 RMUX79,8,1,RMUX40,7,1,silicon_ring
@@ -121927,6 +122463,7 @@ RMUX44,8,2,RMUX85,8,1,silicon_ring
 RMUX44,8,2,RMUX85,8,2,silicon_ring
 RMUX45,8,2,RMUX92,10,2,silicon_ring
 RMUX45,8,2,RMUX93,10,2,silicon_ring
+RMUX45,8,2,RMUX87,9,2,silicon_ring
 RMUX47,8,2,IMUX05,8,2,silicon_ring
 RMUX47,8,2,IMUX25,8,2,silicon_ring
 RMUX48,8,2,IMUX00,7,2,silicon_ring
@@ -122078,7 +122615,9 @@ RMUX85,8,2,RMUX55,8,3,silicon_ring
 RMUX85,8,2,RMUX64,8,3,silicon_ring
 RMUX85,8,2,RMUX65,8,3,silicon_ring
 RMUX85,8,2,RMUX49,8,4,silicon_ring
+RMUX86,8,2,RMUX57,4,2,silicon_ring
 RMUX86,8,2,RMUX67,4,2,silicon_ring
+RMUX86,8,2,RMUX57,5,2,silicon_ring
 RMUX86,8,2,RMUX56,6,2,silicon_ring
 RMUX86,8,2,RMUX61,7,2,silicon_ring
 RMUX87,8,2,RMUX52,8,1,silicon_ring
@@ -122495,6 +123034,7 @@ RMUX79,8,3,RMUX25,6,3,silicon_ring
 RMUX79,8,3,RMUX40,6,3,silicon_ring
 RMUX79,8,3,RMUX46,6,3,silicon_ring
 RMUX79,8,3,RMUX40,7,3,silicon_ring
+RMUX80,8,3,RMUX33,8,1,silicon_ring
 RMUX80,8,3,RMUX33,8,2,silicon_ring
 RMUX80,8,3,RMUX37,8,2,silicon_ring
 RMUX81,8,3,RMUX45,10,3,silicon_ring
@@ -124021,6 +124561,7 @@ RMUX32,9,1,RMUX27,9,2,silicon_ring
 RMUX32,9,1,RMUX33,9,2,silicon_ring
 RMUX32,9,1,RMUX37,9,2,silicon_ring
 RMUX32,9,1,RMUX27,9,4,silicon_ring
+RMUX32,9,1,RMUX43,9,4,silicon_ring
 RMUX33,9,1,RMUX39,5,1,silicon_ring
 RMUX33,9,1,RMUX39,7,1,silicon_ring
 RMUX33,9,1,RMUX28,8,1,silicon_ring
@@ -124079,6 +124620,7 @@ RMUX55,9,1,RMUX25,9,3,silicon_ring
 RMUX55,9,1,RMUX24,9,4,silicon_ring
 RMUX56,9,1,RMUX43,5,1,silicon_ring
 RMUX56,9,1,RMUX26,6,1,silicon_ring
+RMUX56,9,1,RMUX33,6,1,silicon_ring
 RMUX56,9,1,RMUX43,8,1,silicon_ring
 RMUX58,9,1,IMUX20,9,1,silicon_ring
 RMUX58,9,1,IMUX32,9,1,silicon_ring
@@ -124919,6 +125461,7 @@ RMUX59,9,2,IMUX19,9,2,silicon_ring
 RMUX59,9,2,IMUX49,9,2,silicon_ring
 RMUX61,9,2,RMUX64,10,2,silicon_ring
 RMUX62,9,2,RMUX67,9,3,silicon_ring
+RMUX62,9,2,RMUX56,9,4,silicon_ring
 RMUX62,9,2,RMUX67,9,4,silicon_ring
 RMUX63,9,2,RMUX62,5,2,silicon_ring
 RMUX63,9,2,RMUX63,5,2,silicon_ring
@@ -124943,6 +125486,7 @@ RMUX68,9,2,RMUX75,12,2,silicon_ring
 RMUX68,9,2,RMUX80,12,2,silicon_ring
 RMUX68,9,2,RMUX91,12,2,silicon_ring
 RMUX68,9,2,RMUX74,13,2,silicon_ring
+RMUX68,9,2,RMUX81,13,2,silicon_ring
 RMUX69,9,2,RMUX87,9,3,silicon_ring
 RMUX69,9,2,RMUX92,9,3,silicon_ring
 RMUX69,9,2,RMUX93,9,3,silicon_ring
@@ -125639,6 +126183,7 @@ RMUX26,9,3,RMUX02,5,3,silicon_ring
 RMUX26,9,3,RMUX03,5,3,silicon_ring
 RMUX26,9,3,RMUX19,5,3,silicon_ring
 RMUX26,9,3,RMUX03,6,3,silicon_ring
+RMUX26,9,3,RMUX09,6,3,silicon_ring
 RMUX26,9,3,RMUX13,6,3,silicon_ring
 RMUX26,9,3,RMUX13,7,3,silicon_ring
 RMUX26,9,3,RMUX19,7,3,silicon_ring
@@ -125818,6 +126363,7 @@ RMUX79,9,3,RMUX31,8,3,silicon_ring
 RMUX79,9,3,RMUX46,8,3,silicon_ring
 RMUX81,9,3,RMUX34,10,3,silicon_ring
 RMUX81,9,3,RMUX38,10,3,silicon_ring
+RMUX81,9,3,RMUX45,10,3,silicon_ring
 RMUX81,9,3,RMUX39,11,3,silicon_ring
 RMUX81,9,3,RMUX44,11,3,silicon_ring
 RMUX81,9,3,RMUX28,12,3,silicon_ring
@@ -125837,6 +126383,7 @@ RMUX87,9,3,RMUX52,9,2,silicon_ring
 RMUX87,9,3,RMUX53,9,2,silicon_ring
 RMUX87,9,3,RMUX59,9,2,silicon_ring
 RMUX87,9,3,RMUX63,9,2,silicon_ring
+RMUX87,9,3,RMUX68,9,2,silicon_ring
 RMUX88,9,3,IMUX32,9,3,silicon_ring
 RMUX88,9,3,IMUX40,9,3,silicon_ring
 RMUX89,9,3,IMUX05,9,3,silicon_ring
@@ -125859,6 +126406,7 @@ RMUX93,9,3,RMUX82,5,3,silicon_ring
 RMUX93,9,3,RMUX86,5,3,silicon_ring
 RMUX93,9,3,RMUX87,5,3,silicon_ring
 RMUX93,9,3,RMUX86,6,3,silicon_ring
+RMUX93,9,3,RMUX92,6,3,silicon_ring
 RMUX93,9,3,RMUX86,7,3,silicon_ring
 RMUX93,9,3,RMUX87,7,3,silicon_ring
 RMUX93,9,3,RMUX77,8,3,silicon_ring
@@ -126404,6 +126952,7 @@ RMUX07,9,4,RMUX24,9,3,silicon_ring
 RMUX07,9,4,RMUX25,9,3,silicon_ring
 RMUX07,9,4,RMUX40,9,3,silicon_ring
 RMUX08,9,4,RMUX26,10,4,silicon_ring
+RMUX08,9,4,RMUX27,10,4,silicon_ring
 RMUX08,9,4,RMUX33,10,4,silicon_ring
 RMUX08,9,4,RMUX37,10,4,silicon_ring
 RMUX08,9,4,RMUX43,10,4,silicon_ring
@@ -126438,6 +126987,7 @@ RMUX20,9,4,RMUX74,5,4,silicon_ring
 RMUX20,9,4,RMUX80,5,4,silicon_ring
 RMUX20,9,4,RMUX81,5,4,silicon_ring
 RMUX20,9,4,RMUX80,6,4,silicon_ring
+RMUX20,9,4,RMUX74,7,4,silicon_ring
 RMUX20,9,4,RMUX80,7,4,silicon_ring
 RMUX20,9,4,RMUX91,7,4,silicon_ring
 RMUX20,9,4,RMUX80,8,4,silicon_ring
@@ -126605,11 +127155,18 @@ RMUX74,9,4,RMUX08,12,4,silicon_ring
 RMUX76,9,4,IMUX32,9,4,silicon_ring
 RMUX77,9,4,IMUX27,9,4,silicon_ring
 RMUX77,9,4,IMUX35,9,4,silicon_ring
+RMUX77,9,4,IMUX39,9,4,silicon_ring
 RMUX77,9,4,IMUX41,9,4,silicon_ring
+RMUX77,9,4,IMUX43,9,4,silicon_ring
 RMUX77,9,4,IMUX45,9,4,silicon_ring
+RMUX77,9,4,IMUX47,9,4,silicon_ring
+RMUX77,9,4,IMUX51,9,4,silicon_ring
 RMUX77,9,4,IMUX53,9,4,silicon_ring
+RMUX77,9,4,IMUX55,9,4,silicon_ring
 RMUX77,9,4,IMUX57,9,4,silicon_ring
+RMUX77,9,4,IMUX59,9,4,silicon_ring
 RMUX77,9,4,IMUX61,9,4,silicon_ring
+RMUX77,9,4,IMUX63,9,4,silicon_ring
 RMUX78,9,4,IMUX53,8,4,silicon_ring
 RMUX79,9,4,RMUX24,5,4,silicon_ring
 RMUX79,9,4,RMUX40,7,4,silicon_ring

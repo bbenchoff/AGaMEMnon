@@ -88,3 +88,17 @@ corpus_conduction.csv,RMUX91,13,3,RMUX73,15,3,corpus_route
 corpus_conduction.csv,RMUX92,19,4,RMUX74,19,8,corpus_route
 corpus_conduction.csv,RMUX93,17,6,RMUX77,15,6,corpus_route
 corpus_conduction.csv,RMUX39,14,1,RMUX68,14,4,corpus_route
+corpus_conduction.csv,OMUX14,16,4,RMUX43,16,4,corpus_route
+corpus_conduction.csv,RMUX02,17,1,RMUX09,17,4,corpus_route
+corpus_conduction.csv,RMUX02,19,1,RMUX09,19,4,corpus_route
+corpus_conduction.csv,RMUX15,14,10,RMUX68,18,10,corpus_route
+corpus_conduction.csv,RMUX26,16,10,RMUX03,14,10,corpus_route
+corpus_conduction.csv,RMUX43,17,3,RMUX73,16,3,corpus_route
+corpus_conduction.csv,RMUX50,14,8,RMUX03,14,6,corpus_route
+corpus_conduction.csv,RMUX50,14,9,RMUX03,14,6,corpus_route
+corpus_conduction.csv,RMUX62,14,1,RMUX61,14,5,corpus_route
+corpus_conduction.csv,RMUX63,20,3,RMUX63,17,3,corpus_route
+corpus_conduction.csv,RMUX67,14,6,RMUX79,14,4,corpus_route
+corpus_conduction.csv,RMUX86,18,3,RMUX57,14,3,corpus_route
+corpus_conduction.csv,RMUX92,19,8,RMUX85,19,11,corpus_route
+corpus_conduction.csv,RMUX93,20,1,RMUX86,18,1,corpus_route
