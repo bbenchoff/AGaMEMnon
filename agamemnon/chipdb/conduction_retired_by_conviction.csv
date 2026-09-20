@@ -196,3 +196,6 @@ corpus_conduction.csv,RMUX83,17,1,IMUX35,17,1,corpus_route
 corpus_conduction.csv,RMUX89,14,7,IMUX29,14,7,corpus_route
 corpus_conduction.csv,RMUX89,14,7,IMUX51,14,7,corpus_route
 corpus_conduction.csv,RMUX89,17,3,IMUX43,17,3,corpus_route
+corpus_conduction.csv,RMUX20,16,4,RMUX90,15,4,corpus_route
+corpus_conduction.csv,RMUX43,15,3,RMUX78,12,3,corpus_route
+corpus_conduction.csv,RMUX67,17,6,RMUX88,17,3,corpus_route
