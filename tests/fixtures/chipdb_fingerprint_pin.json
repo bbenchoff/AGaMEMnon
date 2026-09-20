@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "54212b6e8569d14d5ee2b43ca5da5318a4a59ac56123caf54798c07384299e50",
+  "fingerprint_sha256": "279d95cd180c50bb89621ac0d1222dc06cbdd8bf006f738b63e974e1a0d6ffc6",
   "file_count": 272,
   "pinned_date": "2026-09-20",
-  "reason": "Promotion #11 (2026-09-20 03:05): design witnesses harvested from 32 passing board results that had never been collected (witness_passing.py); +261 witnesses inside BramTILE(13,4)"
+  "reason": "Promotion #12 (2026-09-20 15:25): witnesses since #11 after retiring the FOCUS_BOX throttle; retirement now records row position so historical identities hold; audits 0/60 and 2/49 absent-rule, 2/2683 conviction"
 }

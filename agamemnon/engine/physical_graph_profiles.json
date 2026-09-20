@@ -8,8 +8,8 @@
       "options": [
         "AGAMEMNON_BRAM_PORTB_EXIT=1"
       ],
-      "graph_pip_count": 317458,
-      "graph_pips_sha256": "88e9e810c7599da3bb96f68b236e99e216a5d2edf63d0235ac571c702d942740",
+      "graph_pip_count": 317490,
+      "graph_pips_sha256": "e81dc11ee01f0d2de641421a53a494002cf5e9087c83985d765f8912f11d3575",
       "why": "release-strict, data-logic enables, live BRAM Port B: the base graph minus the 221 Port-B exit-corridor RMUX rows"
     },
     {
@@ -18,8 +18,8 @@
       "options": [
         "AGAMEMNON_BRAM_PORTB_EXIT=1"
       ],
-      "graph_pip_count": 318531,
-      "graph_pips_sha256": "8af5b03c66c8de9945759ca9e21ddab2e111da5901bcaee42652b64871526344",
+      "graph_pip_count": 318563,
+      "graph_pips_sha256": "aabdc433c185e0b2c39d30d9cac8a22682b308329174a8abde60ef9ab333fb03",
       "why": "release-strict, native enables, live BRAM Port B (examples/serv_blinky --release-strict)"
     },
     {

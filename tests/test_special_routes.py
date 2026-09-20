@@ -1296,12 +1296,28 @@ def _pre_campaign_graph_bytes(admission, shared):
             rows = list(csv.DictReader(stream))
         retired.unlink()
         for table in sorted({row["table"] for row in rows}):
-            with (data / table).open("a", newline="", encoding="utf-8") as stream:
+            path = data / table
+            with path.open(newline="", encoding="utf-8") as stream:
+                body = list(csv.reader(stream))
+            header, data_rows = body[0], body[1:]
+            # `row_index` records where the row sat before a conviction retired it.  The emitter reads
+            # each conduction table in file order, so restoring at the end would rebuild a graph with
+            # the same pip count and a different digest.  Rows retired before promote.py recorded the
+            # index have none, and are appended exactly as they always were.
+            for row in rows:
+                if row["table"] != table:
+                    continue
+                restored = [row["src_res"], row["src_x"], row["src_y"], row["dst_res"],
+                            row["dst_x"], row["dst_y"], row["source"]]
+                where = (row.get("row_index") or "").strip()
+                if where.isdigit() and int(where) <= len(data_rows):
+                    data_rows.insert(int(where), restored)
+                else:
+                    data_rows.append(restored)
+            with path.open("w", newline="", encoding="utf-8") as stream:
                 writer = csv.writer(stream, lineterminator=chr(10))
-                for row in rows:
-                    if row["table"] == table:
-                        writer.writerow([row["src_res"], row["src_x"], row["src_y"], row["dst_res"],
-                                         row["dst_x"], row["dst_y"], row["source"]])
+                writer.writerow(header)
+                writer.writerows(data_rows)
     with (data / "dead_edges_silicon.csv").open("w", newline="", encoding="utf-8") as stream:
         writer = csv.writer(stream, lineterminator=chr(10))     # edges contain commas: keep them quoted
         writer.writerow(["edge"])

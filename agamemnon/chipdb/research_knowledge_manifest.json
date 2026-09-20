@@ -1441,10 +1441,10 @@
       "sha256": "1115d38a900f328b8e1f1a89f767296b26db8f54f5aea5299148d974944c05b7"
     },
     {
-      "bytes": 7047466,
-      "data_rows": 191189,
+      "bytes": 8866279,
+      "data_rows": 240781,
       "path": "agamemnon/chipdb/ring_witness_conduction.csv",
-      "sha256": "b7f5b457211978dbc5a8bc758eb6c1d287756c35cd30561260b0f46b22d5c715"
+      "sha256": "66bb18b56a54c8057427ff8fac69101822dd2a9a22f9c008dc6a5ad4e0342798"
     },
     {
       "bytes": 1607,

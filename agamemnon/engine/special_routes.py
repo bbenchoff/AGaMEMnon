@@ -52,9 +52,9 @@ EXPECTED_CATALOG_SHA256 = (
 # rows reproduces the prior strict/tiered CSV byte-for-byte; the physical pad
 # corridors and all other graph rows are unchanged. Keep both exact snapshots
 # for replay, without accepting arbitrary self-reported graph digests.
-EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 317661
+EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 317693
 EXPECTED_PHYSICAL_GRAPH_SHA256 = (
-    "4196c2afe4b22d31fcc9014bb375e2e2106792ed6633260ae3ec0f1e64a57829"
+    "0d746f1b5453626ca1c011d4822173cfbc65b727d5b09f37cbde37999cff2b28"
 )
 EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 330419
 EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
@@ -66,8 +66,8 @@ EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
 # graph authority.
 EXPECTED_SHARED_CONTROL_PHYSICAL_GRAPHS = {
     "release-strict": (
-        318734,
-        "0f8e03a42af563daa31bb84339dca1543460c82dd590612ef2446802d5673991",
+        318766,
+        "d8cf547e1658af2efc2538d3436d689f617b190823977bda9852be3dbfacef97",
     ),
     "tiered": (
         331492,
