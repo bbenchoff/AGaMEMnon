@@ -7,15 +7,20 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
-- cli: native clock enable is now OPT-IN (`--native-clock-enable`, or `AGRV2K_SHARED_CONTROL_ENABLE=1`);
-  ordinary `build --uarch` lowers clock enables into register data logic and says so
-  (`[build] clock enables: register data logic (native clock enable is opt-in: --native-clock-enable)`).
-  Silicon, 2026-09-19 (AG32-Docs `tools/pipwit/template_ce*`): fifteen select-decoded 7-bit counters with
-  `if (en) c <= c + 1`, one per tile, read 0 Hz on 15/15 tiles with the native mapping while the same Verilog
-  with `--no-native-clock-enable` ran at exactly 78,125 Hz; tile-level and per-slice control bits were identical
-  to serv_blinky's working native tiles and the control routes were silicon-witnessed, so the cause is in the
-  enabled registers' behaviour and is not yet isolated. `examples/serv_blinky` with the data-logic mapping passes
-  on the board (1 min build, 6 edges/s as expected). `--no-native-clock-enable` is kept for scripts.
+- cli: a native clock-enable build never selects a mapping that would leave an enabled register's own-Q
+  feedback on general routing. `build --uarch` routes two candidate mappings and used to keep the smaller
+  one; the smaller one sets `AGRV2K_NATIVE_ENABLE_LOCAL_QIN=0`, so `qin_pack.lower_local_qin_feedback` does
+  not fire and every enabled register reads its own output back through the OMUX->IMUX crossbar. That image
+  is dead: fifteen select-decoded 7-bit counters, one per tile, read 0 Hz on 15/15 tiles
+  (AG32-Docs `tools/pipwit/template_ce*`, 2026-09-19). The same build's other candidate, which puts the
+  feedback on the slice's dedicated Qin, runs 15/15 at exactly 78,125 Hz with a static enable and 15/15 at
+  exactly 39,062.5 Hz with a toggling enable (a stuck-high enable would read 78,125 there, so that case
+  discriminates). `_native_enable_qin_safe` now refuses such a candidate unless it is the only one that
+  routed, and the build says so. This is what af.exe does: in two vendor builds of the same design, one
+  arithmetic and one written so the carry chain cannot be used, every enabled register has `FeedbackMux=1`.
+  Native clock enable therefore stays the default for ordinary `build --uarch`; it was briefly opt-in on
+  2026-09-19 while the cause was unknown. `--no-native-clock-enable` still lowers enables into register
+  data logic, and `--native-clock-enable` is accepted for scripts.
 - chipdb: `pad_output_approaches_L48.csv` -- board-witnessed additional approaches into a
   qualified pad-feed source, admitted by the routing graph beside the one qualified approach.
   2026-09-19: eight fan-ins of PIN_17's feed RMUX85@(18,9) conduct (ring template re-routed

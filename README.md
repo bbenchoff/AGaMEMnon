@@ -93,11 +93,11 @@ You may have noticed that the vendor toolchain, `af.exe` is blind to conduction 
 Use the v0.4.0 SDK archives or its tagged source for a reproducible installation. See
 [release downloads](https://github.com/bbenchoff/AGaMEMnon/releases/tag/v0.4.0).
 
-Main offers native clock enable for `build --uarch` as an OPT-IN
-(`--native-clock-enable`), with isolated line-0 register groups; ordinary builds
-lower clock enables into register data logic. It was the default from 2026-09-08
-to 2026-09-19, when a fifteen-tile enable-counter scaffold read 0 Hz on every tile
-with the native mapping and ran exactly with data logic (see
+Main maps clock enables onto the tile's native enable line for `build --uarch`, with isolated
+line-0 register groups; `--no-native-clock-enable` lowers them into register data logic instead.
+An enabled register's own-Q feedback has to sit on the slice's dedicated Qin: a build that left it
+on general routing read 0 Hz on all fifteen tiles of an enable-counter scaffold, and the same
+scaffold with the feedback on Qin runs at exactly the expected rate (see
 [scope, evidence and the data-logic fallback](docs/NATIVE_CLOCK_ENABLE_EXPERIMENT.md)).
 Build the bundled nextpnr overlay for the native capability; the v0.4.0 binaries are unchanged.
 See [release scope and upgrade notes](docs/RELEASE_0_4_0.md): this is a bounded

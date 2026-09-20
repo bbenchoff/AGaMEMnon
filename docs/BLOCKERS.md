@@ -123,10 +123,14 @@ route_pips`, `test_build_e2e`. The first signature points at a stale generated d
 triage against the promoted chipdb (ring_witness_conduction.csv / dead_edges_silicon.csv changed the strict graph
 five times today). Log: AG32-Docs side, /root/pipwit/fullgate.log and rerun44_main.log in WSL.
 
-**2026-09-19 15:12 -- the dead combination is native enable + own-Q feedback in the same LUT.** A fifteen-slot
-Johnson-counter scaffold (d_k = q_{k-1}, CE = tick & en) built with `--native-clock-enable` oscillates 15/15 at
-exactly 357,150 Hz; in the 0 Hz counter scaffold all 105 enabled registers feed their own Q back into their LUT
-(pins 0/1/2/3, LUT_COMPUTE_TO_FF), while the Johnson image has none and serv_blinky's 94 enabled registers have
-one, on pin 2 in LOCAL_QIN_I2 mode. Product rule to implement in the packer: under native clock enable, a DFFE
-whose D cone reads its own Q must be lowered to register data logic (or proven separately for LOCAL_QIN_I2);
-with that rule native enable can return as a default for the registers it is safe for. Until then it stays opt-in.
+**2026-09-19 17:35 -- RESOLVED, and it was the build's candidate selection.** Under native clock enable an
+enabled register's own-Q feedback must be on the slice's dedicated Qin, not on the OMUX->IMUX crossbar. A native
+build routes two candidate mappings and selected the one with fewer slices; that mapping sets
+`AGRV2K_NATIVE_ENABLE_LOCAL_QIN=0`, so the lowering never fires and all 105 enabled registers of the 0 Hz
+scaffold read their own Q back over routing. The same build's other candidate runs 15/15 at exactly 78,125 Hz
+with a static enable, and 15/15 at exactly 39,062.5 Hz with `ce = tick & en[i]`, a case where a stuck-high
+enable would read 78,125. `_native_enable_qin_safe` in cli.py refuses such a candidate; native enables are the
+ordinary default again. af.exe agrees: in two vendor builds of the same scaffold (arithmetic and XOR form,
+AG32-Docs `tools/vendor_parity/native_ce_20260919/`) every enabled register has `FeedbackMux=1`.
+The earlier 15:12 note, that a Johnson scaffold proved native enables work, is withdrawn: that image set no
+enable configuration bits at all, so it was evidence for neither side.

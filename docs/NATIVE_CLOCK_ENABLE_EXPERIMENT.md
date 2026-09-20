@@ -1,23 +1,30 @@
 # Native clock enable: supported scope and qualification — 2026-09-08
 
-**2026-09-19: native clock enable is opt-in** (`--native-clock-enable`, or
-`AGRV2K_SHARED_CONTROL_ENABLE=1`). A fifteen-tile scaffold of select-decoded 7-bit
-counters, `if (en) c <= c + 1`, one counter per tile, built with the default command,
-read 0 Hz on 15/15 tiles with the native mapping; the same Verilog with
-`--no-native-clock-enable` ran at exactly 78,125 Hz per slot. The tile-level control
-bits (line 0 from ctrl_a, CFG_CTRLMUX selectors) and the per-slice CFG_CLKMUX /
-CFG_BYPASSEN bits were identical to serv_blinky's working native tiles, and the
-template's control routes at X15Y7 and X17Y7 were silicon-witnessed pips, so the
-failure lies in the enabled registers' behaviour, not in the control path. It is not
-yet isolated. serv_blinky passes on the board with the data-logic mapping.
-Evidence: AG32-Docs `tools/pipwit/template_ce`, `template_ce_none`, `template_ce_en`,
-`template_ce_en_emul` (images, routed netlists, RESULT files). The text below
-describes the native path as it stands.
+**2026-09-19: an enabled register's own-Q feedback must be on the slice's Qin.** A fifteen-tile
+scaffold of select-decoded 7-bit counters, `if (en) c <= c + 1`, one counter per tile, built with the
+default command, read 0 Hz on 15/15 tiles. The cause is the candidate selection, not the enable: a
+native build routes two candidate mappings and kept the one with fewer slices, and that mapping sets
+`AGRV2K_NATIVE_ENABLE_LOCAL_QIN=0`, so `qin_pack.lower_local_qin_feedback` never fires and every
+enabled register reads its own output back over the OMUX->IMUX crossbar. The same build's other
+candidate, with the feedback on the dedicated Qin, runs **15/15 at exactly 78,125 Hz** with a static
+enable and **15/15 at exactly 39,062.5 Hz** with `ce = tick & en[i]`, where a stuck-high enable would
+read 78,125 Hz. `_native_enable_qin_safe` in `cli.py` now refuses a candidate that would leave such a
+loop on routing, unless it is the only one that routed.
 
-Native positive-polarity register clock enable was the default for ordinary
-`build --uarch` on main from 2026-09-08 to 2026-09-19; it now requires
-`--native-clock-enable`. `--no-native-clock-enable` (the default behaviour) lowers
-enables into ordinary register data logic.
+That matches the vendor exactly: af.exe was given the same scaffold twice, once arithmetic and once
+written as XOR/AND of Q bits so the carry chain could not be used
+(AG32-Docs `tools/vendor_parity/native_ce_20260919/`). Both run 15/15 on the board, and in both
+**every** enabled register has `FeedbackMux=1`; af.exe never closes an enabled register's own-Q loop
+over routing. The vendor images also show `CFG_CLKMUX<z>` choosing which tile enable line (or the free
+clock) a slice takes, and `CFG_CARRY_CRL<z>` set for every slice outside a carry chain.
+
+Evidence: AG32-Docs `tools/pipwit/template_ce_en` (dead, legacy candidate), `template_ce_en_fixed` and
+`template_ce_tick_fixed` (both exact), `template_ce_vendor`, `template_ce_vendor_xor` (af.exe images),
+with routed netlists and RESULT files.
+
+Native positive-polarity register clock enable is the default for ordinary `build --uarch`, as it has
+been since 2026-09-08, apart from a few hours on 2026-09-19 when it was made opt-in while the 0 Hz
+result was unexplained. `--no-native-clock-enable` lowers enables into ordinary register data logic.
 Retained checkpoint and qualified-BRAM replay profiles preserve their historical
 path automatically. The legacy Python architecture still uses data logic.
 Build nextpnr with the supplied `build.sh`; it applies the required Viaduct

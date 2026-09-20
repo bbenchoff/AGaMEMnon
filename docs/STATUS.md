@@ -313,11 +313,15 @@ first); it guards the arch admission gate. Fences remain 74.
 
 ## Main after v0.4.0 — 2026-09-09
 
-**2026-09-19: native clock enable is opt-in** (`--native-clock-enable` or `AGRV2K_SHARED_CONTROL_ENABLE=1`).
-A fifteen-tile enable-counter scaffold read 0 Hz on every tile with the native mapping and ran exactly with
-register data logic, with identical control bits to a working native image; until that is isolated, ordinary
-builds lower enables into data logic (serv_blinky passes that way). The paragraph below describes the opt-in path.
-Ordinary `build --uarch --native-clock-enable` uses positive-edge, active-high native enables.
+**2026-09-19: an enabled register's own-Q feedback must sit on the slice's Qin.** A fifteen-tile
+enable-counter scaffold read 0 Hz on every tile, and the cause is candidate selection: a native build routes
+two candidate mappings and kept the one with fewer slices, which disables the own-Q-to-Qin lowering, so every
+enabled register read its own output back over the crossbar. With that candidate refused the same scaffold
+runs 15/15 at exactly 78,125 Hz (static enable) and 15/15 at exactly 39,062.5 Hz (toggling enable, where a
+stuck-high enable would read 78,125). af.exe does the same thing: in two vendor builds of that scaffold every
+enabled register has `FeedbackMux=1`. Native clock enable is therefore the ordinary-uarch default, as before;
+it was opt-in for a few hours on 2026-09-19 while the result was unexplained.
+Ordinary `build --uarch` uses positive-edge, active-high native enables.
 For the qualified MCU bus clock, it separately compares isolated, mixed
 (one native group plus ordinary registers on the idle local line), and dual
 (two native groups, no ordinary registers in that tile) placements. A sharing

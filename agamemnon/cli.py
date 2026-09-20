@@ -2517,14 +2517,18 @@ def _routed_native_population(document):
 
 
 def _native_clock_enable_requested(a):
-    """Native clock enable is opt-in since 2026-09-19: --native-clock-enable, or the environment
-    AGRV2K_SHARED_CONTROL_ENABLE=1; --no-native-clock-enable and AGRV2K_SHARED_CONTROL_ENABLE=0 win."""
+    """Native clock enable is the default for ordinary uarch builds.
+
+    It was opt-in for a few hours on 2026-09-19 after fifteen enabled counters read 0 Hz on silicon.  That
+    was a candidate-selection fault, not the enable: the dual-mapping build chose on area and the smaller
+    candidate left every enabled register's own-Q feedback on the OMUX->IMUX crossbar, which af.exe never
+    does (its enabled registers all use FeedbackMux=1, own Q on the dedicated Qin).  With that candidate
+    refused (`_native_enable_qin_safe`) the same scaffold runs 15/15 at the exact rate, enable-only and
+    with a toggling enable.  `--no-native-clock-enable` or AGRV2K_SHARED_CONTROL_ENABLE=0 still forces the
+    data-logic lowering; `--native-clock-enable` is accepted and is now a no-op here."""
     if getattr(a, "no_native_clock_enable", False):
         return False
-    env = os.environ.get("AGRV2K_SHARED_CONTROL_ENABLE")
-    if env == "0":
-        return False
-    return bool(getattr(a, "native_clock_enable", False)) or env == "1"
+    return os.environ.get("AGRV2K_SHARED_CONTROL_ENABLE") != "0"
 
 
 def _native_mapping_defaults(env):
@@ -2757,10 +2761,10 @@ def _cmd_build_once(a):
     native_enable = (a.uarch and _native_clock_enable_requested(a)
                      and not a.qualified_checkpoint
                      and not getattr(a, "qualified_bram_write", None))
-    # The shared-control GRAPH (CLKEN bels, control pips) stays part of the ordinary uarch device graph
-    # exactly as before 2026-09-19 -- it is a graph identity that hash-pinned compositions, byte-exact
-    # fixtures and the release-strict devdb depend on.  Only the MAPPING (DFFE -> native enable line)
-    # is opt-in now; without it the packer lowers enables into register data logic.
+    # The shared-control GRAPH (CLKEN bels, control pips) is part of the ordinary uarch device graph: it is
+    # a graph identity that hash-pinned compositions, byte-exact fixtures and the release-strict devdb
+    # depend on.  --no-native-clock-enable drops both the graph and the mapping, and the packer then
+    # lowers enables into register data logic.
     graph_flag = (a.uarch and not getattr(a, "no_native_clock_enable", False)
                   and os.environ.get("AGRV2K_SHARED_CONTROL_ENABLE") != "0"
                   and not a.qualified_checkpoint
@@ -2775,15 +2779,9 @@ def _cmd_build_once(a):
         env.pop("AGRV2K_SHARED_CONTROL_ENABLE", None)
     if native_enable:
         _native_mapping_defaults(env)
-    control_description = "register data logic"
+    control_description = "register data logic (--no-native-clock-enable)" if a.uarch else "register data logic"
     if native_enable:
         control_description = "native line 0 with isolated register tiles"
-    elif a.uarch and not getattr(a, "no_native_clock_enable", False) and not a.qualified_checkpoint:
-        # 2026-09-19: native clock enable is opt-in. The same enable design read 0 Hz on 15/15 tiles
-        # with the native mapping and ran exactly with register data logic (AG32-Docs
-        # tools/pipwit/template_ce*, BLOCKERS.md 12:30); the control bits matched a working image, so the
-        # cause is not yet isolated.  --native-clock-enable (or AGRV2K_SHARED_CONTROL_ENABLE=1) restores it.
-        control_description = "register data logic (native clock enable is opt-in: --native-clock-enable)"
         sharing = []
         if env.get("AGRV2K_DUAL_NATIVE_CONTROL") == "1":
             sharing.append("two native groups")
@@ -4348,6 +4346,46 @@ def _validate_native_srst_final_products(a, output):
     _validate_emission_product_paths(inputs, products)
 
 
+def _native_enable_qin_safe(snapshot, mapping_options):
+    """Would this candidate's mapping leave an enabled register's own-Q loop on general routing?
+
+    ``snapshot`` is the pre-qin netlist of the candidate build.  A DFFE whose D comes from a LUT that
+    reads the DFFE's own Q is an own-Q loop; af.exe places every such feedback on the slice's dedicated
+    Qin (FeedbackMux=1), and so does this flow when ``AGRV2K_NATIVE_ENABLE_LOCAL_QIN`` is set.  With the
+    option off the loop closes over the OMUX->IMUX crossbar, which is silicon-dead (2026-09-19).
+    A candidate with no such loop, or no readable snapshot, is unaffected.
+    """
+    if (mapping_options or {}).get("AGRV2K_NATIVE_ENABLE_LOCAL_QIN") == "1":
+        return True
+    if not snapshot or not os.path.isfile(snapshot):
+        return True
+    try:
+        with open(snapshot, encoding="utf-8") as stream:
+            data = json.load(stream)
+    except (OSError, ValueError):
+        return True
+    for module in data.get("modules", {}).values():
+        cells = module.get("cells", {})
+        enabled_by_d = {}
+        for cell in cells.values():
+            if cell.get("type") != "DFFE":
+                continue
+            connections = cell.get("connections", {})
+            d, q = connections.get("D") or [], connections.get("Q") or []
+            if len(d) == 1 and len(q) == 1 and type(d[0]) is int and type(q[0]) is int:
+                enabled_by_d.setdefault(d[0], []).append(q[0])
+        for cell in cells.values():
+            if cell.get("type") != "LUT":
+                continue
+            out = cell.get("connections", {}).get("Q") or []
+            if len(out) != 1 or type(out[0]) is not int:
+                continue
+            inputs = cell.get("connections", {}).get("I") or []
+            if any(q in inputs for q in enabled_by_d.get(out[0], ())):
+                return False
+    return True
+
+
 def _copy_candidate_products(result, destination, routed_destination,
                              policy_destination=None, ownership_destination=None):
     shutil.copyfile(result["output"], destination)
@@ -4615,8 +4653,11 @@ def cmd_build(a):
                for stage in ("lut_carry_seed_unplaceable", "lut_carry_graph_infeasible")):
             a.no_hard_carry = True
         if result is not None:
+            qin_safe = _native_enable_qin_safe(
+                getattr(candidate, "_native_enable_snapshot", None), mapping_options)
             result.update({"mapping": label, "srst_recovery": recovery,
                            "mapping_options": mapping_options,
+                           "native_enable_qin_safe": qin_safe,
                            "policy_sidecar": private_policy if requested_policy else None,
                            "ownership_trace": private_ownership if requested_ownership else None})
             candidates.append(result)
@@ -4625,11 +4666,23 @@ def cmd_build(a):
                              "occupied_tiles": result.get("occupied_tiles"),
                              "routed_sha256": result["routed_sha256"],
                              "eligible_srst_cells": result["eligible_srst_cells"],
+                             "native_enable_qin_safe": qin_safe,
                              "mapping_options": mapping_options})
         else:
             outcomes.append({"mapping": label, "outcome": "eligible_exhaustion",
                              "mapping_options": mapping_options})
     if candidates:
+        # Correctness before area: a candidate that leaves an enabled register's own-Q loop on general
+        # routing reads 0 Hz on silicon (2026-09-19, template_ce_en: legacy 153 slices selected, 15/15
+        # counters dead; the same build's recovered candidate, own-Q on Qin as af.exe always emits,
+        # runs at the exact rate).  Such a candidate is selected only if it is the only one that routed.
+        if any(item.get("native_enable_qin_safe", True) for item in candidates):
+            rejected = [item["mapping"] for item in candidates if not item.get("native_enable_qin_safe", True)]
+            if rejected:
+                print("[build] native clock enable: candidate mapping(s) %s rejected -- an enabled "
+                      "register's own-Q feedback would run over general routing (silicon-dead composition)"
+                      % ", ".join(sorted(rejected)))
+            candidates = [item for item in candidates if item.get("native_enable_qin_safe", True)]
         selected = min(candidates, key=lambda item: (
             item["slice_count"],
             item["occupied_tiles"] if item.get("occupied_tiles") is not None else float("inf"),
@@ -4843,11 +4896,9 @@ def main(argv=None):
     carry.add_argument("--no-hard-carry", action="store_true",
                        help="[--uarch] force all arithmetic through the ordinary LUT path")
     b.add_argument("--native-clock-enable", action="store_true",
-                   help="[--uarch] map clock enables onto the tile's native enable line (isolated register tiles). "
-                        "Opt-in since 2026-09-19: the native mapping read 0 Hz on 15/15 tiles where the "
-                        "register-data-logic mapping ran exactly; see docs/STATUS.md")
+                   help="[--uarch] map clock enables onto the tile's native enable line (the default); kept for scripts")
     b.add_argument("--no-native-clock-enable", action="store_true",
-                   help="[--uarch] lower clock enables into register data logic (the default); kept for scripts")
+                   help="[--uarch] lower clock enables into register data logic instead of the tile's enable line")
     b.add_argument("--qualified-checkpoint", metavar="PROFILE",
                    help="[--uarch] fail-closed exact BEL/route replay from a registered "
                         "qualification profile; source, checkpoint, clocks and output hashes "
