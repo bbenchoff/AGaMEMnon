@@ -844,6 +844,7 @@ class RoutingFeature:
             "selector_alias_repair.csv", "codeword_board_witness.csv",
             "rrg_edges_full.csv", "rrg_omux_imux_full.csv",
             "rrg_rmux_imux_full.csv", "dead_edges_silicon.csv",
+            "afexe_absent_edges.csv",
             "exit_feeder_whitelist.csv", "master_conduction.csv",
             "ff2_conduction.csv", "harvest_conduction.csv",
             "ring_witness_conduction.csv",
@@ -1021,6 +1022,23 @@ class RoutingFeature:
                 if not _match:
                     raise ValueError("malformed silicon-dead edge: %r" % _dead_row)
                 EDGE_BLACKLIST.add(_match.groups())
+        # Edges af.exe's own bitgen has no selector for at that coordinate: the edge does not EXIST there,
+        # which is a different claim from dead_edges_silicon.csv's "it exists and the silicon will not pass a
+        # signal through it".  Kept in its own table so the two kinds of evidence are never conflated, the way
+        # the 2026-08-13 conduction reframe had to untangle.  Each row failed to resolve in two independently
+        # constructed routes and is NOT board-witnessed; see AG32-Docs tools/agamemnon/ORACLE.md.
+        # Opt-in while it is being qualified: AGAMEMNON_AFEXE_ABSENT=1.
+        _absent_csv = os.path.join(DATA, "afexe_absent_edges.csv")
+        if os.environ.get("AGAMEMNON_AFEXE_ABSENT") == "1" and os.path.exists(_absent_csv):
+            _absent_count = 0
+            for _absent_row in csv.DictReader(open(_absent_csv)):
+                _match = re.fullmatch(_dead_edge_re, _absent_row.get("edge", "").strip())
+                if not _match:
+                    raise ValueError("malformed af.exe-absent edge: %r" % _absent_row)
+                EDGE_BLACKLIST.add(_match.groups())
+                _absent_count += 1
+            print("AGRV2K arch: af.exe-ABSENT edges excluded (%d): the vendor bitgen resolves no selector for "
+                  "them at that coordinate, in two independently constructed routes each" % _absent_count)
         if EDGE_BLACKLIST:
             # A cut ban runs to thousands of edges; print a bounded sample so the
             # count stays visible without burying the rest of the build log.

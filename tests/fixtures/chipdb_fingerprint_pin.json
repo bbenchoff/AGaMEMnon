@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "0c2a96ca30294c1083076ab2a9d681d98fefc3e1d17b61b49057d2bbaf8a227f",
-  "file_count": 271,
+  "fingerprint_sha256": "c806d959f45622e5ce1fe6e7ca26b49374c1b6b0f79ba44e1919a38be7310318",
+  "file_count": 272,
   "pinned_date": "2026-09-19",
-  "reason": "Ring-oscillator campaign promotion #9 (2026-09-19 14:45): witnesses since #8, acquittals propagated (correcting release), two-failure conviction rule"
+  "reason": "afexe_absent_edges.csv: 4,458 edges the vendor bitgen resolves no selector for at their own coordinate, each failed in two independently constructed routes and none board-witnessed (AG32-Docs tools/agamemnon/ORACLE.md); loaded behind AGAMEMNON_AFEXE_ABSENT=1"
 }

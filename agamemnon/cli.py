@@ -4592,7 +4592,18 @@ def cmd_build(a):
     # Candidate recovery is tried first. The legacy form wins exact ties, so
     # an unchanged mapping keeps its established output choice.
     candidate_specs = (("1", "recovered"), ("0", "legacy"))
+    skip_unsafe_legacy = False
     for recovery, label in candidate_specs:
+        if label == "legacy" and skip_unsafe_legacy:
+            # The recovered candidate routed and this design has an enabled register whose LUT reads its own
+            # Q, so the legacy mapping would leave that loop on general routing and be refused below
+            # (_native_enable_qin_safe).  Building it costs a full place-and-route to produce a candidate that
+            # cannot win, which is a large share of build time on enable-heavy designs.
+            print("[build] native clock enable: legacy mapping not built -- it would leave an enabled "
+                  "register's own-Q feedback on general routing and be refused")
+            outcomes.append({"mapping": label, "outcome": "not_built_unsafe",
+                             "mapping_options": _native_srst_candidate_options(recovery)})
+            continue
         candidate = copy.copy(a)
         candidate._native_srst_candidate = True
         candidate._native_enable_snapshot = None
@@ -4661,6 +4672,10 @@ def cmd_build(a):
                            "policy_sidecar": private_policy if requested_policy else None,
                            "ownership_trace": private_ownership if requested_ownership else None})
             candidates.append(result)
+            if label == "recovered" and not _native_enable_qin_safe(
+                    getattr(candidate, "_native_enable_snapshot", None),
+                    {"AGRV2K_NATIVE_ENABLE_LOCAL_QIN": "0"}):
+                skip_unsafe_legacy = True
             outcomes.append({"mapping": label, "outcome": "routed",
                              "slice_count": result["slice_count"],
                              "occupied_tiles": result.get("occupied_tiles"),

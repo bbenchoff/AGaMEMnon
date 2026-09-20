@@ -10,6 +10,12 @@
   },
   "datasets": [
     {
+      "bytes": 343213,
+      "data_rows": 4458,
+      "path": "agamemnon/chipdb/afexe_absent_edges.csv",
+      "sha256": "dd015b8b216b32c051181e4449f9926ce47338ef11d20df880ad1b8017de9880"
+    },
+    {
       "bytes": 60058,
       "path": "agamemnon/chipdb/agrv2k_parameter_manifest.json",
       "sha256": "aad23f1211b3e49f8aaccb1bb36a67723ee99f8c76f2123e3814272fbdc3150c"
