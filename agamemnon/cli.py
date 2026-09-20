@@ -831,6 +831,83 @@ def _pcf_output_constraints(netlist_path, pcf):
     return outputs
 
 
+def _unconstrained_pads(netlist_path, pcf):
+    """Output-capable top-level pads no `set_io` line claims, spelled as the author wrote them.
+
+    yosys lowers every top-level port to a ``GENERIC_IOB``.  A pad the PCF never names is left for the
+    placer to put wherever it likes, and "wherever" includes an input-only pad bel for a signal that has
+    to drive: that fails as ``bel 'X18Y13_IPAD3' has no pin 'I'`` once per attempt for the whole
+    escalation ladder, minutes later, naming a bel the author never wrote and no port at all.
+
+    Only pads that can DRIVE are reported.  An unconstrained input is placed on some input pad and
+    routes; the design then samples the wrong package pin, which is a wiring mistake the build cannot
+    distinguish from intent -- and the flow itself relies on that, binding a top-level `clock` port to
+    the dedicated clock pad with no `set_io` line at all.  Every rando-corpus design would fail this
+    check on `clock` alone if direction were ignored.
+
+    Resolution mirrors :func:`_pcf_output_constraints`: a PCF signal reaches its pad bit as a scalar
+    port, as ``base[index]`` against the port's declared offset, or through the synthesized IOB cell
+    name.  Any output-capable pad bit no constraint reached is reported.
+    """
+    with open(netlist_path, encoding="utf-8") as fh:
+        design = json.load(fh)
+    modules = design.get("modules", {})
+    if not modules:
+        raise ValueError("synthesized design has no modules")
+    topname = next((name for name, module in modules.items()
+                    if str(module.get("attributes", {}).get("top", "0"))
+                    in ("1", "00000000000000000000000000000001")), None)
+    if topname is None:
+        topname = max(modules, key=lambda name: len(modules[name].get("cells", {})))
+    top = modules[topname]
+    ports = top.get("ports", {})
+    iobs = {name: cell for name, cell in top.get("cells", {}).items()
+            if cell.get("type") == "GENERIC_IOB"}
+    if not iobs:
+        return []
+
+    def pad_bit_of_cell(cell):
+        pad = cell.get("connections", {}).get("PAD") or []
+        return pad[0] if len(pad) == 1 else None
+
+    def pad_bit_of_signal(signal):
+        port = ports.get(signal)
+        if port is not None and len(port.get("bits", [])) == 1:
+            return port["bits"][0]
+        match = re.fullmatch(r"(.+)\[(-?\d+)\]", signal)
+        if match is not None:
+            base, index_text = match.groups()
+            port = ports.get(base)
+            if port is not None:
+                position = int(index_text) - int(port.get("offset", 0))
+                bits = port.get("bits", [])
+                if 0 <= position < len(bits):
+                    return bits[position]
+        for name, cell in iobs.items():
+            if name == signal or name.endswith("." + signal):
+                return pad_bit_of_cell(cell)
+        return None
+
+    claimed = {bit for bit in (pad_bit_of_signal(signal) for signal in pcf) if bit is not None}
+    # every pad bit the design exposes, named as the source spells it
+    spelled = {}
+    for port, spec in ports.items():
+        bits = spec.get("bits", [])
+        offset = int(spec.get("offset", 0))
+        for index, bit in enumerate(bits):
+            spelled[bit] = port if len(bits) == 1 else "%s[%d]" % (port, index + offset)
+    missing = []
+    for name, cell in sorted(iobs.items()):
+        bit = pad_bit_of_cell(cell)
+        if bit is None or bit in claimed:
+            continue
+        # `I` an input on the IOB is the fabric-to-pad path: this pad drives
+        if cell.get("port_directions", {}).get("I") != "input":
+            continue
+        missing.append(spelled.get(bit, name))
+    return missing
+
+
 def _typed_hard_output_pins(netlist, output_pcf):
     """PCF pins owned by a complete typed hard-peripheral output profile.
 
@@ -3104,6 +3181,19 @@ def _cmd_build_once(a):
                          json.dumps(_pcf, sort_keys=True), data])
     if a.pcf:
         try:
+            _unconstrained = _unconstrained_pads(synth_json, _pcf)
+            if _unconstrained and not (getattr(a, "allow_unconstrained_pads", False)
+                                       or os.environ.get("AGAMEMNON_ALLOW_UNCONSTRAINED_PADS") == "1"):
+                print("error: %d top-level output port%s a pad with no pin constraint: %s"
+                      % (len(_unconstrained),
+                         " reaches" if len(_unconstrained) == 1 else "s reach",
+                         ", ".join(_unconstrained)))
+                print("hint: add one line per port to %s, e.g. `set_io %s PIN_10`. An unconstrained pad "
+                      "is placed wherever the placer likes, including an input-only pad bel for a signal "
+                      "that has to drive, which fails late in place&route as \"bel '...' has no pin 'I'\" "
+                      "with no mention of the port. Pass --allow-unconstrained-pads to place them anyway."
+                      % (a.pcf, _unconstrained[0]))
+                sys.exit(2)
             _output_pcf = _pcf_output_constraints(synth_json, _pcf)
             for _line in _shared_pad_corridor_conflicts(_output_pcf, data, synth_json):
                 print("error: %s" % _line)
@@ -4924,6 +5014,12 @@ def main(argv=None):
     b.add_argument("--write-routed", help="retain the final placed+routed nextpnr JSON at this path")
     b.add_argument("--internal-ports", action="store_true",
                    help="leave top-level ports as internal netlist endpoints (overlay construction only)")
+    b.add_argument(
+        "--allow-unconstrained-pads", action="store_true",
+        help="place top-level ports the PCF does not name wherever the placer likes, instead of failing "
+             "the build and naming them (default: fail; AGAMEMNON_ALLOW_UNCONSTRAINED_PADS=1 is "
+             "equivalent)",
+    )
     b.add_argument(
         "--allow-memory-lowering", action="store_true",
         help="acknowledge a memory cell that missed the ALTA_BRAM9K block-RAM mapping and was "

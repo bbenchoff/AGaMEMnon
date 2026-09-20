@@ -61128,7 +61128,6 @@ RMUX01,14,3,RMUX23,16,3,corpus_route
 RMUX01,14,3,RMUX23,17,3,corpus_route
 RMUX01,14,3,RMUX23,18,3,corpus_route
 RMUX01,14,4,RMUX01,15,4,corpus_route
-RMUX01,14,4,RMUX01,16,4,corpus_route
 RMUX01,14,4,RMUX01,17,4,corpus_route
 RMUX01,14,4,RMUX01,18,4,corpus_route
 RMUX01,14,4,RMUX06,16,4,corpus_route
@@ -62421,7 +62420,6 @@ RMUX02,11,1,RMUX03,11,4,corpus_route
 RMUX02,11,1,RMUX08,11,2,corpus_route
 RMUX02,11,1,RMUX08,11,3,corpus_route
 RMUX02,11,1,RMUX09,11,2,corpus_route
-RMUX02,11,1,RMUX09,11,4,corpus_route
 RMUX02,11,1,RMUX12,11,3,corpus_route
 RMUX02,11,1,RMUX13,11,2,corpus_route
 RMUX02,11,1,RMUX13,11,3,corpus_route
@@ -62437,7 +62435,6 @@ RMUX02,11,2,RMUX13,11,4,corpus_route
 RMUX02,11,2,RMUX18,11,3,corpus_route
 RMUX02,11,2,RMUX19,11,3,corpus_route
 RMUX02,11,3,RMUX08,11,4,corpus_route
-RMUX02,11,3,RMUX09,11,4,corpus_route
 RMUX02,11,3,RMUX13,11,4,corpus_route
 RMUX02,11,3,RMUX18,11,2,corpus_route
 RMUX02,11,3,RMUX18,11,4,corpus_route
@@ -62503,7 +62500,6 @@ RMUX02,14,2,RMUX19,14,4,corpus_route
 RMUX02,14,2,RMUX19,14,6,corpus_route
 RMUX02,14,3,RMUX02,14,7,corpus_route
 RMUX02,14,3,RMUX03,14,5,corpus_route
-RMUX02,14,3,RMUX03,14,6,corpus_route
 RMUX02,14,3,RMUX03,14,7,corpus_route
 RMUX02,14,3,RMUX08,14,4,corpus_route
 RMUX02,14,3,RMUX09,14,4,corpus_route
@@ -62523,7 +62519,6 @@ RMUX02,14,4,RMUX09,14,5,corpus_route
 RMUX02,14,4,RMUX09,14,6,corpus_route
 RMUX02,14,4,RMUX09,14,7,corpus_route
 RMUX02,14,4,RMUX09,14,8,corpus_route
-RMUX02,14,4,RMUX19,14,5,corpus_route
 RMUX02,14,4,RMUX19,14,6,corpus_route
 RMUX02,14,4,RMUX19,14,7,corpus_route
 RMUX02,14,4,RMUX19,14,8,corpus_route
@@ -62537,7 +62532,6 @@ RMUX02,14,5,RMUX19,14,9,corpus_route
 RMUX02,14,6,RMUX02,14,10,corpus_route
 RMUX02,14,6,RMUX03,14,8,corpus_route
 RMUX02,14,6,RMUX03,14,9,corpus_route
-RMUX02,14,6,RMUX03,14,10,corpus_route
 RMUX02,14,6,RMUX08,14,7,corpus_route
 RMUX02,14,6,RMUX09,14,7,corpus_route
 RMUX02,14,6,RMUX09,14,9,corpus_route
@@ -79758,7 +79752,6 @@ RMUX11,14,1,IMUX27,14,1,corpus_route
 RMUX11,14,1,IMUX29,14,1,corpus_route
 RMUX11,14,1,IMUX31,14,1,corpus_route
 RMUX11,14,1,IMUX33,14,1,corpus_route
-RMUX11,14,1,IMUX35,14,1,corpus_route
 RMUX11,14,1,IMUX37,14,1,corpus_route
 RMUX11,14,1,IMUX39,14,1,corpus_route
 RMUX11,14,1,IMUX41,14,1,corpus_route
@@ -83976,7 +83969,6 @@ RMUX13,18,1,RMUX54,15,1,corpus_route
 RMUX13,18,1,RMUX55,14,1,corpus_route
 RMUX13,18,1,RMUX55,16,1,corpus_route
 RMUX13,18,1,RMUX55,17,1,corpus_route
-RMUX13,18,1,RMUX64,14,1,corpus_route
 RMUX13,18,1,RMUX64,15,1,corpus_route
 RMUX13,18,1,RMUX64,16,1,corpus_route
 RMUX13,18,1,RMUX64,17,1,corpus_route
@@ -84595,7 +84587,6 @@ RMUX13,20,3,RMUX55,16,3,corpus_route
 RMUX13,20,3,RMUX55,18,3,corpus_route
 RMUX13,20,3,RMUX55,19,3,corpus_route
 RMUX13,20,3,RMUX64,16,3,corpus_route
-RMUX13,20,3,RMUX64,17,3,corpus_route
 RMUX13,20,3,RMUX64,18,3,corpus_route
 RMUX13,20,3,RMUX64,19,3,corpus_route
 RMUX13,20,3,RMUX65,16,3,corpus_route
@@ -86114,7 +86105,6 @@ RMUX14,17,7,RMUX61,17,5,corpus_route
 RMUX14,17,7,RMUX61,17,6,corpus_route
 RMUX14,17,7,RMUX66,17,3,corpus_route
 RMUX14,17,7,RMUX66,17,4,corpus_route
-RMUX14,17,7,RMUX67,17,3,corpus_route
 RMUX14,17,7,RMUX67,17,4,corpus_route
 RMUX14,17,7,RMUX67,17,5,corpus_route
 RMUX14,17,7,RMUX67,17,6,corpus_route
@@ -92636,7 +92626,6 @@ RMUX17,16,6,IMUX11,16,6,corpus_route
 RMUX17,16,6,IMUX13,16,6,corpus_route
 RMUX17,16,6,IMUX15,16,6,corpus_route
 RMUX17,16,6,IMUX17,16,6,corpus_route
-RMUX17,16,6,IMUX19,16,6,corpus_route
 RMUX17,16,6,IMUX21,16,6,corpus_route
 RMUX17,16,6,IMUX23,16,6,corpus_route
 RMUX17,16,6,IMUX25,16,6,corpus_route
@@ -98206,7 +98195,6 @@ RMUX20,16,5,RMUX75,15,5,corpus_route
 RMUX20,16,5,RMUX80,14,5,corpus_route
 RMUX20,16,5,RMUX80,15,5,corpus_route
 RMUX20,16,5,RMUX81,15,5,corpus_route
-RMUX20,16,5,RMUX84,15,5,corpus_route
 RMUX20,16,5,RMUX85,14,5,corpus_route
 RMUX20,16,5,RMUX90,15,5,corpus_route
 RMUX20,16,5,RMUX91,14,5,corpus_route
@@ -98229,9 +98217,7 @@ RMUX20,16,7,RMUX75,15,7,corpus_route
 RMUX20,16,7,RMUX80,14,7,corpus_route
 RMUX20,16,7,RMUX80,15,7,corpus_route
 RMUX20,16,7,RMUX81,15,7,corpus_route
-RMUX20,16,7,RMUX84,15,7,corpus_route
 RMUX20,16,7,RMUX85,14,7,corpus_route
-RMUX20,16,7,RMUX90,15,7,corpus_route
 RMUX20,16,7,RMUX91,14,7,corpus_route
 RMUX20,16,7,RMUX91,15,7,corpus_route
 RMUX20,16,8,RMUX74,14,8,corpus_route
@@ -99877,7 +99863,6 @@ RMUX21,14,7,RMUX93,14,3,corpus_route
 RMUX21,14,7,RMUX93,14,4,corpus_route
 RMUX21,14,8,RMUX76,14,4,corpus_route
 RMUX21,14,8,RMUX76,14,5,corpus_route
-RMUX21,14,8,RMUX76,14,6,corpus_route
 RMUX21,14,8,RMUX76,14,7,corpus_route
 RMUX21,14,8,RMUX77,14,4,corpus_route
 RMUX21,14,8,RMUX77,14,5,corpus_route
@@ -99885,7 +99870,6 @@ RMUX21,14,8,RMUX77,14,6,corpus_route
 RMUX21,14,8,RMUX77,14,7,corpus_route
 RMUX21,14,8,RMUX82,14,4,corpus_route
 RMUX21,14,8,RMUX82,14,6,corpus_route
-RMUX21,14,8,RMUX82,14,7,corpus_route
 RMUX21,14,8,RMUX83,14,4,corpus_route
 RMUX21,14,8,RMUX83,14,5,corpus_route
 RMUX21,14,8,RMUX83,14,6,corpus_route
@@ -102353,9 +102337,7 @@ RMUX22,15,3,IMUX60,15,3,corpus_route
 RMUX22,15,4,IMUX00,15,4,corpus_route
 RMUX22,15,4,IMUX12,15,4,corpus_route
 RMUX22,15,4,IMUX16,15,4,corpus_route
-RMUX22,15,4,IMUX18,15,4,corpus_route
 RMUX22,15,4,IMUX20,15,4,corpus_route
-RMUX22,15,4,IMUX22,15,4,corpus_route
 RMUX22,15,4,IMUX24,15,4,corpus_route
 RMUX22,15,4,IMUX28,15,4,corpus_route
 RMUX22,15,4,IMUX34,15,4,corpus_route
@@ -105178,7 +105160,6 @@ RMUX23,15,4,IMUX09,15,4,corpus_route
 RMUX23,15,4,IMUX11,15,4,corpus_route
 RMUX23,15,4,IMUX13,15,4,corpus_route
 RMUX23,15,4,IMUX15,15,4,corpus_route
-RMUX23,15,4,IMUX17,15,4,corpus_route
 RMUX23,15,4,IMUX19,15,4,corpus_route
 RMUX23,15,4,IMUX21,15,4,corpus_route
 RMUX23,15,4,IMUX23,15,4,corpus_route
@@ -105899,7 +105880,6 @@ RMUX23,17,3,IMUX23,17,3,corpus_route
 RMUX23,17,3,IMUX25,17,3,corpus_route
 RMUX23,17,3,IMUX27,17,3,corpus_route
 RMUX23,17,3,IMUX29,17,3,corpus_route
-RMUX23,17,3,IMUX31,17,3,corpus_route
 RMUX23,17,3,IMUX33,17,3,corpus_route
 RMUX23,17,3,IMUX35,17,3,corpus_route
 RMUX23,17,3,IMUX37,17,3,corpus_route
@@ -111313,7 +111293,6 @@ RMUX26,16,7,RMUX09,15,7,corpus_route
 RMUX26,16,7,RMUX12,15,7,corpus_route
 RMUX26,16,7,RMUX19,14,7,corpus_route
 RMUX26,16,7,RMUX19,15,7,corpus_route
-RMUX26,16,8,RMUX03,14,8,corpus_route
 RMUX26,16,8,RMUX03,15,8,corpus_route
 RMUX26,16,8,RMUX09,15,8,corpus_route
 RMUX26,16,8,RMUX12,15,8,corpus_route
@@ -111580,7 +111559,6 @@ RMUX26,18,6,RMUX19,14,6,corpus_route
 RMUX26,18,6,RMUX19,15,6,corpus_route
 RMUX26,18,6,RMUX19,16,6,corpus_route
 RMUX26,18,6,RMUX19,17,6,corpus_route
-RMUX26,18,7,RMUX02,14,7,corpus_route
 RMUX26,18,7,RMUX02,16,7,corpus_route
 RMUX26,18,7,RMUX03,15,7,corpus_route
 RMUX26,18,7,RMUX03,16,7,corpus_route
@@ -113523,7 +113501,6 @@ RMUX27,17,4,RMUX20,17,3,corpus_route
 RMUX27,17,4,RMUX21,17,2,corpus_route
 RMUX27,17,4,RMUX21,17,3,corpus_route
 RMUX27,17,5,RMUX04,17,1,corpus_route
-RMUX27,17,5,RMUX04,17,3,corpus_route
 RMUX27,17,5,RMUX04,17,4,corpus_route
 RMUX27,17,5,RMUX05,17,1,corpus_route
 RMUX27,17,5,RMUX05,17,2,corpus_route
@@ -113583,7 +113560,6 @@ RMUX27,17,6,RMUX21,17,3,corpus_route
 RMUX27,17,6,RMUX21,17,4,corpus_route
 RMUX27,17,6,RMUX21,17,5,corpus_route
 RMUX27,17,6,RMUX29,17,6,corpus_route
-RMUX27,17,7,RMUX04,17,3,corpus_route
 RMUX27,17,7,RMUX04,17,5,corpus_route
 RMUX27,17,7,RMUX04,17,6,corpus_route
 RMUX27,17,7,RMUX05,17,3,corpus_route
@@ -117000,7 +116976,6 @@ RMUX29,14,3,IMUX17,14,3,corpus_route
 RMUX29,14,3,IMUX19,14,3,corpus_route
 RMUX29,14,3,IMUX21,14,3,corpus_route
 RMUX29,14,3,IMUX23,14,3,corpus_route
-RMUX29,14,3,IMUX25,14,3,corpus_route
 RMUX29,14,3,IMUX27,14,3,corpus_route
 RMUX29,14,3,IMUX29,14,3,corpus_route
 RMUX29,14,3,IMUX31,14,3,corpus_route
@@ -121189,7 +121164,6 @@ RMUX31,14,3,RMUX40,17,3,corpus_route
 RMUX31,14,3,RMUX40,18,3,corpus_route
 RMUX31,14,3,RMUX41,15,3,corpus_route
 RMUX31,14,3,RMUX41,16,3,corpus_route
-RMUX31,14,3,RMUX41,17,3,corpus_route
 RMUX31,14,3,RMUX41,18,3,corpus_route
 RMUX31,14,3,RMUX46,16,3,corpus_route
 RMUX31,14,3,RMUX46,18,3,corpus_route
@@ -127010,7 +126984,6 @@ RMUX34,16,3,IMUX62,16,3,corpus_route
 RMUX34,16,4,IMUX02,16,4,corpus_route
 RMUX34,16,4,IMUX08,16,4,corpus_route
 RMUX34,16,4,IMUX14,16,4,corpus_route
-RMUX34,16,4,IMUX18,16,4,corpus_route
 RMUX34,16,4,IMUX22,16,4,corpus_route
 RMUX34,16,4,IMUX24,16,4,corpus_route
 RMUX34,16,4,IMUX26,16,4,corpus_route
@@ -128749,7 +128722,6 @@ RMUX35,12,1,IMUX19,12,1,corpus_route
 RMUX35,12,1,IMUX21,12,1,corpus_route
 RMUX35,12,1,IMUX23,12,1,corpus_route
 RMUX35,12,1,IMUX25,12,1,corpus_route
-RMUX35,12,1,IMUX27,12,1,corpus_route
 RMUX35,12,1,IMUX29,12,1,corpus_route
 RMUX35,12,1,IMUX31,12,1,corpus_route
 RMUX35,12,1,IMUX33,12,1,corpus_route
@@ -131917,7 +131889,6 @@ RMUX37,14,2,RMUX71,14,1,corpus_route
 RMUX37,14,3,RMUX49,14,1,corpus_route
 RMUX37,14,3,RMUX49,14,2,corpus_route
 RMUX37,14,3,RMUX55,14,2,corpus_route
-RMUX37,14,3,RMUX64,14,1,corpus_route
 RMUX37,14,3,RMUX64,14,2,corpus_route
 RMUX37,14,3,RMUX65,14,2,corpus_route
 RMUX37,14,3,RMUX70,14,2,corpus_route
@@ -131927,7 +131898,6 @@ RMUX37,14,4,RMUX49,14,1,corpus_route
 RMUX37,14,4,RMUX49,14,2,corpus_route
 RMUX37,14,4,RMUX49,14,3,corpus_route
 RMUX37,14,4,RMUX55,14,3,corpus_route
-RMUX37,14,4,RMUX64,14,1,corpus_route
 RMUX37,14,4,RMUX64,14,2,corpus_route
 RMUX37,14,4,RMUX64,14,3,corpus_route
 RMUX37,14,4,RMUX65,14,1,corpus_route
@@ -132489,7 +132459,6 @@ RMUX37,17,5,RMUX54,17,3,corpus_route
 RMUX37,17,5,RMUX54,17,4,corpus_route
 RMUX37,17,5,RMUX64,17,1,corpus_route
 RMUX37,17,5,RMUX64,17,2,corpus_route
-RMUX37,17,5,RMUX64,17,3,corpus_route
 RMUX37,17,5,RMUX64,17,4,corpus_route
 RMUX37,17,5,RMUX65,17,1,corpus_route
 RMUX37,17,5,RMUX65,17,2,corpus_route
@@ -133798,7 +133767,6 @@ RMUX38,12,1,RMUX51,14,1,corpus_route
 RMUX38,12,1,RMUX51,15,1,corpus_route
 RMUX38,12,1,RMUX51,16,1,corpus_route
 RMUX38,12,1,RMUX57,16,1,corpus_route
-RMUX38,12,1,RMUX60,15,1,corpus_route
 RMUX38,12,1,RMUX61,14,1,corpus_route
 RMUX38,12,1,RMUX61,15,1,corpus_route
 RMUX38,12,1,RMUX61,16,1,corpus_route
@@ -133903,7 +133871,6 @@ RMUX38,14,3,RMUX56,15,3,corpus_route
 RMUX38,14,3,RMUX57,15,3,corpus_route
 RMUX38,14,3,RMUX57,17,3,corpus_route
 RMUX38,14,3,RMUX57,18,3,corpus_route
-RMUX38,14,3,RMUX61,16,3,corpus_route
 RMUX38,14,3,RMUX61,17,3,corpus_route
 RMUX38,14,3,RMUX61,18,3,corpus_route
 RMUX38,14,3,RMUX66,16,3,corpus_route
@@ -134087,7 +134054,6 @@ RMUX38,15,3,RMUX57,16,3,corpus_route
 RMUX38,15,3,RMUX57,18,3,corpus_route
 RMUX38,15,3,RMUX57,19,3,corpus_route
 RMUX38,15,3,RMUX61,16,3,corpus_route
-RMUX38,15,3,RMUX61,17,3,corpus_route
 RMUX38,15,3,RMUX61,18,3,corpus_route
 RMUX38,15,3,RMUX61,19,3,corpus_route
 RMUX38,15,3,RMUX66,17,3,corpus_route
@@ -144488,7 +144454,6 @@ RMUX43,18,12,RMUX95,15,12,corpus_route
 RMUX43,18,12,RMUX95,16,12,corpus_route
 RMUX43,18,12,RMUX95,17,12,corpus_route
 RMUX43,19,1,RMUX72,15,1,corpus_route
-RMUX43,19,1,RMUX78,15,1,corpus_route
 RMUX43,19,1,RMUX78,16,1,corpus_route
 RMUX43,19,1,RMUX79,15,1,corpus_route
 RMUX43,19,1,RMUX79,16,1,corpus_route
@@ -156328,7 +156293,6 @@ RMUX49,18,3,RMUX07,17,3,corpus_route
 RMUX49,18,3,RMUX16,14,3,corpus_route
 RMUX49,18,3,RMUX16,15,3,corpus_route
 RMUX49,18,3,RMUX16,16,3,corpus_route
-RMUX49,18,3,RMUX16,17,3,corpus_route
 RMUX49,18,3,RMUX17,14,3,corpus_route
 RMUX49,18,3,RMUX17,15,3,corpus_route
 RMUX49,18,3,RMUX17,16,3,corpus_route
@@ -159763,7 +159727,6 @@ RMUX51,15,3,RMUX10,17,3,corpus_route
 RMUX51,15,3,RMUX10,18,3,corpus_route
 RMUX51,15,3,RMUX10,19,3,corpus_route
 RMUX51,15,3,RMUX11,16,3,corpus_route
-RMUX51,15,3,RMUX11,17,3,corpus_route
 RMUX51,15,3,RMUX11,18,3,corpus_route
 RMUX51,15,3,RMUX11,19,3,corpus_route
 RMUX51,15,3,RMUX14,16,3,corpus_route
@@ -169594,7 +169557,6 @@ RMUX56,14,3,RMUX32,10,3,corpus_route
 RMUX56,14,3,RMUX33,10,3,corpus_route
 RMUX56,14,3,RMUX33,11,3,corpus_route
 RMUX56,14,3,RMUX36,10,3,corpus_route
-RMUX56,14,3,RMUX36,12,3,corpus_route
 RMUX56,14,3,RMUX36,13,3,corpus_route
 RMUX56,14,3,RMUX37,10,3,corpus_route
 RMUX56,14,3,RMUX37,12,3,corpus_route
@@ -175028,7 +174990,6 @@ RMUX59,11,1,IMUX23,11,1,corpus_route
 RMUX59,11,1,IMUX25,11,1,corpus_route
 RMUX59,11,1,IMUX27,11,1,corpus_route
 RMUX59,11,1,IMUX29,11,1,corpus_route
-RMUX59,11,1,IMUX31,11,1,corpus_route
 RMUX59,11,1,IMUX33,11,1,corpus_route
 RMUX59,11,1,IMUX35,11,1,corpus_route
 RMUX59,11,1,IMUX37,11,1,corpus_route
@@ -178346,7 +178307,6 @@ RMUX61,11,1,RMUX55,15,1,corpus_route
 RMUX61,11,1,RMUX64,12,1,corpus_route
 RMUX61,11,1,RMUX64,14,1,corpus_route
 RMUX61,11,1,RMUX64,15,1,corpus_route
-RMUX61,11,1,RMUX65,14,1,corpus_route
 RMUX61,11,1,RMUX65,15,1,corpus_route
 RMUX61,11,1,RMUX70,12,1,corpus_route
 RMUX61,11,1,RMUX70,14,1,corpus_route
@@ -178445,7 +178405,6 @@ RMUX61,13,2,RMUX71,17,2,corpus_route
 RMUX61,13,3,RMUX55,15,3,corpus_route
 RMUX61,13,3,RMUX55,16,3,corpus_route
 RMUX61,13,3,RMUX55,17,3,corpus_route
-RMUX61,13,3,RMUX64,17,3,corpus_route
 RMUX61,13,3,RMUX65,16,3,corpus_route
 RMUX61,13,3,RMUX70,16,3,corpus_route
 RMUX61,13,4,RMUX55,14,4,vendor_portb_logic_oracle
@@ -185295,7 +185254,6 @@ RMUX65,12,1,IMUX09,12,1,corpus_route
 RMUX65,12,1,IMUX11,12,1,corpus_route
 RMUX65,12,1,IMUX13,12,1,corpus_route
 RMUX65,12,1,IMUX15,12,1,corpus_route
-RMUX65,12,1,IMUX19,12,1,corpus_route
 RMUX65,12,1,IMUX21,12,1,corpus_route
 RMUX65,12,1,IMUX23,12,1,corpus_route
 RMUX65,12,1,IMUX25,12,1,corpus_route
@@ -189142,7 +189100,6 @@ RMUX67,14,8,RMUX73,14,5,corpus_route
 RMUX67,14,8,RMUX73,14,6,corpus_route
 RMUX67,14,8,RMUX73,14,7,corpus_route
 RMUX67,14,8,RMUX78,14,4,corpus_route
-RMUX67,14,8,RMUX79,14,4,corpus_route
 RMUX67,14,8,RMUX88,14,5,corpus_route
 RMUX67,14,8,RMUX88,14,6,corpus_route
 RMUX67,14,8,RMUX88,14,7,corpus_route
@@ -189264,7 +189221,6 @@ RMUX67,15,5,RMUX72,15,2,corpus_route
 RMUX67,15,5,RMUX72,15,3,corpus_route
 RMUX67,15,5,RMUX73,15,2,corpus_route
 RMUX67,15,5,RMUX73,15,4,corpus_route
-RMUX67,15,5,RMUX78,15,1,corpus_route
 RMUX67,15,5,RMUX78,15,3,corpus_route
 RMUX67,15,5,RMUX79,15,1,corpus_route
 RMUX67,15,5,RMUX79,15,2,corpus_route
@@ -189656,7 +189612,6 @@ RMUX67,16,11,RMUX88,16,10,corpus_route
 RMUX67,16,11,RMUX89,16,8,corpus_route
 RMUX67,16,11,RMUX89,16,9,corpus_route
 RMUX67,16,11,RMUX89,16,10,corpus_route
-RMUX67,16,11,RMUX94,16,7,corpus_route
 RMUX67,16,11,RMUX94,16,10,corpus_route
 RMUX67,16,11,RMUX95,16,8,corpus_route
 RMUX67,16,11,RMUX95,16,10,corpus_route
@@ -201668,7 +201623,6 @@ RMUX73,17,6,RMUX07,17,3,corpus_route
 RMUX73,17,6,RMUX07,17,4,corpus_route
 RMUX73,17,6,RMUX07,17,5,corpus_route
 RMUX73,17,6,RMUX16,17,2,corpus_route
-RMUX73,17,6,RMUX16,17,3,corpus_route
 RMUX73,17,6,RMUX16,17,4,corpus_route
 RMUX73,17,6,RMUX16,17,5,corpus_route
 RMUX73,17,6,RMUX17,17,2,corpus_route
@@ -202878,7 +202832,6 @@ RMUX74,7,4,RMUX03,8,4,corpus_route
 RMUX74,7,4,RMUX08,9,4,corpus_route
 RMUX74,7,4,RMUX08,10,4,corpus_route
 RMUX74,7,4,RMUX08,11,4,corpus_route
-RMUX74,7,4,RMUX09,11,4,corpus_route
 RMUX74,7,4,RMUX13,8,4,corpus_route
 RMUX74,7,4,RMUX18,11,4,corpus_route
 RMUX74,7,4,RMUX76,7,4,corpus_route
@@ -202927,7 +202880,6 @@ RMUX74,8,4,RMUX08,9,4,corpus_route
 RMUX74,8,4,RMUX08,10,4,corpus_route
 RMUX74,8,4,RMUX08,11,4,corpus_route
 RMUX74,8,4,RMUX08,12,4,corpus_route
-RMUX74,8,4,RMUX09,11,4,corpus_route
 RMUX74,8,4,RMUX09,12,4,corpus_route
 RMUX74,8,4,RMUX13,9,4,corpus_route
 RMUX74,8,4,RMUX18,12,4,corpus_route
@@ -202970,7 +202922,6 @@ RMUX74,9,4,RMUX03,10,4,corpus_route
 RMUX74,9,4,RMUX08,11,4,corpus_route
 RMUX74,9,4,RMUX08,12,4,corpus_route
 RMUX74,9,4,RMUX08,13,4,corpus_route
-RMUX74,9,4,RMUX09,11,4,corpus_route
 RMUX74,9,4,RMUX09,12,4,corpus_route
 RMUX74,9,4,RMUX09,13,4,corpus_route
 RMUX74,9,4,RMUX13,10,4,corpus_route
@@ -205057,7 +205008,6 @@ RMUX75,17,1,RMUX05,17,3,corpus_route
 RMUX75,17,1,RMUX05,17,4,corpus_route
 RMUX75,17,1,RMUX05,17,5,corpus_route
 RMUX75,17,1,RMUX10,17,2,corpus_route
-RMUX75,17,1,RMUX10,17,3,corpus_route
 RMUX75,17,1,RMUX10,17,4,corpus_route
 RMUX75,17,1,RMUX10,17,5,corpus_route
 RMUX75,17,1,RMUX11,17,2,corpus_route
@@ -206509,7 +206459,6 @@ RMUX76,14,6,IMUX46,14,6,corpus_route
 RMUX76,14,6,IMUX48,14,6,corpus_route
 RMUX76,14,6,IMUX62,14,6,corpus_route
 RMUX76,14,7,IMUX00,14,7,corpus_route
-RMUX76,14,7,IMUX06,14,7,corpus_route
 RMUX76,14,7,IMUX10,14,7,corpus_route
 RMUX76,14,7,IMUX12,14,7,corpus_route
 RMUX76,14,7,IMUX22,14,7,corpus_route
@@ -206826,7 +206775,6 @@ RMUX76,17,1,IMUX18,17,1,corpus_route
 RMUX76,17,1,IMUX24,17,1,corpus_route
 RMUX76,17,1,IMUX30,17,1,corpus_route
 RMUX76,17,1,IMUX32,17,1,corpus_route
-RMUX76,17,1,IMUX34,17,1,corpus_route
 RMUX76,17,1,IMUX38,17,1,corpus_route
 RMUX76,17,1,IMUX42,17,1,corpus_route
 RMUX76,17,1,IMUX46,17,1,corpus_route
@@ -206847,7 +206795,6 @@ RMUX76,17,3,IMUX00,17,3,corpus_route
 RMUX76,17,3,IMUX06,17,3,corpus_route
 RMUX76,17,3,IMUX12,17,3,corpus_route
 RMUX76,17,3,IMUX14,17,3,corpus_route
-RMUX76,17,3,IMUX30,17,3,corpus_route
 RMUX76,17,3,IMUX32,17,3,corpus_route
 RMUX76,17,3,IMUX34,17,3,corpus_route
 RMUX76,17,3,IMUX40,17,3,corpus_route
@@ -208932,7 +208879,6 @@ RMUX77,14,6,IMUX61,14,6,corpus_route
 RMUX77,14,6,IMUX63,14,6,corpus_route
 RMUX77,14,7,IMUX01,14,7,corpus_route
 RMUX77,14,7,IMUX03,14,7,corpus_route
-RMUX77,14,7,IMUX07,14,7,corpus_route
 RMUX77,14,7,IMUX09,14,7,corpus_route
 RMUX77,14,7,IMUX11,14,7,corpus_route
 RMUX77,14,7,IMUX13,14,7,corpus_route
@@ -208951,7 +208897,6 @@ RMUX77,14,7,IMUX39,14,7,corpus_route
 RMUX77,14,7,IMUX41,14,7,corpus_route
 RMUX77,14,7,IMUX43,14,7,corpus_route
 RMUX77,14,7,IMUX45,14,7,corpus_route
-RMUX77,14,7,IMUX47,14,7,corpus_route
 RMUX77,14,7,IMUX49,14,7,corpus_route
 RMUX77,14,7,IMUX51,14,7,corpus_route
 RMUX77,14,7,IMUX53,14,7,corpus_route
@@ -209853,7 +209798,6 @@ RMUX77,17,1,IMUX25,17,1,corpus_route
 RMUX77,17,1,IMUX27,17,1,corpus_route
 RMUX77,17,1,IMUX29,17,1,corpus_route
 RMUX77,17,1,IMUX33,17,1,corpus_route
-RMUX77,17,1,IMUX35,17,1,corpus_route
 RMUX77,17,1,IMUX37,17,1,corpus_route
 RMUX77,17,1,IMUX39,17,1,corpus_route
 RMUX77,17,1,IMUX41,17,1,corpus_route
@@ -214374,7 +214318,6 @@ RMUX80,12,4,RMUX33,12,3,corpus_route
 RMUX80,12,4,RMUX36,12,2,corpus_route
 RMUX80,12,4,RMUX37,12,3,corpus_route
 RMUX80,12,4,RMUX42,12,2,corpus_route
-RMUX80,12,4,RMUX42,12,3,corpus_route
 RMUX80,12,4,RMUX43,12,1,corpus_route
 RMUX80,12,4,RMUX43,12,2,corpus_route
 RMUX80,12,4,RMUX43,12,3,corpus_route
@@ -220733,7 +220676,6 @@ RMUX83,14,6,IMUX61,14,6,corpus_route
 RMUX83,14,6,IMUX63,14,6,corpus_route
 RMUX83,14,7,IMUX01,14,7,corpus_route
 RMUX83,14,7,IMUX03,14,7,corpus_route
-RMUX83,14,7,IMUX07,14,7,corpus_route
 RMUX83,14,7,IMUX09,14,7,corpus_route
 RMUX83,14,7,IMUX11,14,7,corpus_route
 RMUX83,14,7,IMUX13,14,7,corpus_route
@@ -220752,7 +220694,6 @@ RMUX83,14,7,IMUX37,14,7,corpus_route
 RMUX83,14,7,IMUX39,14,7,corpus_route
 RMUX83,14,7,IMUX41,14,7,corpus_route
 RMUX83,14,7,IMUX45,14,7,corpus_route
-RMUX83,14,7,IMUX47,14,7,corpus_route
 RMUX83,14,7,IMUX49,14,7,corpus_route
 RMUX83,14,7,IMUX51,14,7,corpus_route
 RMUX83,14,7,IMUX53,14,7,corpus_route
@@ -221607,7 +221548,6 @@ RMUX83,17,1,IMUX27,17,1,corpus_route
 RMUX83,17,1,IMUX29,17,1,corpus_route
 RMUX83,17,1,IMUX31,17,1,corpus_route
 RMUX83,17,1,IMUX33,17,1,corpus_route
-RMUX83,17,1,IMUX35,17,1,corpus_route
 RMUX83,17,1,IMUX37,17,1,corpus_route
 RMUX83,17,1,IMUX39,17,1,corpus_route
 RMUX83,17,1,IMUX41,17,1,corpus_route
@@ -231492,7 +231432,6 @@ RMUX89,14,7,IMUX21,14,7,corpus_route
 RMUX89,14,7,IMUX23,14,7,corpus_route
 RMUX89,14,7,IMUX25,14,7,corpus_route
 RMUX89,14,7,IMUX27,14,7,corpus_route
-RMUX89,14,7,IMUX29,14,7,corpus_route
 RMUX89,14,7,IMUX31,14,7,corpus_route
 RMUX89,14,7,IMUX33,14,7,corpus_route
 RMUX89,14,7,IMUX37,14,7,corpus_route
@@ -231501,7 +231440,6 @@ RMUX89,14,7,IMUX41,14,7,corpus_route
 RMUX89,14,7,IMUX43,14,7,corpus_route
 RMUX89,14,7,IMUX47,14,7,corpus_route
 RMUX89,14,7,IMUX49,14,7,corpus_route
-RMUX89,14,7,IMUX51,14,7,corpus_route
 RMUX89,14,7,IMUX53,14,7,corpus_route
 RMUX89,14,7,IMUX55,14,7,corpus_route
 RMUX89,14,7,IMUX57,14,7,corpus_route
@@ -232377,7 +232315,6 @@ RMUX89,17,3,IMUX33,17,3,corpus_route
 RMUX89,17,3,IMUX37,17,3,corpus_route
 RMUX89,17,3,IMUX39,17,3,corpus_route
 RMUX89,17,3,IMUX41,17,3,corpus_route
-RMUX89,17,3,IMUX43,17,3,corpus_route
 RMUX89,17,3,IMUX47,17,3,corpus_route
 RMUX89,17,3,IMUX49,17,3,corpus_route
 RMUX89,17,3,IMUX51,17,3,corpus_route
@@ -257879,3 +257816,5 @@ RMUX87,18,11,RMUX63,18,9,corpus_route
 RMUX55,20,1,RMUX25,20,2,corpus_route
 RMUX13,18,3,RMUX49,15,3,corpus_route
 RMUX63,18,3,RMUX63,16,3,corpus_route
+RMUX75,20,3,RMUX15,20,6,corpus_route
+RMUX03,18,3,RMUX14,16,3,corpus_route

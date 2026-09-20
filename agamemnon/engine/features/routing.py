@@ -1799,6 +1799,53 @@ class RoutingFeature:
                     _BRAM_FINAL_OK.add((r["src_x"], r["src_y"], _padres(r["src_res"])) + dk)
             print("AGRV2K arch: BRAM final-hop whitelist: %d IMUX terminals restricted to proven feeders"
                   % len(_BRAM_FINAL_DST))
+        # The same restriction, driven by the campaign's own witnesses rather than by a curated table.
+        # bram_wl.csv covers the address pins; the write-data pins were left open, and that is the hole
+        # bram_fifo_kat fell through on 2026-09-20: its eight write lanes entered BramTILE(13,4) through
+        # nine feeders with no witness at their own coordinate, the stored word came back corrupted on
+        # silicon, and the build was still release-strict -- BRAM pips are feature-supplied, and
+        # feature-supplied pips bypass the witness tiering in every admission model.  Every one of those
+        # terminals had two or three witnessed feeders that the router had no reason to prefer.
+        #
+        # Only a terminal the board HAS watched conduct is restricted.  One with no witness keeps every
+        # feeder it had, so this cannot make a design unroutable for want of a table the campaign has not
+        # reached yet (today: Port B and DataInA[8..17]).  Coverage grows as the campaign does.
+        # Terminals bram_wl.csv already governs are OFF LIMITS to the witness rule below.  That table is
+        # a whitelist, so ADDING a ring-witnessed feeder to one of its terminals does not tighten the
+        # graph, it loosens it -- and the feeders it leaves out were left out deliberately, as
+        # config-accepting but dead entry pips.  The first cut of this rule did exactly that and handed
+        # the router RMUX58 -> IMUX08 on AddressA[4], the very shape the comment above warns about; the
+        # board read a corrupted word (2026-09-20 01:40).  Only terminals the curated table says nothing
+        # about may be restricted here.
+        _bram_wl_governed = set(_BRAM_FINAL_DST)
+        _bram_data_wl = 0
+        _rwc = os.path.join(DATA, "ring_witness_conduction.csv")
+        if (os.path.exists(_rwc) and not os.environ.get("AGAMEMNON_NO_BRAM_DATA_WL")
+                and not os.environ.get("AGAMEMNON_NO_BRAM_WL")):
+            _seen_terminal = set()
+            with open(_rwc, newline="", encoding="utf-8") as _rwc_stream:
+                for r in csv.DictReader(_rwc_stream):
+                    # Any destination inside the BRAM tile, not only the input terminals: the first
+                    # cut of this rule covered the IMUX pins alone, and bram_fifo_kat's write lanes
+                    # simply moved one hop upstream -- they reached witnessed final hops through nine
+                    # approach edges nobody had watched, and the board still read a corrupted word
+                    # (2026-09-20 01:10).  Clock resources are excluded: the tile clock arrives on a
+                    # single characterized branch and has no alternative to fall back to.
+                    if not (r["dst_x"] == "13" and r["dst_y"] == "4"):
+                        continue
+                    if r["dst_res"].startswith(("SeamMUX", "TileClkMUX")):
+                        continue
+                    dk = (r["dst_x"], r["dst_y"], _padres(r["dst_res"]))
+                    if dk in _bram_wl_governed:
+                        continue
+                    if dk not in _BRAM_FINAL_DST:
+                        _seen_terminal.add(dk)
+                    _BRAM_FINAL_DST.add(dk)
+                    _BRAM_FINAL_OK.add((r["src_x"], r["src_y"], _padres(r["src_res"])) + dk)
+                    _bram_data_wl += 1
+            if _seen_terminal:
+                print("AGRV2K arch: BRAM witnessed-feeder restriction: %d further BRAM-tile node(s) "
+                      "from %d ring/corpus witnesses" % (len(_seen_terminal), _bram_data_wl))
         import json as _json
         _BRES = None
         _brj4 = os.path.join(DATA, "bram_resolver.json")

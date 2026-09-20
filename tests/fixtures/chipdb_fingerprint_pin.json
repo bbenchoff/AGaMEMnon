@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "c806d959f45622e5ce1fe6e7ca26b49374c1b6b0f79ba44e1919a38be7310318",
+  "fingerprint_sha256": "d30546eb494c05dafa000988b2f3002de190917f587f3ebb4a6db496ce81f661",
   "file_count": 272,
-  "pinned_date": "2026-09-19",
-  "reason": "afexe_absent_edges.csv: 4,458 edges the vendor bitgen resolves no selector for at their own coordinate, each failed in two independently constructed routes and none board-witnessed (AG32-Docs tools/agamemnon/ORACLE.md); loaded behind AGAMEMNON_AFEXE_ABSENT=1"
+  "pinned_date": "2026-09-20",
+  "reason": "BRAM input terminals with a board witness are held to it; oracle pass-2 absent rows (2026-09-20 00:50)"
 }

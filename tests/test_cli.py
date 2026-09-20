@@ -448,3 +448,73 @@ def test_shared_pad_corridor_allows_one_net_on_two_pads(tmp_path):
                   "other": {"direction": "output", "bits": [6]}}}}}), encoding="utf-8")
     assert cli._shared_pad_corridor_conflicts({"led": "PIN_17", "red": "PIN_19"}, tmp_path, str(netlist)) == []
     assert len(cli._shared_pad_corridor_conflicts({"led": "PIN_17", "other": "PIN_19"}, tmp_path, str(netlist))) == 1
+
+
+def _write_pad_netlist(path, ports, cells):
+    path.write_text(json.dumps({
+        "modules": {
+            "top": {"attributes": {"top": "1"}, "ports": ports, "cells": cells},
+        },
+    }), encoding="utf-8")
+
+
+def test_unconstrained_output_pad_is_named(tmp_path):
+    """A driving port with no `set_io` is reported by NAME, before place&route.
+
+    Without this the placer is free to put it anywhere, picks an input-only pad bel, and every attempt
+    of the escalation ladder dies as `bel 'X18Y13_IPAD3' has no pin 'I'` -- minutes of failure naming a
+    bel the author never wrote and no port at all (rando_corpus/uart_tx_hello, 2026-09-19).
+    """
+    netlist = tmp_path / "uart.json"
+    _write_pad_netlist(
+        netlist,
+        {"led": {"direction": "output", "bits": [2]}, "txd": {"direction": "output", "bits": [3]}},
+        {
+            "$iopadmap$top.led": {"type": "GENERIC_IOB", "connections": {"PAD": [2]},
+                                  "port_directions": {"PAD": "inout", "I": "input"}},
+            "$iopadmap$top.txd": {"type": "GENERIC_IOB", "connections": {"PAD": [3]},
+                                  "port_directions": {"PAD": "inout", "I": "input"}},
+        },
+    )
+
+    assert cli._unconstrained_pads(netlist, {"led": "PIN_17"}) == ["txd"]
+    assert cli._unconstrained_pads(netlist, {"led": "PIN_17", "txd": "PIN_10"}) == []
+
+
+def test_unconstrained_input_pad_is_not_reported(tmp_path):
+    """An input pad with no constraint is NOT an error: the flow binds a top-level clock itself.
+
+    Every rando-corpus design leaves `clock` out of its PCF and builds, so reporting unconstrained
+    inputs would fail all ten.  The check is about pads that have to DRIVE.
+    """
+    netlist = tmp_path / "clocked.json"
+    _write_pad_netlist(
+        netlist,
+        {"clock": {"direction": "input", "bits": [2]}, "led": {"direction": "output", "bits": [3]}},
+        {
+            "$iopadmap$top.clock": {"type": "GENERIC_IOB", "connections": {"PAD": [2]},
+                                    "port_directions": {"PAD": "inout", "O": "output"}},
+            "$iopadmap$top.led": {"type": "GENERIC_IOB", "connections": {"PAD": [3]},
+                                  "port_directions": {"PAD": "inout", "I": "input"}},
+        },
+    )
+
+    assert cli._unconstrained_pads(netlist, {"led": "PIN_17"}) == []
+
+
+def test_unconstrained_pad_check_resolves_vector_bits(tmp_path):
+    """`set_io gpio[5] PIN_12` claims the pad of bit 5 against the port's declared offset."""
+    netlist = tmp_path / "vector.json"
+    _write_pad_netlist(
+        netlist,
+        {"gpio": {"direction": "output", "bits": [4, 5], "offset": 4}},
+        {
+            "$iopadmap$top.gpio_0": {"type": "GENERIC_IOB", "connections": {"PAD": [4]},
+                                     "port_directions": {"PAD": "inout", "I": "input"}},
+            "$iopadmap$top.gpio_1": {"type": "GENERIC_IOB", "connections": {"PAD": [5]},
+                                     "port_directions": {"PAD": "inout", "I": "input"}},
+        },
+    )
+
+    assert cli._unconstrained_pads(netlist, {"gpio[5]": "PIN_12"}) == ["gpio[4]"]
+    assert cli._unconstrained_pads(netlist, {"gpio[4]": "PIN_11", "gpio[5]": "PIN_12"}) == []

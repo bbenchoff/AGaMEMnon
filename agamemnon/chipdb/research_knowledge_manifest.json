@@ -10,10 +10,10 @@
   },
   "datasets": [
     {
-      "bytes": 343213,
-      "data_rows": 4458,
+      "bytes": 708611,
+      "data_rows": 8346,
       "path": "agamemnon/chipdb/afexe_absent_edges.csv",
-      "sha256": "dd015b8b216b32c051181e4449f9926ce47338ef11d20df880ad1b8017de9880"
+      "sha256": "84a5e38e3f14c0d8569df08d24934a7e1323d209917e2bf3d5ecf82ed821499c"
     },
     {
       "bytes": 60058,
@@ -373,22 +373,22 @@
       "sha256": "ba19518ab48ac1f39c73b65b7e5fc862934dd27fa755cf1ea28d7f014f857192"
     },
     {
-      "bytes": 8097,
-      "data_rows": 136,
+      "bytes": 11695,
+      "data_rows": 197,
       "path": "agamemnon/chipdb/conduction_retired_by_conviction.csv",
-      "sha256": "87594924a710d16d1995312951397e1ec71175c36c515afb263a58fd154485fc"
+      "sha256": "2a13ecb2f2a49fa9e1a64f1f9b0188b7882fa0bd48dd1697fc3963939c0c0d26"
     },
     {
-      "bytes": 9764997,
-      "data_rows": 257880,
+      "bytes": 9762741,
+      "data_rows": 257819,
       "path": "agamemnon/chipdb/corpus_conduction.csv",
-      "sha256": "11ed7486a23f728c1300a7a3c712c73732157db6dae3b196432c9fae9ec9fef9"
+      "sha256": "a2e8f81a9857fedb6a414db2495ef0c92677df805a2e3b3b1151675b7316439d"
     },
     {
-      "bytes": 64145,
-      "data_rows": 2387,
+      "bytes": 69882,
+      "data_rows": 2605,
       "path": "agamemnon/chipdb/dead_edges_silicon.csv",
-      "sha256": "18d57981624940c5652a43ab15b1112eee932b24205b11961b61f33b769e3fdd"
+      "sha256": "79c0846000b8a9d1936a4c9c9a208557bf7279575f4c9b54bf000a7d92e7bdb0"
     },
     {
       "bytes": 380,
@@ -1441,10 +1441,10 @@
       "sha256": "1115d38a900f328b8e1f1a89f767296b26db8f54f5aea5299148d974944c05b7"
     },
     {
-      "bytes": 5877459,
-      "data_rows": 159475,
+      "bytes": 6945051,
+      "data_rows": 188491,
       "path": "agamemnon/chipdb/ring_witness_conduction.csv",
-      "sha256": "65e7d5768832d75d1edec85ab09da87f1ac43d72c328fc945e0c4c399a4baaf2"
+      "sha256": "dcfbcabb1c87e84632274e888f268eb21b00737bcd9c25ce4f10689d81c322ca"
     },
     {
       "bytes": 1607,
