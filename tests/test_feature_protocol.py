@@ -626,7 +626,7 @@ def test_routing_feature_owns_resolution_and_physical_writes():
         "rrg_rmux_imux_full.csv", "dead_edges_silicon.csv",
         # edges the vendor bitgen resolves no selector for at their own coordinate: a TOPOLOGY claim,
         # deliberately separate from dead_edges_silicon.csv's conduction claim
-        "afexe_absent_edges.csv",
+        "afexe_absent_edges.csv", "afexe_column_dead.csv",
         "exit_feeder_whitelist.csv", "master_conduction.csv",
         "ff2_conduction.csv", "harvest_conduction.csv",
         "ring_witness_conduction.csv",

@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "279d95cd180c50bb89621ac0d1222dc06cbdd8bf006f738b63e974e1a0d6ffc6",
-  "file_count": 272,
-  "pinned_date": "2026-09-20",
-  "reason": "Promotion #12 (2026-09-20 15:25): witnesses since #11 after retiring the FOCUS_BOX throttle; retirement now records row position so historical identities hold; audits 0/60 and 2/49 absent-rule, 2/2683 conviction"
+  "fingerprint_sha256": "6f757a0525250ca80d0ae6a208fe327208c1e5fdf9b4334108c2912da5228eaa",
+  "file_count": 273,
+  "pinned_date": "2026-09-21",
+  "reason": "2026-09-21: add agamemnon/chipdb/afexe_column_dead.csv, 364 board-vetted per-(template, column) dead cells behind the default-off AGAMEMNON_COLUMN_DEAD flag (working-order item 3: the edge leaves the graph GENERATOR per column, not via a dead-edge blacklist). Covers 899 edges, all still unresolved, zero board contradictions after dropping the 14 cells (6 whole templates) the ledger contradicts. Repack-neutral: GAP-1 Rule 2 confirms every retained release-strict artifact rebuilds byte-identical, because the flag is off by default."
 }

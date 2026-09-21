@@ -844,7 +844,7 @@ class RoutingFeature:
             "selector_alias_repair.csv", "codeword_board_witness.csv",
             "rrg_edges_full.csv", "rrg_omux_imux_full.csv",
             "rrg_rmux_imux_full.csv", "dead_edges_silicon.csv",
-            "afexe_absent_edges.csv",
+            "afexe_absent_edges.csv", "afexe_column_dead.csv",
             "exit_feeder_whitelist.csv", "master_conduction.csv",
             "ff2_conduction.csv", "harvest_conduction.csv",
             "ring_witness_conduction.csv",
@@ -1039,6 +1039,30 @@ class RoutingFeature:
                 _absent_count += 1
             print("AGRV2K arch: af.exe-ABSENT edges excluded (%d): the vendor bitgen resolves no selector for "
                   "them at that coordinate, in two independently constructed routes each" % _absent_count)
+        # Per-(template, column) rules, NOT an enumerated edge list.  af.exe resolves no selector
+        # for the template anywhere in that column, in two independently constructed routes, and no
+        # board witness contradicts the cell -- so the edge does not exist there and it leaves the
+        # GENERATOR per column, which is what a dead-edge blacklist cannot express.  364 cells cover
+        # 899 edges of the shipped graph, every one of them still unresolved.
+        #
+        # Vetting matters here: the raw oracle output was 381 cells and 14 of them (3.7 %) were
+        # contradicted by a board witness once the ledger had grown.  The contradictions concentrate
+        # by TEMPLATE, not by column -- six templates were wrong in half or more of their columns --
+        # so those six were dropped whole and only one genuinely per-column cell was removed.
+        # Re-run that audit before widening this table; see AG32-Docs RUNNING_20260920_2350.md.
+        #
+        # Opt-in while it is being qualified: AGAMEMNON_COLUMN_DEAD=1.
+        COLUMN_DEAD_RULES = set()
+        _coldead_csv = os.path.join(DATA, "afexe_column_dead.csv")
+        if os.environ.get("AGAMEMNON_COLUMN_DEAD") == "1" and os.path.exists(_coldead_csv):
+            for _cd in csv.DictReader(open(_coldead_csv)):
+                COLUMN_DEAD_RULES.add((
+                    _cd["src_res"].strip(), int(_cd["src_idx"]),
+                    int(_cd["dx"]), int(_cd["dy"]),
+                    _cd["dst_res"].strip(), int(_cd["dst_idx"]), int(_cd["dst_column"])))
+            print("AGRV2K arch: COLUMN-DEAD rules active (%d per-(template, column) cells); the "
+                  "vendor bitgen resolves no selector for these templates in these columns"
+                  % len(COLUMN_DEAD_RULES))
         if EDGE_BLACKLIST:
             # A cut ban runs to thousands of edges; print a bounded sample so the
             # count stays visible without burying the rest of the build log.
@@ -1051,6 +1075,11 @@ class RoutingFeature:
             """RMUX8 and RMUX08 are the same wire. Compare numerically."""
             match = re.fullmatch(r"([A-Za-z]+)0*(\d+)", str(res or ""))
             return "%s%d" % (match.group(1), int(match.group(2))) if match else str(res)
+
+        def _res_parts(res):
+            """("RMUX09") -> ("RMUX", 9): the column rules key on family and index separately."""
+            match = re.fullmatch(r"([A-Za-z]+)0*(\d+)", str(res or ""))
+            return (match.group(1), int(match.group(2))) if match else (str(res), -1)
 
         def _norm_edge(src_res, src_x, src_y, dst_res, dst_x, dst_y):
             return (_norm_res(src_res), str(int(src_x)), str(int(src_y)),
@@ -1073,6 +1102,15 @@ class RoutingFeature:
             if _norm_edge(r["src_res"], r["src_x"], r["src_y"],
                           r["dst_res"], r["dst_x"], r["dst_y"]) in EDGE_BLACKLIST:
                 return True
+            if COLUMN_DEAD_RULES:
+                # evaluated as a RULE against this row's template and column, so the table stays
+                # 364 cells instead of an enumeration that would have to grow with the graph
+                _sn, _si = _res_parts(r["src_res"])
+                _dn, _di = _res_parts(r["dst_res"])
+                if (_sn, _si, int(r["src_x"]) - int(r["dst_x"]),
+                        int(r["src_y"]) - int(r["dst_y"]), _dn, _di,
+                        int(r["dst_x"])) in COLUMN_DEAD_RULES:
+                    return True
             source = W(r["src_x"], r["src_y"], r["src_res"])
             destination = W(r["dst_x"], r["dst_y"], r["dst_res"])
             # Supplemental corridor loaders also use this predicate. A saved

@@ -930,15 +930,16 @@ def test_current_physical_touching_pip_role_matrix_is_exhaustive(
     # 2026-09-19 ring-oscillator promotion (tools/pipwit): board-witnessed pips on physical-I/O catalog wires entered the strict graph: 816 -> 822 touching (incoming/outgoing/internal (278, 548, 10) -> (279, 553, 10)).
     # 2026-09-20 ring-oscillator promotion (tools/pipwit): board-witnessed pips on physical-I/O catalog wires entered the strict graph: 822 -> 826 touching (incoming/outgoing/internal (279, 553, 10) -> (279, 557, 10)).
     # 2026-09-20 ring-oscillator promotion (tools/pipwit): board-witnessed pips on physical-I/O catalog wires entered the strict graph: 826 -> 823 touching (incoming/outgoing/internal (279, 557, 10) -> (279, 554, 10)).
-    assert len(touching) == 823
+    # 2026-09-21 ring-oscillator promotion (tools/pipwit): board-witnessed pips on physical-I/O catalog wires entered the strict graph: 823 -> 822 touching (incoming/outgoing/internal (279, 554, 10) -> (279, 553, 10)).
+    assert len(touching) == 822
     assert hashlib.sha256(canonical).hexdigest() == (
-        "c98dba56cc9d66ba43209503901cf51365457a3a0eba07c35e23dad7dcac998f"
+        "e71b5107c6d081e65562825b16fd0507024e16c01343ee91c478ca3e660c7fe1"
     )
     incoming = [edge for edge in touching if edge[1] in catalog.wires]
     outgoing = [edge for edge in touching if edge[0] in catalog.wires]
     internal = [edge for edge in touching
                 if edge[0] in catalog.wires and edge[1] in catalog.wires]
-    assert (len(incoming), len(outgoing), len(internal)) == (279, 554, 10)
+    assert (len(incoming), len(outgoing), len(internal)) == (279, 553, 10)
 
     # The census above binds the exact current physical graph.  Avoid 7,656
     # redundant catalog reads while still exercising the public validator for

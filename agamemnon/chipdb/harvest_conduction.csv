@@ -1563,7 +1563,6 @@ RMUX81,19,1,RMUX39,20,1,silicon_harvest
 OMUX17,20,3,RMUX37,20,3,silicon_harvest
 RMUX69,20,3,RMUX93,20,5,silicon_harvest
 RMUX20,20,1,RMUX81,19,1,silicon_harvest
-RMUX38,12,3,RMUX61,16,3,silicon_harvest
 OMUX01,20,3,IMUX04,20,3,silicon_harvest
 RMUX25,16,1,RMUX01,16,3,silicon_harvest
 OMUX20,20,3,RMUX33,20,3,silicon_harvest

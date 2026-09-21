@@ -143,6 +143,7 @@ OPTIONS = {
     "AGAMEMNON_EDGE_BLACKLIST": _value("", "text", "arch", "experimental", "agamemnon/chipdb/dead_edges_silicon.csv", "Add campaign-local edges to the dead-edge blacklist."),
     "AGAMEMNON_EDGE_BLACKLIST_FILE": _value(None, "path", "arch", "experimental", "agamemnon/chipdb/dead_edges_silicon.csv", "Add campaign-local edges to the dead-edge blacklist from a file (one edge per line), for cut-scale bans that cannot fit in an environment variable."),
     "AGAMEMNON_AFEXE_ABSENT": _flag("arch", "experimental", "agamemnon/chipdb/afexe_absent_edges.csv", "Exclude edges the vendor bitgen resolves no selector for at that coordinate."),
+    "AGAMEMNON_COLUMN_DEAD": _flag("arch", "experimental", "agamemnon/chipdb/afexe_column_dead.csv", "Exclude edges by per-(template, column) rule: the vendor bitgen resolves no selector for that template anywhere in that column, and no board witness contradicts the cell. 364 cells, 899 edges; board-vetted (14 of the raw 381 cells were contradicted and dropped)."),
     "AGAMEMNON_NO_EXIT_WL": _flag("arch", "archival", "agamemnon/chipdb/exit_feeder_whitelist.csv", "Disable exit-feeder restrictions."),
     "AGAMEMNON_SOFT_PREFER": _flag("arch", "experimental", "qualification/routing_evidence.jsonl", "Prefer conducting edges without gating alternatives."),
     "AGAMEMNON_SOFT_PENALTY": _value("30", "float", "arch", "experimental", "qualification/routing_evidence.jsonl", "Nanosecond cost for an unqualified soft-preference edge."),
