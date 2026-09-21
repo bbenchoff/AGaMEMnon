@@ -21,6 +21,7 @@ the JSON diff must be explained by the graph change that motivated it.
 """
 import argparse
 import hashlib
+import itertools
 import json
 import os
 import subprocess
@@ -69,6 +70,64 @@ def emit(profile, out_dir):
     return raw.count(b"\n") - 1, hashlib.sha256(raw).hexdigest()
 
 
+WHY_OPTION = {
+    "AGAMEMNON_BRAM_PORTB_EXIT":
+        "live BRAM Port B (withholds the Port-B exit-corridor RMUX rows)",
+    "AGAMEMNON_BRAM_SITE_READ_PATHS":
+        "board-witnessed BRAM site-read paths (adds the recorded site-read hops; the CLI "
+        "auto-enables this for any MCU-read ALTA_BRAM9K, so without this profile a strict build "
+        "of such a design cannot be produced at all)",
+}
+
+
+def why_for(shared_control, admission, options):
+    """The human reason a derived profile exists; the registry test requires one."""
+    enables = "native enables" if shared_control == "1" else "data-logic enables"
+    reasons = []
+    for item in options:
+        name = item.split("=", 1)[0]
+        reasons.append(WHY_OPTION.get(name, name))
+    return "%s, %s, %s" % (admission, enables, " + ".join(reasons))
+
+
+def complete(registry):
+    """Add any (shared control x admission x option subset) combination the registry lacks.
+
+    The registry used to be hand-maintained, which meant a combination nobody had
+    happened to build was simply absent -- and an absent profile is not a permissive
+    default, it is a hard refusal ("physical graph identity drift").  That is how
+    release-strict lost every read-ported BRAM design: SITE_READ_PATHS is auto-enabled
+    for any read-ported ALTA_BRAM9K, only its tiered profiles were registered, so the
+    strict build of a BRAM design could not be produced at all and the design had to
+    fall back to --tiered.  Deriving the set instead of listing it means a new
+    admission or option cannot silently leave that hole behind.
+
+    Registering a profile does not admit a single extra pip: it records the identity of
+    the graph the emitter already produces for that option set, and under release-strict
+    the emitter admits only witnessed rows.  The identities themselves still come from a
+    source-fresh emit below.
+    """
+    have = {sr.graph_profile_key(p["shared_control"], p["admission"], p["options"])
+            for p in registry["profiles"]}
+    added = []
+    for shared in ("0", "1"):
+        for admission in ("release-strict", "tiered"):
+            for size in range(1, len(sr.GRAPH_PROFILE_OPTIONS) + 1):
+                for combo in itertools.combinations(sorted(sr.GRAPH_PROFILE_OPTIONS), size):
+                    options = ["%s=1" % name for name in combo]
+                    key = sr.graph_profile_key(shared, admission, options)
+                    if key in have:
+                        continue
+                    registry["profiles"].append({
+                        "shared_control": shared, "admission": admission,
+                        "options": options, "graph_pip_count": 0, "graph_pips_sha256": "",
+                        "why": why_for(shared, admission, options),
+                    })
+                    have.add(key)
+                    added.append(key)
+    return added
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--check", action="store_true",
@@ -77,6 +136,8 @@ def main(argv=None):
                         help="restrict to profiles whose key contains KEY")
     args = parser.parse_args(argv)
     registry = sr.load_graph_profiles()
+    for key in complete(registry):
+        print("added  %s  (was unregistered, so refused)" % key)
     drift = []
     with tempfile.TemporaryDirectory(prefix="agamemnon-graph-profiles-") as scratch:
         for index, profile in enumerate(registry["profiles"]):
@@ -86,7 +147,8 @@ def main(argv=None):
                 continue
             count, digest = emit(profile, Path(scratch) / ("profile-%d" % index))
             registered = (profile["graph_pip_count"], profile["graph_pips_sha256"])
-            status = "ok" if registered == (count, digest) else "DRIFT"
+            status = ("NEW" if not profile["graph_pips_sha256"]
+                      else "ok" if registered == (count, digest) else "DRIFT")
             print("%-5s %s  rows=%d sha=%s" % (status, key, count, digest[:16]))
             if registered != (count, digest):
                 drift.append(key)

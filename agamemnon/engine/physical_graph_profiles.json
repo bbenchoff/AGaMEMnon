@@ -83,6 +83,48 @@
       "graph_pip_count": 331221,
       "graph_pips_sha256": "fb79f4cc7a1c0176565a0869b5bc3baf4bf0f79a9f648fed355e87059a25df5c",
       "why": "tiered, native enables, read-ported BRAM with a live Port B: the ordinary examples/serv_blinky build"
+    },
+    {
+      "shared_control": "0",
+      "admission": "release-strict",
+      "options": [
+        "AGAMEMNON_BRAM_SITE_READ_PATHS=1"
+      ],
+      "graph_pip_count": 317688,
+      "graph_pips_sha256": "96e05a2724fd47646e7cb362a64888224bf72b2805d950ea022a543b6ed01ee6",
+      "why": "release-strict, data-logic enables, board-witnessed BRAM site-read paths (adds the recorded site-read hops; the CLI auto-enables this for any MCU-read ALTA_BRAM9K, so without this profile a strict build of such a design cannot be produced at all)"
+    },
+    {
+      "shared_control": "0",
+      "admission": "release-strict",
+      "options": [
+        "AGAMEMNON_BRAM_PORTB_EXIT=1",
+        "AGAMEMNON_BRAM_SITE_READ_PATHS=1"
+      ],
+      "graph_pip_count": 317490,
+      "graph_pips_sha256": "eabb9a0e8fea4307239e337dd91dd74c319dc21415d67f0626b19ff9379391f4",
+      "why": "release-strict, data-logic enables, live BRAM Port B (withholds the Port-B exit-corridor RMUX rows) + board-witnessed BRAM site-read paths (adds the recorded site-read hops; the CLI auto-enables this for any MCU-read ALTA_BRAM9K, so without this profile a strict build of such a design cannot be produced at all)"
+    },
+    {
+      "shared_control": "1",
+      "admission": "release-strict",
+      "options": [
+        "AGAMEMNON_BRAM_SITE_READ_PATHS=1"
+      ],
+      "graph_pip_count": 318759,
+      "graph_pips_sha256": "feda83f97fac56cc77b52fb00d0b156f17e1b322470c91731be1dd3112b02c53",
+      "why": "release-strict, native enables, board-witnessed BRAM site-read paths (adds the recorded site-read hops; the CLI auto-enables this for any MCU-read ALTA_BRAM9K, so without this profile a strict build of such a design cannot be produced at all)"
+    },
+    {
+      "shared_control": "1",
+      "admission": "release-strict",
+      "options": [
+        "AGAMEMNON_BRAM_PORTB_EXIT=1",
+        "AGAMEMNON_BRAM_SITE_READ_PATHS=1"
+      ],
+      "graph_pip_count": 318561,
+      "graph_pips_sha256": "0ea2b3b9c0ba8830fe83f8cfcd6019c23f1ff4e7a17069dcd1962ce851690087",
+      "why": "release-strict, native enables, live BRAM Port B (withholds the Port-B exit-corridor RMUX rows) + board-witnessed BRAM site-read paths (adds the recorded site-read hops; the CLI auto-enables this for any MCU-read ALTA_BRAM9K, so without this profile a strict build of such a design cannot be produced at all)"
     }
   ]
 }
