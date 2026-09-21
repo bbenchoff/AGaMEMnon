@@ -201,8 +201,26 @@ best primary starting points known to this project:
   derived workbench artifacts are cited by repository path when they are not
   redistributed here
 
-AGM's site currently lists AG32 SDK and Supra downloads for Windows and Linux.
-That does not make the vendor programmable-logic format open or the complete
+AGM's site lists an AG32 SDK and a Supra download; the actual files sit behind a
+Baidu Cloud link, so this repository does not assert which operating systems they
+cover. What can be checked directly says Windows: the place-and-route package
+`tool-agrv_logic` declares `"system": ["windows_amd64"]`, AGM's own
+`agm-micro/AGM_fpga_tools` states "Version 1.0.3, for Windows 64 only", the
+package ships no ELF binaries, and its upstream repository has a single branch
+and no tags. An earlier revision of this file claimed Windows and Linux without a
+citation; that claim is withdrawn.
+
+Worth recording for anyone assessing portability: `af.exe` is a 64-bit **console**
+PE built with **MinGW/GCC**, not MSVC, embedding Tcl, and its only imports are
+`msvcrt` plus `kernel32/user32/advapi32/psapi/userenv/winmm`, the sockets trio
+`ws2_32/iphlpapi/netapi32`, and `ftd2xx` for the FTDI programmer. No GUI
+framework. So the code is very likely portable C/C++ that was cross-compiled for
+Windows rather than written against Windows, and the awkward parts of a native
+Linux build would be the FTDI path and whatever the networking imports are doing
+(host or MAC identity is the usual reason a tool links `netapi32`). That also
+makes it a plausible Wine candidate, which is untested here.
+
+None of that makes the vendor programmable-logic format open or the complete
 workflow easy to reproduce. AGaMEMnon's narrower claim is an inspectable,
 testable flow whose supported boundary is recorded in this repository.
 
