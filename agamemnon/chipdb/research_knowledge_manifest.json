@@ -1532,9 +1532,9 @@
       "sha256": "2bb7e107c05b3127aa8a566b201753c5ee16a7f335b26e67c248f598b8791e0d"
     },
     {
-      "bytes": 2595665,
+      "bytes": 2596411,
       "path": "agamemnon/chipdb/sel_edge_pairs.agdb",
-      "sha256": "2edfe959f93548ad7e9bc76b1ed6dcf84942b9f9861bd362fead9a5e24f06a2a"
+      "sha256": "b640d4db85dd86bda0272983c070ce959915c60adfb53ea132ab56aa47d6697d"
     },
     {
       "bytes": 758,
@@ -1579,6 +1579,12 @@
       "bytes": 54046,
       "path": "agamemnon/chipdb/train_lut.agdb",
       "sha256": "822a61564f611a9a420a62eabd04f48a26c5214b07a8933006e0b7740a35a88c"
+    },
+    {
+      "bytes": 5318,
+      "data_rows": 103,
+      "path": "agamemnon/chipdb/vendor_recovered_edges.csv",
+      "sha256": "180a849fb53cc7cd8f7808332450c6b95a57ffce96d481a0b652a7226b1a9bff"
     },
     {
       "bytes": 46899,
