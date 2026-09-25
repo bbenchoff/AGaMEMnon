@@ -41,7 +41,9 @@ def test_shipped_runtime_databases_have_expected_schema(tmp_path):
     # refused). Needed because an RMUX->RMUX hop BETWEEN BramTILEs is bitgen'd by the
     # general data-pip path, which reads clean_edge and never consults bram_resolver.json.
     # 2026-09-18: one independently controlled native RMUX31->RMUX25 coordinate.
-    assert len(exact["clean_edge"]) == 665113
+    # 2026-09-24: 26 exact rows for vendor-routed hops recovered from silicon-passing images
+    # (chipdb/vendor_recovered_edges.csv); each agrees with its existing unanimous relative key.
+    assert len(exact["clean_edge"]) == 665139
     assert len(train["train_lut"]) == 14237
     assert tuple(len(tables[name]) for name in ("geom_rmux", "absolute", "group_context")) == (
         330, 153080, 532558

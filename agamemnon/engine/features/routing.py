@@ -850,7 +850,8 @@ class RoutingFeature:
             "ring_witness_conduction.csv",
             "conduction_retired_by_conviction.csv",
             "pad_output_approaches_L48.csv",
-            "corpus_conduction.csv", "ff_feedback_map.csv",
+            "corpus_conduction.csv", "vendor_recovered_edges.csv",
+            "ff_feedback_map.csv",
             "wire_timing_worst.json", "wire_timing_exact_safe.json",
             "wire_timing_exact_safe_manifest.json", "wire_timing_measured.json",
             "wires.csv", "pip_usage.csv", "mcu_region_witness.csv",
@@ -1284,7 +1285,8 @@ class RoutingFeature:
                     "ff2_conduction.csv",          # silicon-swept (ff2_sweep) FF->FF INTER-tile directed corridors
                     "harvest_conduction.csv",      # silicon-swept (harvest_sweep) all pips of CONDUCTING designs
                     "ring_witness_conduction.csv", # ring-oscillator campaign (pipwit, 2026-09): every pip of a ring that oscillated with clean controls
-                    "corpus_conduction.csv"):      # vendor-route-mined per-position conducting edges (mine_corpus.py A2)
+                    "corpus_conduction.csv",       # vendor-route-mined per-position conducting edges (mine_corpus.py A2)
+                    "vendor_recovered_edges.csv"): # vendor-routed hops of silicon-PASSING images (see edge_files below)
             _cp = os.path.join(DATA, _cf)
             if os.path.exists(_cp):
                 _n0 = len(CONDUCT)
@@ -1494,8 +1496,17 @@ class RoutingFeature:
             # positive conduction evidence and a topology supplement.  `seen_pip`
             # below makes the large overlap with rrg_edges_full.csv free of duplicate
             # pips while retaining vendor-only links.
+            #
+            # vendor_recovered_edges.csv (2026-09-24) is the same kind of supplement, recovered
+            # with segment-aware decoding of af.exe routes: 103 LogicTile RMUX->RMUX / RMUX->IMUX
+            # hops the vendor router used in self-checking designs that PASSED on silicon, absent
+            # from every table above.  Each destination codeword was read from those images, is
+            # identical in every image that uses the edge, collides with no other source into the
+            # same node, and has an exact row in sel_edge_pairs.agdb (26 of them added with this
+            # table, all agreeing with the existing unanimous relative key).  A passing image is
+            # per-position conduction evidence, so these rows are also loaded into CONDUCT above.
             edge_files = ("rrg_edges_full.csv", "rrg_omux_imux_full.csv",
-                          "corpus_conduction.csv")
+                          "corpus_conduction.csv", "vendor_recovered_edges.csv")
         if os.environ.get("AGAMEMNON_PHYSICAL_IO") and DEV.name == "AGRV2KL48":
             edge_files = tuple(edge_files) + ("physical_iob_edges_L48.csv",)
         # XBAR-FULL (AGAMEMNON_XBAR_FULL=1): add the COMPLETED intra-tile RMUX->IMUX input crossbar (union+

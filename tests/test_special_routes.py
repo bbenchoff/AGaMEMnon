@@ -1290,6 +1290,9 @@ def _pre_campaign_graph_bytes(admission, shared):
     (data / "ring_witness_conduction.csv").unlink()
     # pad-approach witnesses (padapproach.py, 2026-09-19) are campaign output too
     (data / "pad_output_approaches_L48.csv").unlink(missing_ok=True)
+    # vendor-routed hops recovered from passing images (2026-09-24) postdate the campaign baseline;
+    # their exact sel_edge_pairs.agdb rows only restate unanimous relative keys, so they change no pip
+    (data / "vendor_recovered_edges.csv").unlink(missing_ok=True)
     # positive-evidence rows that a campaign conviction retired come back for the pre-campaign graph
     retired = data / "conduction_retired_by_conviction.csv"
     if retired.exists():
