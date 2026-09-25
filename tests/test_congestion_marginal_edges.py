@@ -28,6 +28,17 @@ legacy and --uarch flows) and refuses the build if it used one of the three pips
 "refused or moved" outcome (an honest build error instead of a silently-wrong bitstream, or a
 different --seed/--cap finding a route that never needed the marginal pip) without touching the
 device graph or any pinned historical identity.
+
+2026-09-25 follow-up (router-cost-penalty pass, AG32-Docs tools/pipwit/scratch/
+FF_INIT_20260925.md): a fourth design, bmd_sp1_c10_o0, was found forced across 5/5
+independently-seeded placements onto the SAME X20Y12_IMUX19 terminal RMUX65/RMUX77 already
+implicate, through three more feeder pips (RMUX59, RMUX29, RMUX71) -- five distinct sources into
+one scarce sink. A destination-terminal-wide wildcard rule (penalise/refuse ANY source feeding
+that terminal, not just the witnessed ones) was tried and REVERTED: bram_rom_kat's own PASSING
+board image routes its reset through X20Y12_RMUX83.X20Y12_IMUX19 successfully, and
+bmd_sdp4_4_c00's PASSING image routes hb[0] through X20Y12_RMUX47.X20Y12_IMUX05 successfully --
+both terminals have a confirmed-good source alongside their confirmed-bad ones, so this stays an
+exact source+destination edge table (six rows now) rather than a per-destination ban.
 """
 import csv
 import pathlib
@@ -46,11 +57,20 @@ EXPECTED_EDGES = {
     ("RMUX53", "20", "12", "IMUX05", "20", "12"),
     ("RMUX65", "20", "12", "IMUX19", "20", "12"),
     ("RMUX77", "20", "12", "IMUX19", "20", "12"),
+    # Added 2026-09-25 (router-cost-penalty follow-up, AG32-Docs
+    # tools/pipwit/scratch/FF_INIT_20260925.md): bmd_sp1_c10_o0 forced its reset net onto the
+    # same X20Y12_IMUX19 terminal across 5/5 seeds, through three more feeder pips.
+    ("RMUX59", "20", "12", "IMUX19", "20", "12"),
+    ("RMUX29", "20", "12", "IMUX19", "20", "12"),
+    ("RMUX71", "20", "12", "IMUX19", "20", "12"),
 }
 EXPECTED_PIP_NAMES = {
     "X20Y12_RMUX53.X20Y12_IMUX05",
     "X20Y12_RMUX65.X20Y12_IMUX19",
     "X20Y12_RMUX77.X20Y12_IMUX19",
+    "X20Y12_RMUX59.X20Y12_IMUX19",
+    "X20Y12_RMUX29.X20Y12_IMUX19",
+    "X20Y12_RMUX71.X20Y12_IMUX19",
 }
 
 
@@ -74,9 +94,9 @@ def _net(routing):
     return {"attributes": {"ROUTING": routing}}
 
 
-def test_congestion_marginal_edges_file_has_the_three_board_confirmed_pips():
+def test_congestion_marginal_edges_file_has_the_board_confirmed_pips():
     rows = _rows("congestion_marginal_edges.csv")
-    assert len(rows) == 3
+    assert len(rows) == 6
     edges = set()
     for row in rows:
         match = EDGE_RE.fullmatch(row["edge"])
@@ -148,7 +168,7 @@ def test_module_using_a_banned_pip_is_refused():
         raise AssertionError("expected a CongestionMarginalError")
 
 
-def test_all_three_banned_pips_are_individually_caught():
+def test_all_banned_pips_are_individually_caught():
     for pip in sorted(EXPECTED_PIP_NAMES):
         module = {"netnames": {"n": _net("W0;%s;1;W1;;1" % pip)}}
         try:
@@ -157,6 +177,18 @@ def test_all_three_banned_pips_are_individually_caught():
             pass
         else:
             raise AssertionError("%s should have been refused" % pip)
+
+
+def test_known_good_sources_into_the_same_terminals_are_not_banned():
+    # Guards the 2026-09-25 decision to keep this an exact-edge table rather than a
+    # destination-terminal-wide ban: these two pips are confirmed-GOOD by a passing board image
+    # (bram_rom_kat and bmd_sdp4_4_c00 respectively) into the SAME two scarce terminals
+    # (X20Y12_IMUX19, X20Y12_IMUX05) the six banned rows above also feed. A future change that
+    # reintroduces destination-keyed matching must not silently start refusing these.
+    for pip in ("X20Y12_RMUX83.X20Y12_IMUX19", "X20Y12_RMUX47.X20Y12_IMUX05"):
+        assert pip not in EXPECTED_PIP_NAMES, pip
+        module = {"netnames": {"safe_net": _net("W0;%s;1;W1;;1" % pip)}}
+        PC.validate_module_congestion_marginal(module, DATA)  # no raise
 
 
 def test_document_wrapper_requires_modules_top():
