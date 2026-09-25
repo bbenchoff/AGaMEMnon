@@ -78,10 +78,10 @@ Policy version: `D0-v1`.
 | `AGAMEMNON_NO_EXIT_WL` | archival | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/exit_feeder_whitelist.csv |
 | `AGAMEMNON_NO_FFBRIDGE` | experimental | decoded | configuration | unapproved | inventory only | qualification/routing_evidence.jsonl |
 | `AGAMEMNON_NO_INTRA_RMUX` | experimental | decoded | configuration | unapproved | inventory only | qualification/routing_evidence.jsonl |
+| `AGAMEMNON_NO_OMUX_PRESENT0` | experimental | decoded | configuration | unapproved | inventory only | qualification/omux_presentation_evidence.md |
 | `AGAMEMNON_NO_SEAM` | experimental | decoded | timing | unapproved | inventory only | qualification/clock_divider_probe.v |
 | `AGAMEMNON_OBSERVED_ONLY` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/pip_usage.csv |
 | `AGAMEMNON_OBS_IMUX` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/pip_usage.csv |
-| `AGAMEMNON_OMUX_PRESENT0` | experimental | decoded | configuration | unapproved | inventory only | qualification/omux_presentation_evidence.md |
 | `AGAMEMNON_OWNERSHIP_TRACE` | diagnostic | decoded | configuration | unapproved | inventory only | docs/ARCHITECTURE.md |
 | `AGAMEMNON_PADFEED_ONLY` | diagnostic | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/padfeed_L48_top.csv |
 | `AGAMEMNON_PADFEED_TOP` | release | individually_qualified | electrical | preexisting_v4 | preexisting V4 release scope | agamemnon/chipdb/padfeed_L48_top.csv |

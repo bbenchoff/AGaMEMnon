@@ -453,6 +453,12 @@ def evaluate_policy(options, features=FEATURES, include_constants=True):
             # AGAMEMNON_DIRECT_D_EXTRA_SITES above; every other release-strict gate
             # (routing/conduction admission, strict selector gate) is untouched.
             error = None
+        elif name == "AGAMEMNON_NO_OMUX_PRESENT0" and policy == "release-strict":
+            # Same surface-narrowing class as AGAMEMNON_NO_FFBRIDGE: its one engine
+            # use guards the ADDITION of the default OMUXPRES pips, so setting it can
+            # only remove edges from the release graph; worst case is an unroutable
+            # (fail-closed) build, never a silently-wrong image.
+            error = None
         else:
             error = _permission_error(policy_name, spec.maturity, claim, policy, explicit)
         if error:

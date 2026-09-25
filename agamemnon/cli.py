@@ -3437,6 +3437,9 @@ def _cmd_build_once(a):
             default_devdb += "_adjrow"
         if env.get("AGAMEMNON_DECODE_UNIQUE_GATE"):
             default_devdb += "_decodeunique"
+        # Without the default OMUXPRES pips the graph differs; keep its cache apart.
+        if env.get("AGAMEMNON_NO_OMUX_PRESENT0"):
+            default_devdb += "_noomuxpres"
         custom_devdb = os.environ.get("AGAMEMNON_DEVDB")
         if native_enable:
             default_devdb += "_native_enable"

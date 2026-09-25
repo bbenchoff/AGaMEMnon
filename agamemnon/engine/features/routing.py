@@ -21,6 +21,7 @@ from agamemnon.engine import wire_timing
 
 from .physical_io import parse_wire
 from .carry_validate import CARRY_LOCAL_INPUT_SITES, carry_a_qfb_site
+from .bram import BRAM_FIXED_PRESENTATION
 from .mcu_ahb import EXIT_PAIR_FILES, FEATURE as MCU_AHB_FEATURE, MCU_OUTPUT_BRIDGE_SITES
 from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, WritableRegion
 
@@ -2421,11 +2422,18 @@ class RoutingFeature:
         # Evidence-gated per slice: the pip is added ONLY where omux3z_presentation_evidence.csv records a
         # silicon witness for that slice's OMUX[3z+0] wire -- at least one pip sourced there was used by a
         # vendor image that passed its self-checking board test (2,068 of the 2,112 logic slices). A slice
-        # with no witness keeps OMUX[3z+0] undriven, exactly as before.
-        # Opt-in until our own OMUXPRES images are witnessed on silicon: AGAMEMNON_OMUX_PRESENT0=1.
-        if os.environ.get("AGAMEMNON_OMUX_PRESENT0"):
+        # with no witness keeps OMUX[3z+0] undriven. On by default since our own OMUXPRES images passed the
+        # board A/B (qualification/omux_presentation_evidence.md); AGAMEMNON_NO_OMUX_PRESENT0=1 removes it.
+        if not os.environ.get("AGAMEMNON_NO_OMUX_PRESENT0"):
             _pd = ctx.getDelayFromNS(0.05)
-            _mcu_bridge = set(MCU_OUTPUT_BRIDGE_SITES)
+            _typed_owner = set(MCU_OUTPUT_BRIDGE_SITES)
+            # Under a qualified TMUX09 source profile the BRAM feature adds X14Y8 OMUX08 -> OMUX06 itself
+            # as part of its exact measured tree; leave that slice to it so the profile graph is unchanged.
+            # Outside that profile the pip is an ordinary OMUXPRES and bram.resolve_route defers it here.
+            if os.environ.get("AGAMEMNON_BRAM_TMUX9_SOURCE_PROFILE"):
+                _fixed_src, _fixed_dst = BRAM_FIXED_PRESENTATION
+                assert _fixed_src[3] % 3 == 2 and _fixed_dst[3] == _fixed_src[3] - 2
+                _typed_owner.add((_fixed_src[0], _fixed_src[1], _fixed_src[3] // 3))
             _pres_evidence = set()
             with open(os.path.join(DATA, "omux3z_presentation_evidence.csv"), newline="") as _pf:
                 for _pr in csv.DictReader(_pf):
@@ -2435,8 +2443,8 @@ class RoutingFeature:
             for (x, y), tt in tile_type.items():
                 if tt != "LogicTILE": continue
                 for z in range(16):
-                    if (int(x), int(y), z) in _mcu_bridge:
-                        continue      # mcu_ahb adds this one as a typed MCUEDGE pip
+                    if (int(x), int(y), z) in _typed_owner:
+                        continue      # a typed owner (MCUEDGE, or BRAM TMUX09 in its profile) governs it
                     if (int(x), int(y), z) not in _pres_evidence:
                         continue      # no silicon witness for this slice's OMUX[3z+0] wire
                     _sr, _dr = "OMUX%02d" % (3 * z + 2), "OMUX%02d" % (3 * z + 0)
