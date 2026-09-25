@@ -32,6 +32,7 @@
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "cells.h"
@@ -9810,6 +9811,15 @@ struct AgrvImpl : ViaductAPI
     // collapse the admitted graph by (tile, wire type) for a fast, witnessed
     // lower-bound lookahead. No geometry formula or unadmitted edge enters it.
     std::unordered_map<int, delay_t> pip_delay_by_index;
+    // Board-confirmed corner-tile congestion-marginal pips (AG32-Docs
+    // tools/pipwit/scratch/PLACEMENT_BISECT_20260925.md, chipdb/congestion_marginal_edges.csv):
+    // each conducts cleanly in an isolated ring but failed on silicon as the forced sole route
+    // into a scarce IMUX terminal once a real design's other nets had already claimed the tile's
+    // other legal feeders. Router-avoided by default via a large-but-finite delay penalty (below);
+    // agamemnon/engine/features/placement_congestion.py's post-route refusal remains the backstop
+    // for the rare design that truly has no alternative route.
+    std::set<std::pair<std::string, std::string>> congestion_marginal_wire_pairs;
+    long congestion_marginal_penalized = 0;
     std::vector<int> timing_node_by_wire;
     std::vector<std::unordered_map<int, delay_t>> timing_uphill;
     mutable std::unordered_map<int, std::vector<delay_t>> timing_distance_cache;
@@ -15048,8 +15058,64 @@ struct AgrvImpl : ViaductAPI
         log_info("agrv2k: loaded %ld conducting inter-tile RMUX->RMUX edges (master_conduction.csv)\n", n);
     }
 
+    // AGRV2K_CONGESTION_PENALTY_NS overrides the router-avoidance delay charged to every pip in
+    // congestion_marginal_edges.csv; 0 disables the penalty entirely (the pip keeps its ordinary
+    // witnessed delay, and only the post-route agamemnon.engine.features.placement_congestion
+    // refusal remains). Unset defaults to a large-but-FINITE penalty, chosen relative to the
+    // witnessed RMUX/IMUX family means (~0.3-0.4 ns; AG32-Docs memory
+    // ag32-timing-model-state-and-calibration-2026-09-16): big enough that router2's timing-driven
+    // cost strongly prefers any other legal feeder into the same terminal, small enough that a
+    // design with genuinely no alternative can still route through it (and hit the post-route
+    // refusal as the honest last resort, rather than nextpnr failing to route at all).
+    static double congestion_marginal_penalty_ns()
+    {
+        const char *e = std::getenv("AGRV2K_CONGESTION_PENALTY_NS");
+        if (e == nullptr || *e == '\0')
+            return 25.0;
+        double v = to_double(e, -1.0);
+        if (v < 0.0)
+            log_error("agrv2k: AGRV2K_CONGESTION_PENALTY_NS must be >= 0\n");
+        return v;
+    }
+
+    // Board-confirmed congestion-marginal pips (chipdb/congestion_marginal_edges.csv), read as
+    // (source wire name, destination wire name) pairs so the dev_pips.csv loader below can match
+    // them without any separate PipId lookup. Optional and fail-open, matching the Python
+    // post-route validator: an absent table (e.g. an older devdb emission, or a graph variant that
+    // never copies it) simply leaves the penalty disabled, not an error.
+    void load_congestion_marginal_wire_pairs()
+    {
+        std::ifstream probe(path("congestion_marginal_edges.csv"));
+        if (!probe) {
+            log_info("agrv2k: no congestion_marginal_edges.csv in chipdb dir — router avoidance DISABLED "
+                      "(post-route refusal, if any, remains the only guard)\n");
+            return;
+        }
+        probe.close();
+        Csv c(path("congestion_marginal_edges.csv"));
+        static const std::vector<std::string> header = {"edge", "tile", "source", "evidence", "note"};
+        if (!c.next() || c.fields != header)
+            log_error("agrv2k: malformed congestion_marginal_edges.csv schema\n");
+        while (c.next()) {
+            if (c.at(0).empty())
+                continue;
+            char src[64], dst[64];
+            int sx, sy, dx, dy;
+            if (std::sscanf(c.at(0).c_str(), "%63[^@]@%d,%d->%63[^@]@%d,%d",
+                             src, &sx, &sy, dst, &dx, &dy) != 6)
+                log_error("agrv2k: malformed congestion-marginal edge '%s'\n", c.at(0).c_str());
+            char src_name[96], dst_name[96];
+            std::snprintf(src_name, sizeof(src_name), "X%dY%d_%s", sx, sy, src);
+            std::snprintf(dst_name, sizeof(dst_name), "X%dY%d_%s", dx, dy, dst);
+            congestion_marginal_wire_pairs.emplace(std::string(src_name), std::string(dst_name));
+        }
+        log_info("agrv2k: loaded %ld congestion-marginal pip(s) for router avoidance "
+                 "(congestion_marginal_edges.csv)\n", long(congestion_marginal_wire_pairs.size()));
+    }
+
     void load_db()
     {
+        load_congestion_marginal_wire_pairs();
         int lutk = 4;
         {
             Csv c(path("dev_meta.csv"));
@@ -15154,9 +15220,22 @@ struct AgrvImpl : ViaductAPI
                 delay_t pip_delay = ctx->getDelayFromNS(to_double(c.at(4), 0.05));
                 if (timing_cal().active)
                     pip_delay = ctx->getDelayFromNS(to_double(c.at(4), 0.05) * timing_cal_pip_scale(c.at(3)));
+                // Board-confirmed congestion-marginal pips get a large-but-finite ROUTED delay so
+                // router2's timing-driven cost prefers any other legal feeder; the true witnessed
+                // delay above still seeds the A*/Dijkstra lookahead aggregate below (unchanged), so
+                // the heuristic stays an admissible lower bound instead of inflating past what
+                // silicon actually measured for this hop.
+                delay_t routed_pip_delay = pip_delay;
+                if (congestion_marginal_wire_pairs.count(std::make_pair(c.at(2), c.at(3)))) {
+                    double penalty_ns = congestion_marginal_penalty_ns();
+                    if (penalty_ns > 0.0) {
+                        routed_pip_delay = ctx->getDelayFromNS(penalty_ns);
+                        ++congestion_marginal_penalized;
+                    }
+                }
                 PipId pip = ctx->addPip(IdStringList(ctx->id(c.at(0))), ctx->id(c.at(1)), si->second,
-                                        di->second, pip_delay, loc);
-                pip_delay_by_index[pip.index] = pip_delay;
+                                        di->second, routed_pip_delay, loc);
+                pip_delay_by_index[pip.index] = routed_pip_delay;
                 if (g_wire_external_feed.size() != ctx->wires.size())
                     g_wire_external_feed.assign(ctx->wires.size(), 0);
                 if (wire_family_of(c.at(2)) != "OMUX")
@@ -15185,6 +15264,10 @@ struct AgrvImpl : ViaductAPI
 
         log_info("agrv2k: witnessed interconnect timing active for %ld pips over %ld lookahead nodes\n",
                  long(pip_delay_by_index.size()), long(timing_uphill.size()));
+        if (!congestion_marginal_wire_pairs.empty())
+            log_info("agrv2k: %ld/%ld congestion-marginal pip(s) matched this graph and were "
+                     "router-penalised at %.3f ns\n", congestion_marginal_penalized,
+                     long(congestion_marginal_wire_pairs.size()), congestion_marginal_penalty_ns());
 
         // Precompute the K-hop conducting closure for CONDPAIR legality (AGRV2K_CONDPAIR_HOPS, default 1 =
         // single-hop = unchanged). K>1 follows outgoing tile edges only: a reverse-only path is not a legal

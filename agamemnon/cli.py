@@ -3606,6 +3606,7 @@ def _cmd_build_once(a):
             "soft_ripple_region_witness.csv",
             "pad_oe_L48_left_corridors.csv", "pad_input_L48_left_corridors.csv",
             "bram_tmux9_source_paths.csv",
+            "congestion_marginal_edges.csv",
         )
         emit_context = emit_env + ["%s=%s" % item for item in env.items()
                                    if item[0].startswith("AGAMEMNON_")
