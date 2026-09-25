@@ -2650,9 +2650,17 @@ def _bram_auto_features(synth_json):
     -- so faithful emission needs the CFG_KMUX tie.  A parse failure reports
     nothing: auto-enable must never be the reason a build changes, only the
     typed cells can be.
+
+    ``narrow_write``: a cell writes Port A (a net-connected ``WeA`` bit) at a
+    PORTA_WIDTH the DataIn replication covers (x9/x4/x1; x2 is exempt, see
+    ``qin_pack.REPLICATION_EXEMPT_WIDTHS``).  Only such a design gets the packer's
+    lane-keep switch (``AGAMEMNON_BRAM_NARROW_WRITE``): every other design, the
+    SERV x2 register file included, packs byte-identically to before 2026-09-25.
     """
-    none = {"reads": False, "fabric_reads": False, "byteen": False}
-    read_ported = mcu_boundary = byteen = False
+    from agamemnon.engine.qin_pack import (
+        NARROW_WRITE_WINDOWS, REPLICATION_EXEMPT_WIDTHS, _bram_width_code)
+    none = {"reads": False, "fabric_reads": False, "byteen": False, "narrow_write": False}
+    read_ported = mcu_boundary = byteen = narrow_write = False
     try:
         with open(synth_json, encoding="utf-8") as fh:
             modules = json.load(fh).get("modules", {})
@@ -2669,12 +2677,17 @@ def _bram_auto_features(synth_json):
                         read_ported = True
                 if any(bit == "0" for bit in conns.get("ByteEnA", []) or []):
                     byteen = True
+                width = _bram_width_code(cell.get("parameters", {}).get("PORTA_WIDTH"))
+                if (width in NARROW_WRITE_WINDOWS and width not in REPLICATION_EXEMPT_WIDTHS
+                        and any(isinstance(bit, int) for bit in conns.get("WeA", []) or [])):
+                    narrow_write = True
     except Exception:
         return none
     return {
         "reads": read_ported and mcu_boundary,
         "fabric_reads": read_ported and not mcu_boundary,
         "byteen": byteen,
+        "narrow_write": narrow_write,
     }
 
 
@@ -3280,6 +3293,22 @@ def _cmd_build_once(a):
     # Ordinary own-Q feedback uses internal Qin on LUT input C. Explicit
     # direct-D checkpoints retain their separate path; remaining cell reads
     # and pad inputs receive the input permutations enforced by qin_pack.
+    # Narrow BRAM writes (x9/x4/x1 Port-A) are on by default (2026-09-25: they store
+    # on silicon, and the open x4 dual-port / x1 single-port images passed the board
+    # oracle). qin_pack replicates the logical DataInA across every address-selected
+    # write window; the packer reads AGAMEMNON_BRAM_NARROW_WRITE to KEEP those
+    # real-driven lanes; the emitter's self-verifying guard (features/bram.py) then
+    # admits only a board-proven (width, port mode) whose windows are all populated.
+    # The packer switch is set ONLY when the synthesized design has such a write, so
+    # every other design (the SERV x2 register file included) packs byte-identically
+    # to before. AGAMEMNON_NO_BRAM_NARROW_WRITE=1 is the kill switch: no replication,
+    # no packer keep, every narrow write refused fail-closed.
+    if (not env.get("AGAMEMNON_NO_BRAM_NARROW_WRITE")
+            and _bram_auto_features(synth_json)["narrow_write"]):
+        env["AGAMEMNON_BRAM_NARROW_WRITE"] = "1"
+        print("[build] narrow BRAM Port-A write present (x9/x4/x1, dynamic WeA): DataIn "
+              "replication and packer lane keep on (default; AGAMEMNON_NO_BRAM_NARROW_WRITE=1 "
+              "turns them off); bitgen admits only the board-proven modes")
     run("qin", [sys.executable, os.path.join(engine, "qin_pack.py"), synth_json])
     # One tool that just works, part three: an output pad driven by a net that
     # also feeds internal logic (``assign led = count[11]``) gets a dedicated

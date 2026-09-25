@@ -18,11 +18,29 @@ register file, PORTA_WIDTH=01110, dynamic WeA, silicon-proven across
 serv_rv32i_smoke/blinky/heartbeat). Those are exempt; x9 is proven-broken and
 x4/x1 are unqualified/unverified -> refuse. Blast radius on the qualified set is
 zero: x2 is the ONLY writable width in any qualified routed netlist.
+
+2026-09-25 correction: narrow writes STORE on silicon. The vendor primitive
+instantiated directly per mode passed its board oracle for every narrow write width
+(AG32-Docs tools/rando_corpus/results/parity_20260925/, 39/39 modes), and the open
+x9/x4/x2/x1 images with the DataIn replication passed the same oracle. The
+replication path is therefore ON BY DEFAULT for the (width, port mode) combinations
+in BOARD_PROVEN_NARROW_WRITES -- x4 dual-port and x1 single-port passed; x9, x2 and
+x1 dual-port FAILED on the board and stay refused as open-flow bugs to find -- still
+self-verifying (every address-selected window must be populated in the routed
+netlist), and AGAMEMNON_NO_BRAM_NARROW_WRITE=1 restores the blanket refusal. An
+unreplicated narrow write (the packer's lowest-window-only DataIn) is refused
+exactly as before.
 """
 from agamemnon.engine.features.bram import (
+    BOARD_PROVEN_NARROW_WRITES,
+    BOARD_PROVEN_NARROW_WRITE_WIDTHS,
     QUALIFIED_WRITE_WIDTHS,
+    WIDTH_NAMES,
+    narrow_write_board_proven,
+    narrow_write_refusal,
     narrow_write_silently_wrong,
 )
+from agamemnon.engine.features import bram as bram_feature
 
 # PORTA_WIDTH thermometer codes (bram_emit): x18=00000, x9=01000, x4=01100,
 # x2=01110, x1=01111.
@@ -36,8 +54,9 @@ def test_qualified_writable_widths_are_exactly_x18_and_x2():
     assert QUALIFIED_WRITE_WIDTHS == frozenset((X18, X2))
 
 
-def test_x9_dynamic_write_is_refused():
-    # The proven-broken case (odd-address write dropped vs the vendor model).
+def test_x9_dynamic_write_without_replicated_windows_is_refused():
+    # The silently-wrong case: no DataInA replication, so the non-lowest windows
+    # would keep their old value (odd-address write dropped vs the vendor model).
     assert narrow_write_silently_wrong(X9, NET)
 
 
@@ -48,10 +67,9 @@ def test_x2_and_x18_dynamic_write_are_admitted():
     assert not narrow_write_silently_wrong(X18, NET)
 
 
-def test_x4_and_x1_dynamic_write_are_refused_as_unqualified():
-    # Not proven-broken like x9, but unqualified/unverified narrow writes -> the
-    # fail-closed default refuses them (zero blast radius: unused in every
-    # qualified routed netlist).
+def test_x4_and_x1_dynamic_write_without_replicated_windows_are_refused():
+    # Same mechanism at x4/x1: without every address-selected window populated the
+    # write is silently wrong and the fail-closed guard refuses it.
     assert narrow_write_silently_wrong(X4, NET)
     assert narrow_write_silently_wrong(X1, NET)
 
@@ -66,7 +84,7 @@ def test_read_only_narrow_bram_is_not_refused():
         assert not narrow_write_silently_wrong(width, ["1"])    # constant 1 (ROM-fold, handled upstream)
 
 
-# --- AGAMEMNON_BRAM_NARROW_WRITE: opt-in DataIn-replication path (self-verifying) ---
+# --- default DataIn-replication path (self-verifying; kill switch AGAMEMNON_NO_BRAM_NARROW_WRITE) ---
 from agamemnon.engine.features.bram import (
     NARROW_WRITE_WINDOWS,
     _narrow_write_windows_populated,
@@ -78,6 +96,9 @@ NARROW = (X9, X4, X2, X1)
 # SERV dual-port QUALIFIED_WRITE_WIDTHS entry, so it is never refused and never
 # reaches the window-population logic.
 NARROW_REFUSED = (X9, X4, X1)
+# The board-proven (width, dual_port) combinations and the unproven ones per width.
+PROVEN = ((X4, True), (X1, False))
+UNPROVEN = ((X9, False), (X9, True), (X4, False), (X1, True))
 
 
 def _populated_datain(width, drop=None):
@@ -98,21 +119,34 @@ def test_window_map_matches_qin_pack_transform():
     assert NARROW_WRITE_WINDOWS == qin_pack.NARROW_WRITE_WINDOWS
 
 
-def test_optin_admits_a_fully_replicated_narrow_write():
-    # With the opt-in flag AND every address-selected window populated by a real net
-    # (what the replication transform produces), the write is emit-correct, not
-    # silently-wrong -> admitted.
+def test_default_admits_a_fully_replicated_board_proven_narrow_write():
+    # Default path (kill switch off) AND every address-selected window populated by
+    # a real net (what the replication transform produces) AND the (width, port mode)
+    # board-proven -> emit-correct, not silently-wrong -> admitted.
     for width in NARROW:
         assert _narrow_write_windows_populated(width, _populated_datain(width))
+    for width, dual in PROVEN:
         assert not narrow_write_silently_wrong(
-            width, NET, _populated_datain(width), narrow_write_optin=True)
+            width, NET, _populated_datain(width), narrow_write_optin=True, dual_port=dual)
+    # x2 is admitted through QUALIFIED_WRITE_WIDTHS regardless of replication.
+    assert not narrow_write_silently_wrong(X2, NET, _populated_datain(X2), narrow_write_optin=True)
 
 
-def test_optin_still_refuses_a_partially_replicated_narrow_write():
+def test_default_refuses_the_modes_that_failed_on_the_board():
+    # 2026-09-25 board: x9 single-port, x9-write/x4-read, x1 dual-port (and x2 with
+    # replication) FAILED. They are open-flow bugs to find, not to admit: refused
+    # even with every window populated.
+    for width, dual in UNPROVEN:
+        assert not narrow_write_board_proven(width, dual)
+        assert narrow_write_silently_wrong(
+            width, NET, _populated_datain(width), narrow_write_optin=True, dual_port=dual)
+
+
+def test_default_still_refuses_a_partially_replicated_narrow_write():
     # Self-verifying + fail-closed: if the replication failed to fill even one
     # address-selected window lane, the write is still silently-wrong and stays
-    # refused EVEN under the opt-in flag.
-    for width in NARROW_REFUSED:
+    # refused even though the (width, port mode) is board-proven.
+    for width, dual in PROVEN:
         w, windows = NARROW_WRITE_WINDOWS[width]
         # drop the first lane of a NON-lowest window (the exact lane the old packer
         # dropped) -> not fully populated.
@@ -120,19 +154,53 @@ def test_optin_still_refuses_a_partially_replicated_narrow_write():
         datain = _populated_datain(width, drop=drop_lane)
         assert not _narrow_write_windows_populated(width, datain)
         assert narrow_write_silently_wrong(
-            width, NET, datain, narrow_write_optin=True)
+            width, NET, datain, narrow_write_optin=True, dual_port=dual)
 
 
-def test_populated_windows_without_optin_still_refused():
-    # The opt-in flag is required: even a fully populated DataInA is refused when the
-    # caller did not opt in (default builds keep the fail-closed P0 refusal).
-    for width in NARROW_REFUSED:
+def test_kill_switch_refuses_even_populated_windows():
+    # AGAMEMNON_NO_BRAM_NARROW_WRITE (narrow_write_optin=False): even a fully
+    # populated DataInA in a proven mode is refused -- the switch restores the
+    # blanket P0 refusal.
+    for width, dual in PROVEN:
         assert narrow_write_silently_wrong(
-            width, NET, _populated_datain(width), narrow_write_optin=False)
+            width, NET, _populated_datain(width), narrow_write_optin=False, dual_port=dual)
 
 
-def test_optin_read_only_narrow_bram_still_not_refused():
-    # Opt-in never turns a read-only (no dynamic WeA) narrow BRAM into a refusal.
+def test_default_read_only_narrow_bram_still_not_refused():
+    # The default path never turns a read-only (no dynamic WeA) narrow BRAM into a refusal.
     for width in NARROW:
-        assert not narrow_write_silently_wrong(
-            width, [], _populated_datain(width), narrow_write_optin=True)
+        for dual in (False, True):
+            assert not narrow_write_silently_wrong(
+                width, [], _populated_datain(width), narrow_write_optin=True, dual_port=dual)
+
+
+def test_board_proven_narrow_writes_are_pinned_to_the_evidence():
+    # Every entry here has an OPEN image that passed the board oracle with the
+    # replication on (qualification/bram_narrow_write_evidence.jsonl, 2026-09-25:
+    # bmd_sdp4_4_c00, bmd_tdp4_c10, bmd_sp1_c10_o0). Widening this set is a silicon
+    # claim: it needs a new board record.
+    assert BOARD_PROVEN_NARROW_WRITES == frozenset(PROVEN)
+    assert BOARD_PROVEN_NARROW_WRITE_WIDTHS == frozenset((X4, X1))
+    assert BOARD_PROVEN_NARROW_WRITE_WIDTHS.isdisjoint({X18, X2})
+    assert set(WIDTH_NAMES) == {X18, X9, X4, X2, X1}
+
+
+def test_unproven_mode_is_refused_even_when_fully_replicated(monkeypatch):
+    # The default path is per (width, port mode): an unproven combination stays
+    # refused (fail-closed) no matter how well the windows are populated.
+    monkeypatch.setattr(bram_feature, "BOARD_PROVEN_NARROW_WRITES", frozenset(((X4, False),)))
+    assert narrow_write_silently_wrong(X4, NET, _populated_datain(X4), narrow_write_optin=True, dual_port=True)
+    assert not narrow_write_silently_wrong(X4, NET, _populated_datain(X4), narrow_write_optin=True, dual_port=False)
+
+
+def test_refusal_names_the_cause_and_the_proven_modes():
+    off = narrow_write_refusal(X9, False)
+    assert "AGAMEMNON_NO_BRAM_NARROW_WRITE" in off and "x9" in off and "01000" in off
+    unproven = narrow_write_refusal(X9, True, dual_port=False)
+    assert "x9 single-port is not board-proven in the open flow" in unproven
+    unpopulated = narrow_write_refusal(X4, True, dual_port=True)
+    assert "does not drive every address-selected DataInA write window" in unpopulated
+    assert "x4" in unpopulated
+    for text in (off, unproven, unpopulated):
+        assert "board-proven open modes: x4 dual-port, x1 single-port" in text
+        assert "x18 (00000) and x2 dual-port (01110, the SERV register file) are always admitted" in text

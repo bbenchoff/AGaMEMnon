@@ -852,6 +852,7 @@ class RoutingFeature:
             "conduction_retired_by_conviction.csv",
             "pad_output_approaches_L48.csv",
             "corpus_conduction.csv", "vendor_recovered_edges.csv",
+            "bram_vendor_recovered_exits.csv",
             "ff_feedback_map.csv",
             "wire_timing_worst.json", "wire_timing_exact_safe.json",
             "wire_timing_exact_safe_manifest.json", "wire_timing_measured.json",
@@ -1288,7 +1289,8 @@ class RoutingFeature:
                     "harvest_conduction.csv",      # silicon-swept (harvest_sweep) all pips of CONDUCTING designs
                     "ring_witness_conduction.csv", # ring-oscillator campaign (pipwit, 2026-09): every pip of a ring that oscillated with clean controls
                     "corpus_conduction.csv",       # vendor-route-mined per-position conducting edges (mine_corpus.py A2)
-                    "vendor_recovered_edges.csv"): # vendor-routed hops of silicon-PASSING images (see edge_files below)
+                    "vendor_recovered_edges.csv",  # vendor-routed hops of silicon-PASSING images (see edge_files below)
+                    "bram_vendor_recovered_exits.csv"):  # BRAM DataOut exits (parity lanes BufMUX32..35 and every Port-B lane BufMUX16..31 -> RMUX) af.exe routed in self-checking BRAM mode images that PASSED on the board (2026-09-25)
             _cp = os.path.join(DATA, _cf)
             if os.path.exists(_cp):
                 _n0 = len(CONDUCT)
@@ -1897,6 +1899,30 @@ class RoutingFeature:
             if _seen_terminal:
                 print("AGRV2K arch: BRAM witnessed-feeder restriction: %d further BRAM-tile node(s) "
                       "from %d ring/corpus witnesses" % (len(_seen_terminal), _bram_data_wl))
+            # The vendor-recovered BRAM output exits (bram_vendor_recovered_exits.csv, 2026-09-25)
+            # are witnessed feeders of the same standing: each row is a BufMUX -> RMUX first hop
+            # (the parity lanes BufMUX32..35 and every Port-B lane BufMUX16..31) that af.exe routed
+            # in a direct-instantiated BRAM mode image whose self-checking oracle PASSED on the
+            # board.  Without them a restricted terminal such as X13Y4_RMUX31 (ring-witnessed from
+            # the mesh) would keep its parity-lane feeder out, and every full 18-lane read would
+            # still fail packing with "BRAM output DataOutA[17] reaches slice input pins in only
+            # 0 tile(s)" (Port B: DataOutB[10]).  They JOIN the whitelist of a terminal the ring
+            # table already restricts; they never restrict a terminal by themselves, because the
+            # ring table lags the campaign ledger by one promotion and a recovered exit into an
+            # unrestricted terminal would otherwise prune that terminal's ring-witnessed mesh
+            # feeders (21 of 22 such feeders were ledger-witnessed on 2026-09-25) on lag alone.
+            _rec = os.path.join(DATA, "bram_vendor_recovered_exits.csv")
+            _rec_joined = 0
+            if os.path.exists(_rec):
+                with open(_rec, newline="", encoding="utf-8") as _rec_stream:
+                    for r in csv.DictReader(_rec_stream):
+                        dk = (r["dst_x"], r["dst_y"], _padres(r["dst_res"]))
+                        if dk in _BRAM_FINAL_DST and dk not in _bram_wl_governed:
+                            _BRAM_FINAL_OK.add((r["src_x"], r["src_y"], _padres(r["src_res"])) + dk)
+                            _rec_joined += 1
+                if _rec_joined:
+                    print("AGRV2K arch: BRAM witnessed-feeder restriction: %d vendor-recovered DataOut "
+                          "exit(s) joined restricted terminals" % _rec_joined)
         import json as _json
         _BRES = None
         _brj4 = os.path.join(DATA, "bram_resolver.json")

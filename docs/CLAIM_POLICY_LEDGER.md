@@ -73,6 +73,7 @@ Policy version: `D0-v1`.
 | `AGAMEMNON_NGCLK` | experimental | decoded | timing | unapproved | inventory only | agamemnon/chipdb/clk0_spine.json |
 | `AGAMEMNON_NOSPINE` | experimental | decoded | timing | unapproved | inventory only | agamemnon/chipdb/clk0_spine.json |
 | `AGAMEMNON_NO_BRAM_DATA_WL` | archival | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/ring_witness_conduction.csv |
+| `AGAMEMNON_NO_BRAM_NARROW_WRITE` | experimental | decoded | configuration | unapproved | inventory only | qualification/bram_narrow_write_evidence.jsonl |
 | `AGAMEMNON_NO_BRAM_WL` | archival | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/bram_wl.csv |
 | `AGAMEMNON_NO_CLKGEN` | experimental | decoded | timing | unapproved | inventory only | qualification/clock_divider_probe.v |
 | `AGAMEMNON_NO_EXIT_WL` | archival | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/exit_feeder_whitelist.csv |

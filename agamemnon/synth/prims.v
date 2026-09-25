@@ -278,7 +278,13 @@ module ALTA_BRAM9K #(parameter [9215:0] INIT_VAL = 0,
                      // them here admits nothing: default 0 is byte-identical, and a non-zero
                      // value still fails closed at bitgen without the flag.
                      parameter PORTA_OUTREG = 0, parameter PORTB_OUTREG = 0,
-                     parameter PORTA_WRITETHRU = 0, parameter PORTB_WRITETHRU = 0) (
+                     parameter PORTA_WRITETHRU = 0, parameter PORTB_WRITETHRU = 0,
+                     // The remaining bram_emit.EXPERIMENTAL_FIELDS (2026-09-25).  Without these
+                     // declarations a direct instantiation that sets PACKEDMODE (the vendor's
+                     // x36 packing, board-proven on the vendor side as bmd_packed18_c00) died in
+                     // yosys with an unknown-parameter error before bitgen could even refuse it.
+                     parameter PACKEDMODE = 0, parameter [1:0] DLYTIME = 0,
+                     parameter [1:0] RSEN_DLY = 0) (
 	input [12:0] AddressA, input [17:0] DataInA, output [17:0] DataOutA,
 	input WeA, input ReA, input [1:0] ByteEnA,
 	input [12:0] AddressB, input [17:0] DataInB, output [17:0] DataOutB,

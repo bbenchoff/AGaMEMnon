@@ -34,7 +34,8 @@ def hrdata_bit_for_bel(bel):
     return None
 
 
-def sim_routed(routed_json, cycles=96, document=None, stimulus=None, probe=None):
+def sim_routed(routed_json, cycles=96, document=None, stimulus=None, probe=None,
+               bram_probe=None, bram_unconnected_data=0, dead_nets=(), qf_alias=()):
     """Simulate the routed netlist for `cycles` clocks. Returns (reads, bind):
        reads = per-cycle MCU-read value (bits ORed from each MCU_DOUT tap);
        bind  = {mcu-cell-name: (declared h<k>, bel AHB bit)} for the bind check.
@@ -43,7 +44,19 @@ def sim_routed(routed_json, cycles=96, document=None, stimulus=None, probe=None)
        value; every MCU input starts at 0). Without it the sim is stimulus-free, as before.
        probe: optional callable(cycle, value_of_net) invoked after each cycle's combinational
        evaluation, where value_of_net(canonical net name) -> 0|1 (for tracing a design offline).
-       ALTA_BRAM9K cells are modelled behaviourally (x18 only; any other width raises)."""
+       bram_probe: optional callable(cycle, brams) invoked after the clock edge with the
+       behavioural ALTA_BRAM9K instances (each carries a `last` dict describing the port
+       operations of that edge) for tracing a memory offline.
+       bram_unconnected_data: the value an UNCONNECTED DataIn lane presents to a write
+       (0 keeps the historical model; 1 models "an undriven fabric input reads 1").
+       dead_nets: canonical net names whose every consumer reads 1 (an undriven fabric input
+       reads high), for asking which single conduction failure reproduces a board symptom.
+       qf_alias: canonical names of REGISTERED nets whose consumers read the driving slice's
+       combinational LUT output (F) instead of its register (Q): the value a mesh pip delivers
+       when it really reads the slice's OMUX[3z+1] wire although the graph labels it
+       OMUX[3z+0]/[3z+2] (a wire the register presents on).
+       ALTA_BRAM9K cells are modelled behaviourally in the vendor x18/x9/x4/x2/x1 port
+       organisations (x36 raises)."""
     d = json.load(open(routed_json)) if document is None else document
     top = d["modules"]["top"]
     nid = {}
@@ -128,8 +141,13 @@ def sim_routed(routed_json, cycles=96, document=None, stimulus=None, probe=None)
                 ff[net] = 0
     inputs = {net: 0 for net in mcu_inputs.values() if net}
 
+    dead = set(dead_nets)
+    aliased = set(qf_alias)
+
     def val(net, comb):
         if net == "__one__" or net == "__unconnected__":
+            return 1
+        if net in dead:
             return 1
         if net is None:
             return 0
@@ -163,6 +181,11 @@ def sim_routed(routed_json, cycles=96, document=None, stimulus=None, probe=None)
                     if comb.get(fn) != o:
                         comb[fn] = o
                         ch = True
+                if qn in aliased:
+                    o = (init >> (a | (b << 1) | (pin_c << 2) | (d_in << 3))) & 1
+                    if comb.get(qn) != o:
+                        comb[qn] = o
+                        ch = True
                 if cout:
                     co = (init >> (a | (b << 1) | (val(cin, comb) << 2))) & 1
                     if comb.get(cout) != co:
@@ -189,8 +212,11 @@ def sim_routed(routed_json, cycles=96, document=None, stimulus=None, probe=None)
                 idx = a | (b << 1) | (pin_c << 2) | (d_in << 3)
                 nxt[qn] = (init >> idx) & 1
         for bram in brams:
-            _bram_clock(bram, lambda net: val(net, comb), nxt)
+            bram["cycle"] = cycle
+            _bram_clock(bram, lambda net: val(net, comb), nxt, bram_unconnected_data)
         ff = nxt
+        if bram_probe is not None:
+            bram_probe(cycle, brams)
     return reads, bind
 
 
@@ -203,12 +229,20 @@ def _init_depends_on(init, k, n_inputs):
 
 
 # ---- behavioural ALTA_BRAM9K ------------------------------------------------
-# x18 organisation only: 512 words of 18 bits, word = Address[12:4], the low
-# four address bits are the default-high suffix.  Unconnected pins take the
-# packer's hard default (control blob): We/AsyncReset/AddressStall low, Re/
-# ClkEn/ByteEn high.  This is a MODEL for pre-silicon prediction; it is not
-# evidence about the BRAM and it refuses widths it does not model.
+# Vendor port organisation (tools/vendor_witness/alta_bram9k_vendor_sim.v, proved
+# against 39 board-passing direct-instantiated modes on 2026-09-25): 512 rows of
+# 18 bits, row = Address[12:4]; the low four address bits (`blk`) select the
+# sub-word window of a narrow port.  A narrow WRITE lands the address-selected
+# window (x9 halves 0/9; x4 windows 0,4,9,13; x2 windows 0,2,4,6,9,11,13,15; x1 the
+# 16 non-parity lanes) from data the fabric must present on that window; a narrow
+# READ extracts the window and presents it on the low DataOut lanes with the rest
+# high (x9 {1, w[7:0], 1, w[8], 7'h7f}; x4 {11'h7ff, w, 3'b111}; x2 {15'h7fff, w, 1};
+# x1 {17'h1ffff, w}).  Unconnected pins take the packer's hard default (control
+# blob): We/AsyncReset/AddressStall low, Re/ClkEn/ByteEn high; an unconnected
+# address bit reads high.  This is a MODEL for pre-silicon prediction; it is not
+# evidence about the BRAM and it refuses widths it does not model (x36).
 _BRAM_LOW_DEFAULT = ("WeA", "WeB", "AsyncReset0", "AsyncReset1", "AddressStallA", "AddressStallB")
+_BRAM_WIDTH_BITS = {0b00000: 18, 0b01000: 9, 0b01100: 4, 0b01110: 2, 0b01111: 1}
 
 
 def _bram_model(name, cell, netname):
@@ -219,10 +253,13 @@ def _bram_model(name, cell, netname):
         v = params.get(key, "0")
         return int(v, 2) if isinstance(v, str) else int(v)
 
+    widths = {}
     for key in ("PORTA_WIDTH", "PORTB_WIDTH"):
-        if code(key) != 0:
-            raise ValueError("verify: ALTA_BRAM9K %s %s=%s is not modelled (x18 only)"
-                             % (name, key, format(code(key), "05b")))
+        w = code(key)
+        if w not in _BRAM_WIDTH_BITS:
+            raise ValueError("verify: ALTA_BRAM9K %s %s=%s is not modelled (x18/x9/x4/x2/x1 only)"
+                             % (name, key, format(w, "05b")))
+        widths[key] = w
     init = params.get("INIT_VAL", "0")
     init = int(init, 2) if isinstance(init, str) else int(init)
     mem = [(init >> (18 * w)) & 0x3ffff for w in range(512)]
@@ -233,7 +270,6 @@ def _bram_model(name, cell, netname):
         bits = con.get(port, [])
         return [netname(b) for b in bits] + ["__unconnected__"] * (width - len(bits))
 
-
     def pin(port):
         bits = con.get(port, [])
         if not bits or netname(bits[0]) == "__unconnected__":
@@ -241,17 +277,52 @@ def _bram_model(name, cell, netname):
         return netname(bits[0])
     return {
         "name": name, "mem": mem,
+        "width_a": widths["PORTA_WIDTH"], "width_b": widths["PORTB_WIDTH"],
         "outreg_a": code("PORTA_OUTREG"), "outreg_b": code("PORTB_OUTREG"),
         "addr_a": nets("AddressA", 13), "data_a": nets("DataInA", 18),
         "addr_b": nets("AddressB", 13), "data_b": nets("DataInB", 18),
         "out_a": nets("DataOutA", 18), "out_b": nets("DataOutB", 18),
         "ctl": {k: pin(k) for k in ("WeA", "ReA", "ClkEn0", "WeB", "ReB", "ClkEn1")},
         "be_a": nets("ByteEnA", 2), "be_b": nets("ByteEnB", 2),
-        "q_a": 0, "q_b": 0, "q_a_reg": 0, "q_b_reg": 0,
+        "q_a": 0, "q_b": 0, "blk_a": 0, "blk_b": 0, "q_a_reg": 0, "q_b_reg": 0,
+        "cycle": -1, "last": {},
     }
 
 
-def _bram_clock(bram, value, nxt):
+def _bram_write_mask(width, blk, be):
+    """The 18-bit lane mask a write with sub-word address `blk` lands on (vendor maskA_*)."""
+    be18 = (0x1ff if be & 1 else 0) | (0x3fe00 if be & 2 else 0)
+    if width == 0b00000:
+        return be18
+    if width == 0b01000:
+        return be18 & (0x3fe00 if blk & 8 else 0x1ff)
+    hi = (blk >> 3) & 1
+    if width == 0b01100:
+        return be18 & (0xf << (((blk >> 2) & 3) * 4 + hi))
+    if width == 0b01110:
+        return be18 & (0x3 << (((blk >> 1) & 7) * 2 + hi))
+    return be18 & (0x1 << ((blk & 0xf) + hi))
+
+
+def _bram_read_present(width, word, blk):
+    """What the 18 DataOut lanes show for row `word` read with sub-word address `blk`."""
+    if width == 0b00000:
+        return word
+    if width == 0b01000:
+        v = (word >> 9) & 0x1ff if blk & 8 else word & 0x1ff
+        return (1 << 17) | ((v & 0xff) << 9) | (1 << 8) | (((v >> 8) & 1) << 7) | 0x7f
+    x16 = ((word >> 9) & 0xff) << 8 | (word & 0xff)
+    if width == 0b01100:
+        v = (x16 >> (((blk >> 2) & 3) * 4)) & 0xf
+        return (0x7ff << 7) | (v << 3) | 0x7
+    if width == 0b01110:
+        v = (x16 >> (((blk >> 1) & 7) * 2)) & 0x3
+        return (0x7fff << 3) | (v << 1) | 0x1
+    v = (x16 >> (blk & 0xf)) & 0x1
+    return (0x1ffff << 1) | v
+
+
+def _bram_clock(bram, value, nxt, unconnected_data=0):
     def pinval(port):
         net = bram["ctl"][port]
         if net == "__default__":
@@ -265,34 +336,36 @@ def _bram_clock(bram, value, nxt):
             out |= (bit & 1) << i
         return out
 
-    def port(addr, data, be, we, re, en, q_key, reg_key, outreg, outs):
+    def port(tag, width, addr, data, be, we, re, en, q_key, blk_key, reg_key, outreg, outs):
         # Non-blocking semantics of the vendor-shaped model: a read in the same
         # clock as a write returns the OLD word; the output register takes the
-        # previous read value.
-        if pinval(en):
-            word = (bus(addr) >> 4) & 0x1ff
-            previous_q = bram[q_key]
-            if pinval(re):
-                bram[q_key] = bram["mem"][word]
-            if pinval(we):
-                d = bus(data, default=0)
-                be_v = bus(be)
-                cur = bram["mem"][word]
-                if be_v & 1:
-                    cur = (cur & ~0x1ff) | (d & 0x1ff)
-                if be_v & 2:
-                    cur = (cur & 0x1ff) | (d & ~0x1ff & 0x3ffff)
-                bram["mem"][word] = cur
-            bram[reg_key] = previous_q
-        shown = bram[reg_key] if outreg else bram[q_key]
+        # previous presented value.
+        rec = {"en": pinval(en), "we": pinval(we), "re": pinval(re)}
+        if rec["en"]:
+            a = bus(addr)
+            row, blk = (a >> 4) & 0x1ff, a & 0xf
+            previous = _bram_read_present(width, bram[q_key], bram[blk_key])
+            rec.update(row=row, blk=blk, old=bram["mem"][row])
+            if rec["re"]:
+                bram[q_key] = bram["mem"][row]
+                bram[blk_key] = blk
+            if rec["we"]:
+                d = bus(data, default=unconnected_data)
+                mask = _bram_write_mask(width, blk, bus(be))
+                bram["mem"][row] = (bram["mem"][row] & ~mask & 0x3ffff) | (d & mask)
+                rec.update(din=d, mask=mask, new=bram["mem"][row])
+            bram[reg_key] = previous
+        shown = bram[reg_key] if outreg else _bram_read_present(width, bram[q_key], bram[blk_key])
+        rec["out"] = shown
+        bram["last"][tag] = rec
         for i, net in enumerate(outs):
             if net and net != "__unconnected__":
                 nxt[net] = (shown >> i) & 1
 
-    port(bram["addr_a"], bram["data_a"], bram["be_a"], "WeA", "ReA", "ClkEn0",
-         "q_a", "q_a_reg", bram["outreg_a"], bram["out_a"])
-    port(bram["addr_b"], bram["data_b"], bram["be_b"], "WeB", "ReB", "ClkEn1",
-         "q_b", "q_b_reg", bram["outreg_b"], bram["out_b"])
+    port("A", bram["width_a"], bram["addr_a"], bram["data_a"], bram["be_a"], "WeA", "ReA", "ClkEn0",
+         "q_a", "blk_a", "q_a_reg", bram["outreg_a"], bram["out_a"])
+    port("B", bram["width_b"], bram["addr_b"], bram["data_b"], bram["be_b"], "WeB", "ReB", "ClkEn1",
+         "q_b", "blk_b", "q_b_reg", bram["outreg_b"], bram["out_b"])
 
 
 def load_stimulus(path):

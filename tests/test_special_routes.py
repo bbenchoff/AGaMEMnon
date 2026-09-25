@@ -1,5 +1,7 @@
 import csv
+import csv
 import hashlib
+import re
 import itertools
 import json
 import shutil
@@ -932,6 +934,8 @@ def test_current_physical_touching_pip_role_matrix_is_exhaustive(
     # 2026-09-20 ring-oscillator promotion (tools/pipwit): board-witnessed pips on physical-I/O catalog wires entered the strict graph: 826 -> 823 touching (incoming/outgoing/internal (279, 557, 10) -> (279, 554, 10)).
     # 2026-09-21 ring-oscillator promotion (tools/pipwit): board-witnessed pips on physical-I/O catalog wires entered the strict graph: 823 -> 822 touching (incoming/outgoing/internal (279, 554, 10) -> (279, 553, 10)).
     # 2026-09-24 default OMUXPRES pips: three of the 2,061 touch catalog wires, all at X14Y11 (slices 4, 5, 6: OMUX14->OMUX12, OMUX17->OMUX15, OMUX20->OMUX18): 822 -> 825 touching (incoming/outgoing/internal (279, 553, 10) -> (281, 554, 10)).
+    # 2026-09-25 BRAM parity-lane exits: ten vendor-recovered BufMUX32..35 -> RMUX first hops at X13Y4 (bram_vendor_recovered_exits.csv) entered every graph: 825 -> 820 touching (incoming/outgoing/internal (281, 554, 10) -> (281, 549, 10)).
+    # 2026-09-25 BRAM parity-lane exits: ten vendor-recovered BufMUX32..35 -> RMUX first hops at X13Y4 (bram_vendor_recovered_exits.csv) entered every graph: 820 -> 825 touching (incoming/outgoing/internal (281, 549, 10) -> (281, 554, 10)).
     assert len(touching) == 825
     assert hashlib.sha256(canonical).hexdigest() == (
         "e71cce3db3880b966fee7ce3b365f840569d0023c9f2bb5e45d7b8dc72d69386"
@@ -1294,6 +1298,12 @@ def _pre_campaign_graph_bytes(admission, shared):
     # vendor-routed hops recovered from passing images (2026-09-24) postdate the campaign baseline;
     # their exact sel_edge_pairs.agdb rows only restate unanimous relative keys, so they change no pip
     (data / "vendor_recovered_edges.csv").unlink(missing_ok=True)
+    # so do the address final-hop whitelist rows harvested from passing images (2026-09-25); the
+    # campaign baseline had none (the recovered DataOut exits stay and are dropped by name below)
+    whitelist = data / "bram_wl.csv"
+    kept = [line for line in whitelist.read_text(encoding="utf-8").splitlines(keepends=True)
+            if not line.rstrip().endswith(("vendor_passing_image", "open_passing_image"))]
+    whitelist.write_text("".join(kept), encoding="utf-8", newline="")
     # positive-evidence rows that a campaign conviction retired come back for the pre-campaign graph
     retired = data / "conduction_retired_by_conviction.csv"
     if retired.exists():
@@ -1354,6 +1364,9 @@ def _pre_campaign_graph_bytes(admission, shared):
                    if not line.startswith((b"X13Y4_BufMUX17.X13Y4_RMUX15,", b"X13Y4_BufMUX18.X13Y4_RMUX03,")))
     # The default OMUXPRES pips (2026-09-24) postdate every predecessor in this chain.
     raw = _without_omux_presentation(raw)
+    # So do the vendor-recovered BRAM exits (2026-09-25; their topology/codeword rows stay in the
+    # copy, the evidence table does not, and the rows are dropped here by name).
+    raw = _without_bram_parity_exits(raw)
     count, digest = sr.PRE_RING_WITNESS_20260918_PHYSICAL_GRAPHS[shared][admission]
     assert raw.count(b"\n") - 1 == count
     assert hashlib.sha256(raw).hexdigest() == digest
@@ -1367,11 +1380,68 @@ def _without_omux_presentation(raw):
                     if line.split(b",", 2)[1:2] != [b"OMUXPRES"])
 
 
+def _bram_recovered_exit_pips():
+    """The X13Y4 BufMUX -> RMUX first hops of chipdb/bram_vendor_recovered_exits.csv.
+
+    None of them was admitted by any graph before 2026-09-25 (no byte-exact row existed), so the
+    table names exactly the rows a predecessor graph lacks."""
+    with (CHIPDB / "bram_vendor_recovered_exits.csv").open(newline="", encoding="utf-8") as stream:
+        return {("%s_%s.%s_%s" % ("X%sY%s" % (row["src_x"], row["src_y"]), row["src_res"],
+                                  "X%sY%s" % (row["dst_x"], row["dst_y"]), row["dst_res"])).encode()
+                for row in csv.DictReader(stream) if (row["dst_x"], row["dst_y"]) == ("13", "4")}
+
+
+def _without_bram_parity_exits(raw):
+    """Drop exactly the vendor-recovered BRAM output exits (2026-09-25)."""
+    names = _bram_recovered_exit_pips()
+    return b"".join(line for line in raw.splitlines(keepends=True)
+                    if line.split(b",", 1)[0] not in names)
+
+
+def _without_bram_address_whitelist(raw):
+    """Reverse the 2026-09-25 address final-hop whitelist on the strict base graph.
+
+    The whitelist removed the two feeders no passing image ever used and admitted 13
+    vendor-proven feeders the ring-witness restriction had kept out; the fixture holds both
+    sides with the removed rows' original positions."""
+    fixture = json.loads((Path(__file__).parent / "fixtures" / "bram_address_whitelist_strict_base.json")
+                         .read_text(encoding="utf-8"))
+    added = {line.encode("ascii") for line in fixture["added"]}
+    lines = [line for line in raw.splitlines(keepends=True) if line.rstrip(b"\r\n") not in added]
+    for row in fixture["removed"]:
+        lines.insert(row["index"], row["line"].encode("ascii") + b"\r\n")
+    return b"".join(lines)
+
+
+def _check_bram_parity_exit_predecessor(devdb, tmp_path, admission, shared):
+    previous = tmp_path / ("pre-bram-parity-exits-" + admission + "-" + shared)
+    shutil.copytree(devdb, previous)
+    path = previous / "dev_pips.csv"
+    current = _without_bram_address_whitelist(path.read_bytes())
+    raw = _without_bram_parity_exits(current)
+    assert len(current.splitlines()) - len(raw.splitlines()) == len(_bram_recovered_exit_pips())
+    count, digest = sr.PRE_BRAM_PARITY_EXITS_20260925_PHYSICAL_GRAPHS[shared][admission]
+    assert len(raw.splitlines()) - 1 == count
+    assert hashlib.sha256(raw).hexdigest() == digest
+    path.write_bytes(raw)
+    _replace_metadata_value(previous / sr.DEV_META_NAME, "graph_pip_count", count)
+    _replace_metadata_value(previous / sr.DEV_META_NAME, "graph_pips_sha256", digest)
+    _replace_metadata_value(previous / "dev_meta.csv", "n_pips", count)
+    assert sr.validate_devdb(previous, CHIPDB)
+
+
+def test_bram_parity_exit_strict_predecessor_is_the_graph_without_the_exits(tmp_path):
+    # 2026-09-25: removing the vendor-recovered X13Y4 BufMUX -> RMUX exits (the parity lanes and
+    # every Port-B lane) reproduces the previous strict graph byte-for-byte, and a device database
+    # built on it still validates.
+    _check_bram_parity_exit_predecessor(PHYSICAL_DEVDB, tmp_path, "release-strict", "0")
+
+
 def _check_omux_presentation_predecessor(devdb, tmp_path, admission, shared):
     previous = tmp_path / ("pre-omuxpres-" + admission + "-" + shared)
     shutil.copytree(devdb, previous)
     path = previous / "dev_pips.csv"
-    current = path.read_bytes()
+    current = _without_bram_parity_exits(_without_bram_address_whitelist(path.read_bytes()))
     raw = _without_omux_presentation(current)
     assert len(current.splitlines()) - len(raw.splitlines()) == 2061
     count, digest = sr.PRE_OMUX_PRESENTATION_PHYSICAL_GRAPHS[shared][admission]
@@ -2942,9 +3012,10 @@ def test_portb_exit_graph_is_a_pure_reservation_subset_of_the_base_graph(tmp_pat
     # 2026-09-19 ring-oscillator promotion (tools/pipwit): board-witnessed RMUX rows inside the BRAM exit-corridor tiles entered the strict graph: 222 -> 223 withheld rows.
     # 2026-09-19 ring-oscillator promotion (tools/pipwit): board-witnessed RMUX rows inside the BRAM exit-corridor tiles entered the strict graph: 223 -> 225 withheld rows.
     # 2026-09-20 ring-oscillator promotion (tools/pipwit): board-witnessed RMUX rows inside the BRAM exit-corridor tiles entered the strict graph: 225 -> 203 withheld rows.
+    # 2026-09-25 BRAM parity-lane exits: ten vendor-recovered BufMUX32..35 -> RMUX first hops at X13Y4 (bram_vendor_recovered_exits.csv) entered every graph: 203 -> 204 withheld rows.
     assert len(removed) == (
         sr.EXPECTED_PHYSICAL_GRAPH_PIP_COUNT - profile["graph_pip_count"]
-    ) == 203
+    ) == 204
     tiles = {base[name][1].split("_")[0] for name in removed}
     assert all("_RMUX" in base[name][1] for name in removed)
     assert tiles == {

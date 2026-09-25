@@ -56,13 +56,13 @@ EXPECTED_CATALOG_SHA256 = (
 # silicon-witnessed slices of omux3z_presentation_evidence.csv); nothing else changes, and
 # AGAMEMNON_NO_OMUX_PRESENT0 reproduces the predecessor byte-for-byte
 # (PRE_OMUX_PRESENTATION_PHYSICAL_GRAPHS below).
-EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 319640
+EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 319689
 EXPECTED_PHYSICAL_GRAPH_SHA256 = (
-    "b9e75738461616fc4bd8d918df7344e54c402f4f7f097fbd4fba3014f480b320"
+    "5878db6fca84e86368528c06987fb90af9067fce2f9f07c1c0aba9166c8ebbce"
 )
-EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 332366
+EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 332415
 EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
-    "874c9ce593a22085ab23fb8d82bb3942c8d6e0c778aac490263c192ce45c527d"
+    "de7accb87bfc417977219de2de3a4b7fa155b8f99c62325df00cffcaf3cabad6"
 )
 # The native-control graph contributes the finite, reviewed shared-control
 # topology.  It is a separate graph profile: accepting it by changing the base
@@ -70,12 +70,12 @@ EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
 # graph authority.
 EXPECTED_SHARED_CONTROL_PHYSICAL_GRAPHS = {
     "release-strict": (
-        320713,
-        "2fe0323d2c8b2d7455a1b03b4011105b20c8cf6d16c2c3d3ef226cebeebcbd62",
+        320762,
+        "b83a9de3784b6d9a40b5ba2aaa5c0a3db9db32ebb47ead65ca34a7ed2a27a23e",
     ),
     "tiered": (
-        333439,
-        "45ade0a5c4f88154387481f276e14f43906610a14429eaf848a7d21c036508bd",
+        333488,
+        "ebbc08665876a5edce878df31e756d3f0a8b536b5cf9598ff04a3e72eef671f1",
     ),
 }
 # Exact predecessors before the default OMUXPRES pips (2026-09-24; they include the 103
@@ -285,6 +285,20 @@ PRE_RING_WITNESS_20260918_PHYSICAL_GRAPHS = {
     "1": {
         "release-strict": (256617, "81608073da3f37bb9c967de174fcebf50c6b181a14c8a29fc5d0cbd947629105"),
         "tiered": (334459, "28b253b8a0eede4f5aadbc685ce5f177b36de6ee03e0c0dea0b2233803cf33e7"),
+    },
+}
+# Exact predecessors before the BRAM parity-lane exits (2026-09-25): ten vendor-recovered
+# X13Y4 BufMUX32..35 -> RMUX first hops (chipdb/bram_vendor_recovered_exits.csv, codewords in
+# bram_pip_cfg.csv) entered every graph so a full 18-lane BRAM read can leave the tile.
+# Retained checkpoints built on the previous graphs keep replaying against these identities.
+PRE_BRAM_PARITY_EXITS_20260925_PHYSICAL_GRAPHS = {
+    "0": {
+        "release-strict": (319640, "b9e75738461616fc4bd8d918df7344e54c402f4f7f097fbd4fba3014f480b320"),
+        "tiered": (332366, "874c9ce593a22085ab23fb8d82bb3942c8d6e0c778aac490263c192ce45c527d"),
+    },
+    "1": {
+        "release-strict": (320713, "2fe0323d2c8b2d7455a1b03b4011105b20c8cf6d16c2c3d3ef226cebeebcbd62"),
+        "tiered": (333439, "45ade0a5c4f88154387481f276e14f43906610a14429eaf848a7d21c036508bd"),
     },
 }
 # Preserve exact historical graph snapshots after the retained58 byte gate.
@@ -878,6 +892,9 @@ def _validated_devdb(devdb, chipdb_root=None):
             if (graph_pip_count, graph_pips_sha256) == historical:
                 expected_pip_count, expected_pips_sha256 = historical
             historical = PRE_RMUX86_WITHDRAWAL_PHYSICAL_GRAPHS[shared_control_graph][admission]
+            if (graph_pip_count, graph_pips_sha256) == historical:
+                expected_pip_count, expected_pips_sha256 = historical
+            historical = PRE_BRAM_PARITY_EXITS_20260925_PHYSICAL_GRAPHS[shared_control_graph][admission]
             if (graph_pip_count, graph_pips_sha256) == historical:
                 expected_pip_count, expected_pips_sha256 = historical
             historical = PRE_RING_WITNESS_20260918_PHYSICAL_GRAPHS[shared_control_graph][admission]

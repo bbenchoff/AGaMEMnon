@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "726d3d35cd3634fe8c00e9fcecd4b795e91857718811e5db93a3d66eacab74e9",
-  "file_count": 275,
-  "pinned_date": "2026-09-24",
-  "reason": "2026-09-24 merge of work/promote-vendor-edges-20260924 and work/omux3z-presentation-20260923: adds agamemnon/chipdb/vendor_recovered_edges.csv (103 vendor-routed hops recovered from silicon-passing images, tier 1, plus 26 exact sel_edge_pairs.agdb rows) and agamemnon/chipdb/omux3z_presentation_evidence.csv (2,068 silicon-witnessed OMUX[3z+0] slices gating the OMUXPRES pips, which are ON BY DEFAULT; AGAMEMNON_NO_OMUX_PRESENT0 is the kill switch); research_knowledge_manifest.json re-inventoried. GAP-1 Rule 2 on the combined chipdb: every retained release-strict artifact rebuilds byte-identical."
+  "fingerprint_sha256": "e42a1284c5ded250cb7d1cdeed30528da08ec1f5722761b5cd18ed441eed5611",
+  "file_count": 276,
+  "pinned_date": "2026-09-25",
+  "reason": "2026-09-25: (1) add agamemnon/chipdb/bram_vendor_recovered_exits.csv, the BRAM DataOut first hops (BufMUX -> RMUX) af.exe routed in direct-instantiated BRAM mode images that PASSED on the board: parity lanes DataOutA[8]/[17], DataOutB[8]/[17] at every site (evidence only outside X13Y4) and every Port-B lane first hop at X13Y4; the X13Y4 rows gain bram9k_edges.csv topology (mirrored into bram_site_route_corpus.csv) and byte-exact bram_pip_cfg.csv codewords; every graph gains exactly the 44 X13Y4 pips, so a full 18-lane read is no longer refused at packing. (2) bram_wl.csv now governs all 26 X13Y4 address terminals (315 rows: feeders af.exe routed in 2,240 board-passing images plus feeders of passing open images); the two hops the failing open Port-B x1/x2 images used on AddressB[1]/AddressA[1], which no passing image ever used, are gone."
 }

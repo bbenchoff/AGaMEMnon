@@ -52,6 +52,42 @@ BRAM_CONTROL_FIELD_WIDTHS = {"KMUX": 9, "TMUX": 8}
 # exemption on dual-port (the `portb_read` signal computed below).
 QUALIFIED_WRITE_WIDTHS = frozenset((0b00000, 0b01110))  # x18, x2 (see note above)
 
+# 2026-09-25: narrow writes STORE on silicon. The vendor primitive instantiated
+# directly per mode (AG32-Docs tools/vendor_witness/gen_bram_modes.py, af.exe)
+# passed its self-checking board test for every narrow write width -- x9/x4/x2/x1
+# single-port and every simple-dual-port pairing (39/39 modes, results in
+# AG32-Docs tools/rando_corpus/results/parity_20260925/). The 2026-09-15 "x9 does
+# not store" reading came from a mis-elaborated inferred vendor reference, not
+# from the mode. The OPEN-flow narrow write (DataIn replication in qin_pack, the
+# packer keeping the replicated lanes, and the self-verifying window check below)
+# is ON BY DEFAULT for the (width, port mode) combinations whose OPEN images
+# passed the same board oracle (results/narrow_20260925/, 2026-09-25 00:00):
+#   x4 dual-port  (write A / read B: bmd_sdp4_4_c00 PASS; true dual port: bmd_tdp4_c10 PASS)
+#   x1 single-port (bmd_sp1_c10_o0 PASS)
+# and REFUSED (fail-closed) for the combinations whose open images FAILED on the
+# board with the mode config byte-identical to the passing vendor image:
+#   x9 single-port (bmd_sp9_c10_o0: LED never toggles), x9 write / x4 read
+#   (bmd_sdp9_4_c00: LED at twice the heartbeat), x2 single- and dual-port
+#   (bmd_sp2_c10_o0, bmd_sdp2_2_c00), x1 dual-port (bmd_sdp1_1_c00). Those are
+#   open-flow bugs still to be found (candidate: per-lane BufMUX read egress --
+#   the passing modes read DataOut lanes 3..6 or lane 0 on Port A, the failing
+#   ones lanes 0 (Port B), 1, 2, 7 and 9..16), not chip limitations.
+# AGAMEMNON_NO_BRAM_NARROW_WRITE=1 restores the fail-closed refusal for every
+# narrow width. Widening this set is a silicon claim: it needs a new board
+# record in qualification/bram_narrow_write_evidence.jsonl.
+# Entries are (PORTA_WIDTH code, dual_port) where dual_port means Port B reads.
+BOARD_PROVEN_NARROW_WRITES = frozenset((
+    (0b01100, True),    # x4, write A / read B (SDP) and true dual port
+    (0b01111, False),   # x1, single port
+))
+BOARD_PROVEN_NARROW_WRITE_WIDTHS = frozenset(w for w, _ in BOARD_PROVEN_NARROW_WRITES)
+WIDTH_NAMES = {0b00000: "x18", 0b01000: "x9", 0b01100: "x4", 0b01110: "x2", 0b01111: "x1"}
+
+
+def narrow_write_board_proven(width, dual_port):
+    """True iff an OPEN image at this PORTA_WIDTH and port mode passed the board oracle."""
+    return (width, bool(dual_port)) in BOARD_PROVEN_NARROW_WRITES
+
 # Address-selected write windows per narrow PORTA_WIDTH code: (logical width W,
 # physical lane bases). The vendor alta_bram9k write mask selects a W-lane window
 # by block address, shift = blk[hi:lo]*W + blk[3]; the +blk[3] offset skips
@@ -90,28 +126,61 @@ def _narrow_write_windows_populated(width, datain_a_connection):
 
 
 def narrow_write_silently_wrong(width, wea_connection, datain_a_connection=None,
-                                narrow_write_optin=False):
+                                narrow_write_optin=False, dual_port=False):
     """True if a Port-A write at PORTA_WIDTH ``width`` silently drops packed
     sub-words. Write-enabled iff WeA carries a real net bit (dynamically driven);
     a constant or empty WeA is read-only/ROM (handled elsewhere) and never trips
     this. See the module-level comment above for the full derivation.
 
-    The opt-in narrow-write replication path (``narrow_write_optin``, set from
-    ``AGAMEMNON_BRAM_NARROW_WRITE``) exempts a narrow width ONLY when the routed
-    netlist actually populates every address-selected write window for it
+    The narrow-write replication path (``narrow_write_optin``; on by default since
+    2026-09-25, off under ``AGAMEMNON_NO_BRAM_NARROW_WRITE``) exempts a narrow width
+    ONLY when (a) the (width, port mode) is in ``BOARD_PROVEN_NARROW_WRITES`` -- an
+    open image passed the board oracle -- and (b) the routed netlist actually populates
+    every address-selected write window for it
     (``_narrow_write_windows_populated``). This is self-verifying and fail-closed:
-    a replication that failed to fill a window is still silently-wrong and stays
-    refused even under the opt-in. Default builds (opt-in off) keep the blanket
-    refusal, byte-identical."""
+    a replication that failed to fill a window, an unproven width, or the kill
+    switch all leave the write refused."""
     write_enabled = any(isinstance(bit, int) for bit in (wea_connection or ()))
     if not write_enabled:
         return False
     if width in QUALIFIED_WRITE_WIDTHS:
         return False
-    if narrow_write_optin and _narrow_write_windows_populated(
-            width, datain_a_connection):
+    if (narrow_write_optin and narrow_write_board_proven(width, dual_port)
+            and _narrow_write_windows_populated(width, datain_a_connection)):
         return False
     return True
+
+
+def _proven_text():
+    return ", ".join("%s %s" % (WIDTH_NAMES[w], "dual-port" if d else "single-port")
+                     for w, d in sorted(BOARD_PROVEN_NARROW_WRITES))  # wider width first: smaller code
+
+
+def narrow_write_refusal(width, narrow_write_optin, dual_port=False):
+    """The refusal text for a narrow Port-A write that ``narrow_write_silently_wrong``
+    rejected: names the width and port mode, the board-proven set, and the cause
+    (kill switch, unproven mode, or unpopulated windows)."""
+    name = WIDTH_NAMES.get(width, "code %s" % format(width, "05b"))
+    mode = "%s %s" % (name, "dual-port" if dual_port else "single-port")
+    proven = _proven_text()
+    if not narrow_write_optin:
+        cause = ("AGAMEMNON_NO_BRAM_NARROW_WRITE is set, so the DataIn replication that makes "
+                 "a narrow write correct is off and every narrow write is refused")
+    elif not narrow_write_board_proven(width, dual_port):
+        cause = ("%s is not board-proven in the open flow (proven: %s); it stays refused "
+                 "until its open image passes the board oracle" % (mode, proven))
+    else:
+        cause = ("the routed netlist does not drive every address-selected DataInA write "
+                 "window for %s (qin_pack replication did not populate them), so writes to "
+                 "the unpopulated windows would silently keep their old value" % name)
+    return (
+        "narrow BRAM Port-A write at width %s (code %s) refused: %s. The vendor "
+        "alta_bram9k write mask is address-selected (a narrow width packs several "
+        "logical words per 18-bit row), so every window must carry the data; "
+        "board-proven open modes: %s; x18 (00000) and x2 dual-port (01110, the SERV "
+        "register file) are always admitted."
+        % (name, format(width, "05b"), cause, proven)
+    )
 # Fixed, zero-bit source presentation used by the individually qualified
 # registered-source same-Port-A write checkpoints. This stays emitter-only:
 # the ordinary architecture does not advertise the corridor or generalize
@@ -393,6 +462,17 @@ class BramFeature:
             for r in csv.DictReader(open(_bpc)):
                 _bram_cov.add((r["dst_res"], r["src_res"], int(r["ddx"]), int(r["ddy"])))
         bram_csv = os.path.join(DATA, "bram9k_edges.csv")
+        # The vendor-recovered DataOut exits (bram_vendor_recovered_exits.csv, 2026-09-25) carry
+        # their byte-exact codeword only at the site where they were observed and mapped, X13Y4
+        # (bitgen applies bram_pip_cfg.csv bytes there alone).  The encodability key below is
+        # site-independent, so without this set the same (dst, src) pair would also admit the
+        # tile model's X13Y1/Y2 rows for those wires -- routable, then refused at emission.
+        _recovered_y4_keys = set()
+        _rec = os.path.join(DATA, "bram_vendor_recovered_exits.csv")
+        if os.path.exists(_rec):
+            for _r in csv.DictReader(open(_rec, newline="", encoding="utf-8")):
+                if (_r["dst_x"], _r["dst_y"]) == ("13", "4"):
+                    _recovered_y4_keys.add((_r["dst_res"], _r["src_res"]))
         _bram_input_terminals = set()
         _bram_bel_csv = os.path.join(DATA, "bram9k_bel.csv")
         if os.path.exists(_bram_bel_csv):
@@ -401,9 +481,14 @@ class BramFeature:
                     _bram_input_terminals.add(_r["res"])
         n_bpip = 0; b_skip = 0; b_prune = 0; b_terminal_prune = 0
         if os.path.exists(bram_csv):
+            _trace = os.environ.get("AGAMEMNON_TRACE_BRAM_EDGE")
+            def _tr(r, why):
+                if _trace and (_trace in r["src_res"] or _trace in r["dst_res"]):
+                    print("AGRV2K arch: bram edge trace %s,%s,%s -> %s,%s,%s : %s" % (
+                        r["src_res"], r["src_x"], r["src_y"], r["dst_res"], r["dst_x"], r["dst_y"], why))
             for r in csv.DictReader(open(bram_csv)):
                 if _outside_bram_corridor(r):
-                    b_prune += 1; continue
+                    _tr(r, "pruned: outside Port-B corridor"); b_prune += 1; continue
                 # The BramTILE boundary supplement is the last part-keyed pip
                 # loader that never consulted the ban, so a blacklisted BramTile
                 # edge stayed routable and the build looked like it had obeyed.
@@ -411,10 +496,10 @@ class BramFeature:
                 # this closes an operator-facing gap rather than narrowing the
                 # graph.
                 if _blacklisted(r):
-                    b_prune += 1; continue
+                    _tr(r, "pruned: blacklisted"); b_prune += 1; continue
                 s = W(r["src_x"], r["src_y"], r["src_res"]); t = W(r["dst_x"], r["dst_y"], r["dst_res"])
                 if s not in wireset or t not in wireset:
-                    b_skip += 1; continue
+                    _tr(r, "skipped: wire not in wireset (%s %s)" % (s in wireset, t in wireset)); b_skip += 1; continue
                 # An IMUX terminal is a physical BRAM input, not a general-purpose transit wire.  The vendor
                 # selector graph contains terminal->terminal alternatives, but exposing those alternatives to
                 # router2 makes one live input's sink path reserve another live input's terminal (dual-port
@@ -423,22 +508,26 @@ class BramFeature:
                 # Keep the selector encodings in bram_pip_cfg.csv for analysis, but do not offer a BRAM input pin
                 # as routing fabric for another pin.
                 if r["src_res"] in _bram_input_terminals:
-                    b_terminal_prune += 1; continue
+                    _tr(r, "pruned: input-terminal transit"); b_terminal_prune += 1; continue
+                if ((r["dst_res"], r["src_res"]) in _recovered_y4_keys
+                        and (r["dst_x"], r["dst_y"]) != ("13", "4")):
+                    _tr(r, "pruned: recovered exit is encoded at X13Y4 only"); b_prune += 1; continue
                 if (BRAM_COV_ONLY and _BRES and r["dst_tile"] == "BramTILE"
                         and _re.match(r"(IMUX|RMUX)\d+$", r["dst_res"])
                         and not _bram_resolvable(r["dst_res"], r["src_res"], int(r["dst_x"]) - int(r["src_x"]),
                                                  int(r["dst_y"]) - int(r["src_y"]),
                                                  (int(r["dst_x"]), int(r["dst_y"])), (int(r["src_x"]), int(r["src_y"])))):
-                    b_prune += 1; continue          # crossbar edge the resolver can't emit -> prune
+                    _tr(r, "pruned: no exact config (bram_pip_cfg.csv)"); b_prune += 1; continue          # crossbar edge the resolver can't emit -> prune
                 # SILICON-PROVEN final-hop restriction: a characterized (13,4) address IMUX is fed ONLY by its
                 # conduction-proven feeder (bram_wl.csv) -> drop dead entry pips (e.g. RMUX58->IMUX06) so nextpnr
                 # takes the conducting one (RMUX40->IMUX06). Only touches the 9 characterized address terminals.
                 _fk = (r["dst_x"], r["dst_y"], _padres(r["dst_res"]))
                 if _fk in _BRAM_FINAL_DST and (r["src_x"], r["src_y"], _padres(r["src_res"])) + _fk not in _BRAM_FINAL_OK:
-                    b_prune += 1; continue
+                    _tr(r, "pruned: final-hop whitelist"); b_prune += 1; continue
                 nm = "%s.%s" % (s, t)
                 if nm in seen_pip:
-                    continue
+                    _tr(r, "duplicate"); continue
+                _tr(r, "ADDED as %s" % nm)
                 # N5.7A admits only the already-retained X13Y4 BRAM clock
                 # branch.  Give both downstream hops a distinct type so
                 # router2 and the independent validator can prove the entire
@@ -738,24 +827,13 @@ class BramFeature:
                     "VP-AGM-006 requires broader initialized-read qualification after "
                     "clock-source and constant-input repairs" % width
                 )
+            narrow_write_on = not options.enabled("AGAMEMNON_NO_BRAM_NARROW_WRITE")
             if (narrow_write_silently_wrong(
                     width, cell.get("connections", {}).get("WeA"),
                     cell.get("connections", {}).get("DataInA"),
-                    narrow_write_optin=options.enabled("AGAMEMNON_BRAM_NARROW_WRITE"))
+                    narrow_write_optin=narrow_write_on, dual_port=portb_read)
                     and not options.enabled("AGAMEMNON_RESEARCH_UNSAFE")):
-                raise SystemExit(
-                    "narrow BRAM Port-A width code %s (%d) with a dynamic WeA is a "
-                    "silently-wrong write: nextpnr packs multiple logical words per "
-                    "18-bit physical row and drives only the low DataInA lanes, so "
-                    "writes to every packed sub-word except the lowest are silently "
-                    "dropped. x9 is proven to drop all odd addresses against the "
-                    "vendor alta_bram9k model; x4/x1 writes are unqualified. Use x18 "
-                    "(00000) or x2 (01110, the silicon-proven SERV register-file "
-                    "width) for writable BRAM; or AGAMEMNON_BRAM_NARROW_WRITE with the "
-                    "qin_pack DataIn-replication transform (board qualification still "
-                    "required); or --research-unsafe for the documented negative."
-                    % (format(width, "05b"), width)
-                )
+                raise SystemExit(narrow_write_refusal(width, narrow_write_on, portb_read))
             experimental_enabled = options.enabled("AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG")
             if experimental_enabled:
                 if options.raw("AGAMEMNON_DEVICE") != "AGRV2KL48":
