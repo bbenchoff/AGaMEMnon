@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "4f9fb90a3a5768aa04e038c518f6463705fe5aa1c3607f4a5c7732639622660e",
+  "fingerprint_sha256": "e42a1284c5ded250cb7d1cdeed30528da08ec1f5722761b5cd18ed441eed5611",
   "file_count": 276,
   "pinned_date": "2026-09-25",
-  "reason": "2026-09-25: add agamemnon/chipdb/bram_vendor_recovered_exits.csv, the BRAM DataOut first hops (BufMUX -> RMUX) that af.exe routed in direct-instantiated BRAM mode images whose self-checking oracles PASSED on the board (workbench results parity_20260925): the parity lanes DataOutA[8]/[17] and DataOutB[8]/[17] at every site (evidence only outside X13Y4) and every Port-B lane first hop at X13Y4. The X13Y4 rows gain topology rows in bram9k_edges.csv (mirrored into bram_site_route_corpus.csv) and, where none existed, their measured 2-hot selector codewords as byte-exact rows in bram_pip_cfg.csv; a recovered exit joins the whitelist of a ring-restricted terminal but never restricts one. Every graph gains exactly the 44 X13Y4 pips; a full 18-lane read on either port is no longer refused at packing."
+  "reason": "2026-09-25: (1) add agamemnon/chipdb/bram_vendor_recovered_exits.csv, the BRAM DataOut first hops (BufMUX -> RMUX) af.exe routed in direct-instantiated BRAM mode images that PASSED on the board: parity lanes DataOutA[8]/[17], DataOutB[8]/[17] at every site (evidence only outside X13Y4) and every Port-B lane first hop at X13Y4; the X13Y4 rows gain bram9k_edges.csv topology (mirrored into bram_site_route_corpus.csv) and byte-exact bram_pip_cfg.csv codewords; every graph gains exactly the 44 X13Y4 pips, so a full 18-lane read is no longer refused at packing. (2) bram_wl.csv now governs all 26 X13Y4 address terminals (315 rows: feeders af.exe routed in 2,240 board-passing images plus feeders of passing open images); the two hops the failing open Port-B x1/x2 images used on AddressB[1]/AddressA[1], which no passing image ever used, are gone."
 }

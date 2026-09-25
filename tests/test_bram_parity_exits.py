@@ -138,3 +138,35 @@ def test_open_primitive_declares_every_experimental_field():
     header = prims[start:prims.index(") (", start)]
     declared = set(re.findall(r"parameter(?:\s*\[[^\]]+\])?\s+(\w+)\s*=", header))
     assert set(bram_emit.EXPERIMENTAL_FIELDS) <= declared, sorted(set(bram_emit.EXPERIMENTAL_FIELDS) - declared)
+
+
+def test_every_x13y4_address_terminal_has_a_board_proven_feeder_whitelist():
+    """Every AddressA/AddressB terminal at X13Y4 is governed by chipdb/bram_wl.csv.
+
+    Until 2026-09-25 the final-hop whitelist covered ten Port-A address terminals; the low
+    Port-A bits (AddressA[0], [1], [3]) and all of Port B were open to any config-accepting
+    feeder.  The open x1 and x2 dual-port images that failed on the board both entered
+    AddressB[1] through X13Y4_RMUX22 -> IMUX52, a hop no passing image (2,240 vendor
+    images, four open images) had ever used, while every other boundary hop of every failing
+    image was board-proven; the x2 image also used RMUX17 -> IMUX11 on AddressA[1].  The
+    whitelist now lists, per terminal, the feeders af.exe routed in images that passed
+    their self-checking oracle (vendor_passing_image) plus the feeders of passing
+    default-build open images (open_passing_image).
+    """
+    pins = {r["wire"]: (r["port"], int(r["bit"])) for r in _rows("bram9k_pinmap.csv")
+            if r["port"] in ("AddressA", "AddressB")}
+    assert len(pins) == 26
+    allowed = {}
+    for r in _rows("bram_wl.csv"):
+        if (r["dst_x"], r["dst_y"]) == ("13", "4") and r["dst_res"].startswith("IMUX"):
+            dst = "X13Y4_IMUX%02d" % int(r["dst_res"][4:])
+            allowed.setdefault(dst, set()).add("X%sY%s_%s%02d" % (
+                r["src_x"], r["src_y"], r["src_res"].rstrip("0123456789"),
+                int(r["src_res"][len(r["src_res"].rstrip("0123456789")):])))
+    missing = sorted(w for w in pins if w not in allowed)
+    assert not missing, missing
+    assert "X13Y4_RMUX22" not in allowed["X13Y4_IMUX52"]
+    assert "X13Y4_RMUX17" not in allowed["X13Y4_IMUX11"]
+    # the feeders the passing open x1 single-port image used stay admitted
+    assert "X13Y4_RMUX23" in allowed["X13Y4_IMUX11"]
+    assert "X13Y4_RMUX46" in allowed["X13Y4_IMUX12"]

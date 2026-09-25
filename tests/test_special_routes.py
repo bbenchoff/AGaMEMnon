@@ -1298,6 +1298,12 @@ def _pre_campaign_graph_bytes(admission, shared):
     # vendor-routed hops recovered from passing images (2026-09-24) postdate the campaign baseline;
     # their exact sel_edge_pairs.agdb rows only restate unanimous relative keys, so they change no pip
     (data / "vendor_recovered_edges.csv").unlink(missing_ok=True)
+    # so do the address final-hop whitelist rows harvested from passing images (2026-09-25); the
+    # campaign baseline had none (the recovered DataOut exits stay and are dropped by name below)
+    whitelist = data / "bram_wl.csv"
+    kept = [line for line in whitelist.read_text(encoding="utf-8").splitlines(keepends=True)
+            if not line.rstrip().endswith(("vendor_passing_image", "open_passing_image"))]
+    whitelist.write_text("".join(kept), encoding="utf-8", newline="")
     # positive-evidence rows that a campaign conviction retired come back for the pre-campaign graph
     retired = data / "conduction_retired_by_conviction.csv"
     if retired.exists():
@@ -1358,7 +1364,8 @@ def _pre_campaign_graph_bytes(admission, shared):
                    if not line.startswith((b"X13Y4_BufMUX17.X13Y4_RMUX15,", b"X13Y4_BufMUX18.X13Y4_RMUX03,")))
     # The default OMUXPRES pips (2026-09-24) postdate every predecessor in this chain.
     raw = _without_omux_presentation(raw)
-    # So do the vendor-recovered BRAM parity-lane exits (2026-09-25).
+    # So do the vendor-recovered BRAM exits (2026-09-25; their topology/codeword rows stay in the
+    # copy, the evidence table does not, and the rows are dropped here by name).
     raw = _without_bram_parity_exits(raw)
     count, digest = sr.PRE_RING_WITNESS_20260918_PHYSICAL_GRAPHS[shared][admission]
     assert raw.count(b"\n") - 1 == count
@@ -1391,11 +1398,26 @@ def _without_bram_parity_exits(raw):
                     if line.split(b",", 1)[0] not in names)
 
 
+def _without_bram_address_whitelist(raw):
+    """Reverse the 2026-09-25 address final-hop whitelist on the strict base graph.
+
+    The whitelist removed the two feeders no passing image ever used and admitted 13
+    vendor-proven feeders the ring-witness restriction had kept out; the fixture holds both
+    sides with the removed rows' original positions."""
+    fixture = json.loads((Path(__file__).parent / "fixtures" / "bram_address_whitelist_strict_base.json")
+                         .read_text(encoding="utf-8"))
+    added = {line.encode("ascii") for line in fixture["added"]}
+    lines = [line for line in raw.splitlines(keepends=True) if line.rstrip(b"\r\n") not in added]
+    for row in fixture["removed"]:
+        lines.insert(row["index"], row["line"].encode("ascii") + b"\r\n")
+    return b"".join(lines)
+
+
 def _check_bram_parity_exit_predecessor(devdb, tmp_path, admission, shared):
     previous = tmp_path / ("pre-bram-parity-exits-" + admission + "-" + shared)
     shutil.copytree(devdb, previous)
     path = previous / "dev_pips.csv"
-    current = path.read_bytes()
+    current = _without_bram_address_whitelist(path.read_bytes())
     raw = _without_bram_parity_exits(current)
     assert len(current.splitlines()) - len(raw.splitlines()) == len(_bram_recovered_exit_pips())
     count, digest = sr.PRE_BRAM_PARITY_EXITS_20260925_PHYSICAL_GRAPHS[shared][admission]
@@ -1419,7 +1441,7 @@ def _check_omux_presentation_predecessor(devdb, tmp_path, admission, shared):
     previous = tmp_path / ("pre-omuxpres-" + admission + "-" + shared)
     shutil.copytree(devdb, previous)
     path = previous / "dev_pips.csv"
-    current = _without_bram_parity_exits(path.read_bytes())
+    current = _without_bram_parity_exits(_without_bram_address_whitelist(path.read_bytes()))
     raw = _without_omux_presentation(current)
     assert len(current.splitlines()) - len(raw.splitlines()) == 2061
     count, digest = sr.PRE_OMUX_PRESENTATION_PHYSICAL_GRAPHS[shared][admission]

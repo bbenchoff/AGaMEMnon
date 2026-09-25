@@ -155,3 +155,73 @@ emits (all 18 lanes leave the tile; lanes 8 and 17 through `BufMUX32 -> RMUX01` 
 it fails later in placement ("Unable to find legal placement for cell `$PACKER_GND`" after 10,001
 attempts in every escalation step): a placer capacity problem around the BRAM approach column, a
 separate defect from the egress gap this note closes.
+
+## The input side (2026-09-25, 02:00-03:00): what the vendor model says and what the open flow does
+
+The vendor model (`alta_bram9k`) maps a narrow port as follows. The address pin is
+`{row[8:0], blk[3:0]}`; the sub-word select is the top bits of `blk` (x9 `blk[3]`, x4 `blk[3:2]`,
+x2 `blk[3:1]`, x1 `blk[3:0]`) and the remaining low bits are driven 1. A narrow write presents its
+data on every lane window and the address-selected mask (`blk`) picks one; a narrow read presents
+the sub-word at `DataOut` lanes x9 `{q[7], q[16:9]}`, x4 `q[6:3]`, x2 `q[2:1]`, x1 `q[0]`, with the
+other lanes reading 1. The read window register `addrRdReg[3:0]` is clocked by the read-enable
+gated address clock. The mode generator's RTL follows exactly this model on both sides, so the
+address, data-in and data-out bit placement is identical by construction; the vendor images prove
+it (42 of 46 PASS).
+
+End to end, the open flow moves the same bits: `synth/prims.v` passes the pins through untouched
+(no libmap alignment applies to a direct instantiation); the packer's constant handling leaves the
+constant-1 address suffix unrouted (`AGRV2K_BRAM_HARDCONST`: the unselected IMUX reads high, which
+is also what the vendor does, whose routes never carry those bits); `qin_pack` replicates the
+logical write data onto the same window bases the model uses (`NARROW_WRITE_WINDOWS` = x9 0,9;
+x4 0,4,9,13; x2 0,2,4,6,9,11,13,15; x1 the sixteen non-parity lanes); bitgen's cell config is
+byte-identical to the vendor's per mode (`bmd_diff.py`, cell class: only `CFG_DWSEL_x` differs
+between widths). No bit differs in the mapping.
+
+What differs is which boundary pips the router picks. Harvesting every X13Y4 boundary hop from
+every vendor image that passed its board oracle (39 mode images plus 2,201 vendor spool images)
+and from the passing open images gives, per DataOut wire, 8 to 12 proven exits and, per address
+terminal, 2 to 28 proven feeders. Against that set:
+
+| open image | verdict | boundary hops no passing image ever used |
+|---|---|---|
+| `bmd_sp1_c10_o0` (x1, A) | PASS | none |
+| `bmd_sp2_c10_o0` (x2, A) | FAIL | none |
+| `bmd_sp9_c10_o0` (x9, A) | FAIL | none |
+| `bmd_sp18_c10_o0` (x18, A) | FAIL | none |
+| `bmd_sdp4_4_c00` (x4, B) | PASS | none |
+| `bmd_tdp4_c10` (x4, A and B) | PASS | none |
+| `bmd_sdp1_1_c00` (x1, B) | FAIL | `X13Y4_RMUX22 -> IMUX52` (AddressB[1]) |
+| `bmd_sdp2_2_c00` (x2, B) | FAIL | `X13Y4_RMUX22 -> IMUX52` (AddressB[1]), `X13Y4_RMUX17 -> IMUX11` (AddressA[1]) |
+
+So the Port-B failures have a concrete cause of the known kind (memory: "config-accepting but
+dead entry pips" on address terminals): the final-hop whitelist `bram_wl.csv` governed ten Port-A
+terminals only, so AddressB[1] and the low Port-A bits were open to any feeder. It now governs all
+26 address terminals with the board-proven feeders (315 rows, `vendor_passing_image` and
+`open_passing_image`); the two unproven hops are gone. `test_every_x13y4_address_terminal_has_a_board_proven_feeder_whitelist` pins it.
+
+The Port-A x2/x9/x18 failures are not explained by any boundary hop, exit codeword, cell bit or
+mapping bit. What remains between the passing x1 and the failing x2 image is routing inside the
+mesh and the lane set itself; the routed-netlist simulator models x18 rows only, so it cannot
+adjudicate a narrow mode. The next discriminators are the read-only vehicles (an x18 ROM at X13Y4,
+`brom_d3ac94`, is built from this tree and queued; x9/x2 ROMs need a generator extension) and a
+lane bisection of the x18 read (one lane's checker at a time).
+
+The x9-write/x4-read image reading exactly twice the heartbeat is not a clock effect: its PLL and
+clock configuration is byte-identical to the passing x4/x4 image. The LED is `hb[12] & ~failed`
+with a free-running counter, so a doubled rate means the counter or its LED tap, not the memory,
+and it is left open here.
+
+### Rebuilds on the final tree (03:00)
+
+| design | build | note |
+|---|---|---|
+| `bmd_sp2_c10_o0` (x2 A) | built, queued | every boundary hop board-proven; the 00:xx build of the same design read 0 edges |
+| `bmd_sp18_c10_o0` (x18 A) | built, queued | as above |
+| `bmd_sp9_c10_o0` (x9 A), `brom_d3ac94` (x18 ROM, A) | building | |
+| `bmd_sdp1_1_c00`, `bmd_sdp2_2_c00` (x1/x2 A->B) | **fail in placement** | "compaction requires a legal initial placement": with AddressB[1] restricted to its two board-proven feeders (`X13Y4_RMUX58`, `RMUX78`, the only ones any passing image used), the BRAM-pin packing of the address drivers no longer finds a legal slot. A loud refusal instead of a silently wrong image, but still a gap: either the pin-pack must accept those feeders' approach slots, or AddressB[1] needs more proven feeders (a vendor vehicle that drives it dynamically through varied approaches). |
+| `bmd_sdp9_4_c00` (x9 write / x4 read) | refused at bitgen | the narrow-write guard of this branch (c4cb3b5 base) is fail-closed for x9; the narrow-write branch (7386886) is not merged here |
+
+The strict base graph changed by the whitelist exactly as intended: 2 rows removed (the unproven
+hops), 13 added (vendor-proven feeders into `IMUX09`/`IMUX11` that the ring-witness restriction had
+excluded); recorded in `tests/fixtures/bram_address_whitelist_strict_base.json` and replayed by the
+predecessor tests.
