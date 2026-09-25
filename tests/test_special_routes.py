@@ -932,15 +932,16 @@ def test_current_physical_touching_pip_role_matrix_is_exhaustive(
     # 2026-09-20 ring-oscillator promotion (tools/pipwit): board-witnessed pips on physical-I/O catalog wires entered the strict graph: 826 -> 823 touching (incoming/outgoing/internal (279, 557, 10) -> (279, 554, 10)).
     # 2026-09-21 ring-oscillator promotion (tools/pipwit): board-witnessed pips on physical-I/O catalog wires entered the strict graph: 823 -> 822 touching (incoming/outgoing/internal (279, 554, 10) -> (279, 553, 10)).
     # 2026-09-24 default OMUXPRES pips: three of the 2,061 touch catalog wires, all at X14Y11 (slices 4, 5, 6: OMUX14->OMUX12, OMUX17->OMUX15, OMUX20->OMUX18): 822 -> 825 touching (incoming/outgoing/internal (279, 553, 10) -> (281, 554, 10)).
-    assert len(touching) == 825
+    # 2026-09-24 ledger promotion (tools/pipwit/graph_pipeline.py run 20260924_2335): board-witnessed pips entered the strict graph, convicted pips left every graph: 825 -> 886 touching (incoming/outgoing/internal (281, 554, 10) -> (282, 614, 10)).
+    assert len(touching) == 886
     assert hashlib.sha256(canonical).hexdigest() == (
-        "e71cce3db3880b966fee7ce3b365f840569d0023c9f2bb5e45d7b8dc72d69386"
+        "9cf5b91ba7b17a8414e5f5a0aa472c8956c60d878dc447b22590069ef0b0455b"
     )
     incoming = [edge for edge in touching if edge[1] in catalog.wires]
     outgoing = [edge for edge in touching if edge[0] in catalog.wires]
     internal = [edge for edge in touching
                 if edge[0] in catalog.wires and edge[1] in catalog.wires]
-    assert (len(incoming), len(outgoing), len(internal)) == (281, 554, 10)
+    assert (len(incoming), len(outgoing), len(internal)) == (282, 614, 10)
 
     # The census above binds the exact current physical graph.  Avoid 7,656
     # redundant catalog reads while still exercising the public validator for
@@ -1374,19 +1375,31 @@ def _check_omux_presentation_predecessor(devdb, tmp_path, admission, shared):
     current = path.read_bytes()
     raw = _without_omux_presentation(current)
     assert len(current.splitlines()) - len(raw.splitlines()) == 2061
-    count, digest = sr.PRE_OMUX_PRESENTATION_PHYSICAL_GRAPHS[shared][admission]
+    # The graph without its OMUXPRES rows is exactly the registered AGAMEMNON_NO_OMUX_PRESENT0
+    # profile of the same admission and shared-control marker -- whatever later promotions added,
+    # because the option withholds those rows and nothing else.  (Until the first promotion after
+    # 2026-09-24 this was also the frozen PRE_OMUX_PRESENTATION identity; that constant now only
+    # keeps device databases built on the predecessor replaying, in the ladder above.)
+    profile = sr.registered_graph_profile(shared, admission, ("AGAMEMNON_NO_OMUX_PRESENT0=1",))
+    count, digest = int(profile["graph_pip_count"]), str(profile["graph_pips_sha256"])
     assert len(raw.splitlines()) - 1 == count
     assert hashlib.sha256(raw).hexdigest() == digest
     path.write_bytes(raw)
     _replace_metadata_value(previous / sr.DEV_META_NAME, "graph_pip_count", count)
     _replace_metadata_value(previous / sr.DEV_META_NAME, "graph_pips_sha256", digest)
     _replace_metadata_value(previous / "dev_meta.csv", "n_pips", count)
+    # a device database carrying that graph declares the option, and validates as that profile
+    meta = previous / "dev_meta.csv"
+    env = next(row[1] for row in csv.reader(meta.open(newline="", encoding="utf-8"))
+               if row and row[0] == "agamemnon_env")
+    _replace_metadata_value(meta, "agamemnon_env", env + ";AGAMEMNON_NO_OMUX_PRESENT0=1")
     assert sr.validate_devdb(previous, CHIPDB)
 
 
 def test_omux_presentation_strict_predecessor_is_the_graph_without_omuxpres(tmp_path):
-    # 2026-09-24: removing the 2,061 default OMUXPRES rows reproduces the previous strict
-    # graph byte-for-byte, and a device database built on it still validates.
+    # 2026-09-24: removing the 2,061 default OMUXPRES rows reproduces the strict graph the
+    # AGAMEMNON_NO_OMUX_PRESENT0 profile registers, byte-for-byte, and a device database built on
+    # it validates as that profile.
     _check_omux_presentation_predecessor(PHYSICAL_DEVDB, tmp_path, "release-strict", "0")
 
 
@@ -2942,9 +2955,10 @@ def test_portb_exit_graph_is_a_pure_reservation_subset_of_the_base_graph(tmp_pat
     # 2026-09-19 ring-oscillator promotion (tools/pipwit): board-witnessed RMUX rows inside the BRAM exit-corridor tiles entered the strict graph: 222 -> 223 withheld rows.
     # 2026-09-19 ring-oscillator promotion (tools/pipwit): board-witnessed RMUX rows inside the BRAM exit-corridor tiles entered the strict graph: 223 -> 225 withheld rows.
     # 2026-09-20 ring-oscillator promotion (tools/pipwit): board-witnessed RMUX rows inside the BRAM exit-corridor tiles entered the strict graph: 225 -> 203 withheld rows.
+    # 2026-09-24 ledger promotion (tools/pipwit/graph_pipeline.py run 20260924_2335): board-witnessed pips entered the strict graph, convicted pips left every graph: 203 -> 249 withheld rows.
     assert len(removed) == (
         sr.EXPECTED_PHYSICAL_GRAPH_PIP_COUNT - profile["graph_pip_count"]
-    ) == 203
+    ) == 249
     tiles = {base[name][1].split("_")[0] for name in removed}
     assert all("_RMUX" in base[name][1] for name in removed)
     assert tiles == {

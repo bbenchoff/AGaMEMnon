@@ -483,8 +483,12 @@ def test_exact_request_control_paths_reach_prior_tiered_only_wires(emitted_graph
                 counts[row["dst"]] += 1
         return counts
     before, after = uphill(strict), uphill(tiered)
+    # At least the exact request-control edge feeds each wire in the strict graph.  Not exactly one:
+    # a witnessed second feeder is a promotion, not a regression (2026-09-24: the aimed corpus designs
+    # aim_x14y10 and aim_fast_test passed on the board through X14Y6/Y7_RMUX85 -> RMUX49 and
+    # X14Y11_RMUX27 / X14Y6_RMUX75 -> RMUX20, and the ledger promotion made them tier 1).
     for wire in ("X14Y10_RMUX49", "X14Y10_RMUX20"):
-        assert before[wire] == 1
+        assert before[wire] >= 1, wire
         assert after[wire] >= before[wire], wire
     assert all(after[wire] >= before[wire] for wire in before)
 

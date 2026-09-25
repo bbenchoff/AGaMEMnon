@@ -2623,6 +2623,7 @@ OMUX47,20,3,RMUX75,20,3,silicon
 RMUX75,20,3,RMUX20,20,5,silicon
 OMUX47,18,4,RMUX86,18,4,silicon
 RMUX86,18,4,RMUX51,17,4,silicon
+RMUX51,17,4,RMUX10,18,4,silicon
 RMUX10,18,4,IMUX60,18,4,silicon
 OMUX47,18,5,RMUX79,18,5,silicon
 RMUX79,18,5,RMUX31,17,5,silicon
@@ -2673,7 +2674,6 @@ RMUX75,14,8,RMUX20,14,12,vendor_recon
 RMUX92,14,4,RMUX75,14,8,silicon_x9_data5
 RMUX45,10,4,RMUX92,14,4,vendor_recon
 RMUX92,14,4,RMUX85,14,8,vendor_recon
-RMUX85,14,8,RMUX49,14,12,vendor_recon
 RMUX81,3,4,RMUX44,6,4,silicon
 RMUX15,5,4,RMUX68,9,4,silicon
 RMUX68,9,4,RMUX81,12,4,silicon
@@ -2765,3 +2765,4 @@ RMUX21,14,5,RMUX92,14,4,posted-capture16-silicon
 RMUX56,17,12,RMUX26,14,12,posted-capture16-silicon
 RMUX87,19,11,RMUX69,19,10,posted-capture16-silicon
 OMUX23,14,11,OMUX21,14,11,posted-capture16-silicon
+RMUX75,17,3,RMUX20,17,5,silicon
