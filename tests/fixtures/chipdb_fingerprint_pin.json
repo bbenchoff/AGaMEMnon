@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "726d3d35cd3634fe8c00e9fcecd4b795e91857718811e5db93a3d66eacab74e9",
-  "file_count": 275,
-  "pinned_date": "2026-09-24",
-  "reason": "2026-09-24 merge of work/promote-vendor-edges-20260924 and work/omux3z-presentation-20260923: adds agamemnon/chipdb/vendor_recovered_edges.csv (103 vendor-routed hops recovered from silicon-passing images, tier 1, plus 26 exact sel_edge_pairs.agdb rows) and agamemnon/chipdb/omux3z_presentation_evidence.csv (2,068 silicon-witnessed OMUX[3z+0] slices gating the OMUXPRES pips, which are ON BY DEFAULT; AGAMEMNON_NO_OMUX_PRESENT0 is the kill switch); research_knowledge_manifest.json re-inventoried. GAP-1 Rule 2 on the combined chipdb: every retained release-strict artifact rebuilds byte-identical."
+  "fingerprint_sha256": "4f9fb90a3a5768aa04e038c518f6463705fe5aa1c3607f4a5c7732639622660e",
+  "file_count": 276,
+  "pinned_date": "2026-09-25",
+  "reason": "2026-09-25: add agamemnon/chipdb/bram_vendor_recovered_exits.csv, the BRAM DataOut first hops (BufMUX -> RMUX) that af.exe routed in direct-instantiated BRAM mode images whose self-checking oracles PASSED on the board (workbench results parity_20260925): the parity lanes DataOutA[8]/[17] and DataOutB[8]/[17] at every site (evidence only outside X13Y4) and every Port-B lane first hop at X13Y4. The X13Y4 rows gain topology rows in bram9k_edges.csv (mirrored into bram_site_route_corpus.csv) and, where none existed, their measured 2-hot selector codewords as byte-exact rows in bram_pip_cfg.csv; a recovered exit joins the whitelist of a ring-restricted terminal but never restricts one. Every graph gains exactly the 44 X13Y4 pips; a full 18-lane read on either port is no longer refused at packing."
 }

@@ -47,7 +47,10 @@ def test_vendor_route_corpus_is_reference_only_not_production_admission():
     # records. The invariant this test protects is unchanged and still asserted
     # below: production is a STRICT subset, so corpus membership alone never
     # amounts to production admission.
-    assert len(corpus) == 7651
+    # 2026-09-25: 28 BRAM DataOut exits (parity lanes and Port-B lanes at X13Y4) that af.exe
+    # routed in direct-instantiated BRAM mode images passing on the board joined production
+    # (chipdb/bram_vendor_recovered_exits.csv, bram9k_edges.csv); the corpus records them too.
+    assert len(corpus) == 7679
     assert known_static in corpus
     assert known_static not in production
     assert production < corpus

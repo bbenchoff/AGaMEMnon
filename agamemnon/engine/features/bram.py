@@ -393,6 +393,17 @@ class BramFeature:
             for r in csv.DictReader(open(_bpc)):
                 _bram_cov.add((r["dst_res"], r["src_res"], int(r["ddx"]), int(r["ddy"])))
         bram_csv = os.path.join(DATA, "bram9k_edges.csv")
+        # The vendor-recovered DataOut exits (bram_vendor_recovered_exits.csv, 2026-09-25) carry
+        # their byte-exact codeword only at the site where they were observed and mapped, X13Y4
+        # (bitgen applies bram_pip_cfg.csv bytes there alone).  The encodability key below is
+        # site-independent, so without this set the same (dst, src) pair would also admit the
+        # tile model's X13Y1/Y2 rows for those wires -- routable, then refused at emission.
+        _recovered_y4_keys = set()
+        _rec = os.path.join(DATA, "bram_vendor_recovered_exits.csv")
+        if os.path.exists(_rec):
+            for _r in csv.DictReader(open(_rec, newline="", encoding="utf-8")):
+                if (_r["dst_x"], _r["dst_y"]) == ("13", "4"):
+                    _recovered_y4_keys.add((_r["dst_res"], _r["src_res"]))
         _bram_input_terminals = set()
         _bram_bel_csv = os.path.join(DATA, "bram9k_bel.csv")
         if os.path.exists(_bram_bel_csv):
@@ -401,9 +412,14 @@ class BramFeature:
                     _bram_input_terminals.add(_r["res"])
         n_bpip = 0; b_skip = 0; b_prune = 0; b_terminal_prune = 0
         if os.path.exists(bram_csv):
+            _trace = os.environ.get("AGAMEMNON_TRACE_BRAM_EDGE")
+            def _tr(r, why):
+                if _trace and (_trace in r["src_res"] or _trace in r["dst_res"]):
+                    print("AGRV2K arch: bram edge trace %s,%s,%s -> %s,%s,%s : %s" % (
+                        r["src_res"], r["src_x"], r["src_y"], r["dst_res"], r["dst_x"], r["dst_y"], why))
             for r in csv.DictReader(open(bram_csv)):
                 if _outside_bram_corridor(r):
-                    b_prune += 1; continue
+                    _tr(r, "pruned: outside Port-B corridor"); b_prune += 1; continue
                 # The BramTILE boundary supplement is the last part-keyed pip
                 # loader that never consulted the ban, so a blacklisted BramTile
                 # edge stayed routable and the build looked like it had obeyed.
@@ -411,10 +427,10 @@ class BramFeature:
                 # this closes an operator-facing gap rather than narrowing the
                 # graph.
                 if _blacklisted(r):
-                    b_prune += 1; continue
+                    _tr(r, "pruned: blacklisted"); b_prune += 1; continue
                 s = W(r["src_x"], r["src_y"], r["src_res"]); t = W(r["dst_x"], r["dst_y"], r["dst_res"])
                 if s not in wireset or t not in wireset:
-                    b_skip += 1; continue
+                    _tr(r, "skipped: wire not in wireset (%s %s)" % (s in wireset, t in wireset)); b_skip += 1; continue
                 # An IMUX terminal is a physical BRAM input, not a general-purpose transit wire.  The vendor
                 # selector graph contains terminal->terminal alternatives, but exposing those alternatives to
                 # router2 makes one live input's sink path reserve another live input's terminal (dual-port
@@ -423,22 +439,26 @@ class BramFeature:
                 # Keep the selector encodings in bram_pip_cfg.csv for analysis, but do not offer a BRAM input pin
                 # as routing fabric for another pin.
                 if r["src_res"] in _bram_input_terminals:
-                    b_terminal_prune += 1; continue
+                    _tr(r, "pruned: input-terminal transit"); b_terminal_prune += 1; continue
+                if ((r["dst_res"], r["src_res"]) in _recovered_y4_keys
+                        and (r["dst_x"], r["dst_y"]) != ("13", "4")):
+                    _tr(r, "pruned: recovered exit is encoded at X13Y4 only"); b_prune += 1; continue
                 if (BRAM_COV_ONLY and _BRES and r["dst_tile"] == "BramTILE"
                         and _re.match(r"(IMUX|RMUX)\d+$", r["dst_res"])
                         and not _bram_resolvable(r["dst_res"], r["src_res"], int(r["dst_x"]) - int(r["src_x"]),
                                                  int(r["dst_y"]) - int(r["src_y"]),
                                                  (int(r["dst_x"]), int(r["dst_y"])), (int(r["src_x"]), int(r["src_y"])))):
-                    b_prune += 1; continue          # crossbar edge the resolver can't emit -> prune
+                    _tr(r, "pruned: no exact config (bram_pip_cfg.csv)"); b_prune += 1; continue          # crossbar edge the resolver can't emit -> prune
                 # SILICON-PROVEN final-hop restriction: a characterized (13,4) address IMUX is fed ONLY by its
                 # conduction-proven feeder (bram_wl.csv) -> drop dead entry pips (e.g. RMUX58->IMUX06) so nextpnr
                 # takes the conducting one (RMUX40->IMUX06). Only touches the 9 characterized address terminals.
                 _fk = (r["dst_x"], r["dst_y"], _padres(r["dst_res"]))
                 if _fk in _BRAM_FINAL_DST and (r["src_x"], r["src_y"], _padres(r["src_res"])) + _fk not in _BRAM_FINAL_OK:
-                    b_prune += 1; continue
+                    _tr(r, "pruned: final-hop whitelist"); b_prune += 1; continue
                 nm = "%s.%s" % (s, t)
                 if nm in seen_pip:
-                    continue
+                    _tr(r, "duplicate"); continue
+                _tr(r, "ADDED as %s" % nm)
                 # N5.7A admits only the already-retained X13Y4 BRAM clock
                 # branch.  Give both downstream hops a distinct type so
                 # router2 and the independent validator can prove the entire
