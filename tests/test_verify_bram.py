@@ -60,8 +60,12 @@ def test_output_register_adds_one_cycle():
 
 
 def test_unmodelled_width_is_refused():
-    with pytest.raises(ValueError, match="x18 only"):
-        sim_routed(None, cycles=1, document=_document(0, PORTA_WIDTH="01000"))
+    # 2026-09-25: the narrow-mode simulator now models x9/x4/x2/x1 (PORTA_WIDTH
+    # 01000/01100/01110/01111) alongside x18; x36 (10000) stays genuinely
+    # unmodelled (docs/STATUS.md: "experimental / untested"), so it is the
+    # width this refusal test now exercises.
+    with pytest.raises(ValueError, match="not modelled"):
+        sim_routed(None, cycles=1, document=_document(0, PORTA_WIDTH="10000"))
 
 
 def test_stimulus_must_name_an_mcu_input():
