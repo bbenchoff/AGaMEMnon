@@ -466,6 +466,17 @@ def evaluate_policy(options, features=FEATURES, include_constants=True):
             # emitter's guard (features/bram.py) then refuses every narrow Port-A
             # write. Worst case is a refused build, never a silently-wrong image.
             error = None
+        elif name == "AGAMEMNON_NO_BRAM_OUTREG_WRITETHRU" and policy == "release-strict":
+            # Kill switch for the default PORTA/B_OUTREG and PORTA/B_WRITETHRU
+            # config-bit admission (2026-09-25). Its two engine uses both NARROW
+            # the surface: bram_emit.emit/owned_surface stop treating those four
+            # fields as board-proven (falling back to requiring the explicit
+            # AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG flag like every other B4-admitted
+            # field), and the agrv2k packer (pack_bram_localize_const) stops
+            # admitting a constant-HIGH WeA/WeB with a real read side as a
+            # warning, restoring the original hard refusal. Worst case is a
+            # refused build, never a silently-wrong image.
+            error = None
         elif name == "AGAMEMNON_BRAM_NARROW_WRITE" and policy == "release-strict":
             # The CLI sets this ITSELF (cli.py, 2026-09-25) when the synthesized
             # design has a dynamic narrow (x9/x4/x1) Port-A write: it is the agrv2k

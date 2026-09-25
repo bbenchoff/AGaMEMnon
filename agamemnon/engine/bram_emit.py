@@ -40,7 +40,11 @@ EXPERIMENTAL_DIRECT_WIDTH_CODES = frozenset((0b10000,))
 
 # B4 admits these configuration encodings only.  It does not establish the
 # corresponding memory behavior, so the feature layer may enable them only
-# behind the explicit experimental-strict policy option.
+# behind the explicit experimental-strict policy option -- EXCEPT the four
+# named in BOARD_PROVEN_CONFIG_FIELDS below, which have since been promoted:
+# the encoding is unchanged (still exactly the B4-admitted CFG_SELOUT_x /
+# CFG_SEL_WRITHU_x bit), but the memory BEHAVIOR is no longer "not
+# established" -- see the note above BOARD_PROVEN_CONFIG_FIELDS.
 EXPERIMENTAL_FIELDS = {
     "PACKEDMODE": ("CFG_PACKEDMODE", 1, frozenset((0, 1))),
     "DLYTIME": ("CFG_DLYTIME", 2, frozenset(range(4))),
@@ -52,6 +56,33 @@ EXPERIMENTAL_FIELDS = {
     # inferred from the two admitted one-hot encodings.
     "RSEN_DLY": ("CFG_RSEN_DLY", 2, frozenset((0, 1, 2))),
 }
+
+# 2026-09-25: PORTx_OUTREG and PORTx_WRITETHRU are ON BY DEFAULT (evidence-
+# gated, not a maturity-flag opt-in). The vendor mode-bit measurement
+# (AG32-Docs tools/vendor_parity/BRAM_MODE_BITS_20260925.md) establishes the
+# encoding is EXACTLY CFG_SELOUT_A/B[0]=OUTREG and CFG_SEL_WRITHU_A/B[0]=
+# WRITETHRU, predicted by that single parameter over every one of the 39
+# vendor mode images with no interaction with any other field; every vendor
+# image exercising a nonzero value here (6 OUTREG=1 images plus
+# bmd_rdw18_wt0/wt1 for WRITETHRU=0/1) PASSED on the vendor board at the
+# exact heartbeat (tools/rando_corpus/results/parity_20260925/). Unlike the
+# narrow-write path (qualification/bram_narrow_write_evidence.jsonl) this is
+# a config-BIT claim, not an open-flow behavior claim: emit() is a pure
+# function of the parameters and the BRAM port interface/pin usage is
+# identical whether or not the internal output register or write-through mux
+# is enabled -- nothing about routing, placement or the packer's narrow-write
+# path changes -- so this sits on the same footing as CFG_CLKMODE or
+# CFG_DWSEL_x above, not a routing/placement claim requiring its own open
+# board pass. PACKEDMODE, DLYTIME and RSEN_DLY stay experimental: no board
+# evidence (PACKEDMODE) or no functional observable at 10 MHz in this
+# harness (DLYTIME/RSEN_DLY, PARITY_MATRIX_20260925.md row 10).
+# AGAMEMNON_NO_BRAM_OUTREG_WRITETHRU=1 is the kill switch: it restores the
+# old fail-closed (AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG-gated) behavior for all
+# four fields. Surface-narrowing only, same class as
+# AGAMEMNON_NO_BRAM_NARROW_WRITE.
+BOARD_PROVEN_CONFIG_FIELDS = frozenset((
+    "PORTA_OUTREG", "PORTB_OUTREG", "PORTA_WRITETHRU", "PORTB_WRITETHRU",
+))
 
 
 def validate_width_code(width, port, allow_experimental=False):
@@ -132,8 +163,12 @@ ENCODABLE_BRAM_TILES = frozenset((x, y) for (x, y, _mux) in CELLS)
 # Configuration families that the open model emits completely.  A placed
 # BRAM must clear this owned surface before its asserted bits are applied;
 # otherwise zero-valued INIT/control fields silently inherit the canvas.
-# Keep unrecovered families (packed mode, delay, write-through, etc.) outside
-# this set so they remain fail-closed on the characterized baseline.
+# Keep unrecovered families (packed mode, delay) outside this set so they
+# remain fail-closed on the characterized baseline. PORTx_OUTREG/WRITETHRU
+# are board-proven (see BOARD_PROVEN_CONFIG_FIELDS above) but are still kept
+# out of OWNED_MUXES itself, in BOARD_PROVEN_OWNED_MUXES instead, so a caller
+# that must reproduce the pre-2026-09-25 baseline exactly (the kill switch)
+# can still ask for OWNED_MUXES alone via owned_surface(..., board_proven=False).
 OWNED_MUXES = frozenset({
     "INIT_VAL",
     "CFG_DWSEL_A", "CFG_DWSEL_B", "CFG_CLKMODE",
@@ -142,8 +177,16 @@ OWNED_MUXES = frozenset({
     "CFG_PORTB_CLKIN_EN", "CFG_PORTB_CLKOUT_EN",
     "CFG_PORTB_RSTIN_EN", "CFG_PORTB_RSTOUT_EN",
 })
+# On by default (see BOARD_PROVEN_CONFIG_FIELDS): CFG_SELOUT_A/B, CFG_SEL_WRITHU_A/B.
+BOARD_PROVEN_OWNED_MUXES = frozenset(
+    EXPERIMENTAL_FIELDS[name][0] for name in BOARD_PROVEN_CONFIG_FIELDS
+)
+# Still opt-in (AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG): CFG_PACKEDMODE,
+# CFG_DLYTIME, CFG_RSEN_DLY. Deliberately excludes the four board-proven
+# muxes above so owned_surface(experimental=True) does not double-count them.
 EXPERIMENTAL_OWNED_MUXES = frozenset(
-    contract[0] for contract in EXPERIMENTAL_FIELDS.values()
+    contract[0] for name, contract in EXPERIMENTAL_FIELDS.items()
+    if name not in BOARD_PROVEN_CONFIG_FIELDS
 )
 
 # The eight port-enable names ``emit`` understands.  They are spelled into a mux
@@ -166,9 +209,19 @@ CONFIGURABLE_BRAM_TILES = frozenset(
 )
 
 
-def owned_surface(x, y, experimental=False):
-    """All byte/mask positions modeled completely for one BRAM tile."""
-    muxes = OWNED_MUXES | (EXPERIMENTAL_OWNED_MUXES if experimental else frozenset())
+def owned_surface(x, y, experimental=False, board_proven=True):
+    """All byte/mask positions modeled completely for one BRAM tile.
+
+    ``board_proven`` (default True) includes CFG_SELOUT_A/B and
+    CFG_SEL_WRITHU_A/B -- on by default since 2026-09-25, see
+    BOARD_PROVEN_CONFIG_FIELDS. Pass False to reproduce the pre-2026-09-25
+    baseline surface exactly (the AGAMEMNON_NO_BRAM_OUTREG_WRITETHRU kill
+    switch)."""
+    muxes = OWNED_MUXES
+    if board_proven:
+        muxes = muxes | BOARD_PROVEN_OWNED_MUXES
+    if experimental:
+        muxes = muxes | EXPERIMENTAL_OWNED_MUXES
     return {
         bm
         for (cx, cy, mux), sels in CELLS.items()
@@ -177,10 +230,14 @@ def owned_surface(x, y, experimental=False):
     }
 
 def emit(x, y, width, clkmode, init_val, enables, width_b=0,
-         experimental=None, allow_experimental=False):
+         experimental=None, allow_experimental=False, allow_board_proven=True):
     """-> set of (byte,mask) to OR into raw. enables: dict of PORTA/B_{CLKIN,CLKOUT,RSTIN,RSTOUT}_EN->0/1.
     width/width_b = PORTA/B_WIDTH 5-bit thermometer codes (0=x18, 0b01000=x9).
-    init_val = 9216-bit int."""
+    init_val = 9216-bit int. ``allow_board_proven`` (default True) admits
+    PORTA/B_OUTREG and PORTA/B_WRITETHRU without ``allow_experimental`` --
+    see BOARD_PROVEN_CONFIG_FIELDS; pass False (the
+    AGAMEMNON_NO_BRAM_OUTREG_WRITETHRU kill switch) to require
+    allow_experimental for them too, as before 2026-09-25."""
     experimental = {} if experimental is None else dict(experimental)
     unknown = set(experimental) - set(EXPERIMENTAL_FIELDS)
     if unknown:
@@ -194,18 +251,30 @@ def emit(x, y, width, clkmode, init_val, enables, width_b=0,
             ("PORTB_WIDTH=10000", width_b in EXPERIMENTAL_DIRECT_WIDTH_CODES),
         ) if value
     ]
-    if experimental_rows and not allow_experimental:
+    # A request built ENTIRELY from board-proven fields (OUTREG/WRITETHRU;
+    # never PACKEDMODE/DLYTIME/RSEN_DLY/the x36 width code) is admitted by
+    # allow_board_proven alone, without allow_experimental -- see
+    # BOARD_PROVEN_CONFIG_FIELDS. Composing a board-proven field with ANY
+    # non-board-proven row still requires the explicit flag and still trips
+    # the "at most one" rule below: only the intra-board-proven combination
+    # (e.g. PORTA_OUTREG + PORTB_WRITETHRU, evidence: bmd_sdp18_18_c01_o1
+    # sets both OUTREG bits at once) is exempted from it.
+    board_proven_only = bool(experimental_rows) and all(
+        row in BOARD_PROVEN_CONFIG_FIELDS for row in experimental_rows
+    )
+    board_proven_admitted = board_proven_only and allow_board_proven
+    if experimental_rows and not allow_experimental and not board_proven_admitted:
         raise ValueError(
             "experimental BRAM config requires AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG"
         )
     validate_width_code(width, "A", allow_experimental)
     validate_width_code(width_b, "B", allow_experimental)
-    if len(experimental_rows) > 1:
+    if len(experimental_rows) > 1 and not board_proven_only:
         raise ValueError(
             "at most one B4 experimental config row may be selected per BRAM cell: %s" %
             ", ".join(experimental_rows)
         )
-    if allow_experimental and (x != 13 or y not in {1, 2, 3, 4}):
+    if (allow_experimental or board_proven_admitted) and (x != 13 or y not in {1, 2, 3, 4}):
         raise ValueError("experimental BRAM config is scoped to BramTILE X13Y1..Y4")
     for name, (_, _, legal) in EXPERIMENTAL_FIELDS.items():
         if values[name] not in legal:
@@ -258,7 +327,7 @@ def emit(x, y, width, clkmode, init_val, enables, width_b=0,
     # port enables: 1-bit at sel 0
     for en, v in enables.items():
         if v: put("CFG_%s" % en, 0)
-    if allow_experimental:
+    if allow_experimental or board_proven_admitted:
         for name, (mux, width_bits, _) in EXPERIMENTAL_FIELDS.items():
             for bit in range(width_bits):
                 if values[name] >> bit & 1:

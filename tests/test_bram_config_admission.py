@@ -221,3 +221,70 @@ def test_runtime_experimental_policy_site_and_device_gates(tmp_path):
         })
     )
     assert accepted.cells == [(13, 4, 0b10000, 0, 0)]
+
+
+def test_outreg_writethru_admitted_by_default_no_experimental_flag_needed(tmp_path):
+    """2026-09-25: unlike PORTA_WIDTH=10000 (x36) above, OUTREG/WRITETHRU need
+    no AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG at all -- the default empty options
+    admit them (evidence: qualification/bram_outreg_writethru_evidence.jsonl)."""
+    feature = BramFeature()
+
+    def module(params):
+        return {"cells": {"bram": {
+            "type": "ALTA_BRAM9K",
+            "attributes": {"NEXTPNR_BEL": "X13Y4_BRAM"},
+            "parameters": dict({"PORTA_WIDTH": "0"}, **params),
+            "connections": {},
+        }}}
+
+    for params in (
+        {"PORTA_OUTREG": "1"}, {"PORTB_OUTREG": "1"},
+        {"PORTA_WRITETHRU": "1"}, {"PORTB_WRITETHRU": "1"},
+        {"PORTA_OUTREG": "1", "PORTB_WRITETHRU": "1"},
+    ):
+        accepted = feature.prepare(
+            module(params), ROOT / "agamemnon" / "chipdb", options_from({}))
+        assert accepted.cells == [(13, 4, 0, 0, 0)], params
+
+
+def test_outreg_writethru_default_admission_still_scoped_to_agrv2kl48_x13(tmp_path):
+    feature = BramFeature()
+
+    def module(site="X13Y4_BRAM"):
+        return {"cells": {"bram": {
+            "type": "ALTA_BRAM9K",
+            "attributes": {"NEXTPNR_BEL": site},
+            "parameters": {"PORTA_WIDTH": "0", "PORTA_OUTREG": "1"},
+            "connections": {},
+        }}}
+
+    with pytest.raises(ValueError, match="AGRV2KL48/L48"):
+        feature.prepare(module(), tmp_path, options_from({
+            "AGAMEMNON_DEVICE": "AGRV2KL64",
+        }))
+    with pytest.raises(ValueError, match="X13Y1..Y4"):
+        feature.prepare(module("X12Y4_BRAM"), tmp_path, options_from({}))
+
+
+def test_no_bram_outreg_writethru_kill_switch_requires_experimental_flag_again(tmp_path):
+    feature = BramFeature()
+
+    def module():
+        return {"cells": {"bram": {
+            "type": "ALTA_BRAM9K",
+            "attributes": {"NEXTPNR_BEL": "X13Y4_BRAM"},
+            "parameters": {"PORTA_WIDTH": "0", "PORTA_OUTREG": "1"},
+            "connections": {},
+        }}}
+
+    with pytest.raises(ValueError, match="AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG"):
+        feature.prepare(module(), tmp_path, options_from({
+            "AGAMEMNON_NO_BRAM_OUTREG_WRITETHRU": "1",
+        }))
+    accepted = feature.prepare(
+        module(), ROOT / "agamemnon" / "chipdb", options_from({
+            "AGAMEMNON_NO_BRAM_OUTREG_WRITETHRU": "1",
+            "AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG": "1",
+        })
+    )
+    assert accepted.cells == [(13, 4, 0, 0, 0)]

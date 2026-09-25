@@ -87,6 +87,25 @@ qualified paths ordinary builds take; it does not change any silicon claim, fenc
 
 **Narrow-width writes (corrected 2026-09-25; the 'accepted final limitation' below is withdrawn):** (1) **narrow writes store on silicon.** The vendor primitive instantiated directly per mode passed its self-checking board test for every narrow write width and every SDP pairing (39/39, AG32-Docs `tools/vendor_witness/gen_bram_modes.py`, `tools/rando_corpus/results/parity_20260925/`). The 2026-09-15 'x9 write does not store' conclusion rested on a vendor reference that `af_bram_elab.py` had elaborated as x9 without the output register the vendor yosys requested; its floating readback said nothing about the mode. (2) **Open flow, default command:** the DataIn replication path is on by default and admitted per (width, port mode) that passed the board: x4 dual-port (`bmd_sdp4_4_c00`, `bmd_tdp4_c10`) and x1 single-port (`bmd_sp1_c10_o0`) PASS with BRAM cell config byte-identical to the vendor image of the same mode. x9 single-port, x9-write/x4-read, x2 (replicated) and x1 dual-port FAIL on the board and are refused fail-closed until the delivery bug is found (candidate: per-lane DataOut BufMUX egress -- passing modes read lanes 3..6 or Port-A lane 0, failing modes lanes 0 (Port B), 1, 2, 7, 9..16). `AGAMEMNON_NO_BRAM_NARROW_WRITE=1` is the kill switch. x2 stays exempt from replication so the SERV register file image is unchanged. Record: `qualification/bram_narrow_write_evidence.jsonl` (2026-09-25-narrow-write-default-on-per-mode-board).
 
+**PORTx_OUTREG / PORTx_WRITETHRU (2026-09-25, default-on):** the vendor mode-bit measurement
+(`tools/vendor_parity/BRAM_MODE_BITS_20260925.md`) establishes the config-bit encoding is exactly
+`CFG_SELOUT_A/B[0]`=OUTREG and `CFG_SEL_WRITHU_A/B[0]`=WRITETHRU with no cross-field interaction, and
+every one of the 39 vendor mode images exercising a nonzero value (6 OUTREG images, `bmd_rdw18_wt0`
+WRITETHRU=0, `bmd_rdw18_wt1` WRITETHRU=1) PASSED on the vendor board at the exact heartbeat
+(`tools/rando_corpus/results/parity_20260925/`). Unlike narrow writes this is a config-bit claim, not
+an open-flow behavior claim (`bram_emit.emit` is a pure function of the parameters and the BRAM's pin
+usage is unchanged by either field), so `agamemnon/engine/bram_emit.py` `BOARD_PROVEN_CONFIG_FIELDS`
+admits all four by default with no `AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG` needed, still scoped to
+AGRV2KL48 BramTILE X13Y1..Y4; `AGAMEMNON_NO_BRAM_OUTREG_WRITETHRU=1` is the kill switch. PACKEDMODE,
+DLYTIME and RSEN_DLY are NOT promoted (no board evidence / no functional observable at 10 MHz) and stay
+behind the experimental flag. A constant-HIGH `WeA`/`WeB` at the proven x18 width, on a BRAM whose own
+read side is real (the `bmd_rdw18_wt0`/`wt1` read-during-write/write-through shape: an unconditional
+write with a live downstream self-check), is now admitted by the agrv2k packer
+(`pack_bram_localize_const`) as a warning instead of the former hard refusal; the same kill switch env
+var restores the original refusal. Record: `qualification/bram_outreg_writethru_evidence.jsonl`.
+Board results for the open-flow images of these modes are tracked in `AG32-Docs
+tools/vendor_parity/BRAM_MODES_OPEN_20260925.md`.
+
 Historical text (superseded): the silent-drop mechanism was fixed behind the former opt-in on 2026-09-15, and the x9 board sessions of that day (x9inf_c, x9inf_dp, x9w3) read back only the INIT through reads that were themselves unqualified narrow-lane egress; those results are now read as open-flow delivery failures, consistent with the 2026-09-25 lane pattern, not as a mode property. Not the guard;
 (2) **per-width/per-lane SILICON witnessing** of the composed open images
 (SRAM-only, control-first, attended) — the x18 read composed open image is now witnessed (`hbread10`,

@@ -204,3 +204,26 @@ def test_refusal_names_the_cause_and_the_proven_modes():
     for text in (off, unproven, unpopulated):
         assert "board-proven open modes: x4 dual-port, x1 single-port" in text
         assert "x18 (00000) and x2 dual-port (01110, the SERV register file) are always admitted" in text
+
+
+def test_board_proven_bram_modes_pins_the_generalized_evidence_set():
+    """2026-09-25 item 4: the generalized (width, port, OUTREG, WRITETHRU,
+    PACKEDMODE, CLKMODE) evidence table, distinct from the narrow-write-only
+    BOARD_PROVEN_NARROW_WRITES above. Pin the exact set so a regression (or an
+    unreviewed addition) is caught -- see the module note in features/bram.py
+    for why bmd_sp1_c10_o0 and bmd_byteen18_c10 are deliberately NOT in it
+    despite once/nominally being expected to pass."""
+    from agamemnon.engine.features.bram import (
+        BOARD_PROVEN_BRAM_MODES, bram_mode_board_proven,
+    )
+    assert BOARD_PROVEN_BRAM_MODES == frozenset((
+        (X4, X4, 0b00, 0, 0, 0, 0, 0),  # bmd_sdp4_4_c00
+        (X4, X4, 0b10, 0, 0, 0, 0, 0),  # bmd_tdp4_c10
+        (X1, X1, 0b10, 1, 0, 0, 0, 0),  # bmd_sp1_c10_o1
+    ))
+    assert bram_mode_board_proven(X4, X4, 0b00, 0, 0, 0, 0, 0)
+    assert bram_mode_board_proven(X1, X1, 0b10, True, False, False, False, False)
+    # Not proven: same width/port as a proven row but a different OUTREG.
+    assert not bram_mode_board_proven(X1, X1, 0b10, 0, 0, 0, 0, 0)
+    # Not proven: the RATE_FAIL/anomalous 2026-09-25 results stay excluded.
+    assert not bram_mode_board_proven(X18, X18, 0b10, 0, 0, 0, 0, 0)  # bmd_sp18_c10_o0
