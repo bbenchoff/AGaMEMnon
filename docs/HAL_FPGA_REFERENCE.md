@@ -601,8 +601,11 @@ the *mechanism* — not just the previously enumerated points — generalizes
 across the reachable `HSE=8` range, so emission for `HSE=8` now admits any
 ratio the recovered legal envelope (§ above) can represent, computed on
 demand rather than looked up. The AGaMEMnon open flow itself was silicon-
-proven at three such new rates (see `PLL_RATIO_MODEL_20260925.md` for board
-verdicts).
+proven at three such new rates 2026-09-25: `build --freq 62/33/77` all
+board-PASS at the predicted edge rate (33: 4028/4028/4029 vs 4028.3; 62:
+7569/7569/7568 vs 7568.4; 77: 9399/9399/9400 vs 9399.4, all within ~0.02%,
+static controls) -- `PLL_RATIO_MODEL_20260925.md` and
+`qualification/pll_ratio_model_evidence.jsonl` have the full records.
 
 Default when no frequency is supplied by CLI, project or environment: the
 qualified **10 MHz** setting.
