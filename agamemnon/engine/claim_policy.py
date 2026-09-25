@@ -459,6 +459,28 @@ def evaluate_policy(options, features=FEATURES, include_constants=True):
             # only remove edges from the release graph; worst case is an unroutable
             # (fail-closed) build, never a silently-wrong image.
             error = None
+        elif name == "AGAMEMNON_NO_BRAM_NARROW_WRITE" and policy == "release-strict":
+            # Kill switch for the default narrow BRAM write path (2026-09-25). Its
+            # three engine uses all NARROW the surface: qin_pack skips the DataIn
+            # replication, the CLI stops setting the packer's keep switch, and the
+            # emitter's guard (features/bram.py) then refuses every narrow Port-A
+            # write. Worst case is a refused build, never a silently-wrong image.
+            error = None
+        elif name == "AGAMEMNON_BRAM_NARROW_WRITE" and policy == "release-strict":
+            # The CLI sets this ITSELF (cli.py, 2026-09-25) when the synthesized
+            # design has a dynamic narrow (x9/x4/x1) Port-A write: it is the agrv2k
+            # packer's switch to KEEP the DataInA lanes qin_pack replicated across
+            # every address-selected write window. Like
+            # AGAMEMNON_NO_FFBRIDGE it is registered ``experimental`` (the packer
+            # binary reads the same name it always did), and by itself it cannot
+            # widen the emission surface: a narrow width is admitted only by the
+            # emitter's self-verifying guard, which requires the width to be in
+            # features/bram.py BOARD_PROVEN_NARROW_WRITE_WIDTHS (open images passed
+            # the board oracle, qualification/bram_narrow_write_evidence.jsonl) AND
+            # every write window to be populated in the routed netlist. Keeping an
+            # extra real-driven lane in the packer with the guard refusing is a
+            # refused build, never a wrong image.
+            error = None
         else:
             error = _permission_error(policy_name, spec.maturity, claim, policy, explicit)
         if error:

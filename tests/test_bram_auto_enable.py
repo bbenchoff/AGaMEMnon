@@ -18,7 +18,7 @@ import json
 
 from agamemnon.cli import _bram_auto_features
 
-NONE = {"reads": False, "fabric_reads": False, "byteen": False}
+NONE = {"reads": False, "fabric_reads": False, "byteen": False, "narrow_write": False}
 
 
 def _netlist(cells):
@@ -42,7 +42,7 @@ def test_read_ported_bram_over_the_mcu_reports_reads(tmp_path):
         "bus": _mcu_cell(),
     }))
     assert _bram_auto_features(synth) == {
-        "reads": True, "fabric_reads": False, "byteen": False}
+        "reads": True, "fabric_reads": False, "byteen": False, "narrow_write": False}
 
 
 def test_read_ported_bram_without_an_mcu_boundary_is_a_fabric_read(tmp_path):
@@ -54,7 +54,7 @@ def test_read_ported_bram_without_an_mcu_boundary_is_a_fabric_read(tmp_path):
         "lut": {"type": "LUT", "connections": {"I": [2, 3, 5, 6], "F": [11]}},
     }))
     assert _bram_auto_features(synth) == {
-        "reads": False, "fabric_reads": True, "byteen": False}
+        "reads": False, "fabric_reads": True, "byteen": False, "narrow_write": False}
 
 
 def test_grounded_byteen_lane_reports_byteen():
@@ -69,7 +69,7 @@ def test_grounded_byteen_lane_reports_byteen():
         with open(path, "w", encoding="utf-8") as fh:
             json.dump(_netlist(cells), fh)
         assert _bram_auto_features(path) == {
-            "reads": False, "fabric_reads": False, "byteen": True}
+            "reads": False, "fabric_reads": False, "byteen": True, "narrow_write": False}
 
 
 def test_bramless_design_reports_neither(tmp_path):
@@ -113,3 +113,23 @@ def test_build_gate_skips_release_strict_and_respects_explicit_env():
     auto = src.index("_bram_auto_features(synth_json)")
     qin = src.index('run("qin"')
     assert auto < qin
+
+
+def test_narrow_port_a_write_reports_narrow_write(tmp_path):
+    # x9/x4/x1 Port-A writes with a dynamic WeA get the packer lane-keep switch
+    # (2026-09-25 default narrow-write path); nothing else does.
+    for code in ("01000", "01100", "01111"):
+        synth = _write(tmp_path, _netlist({
+            "mem": {"type": "ALTA_BRAM9K", "parameters": {"PORTA_WIDTH": code},
+                    "connections": {"WeA": [10], "DataInA": [7] * 18}}}))
+        assert _bram_auto_features(synth)["narrow_write"] is True, code
+
+
+def test_x2_x18_and_read_only_narrow_brams_do_not_report_narrow_write(tmp_path):
+    # x2 is exempt (the SERV register file must pack byte-identically), x18 is not
+    # narrow, and a constant WeA is a ROM.
+    for code, wea in (("01110", [10]), ("00000", [10]), ("01000", ["0"]), ("01100", [])):
+        synth = _write(tmp_path, _netlist({
+            "mem": {"type": "ALTA_BRAM9K", "parameters": {"PORTA_WIDTH": code},
+                    "connections": {"WeA": wea, "DataInA": [7] * 18}}}))
+        assert _bram_auto_features(synth)["narrow_write"] is False, code

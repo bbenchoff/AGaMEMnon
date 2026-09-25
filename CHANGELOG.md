@@ -7,6 +7,15 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+- bram: narrow-width Port-A writes (x9/x4/x2/x1) are on by default for the modes board-proven in the open flow --
+  x4 dual-port (write A / read B, true dual port) and x1 single-port -- with the DataIn replication across every
+  address-selected write window, the packer keeping the replicated lanes, and the self-verifying window guard.
+  Narrow writes store on silicon: the vendor primitive instantiated directly per mode passes 39/39 on the board, so
+  the former 'x9 does not store' limitation is withdrawn (its vendor reference was a mis-elaborated inferred design).
+  x9, x2 (replicated) and x1 dual-port failed on the board with vendor-identical mode config and stay refused
+  fail-closed; the refusal names the mode and the proven set. `AGAMEMNON_NO_BRAM_NARROW_WRITE=1` is the kill switch
+  (blanket refusal, byte-identical to the previous default). x2 is exempt from replication, so the SERV register
+  file is unchanged. The former opt-in `AGAMEMNON_BRAM_NARROW_WRITE` is now set by the CLI itself for the packer.
 - cli: a native clock-enable build never selects a mapping that would leave an enabled register's own-Q
   feedback on general routing. `build --uarch` routes two candidate mappings and used to keep the smaller
   one; the smaller one sets `AGRV2K_NATIVE_ENABLE_LOCAL_QIN=0`, so `qin_pack.lower_local_qin_feedback` does

@@ -849,6 +849,14 @@ NARROW_WRITE_WINDOWS = {
 }
 
 
+# x2 (01110) is exempt from replication: the shipped SERV dual-port x2 register file
+# is board-proven WITHOUT it (features/bram.py QUALIFIED_WRITE_WIDTHS), and the open
+# x2 images built WITH replication failed on the board (2026-09-25, bmd_sp2_c10_o0 and
+# bmd_sdp2_2_c00). Leaving x2 alone keeps serv_blinky byte-identical to its witnessed
+# image; the x2 single-port write stays refused by the emitter guard as before.
+REPLICATION_EXEMPT_WIDTHS = frozenset((0b01110,))
+
+
 def _bram_width_code(value):
     """Parse a PORTA/PORTB_WIDTH yosys parameter (binary string or int) to an int."""
     if isinstance(value, int):
@@ -871,12 +879,14 @@ def replicate_narrow_bram_write_datain(json_path):
     trim must also KEEP these real-driven upper lanes (AGRV2K_BRAM_NARROW_WRITE) and the
     emitter's self-verifying guard admits the width once every window is populated.
 
-    Opt-in (AGAMEMNON_BRAM_NARROW_WRITE) so default builds are byte-identical.  Only real
-    (net-driven) logical bits are fanned out; a constant/dangling logical lane is left as
-    is (the write stays refused by the guard -- constant narrow writes are out of scope).
-    Scoped to Port A with a dynamically write-enabled WeA.  Returns the number of physical
-    lanes newly driven."""
-    if not os.environ.get("AGAMEMNON_BRAM_NARROW_WRITE"):
+    On by default since 2026-09-25 (narrow writes store on silicon; the open images passed
+    the board oracle, qualification/bram_narrow_write_evidence.jsonl).  AGAMEMNON_NO_BRAM_NARROW_WRITE=1
+    is the kill switch: no replication, and the emitter's guard then refuses every narrow
+    write (fail-closed).  Only real (net-driven) logical bits are fanned out; a
+    constant/dangling logical lane is left as is (the write stays refused by the guard --
+    constant narrow writes are out of scope).  Scoped to Port A with a dynamically
+    write-enabled WeA.  Returns the number of physical lanes newly driven."""
+    if os.environ.get("AGAMEMNON_NO_BRAM_NARROW_WRITE"):
         return 0
     design = json.load(open(json_path))
     changed = 0
@@ -886,7 +896,7 @@ def replicate_narrow_bram_write_datain(json_path):
                 continue
             width = _bram_width_code(cell.get("parameters", {}).get("PORTA_WIDTH"))
             spec = NARROW_WRITE_WINDOWS.get(width)
-            if spec is None:
+            if spec is None or width in REPLICATION_EXEMPT_WIDTHS:
                 continue
             conns = cell.get("connections", {})
             wea = conns.get("WeA", []) or []
