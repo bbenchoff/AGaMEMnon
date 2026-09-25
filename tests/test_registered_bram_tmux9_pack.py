@@ -294,7 +294,11 @@ def test_ordinary_pack_cannot_use_scoped_codewords(tmp_path):
     # 2026-09-05: ordinary dispatch no longer accepts the aggregate KMUX03
     # union for TMUX09. That edge and the existing fixed presentation are
     # both scoped-only; the qualified-profile hash tests above still pass.
-    assert "2 unmapped" in result.stdout + result.stderr
+    # 2026-09-24: outside a source profile the fixed presentation
+    # (X14Y8_OMUX08 -> OMUX06) is the slice's ordinary default OMUXPRES pip and
+    # encodes as one (CFG_OMUX2 selection 0 for this Q net), so only the scoped
+    # TMUX09 edge stays unmapped and the ordinary pack still refuses.
+    assert "1 unmapped" in result.stdout + result.stderr
     assert "loaded 1 exact BRAM route codeword" in result.stdout
     assert not output.exists()
     assert not Path(str(output) + ".comp").exists()
