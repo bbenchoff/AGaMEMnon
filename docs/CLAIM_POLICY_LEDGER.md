@@ -25,6 +25,7 @@ Policy version: `D0-v1`.
 
 | ID | Maturity | Evidence tier | Domain | Approval | Scope | Evidence |
 |---|---|---|---|---|---|---|
+| `AGAMEMNON_AFEXE_ABSENT` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/afexe_absent_edges.csv |
 | `AGAMEMNON_ALLOW_UNMAPPED` | archival | decoded | configuration | unapproved | inventory only | docs/ARCHITECTURE.md |
 | `AGAMEMNON_BASELINE` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | docs/STATUS.md |
 | `AGAMEMNON_BRAM_ALL_EDGES` | archival | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/bram_resolver.json |
@@ -41,6 +42,7 @@ Policy version: `D0-v1`.
 | `AGAMEMNON_CLEAN_SEL_PENALTY` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/sel_edge_pairs.agdb |
 | `AGAMEMNON_CLEAN_SEL_PREFER` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/sel_edge_pairs.agdb |
 | `AGAMEMNON_CLK_SEAM` | release | individually_qualified | timing | preexisting_v4 | preexisting V4 release scope | qualification/clock_divider_probe.v |
+| `AGAMEMNON_COLUMN_DEAD` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/afexe_column_dead.csv |
 | `AGAMEMNON_CONDUCTION_GATE` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | agamemnon/chipdb/master_conduction.csv |
 | `AGAMEMNON_DATA` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | docs/ARCHITECTURE.md |
 | `AGAMEMNON_DEBUG` | diagnostic | decoded | configuration | unapproved | inventory only | agamemnon/engine/bitgen.py |
@@ -70,6 +72,7 @@ Policy version: `D0-v1`.
 | `AGAMEMNON_MESH_TEMPLATE` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/engine/mesh_template.py |
 | `AGAMEMNON_NGCLK` | experimental | decoded | timing | unapproved | inventory only | agamemnon/chipdb/clk0_spine.json |
 | `AGAMEMNON_NOSPINE` | experimental | decoded | timing | unapproved | inventory only | agamemnon/chipdb/clk0_spine.json |
+| `AGAMEMNON_NO_BRAM_DATA_WL` | archival | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/ring_witness_conduction.csv |
 | `AGAMEMNON_NO_BRAM_WL` | archival | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/bram_wl.csv |
 | `AGAMEMNON_NO_CLKGEN` | experimental | decoded | timing | unapproved | inventory only | qualification/clock_divider_probe.v |
 | `AGAMEMNON_NO_EXIT_WL` | archival | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/exit_feeder_whitelist.csv |
@@ -78,6 +81,7 @@ Policy version: `D0-v1`.
 | `AGAMEMNON_NO_SEAM` | experimental | decoded | timing | unapproved | inventory only | qualification/clock_divider_probe.v |
 | `AGAMEMNON_OBSERVED_ONLY` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/pip_usage.csv |
 | `AGAMEMNON_OBS_IMUX` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/pip_usage.csv |
+| `AGAMEMNON_OMUX_PRESENT0` | experimental | decoded | configuration | unapproved | inventory only | qualification/omux_presentation_evidence.md |
 | `AGAMEMNON_OWNERSHIP_TRACE` | diagnostic | decoded | configuration | unapproved | inventory only | docs/ARCHITECTURE.md |
 | `AGAMEMNON_PADFEED_ONLY` | diagnostic | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/padfeed_L48_top.csv |
 | `AGAMEMNON_PADFEED_TOP` | release | individually_qualified | electrical | preexisting_v4 | preexisting V4 release scope | agamemnon/chipdb/padfeed_L48_top.csv |

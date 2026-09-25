@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "6f757a0525250ca80d0ae6a208fe327208c1e5fdf9b4334108c2912da5228eaa",
-  "file_count": 273,
-  "pinned_date": "2026-09-21",
-  "reason": "2026-09-21: add agamemnon/chipdb/afexe_column_dead.csv, 364 board-vetted per-(template, column) dead cells behind the default-off AGAMEMNON_COLUMN_DEAD flag (working-order item 3: the edge leaves the graph GENERATOR per column, not via a dead-edge blacklist). Covers 899 edges, all still unresolved, zero board contradictions after dropping the 14 cells (6 whole templates) the ledger contradicts. Repack-neutral: GAP-1 Rule 2 confirms every retained release-strict artifact rebuilds byte-identical, because the flag is off by default."
+  "fingerprint_sha256": "c7b53d6b2599a365cb677550ea3e0cf487be65611afcc6b3a45919857222e131",
+  "file_count": 274,
+  "pinned_date": "2026-09-24",
+  "reason": "2026-09-24: add agamemnon/chipdb/omux3z_presentation_evidence.csv, the 2,068 logic slices whose OMUX[3z+0] wire has at least one silicon-witnessed outgoing pip (vendor images that passed self-checking board tests; 17,789 pips), gating the default-off experimental AGAMEMNON_OMUX_PRESENT0 OMUXPRES pips per slice; research_knowledge_manifest.json re-inventoried. Repack-neutral: GAP-1 Rule 2 confirms every retained release-strict artifact rebuilds byte-identical, because the flag is off by default."
 }

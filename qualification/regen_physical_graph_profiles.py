@@ -77,6 +77,10 @@ WHY_OPTION = {
         "board-witnessed BRAM site-read paths (adds the recorded site-read hops; the CLI "
         "auto-enables this for any MCU-read ALTA_BRAM9K, so without this profile a strict build "
         "of such a design cannot be produced at all)",
+    "AGAMEMNON_OMUX_PRESENT0":
+        "OMUX(3z) presentation (adds one OMUX[3z+2]->OMUX[3z+0] OMUXPRES pip per logic slice "
+        "whose OMUX[3z+0] wire is silicon-witnessed in omux3z_presentation_evidence.csv, so the "
+        "pips sourced there become routable)",
 }
 
 

@@ -12,6 +12,15 @@ from agamemnon.engine import selector_injectivity
 
 from .protocol import EmissionPhase, FeatureDescriptor, WritableRegion
 
+# Slices whose OMUX[3z+2]->OMUX[3z+0] output bridge is an MCUEDGE pip.  The first three are the
+# simultaneous vendor corridor lanes; the last four are one exact independent fabric-master
+# request-control composition's retained +0 presentations.  routing.py skips these sites when it
+# adds the general OMUXPRES family, so the pips keep their MCUEDGE type.
+MCU_OUTPUT_BRIDGE_SITES = (
+    (14, 10, 3), (14, 9, 7), (14, 11, 7),
+    (16, 7, 12), (16, 10, 14), (14, 10, 10), (17, 8, 12),
+)
+
 
 EXACT_PIP_CFG_FILES = (
     "mcu_ahb32_pip_cfg.csv",
@@ -1237,11 +1246,7 @@ class McuAhbFeature:
         # output (CFG_OMUX7 selections {0,2}); the retained route uses +0.
         # Keep this site narrow: the evidence does not license a global
         # alternate-Q presentation.
-        for _x, _y, _z in (
-                (14, 10, 3), (14, 9, 7), (14, 11, 7),
-                # One exact independent fabric-master request-control
-                # composition uses these four retained +0 presentations.
-                (16, 7, 12), (16, 10, 14), (14, 10, 10), (17, 8, 12)):
+        for _x, _y, _z in MCU_OUTPUT_BRIDGE_SITES:
             _src = W(_x, _y, "OMUX%02d" % (3 * _z + 2))
             _dst = W(_x, _y, "OMUX%02d" % (3 * _z + 0))
             if _src in wireset and _dst in wireset:

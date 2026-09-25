@@ -21,7 +21,7 @@ from agamemnon.engine import wire_timing
 
 from .physical_io import parse_wire
 from .carry_validate import CARRY_LOCAL_INPUT_SITES, carry_a_qfb_site
-from .mcu_ahb import EXIT_PAIR_FILES, FEATURE as MCU_AHB_FEATURE
+from .mcu_ahb import EXIT_PAIR_FILES, FEATURE as MCU_AHB_FEATURE, MCU_OUTPUT_BRIDGE_SITES
 from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, WritableRegion
 
 
@@ -857,6 +857,7 @@ class RoutingFeature:
             "soft_ripple_region_witness.csv",
             "bbmuxe_fanin.csv", "logictile_config_template.csv",
             "border_edge_partial_cells.csv",
+            "omux3z_presentation_evidence.csv",
         ),
         writable_regions=(
             WritableRegion("cell_map", "pips_full.csv", "byte", "mask"),
@@ -2406,6 +2407,51 @@ class RoutingFeature:
                                        loc=Loc(int(x), int(y), 0))
                             seen_pip.add(nm); n_fb += 1
             print("AGRV2K arch: added %d FF-feedback bridge pips (OMUX[3z+2]->OMUX[3z+1])" % n_fb)
+
+        # ---- 4c'. OMUX(3z) PRESENTATION ------------------------------------------------------------------------
+        # The slice BEL exposes one output wire, OMUX[3z+2], so without this nothing in the graph drives
+        # OMUX[3z+0] and every pip sourced there (~19k) is unroutable. That is a gap in OUR model, not in
+        # silicon: CFG_OMUX<z> bit k selects the REGISTER output onto OMUX[3z+k], and with the bit clear the
+        # wire carries the LUT output. Decoded from vendor images, combinational nets read 000 on whichever
+        # wire they use, and they use all three about evenly (655/632/651 over 60 oracle trees).
+        # So an OMUX[3z+2]->OMUX[3z+0] pip is exact for both kinds of net: for an F net it costs no bit (the
+        # LUT is already on +0), for a Q net bitgen's present() sets CFG_OMUX<z> sel 0 (Q co-presented on
+        # +2 and +0, a registered-driver pattern the vendor uses). The existing same-tile +2 -> +0 handler
+        # in the emission loop already covers it; only the graph was missing the edge.
+        # Evidence-gated per slice: the pip is added ONLY where omux3z_presentation_evidence.csv records a
+        # silicon witness for that slice's OMUX[3z+0] wire -- at least one pip sourced there was used by a
+        # vendor image that passed its self-checking board test (2,068 of the 2,112 logic slices). A slice
+        # with no witness keeps OMUX[3z+0] undriven, exactly as before.
+        # Opt-in until our own OMUXPRES images are witnessed on silicon: AGAMEMNON_OMUX_PRESENT0=1.
+        if os.environ.get("AGAMEMNON_OMUX_PRESENT0"):
+            _pd = ctx.getDelayFromNS(0.05)
+            _mcu_bridge = set(MCU_OUTPUT_BRIDGE_SITES)
+            _pres_evidence = set()
+            with open(os.path.join(DATA, "omux3z_presentation_evidence.csv"), newline="") as _pf:
+                for _pr in csv.DictReader(_pf):
+                    if int(_pr["witnessed_pips"]) > 0:
+                        _pres_evidence.add((int(_pr["x"]), int(_pr["y"]), int(_pr["z"])))
+            n_pres = 0
+            for (x, y), tt in tile_type.items():
+                if tt != "LogicTILE": continue
+                for z in range(16):
+                    if (int(x), int(y), z) in _mcu_bridge:
+                        continue      # mcu_ahb adds this one as a typed MCUEDGE pip
+                    if (int(x), int(y), z) not in _pres_evidence:
+                        continue      # no silicon witness for this slice's OMUX[3z+0] wire
+                    _sr, _dr = "OMUX%02d" % (3 * z + 2), "OMUX%02d" % (3 * z + 0)
+                    s = W(x, y, _sr); t = W(x, y, _dr)
+                    if _blacklisted({"src_res": _sr, "src_x": x, "src_y": y,
+                                     "dst_res": _dr, "dst_x": x, "dst_y": y}):
+                        continue
+                    if s in wireset and t in wireset:
+                        nm = "%s.%s" % (s, t)
+                        if nm not in seen_pip:
+                            ctx.addPip(name=nm, type="OMUXPRES", srcWire=s, dstWire=t, delay=_pd,
+                                       loc=Loc(int(x), int(y), 0))
+                            seen_pip.add(nm); n_pres += 1
+            print("AGRV2K arch: added %d OMUX(3z) presentation pips (OMUX[3z+2]->OMUX[3z+0]; "
+                  "%d witnessed slices)" % (n_pres, len(_pres_evidence)))
 
         # Internal registered feedback substitutes Qin for LUT input C.
         # This edge has no fabric IMUX codeword; native ownership restricts it
