@@ -459,6 +459,16 @@ def evaluate_policy(options, features=FEATURES, include_constants=True):
             # only remove edges from the release graph; worst case is an unroutable
             # (fail-closed) build, never a silently-wrong image.
             error = None
+        elif name == "AGAMEMNON_NO_PLL_RATIO_MODEL" and policy == "release-strict":
+            # Kill switch for the default general HSE=8 PLL ratio validity-model
+            # admission path (2026-09-25, pll_emit.evaluate_general_ratio). Its one
+            # engine use (pll_emit.require_supported_ratio) only SKIPS the general
+            # model and falls back to the enumerated SUPPORTED_RATIOS table, so
+            # setting it can only shrink the set of ratios a build will accept --
+            # worst case is a refused (fail-closed) build naming the unsupported
+            # ratio, never a silently-wrong image. Same surface-narrowing class as
+            # AGAMEMNON_NO_FFBRIDGE/AGAMEMNON_NO_OMUX_PRESENT0 above.
+            error = None
         else:
             error = _permission_error(policy_name, spec.maturity, claim, policy, explicit)
         if error:

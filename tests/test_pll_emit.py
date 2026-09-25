@@ -86,19 +86,92 @@ def test_75_8_is_promoted_from_rejected_to_silicon_qualified():
 
 
 @pytest.mark.parametrize("sysclk,hse", [
-    (35, 8),    # HSE=8 rate check_pll solves but which has no silicon/oracle record
     (72, 12),   # HSE!=8 byte-exact sweep point -- byte-exactness is NOT sufficient for admission
     (50, 25),   # HSE!=8 byte-exact sweep point
+    (25, 16),   # HSE!=8, check_pll solves it, but HSE=16 is not the general-model reference
 ])
-def test_rejects_unvalidated_ratio_even_when_encoding_would_fit(sysclk, hse):
-    # check_pll can solve it (so the divider fields would fit), yet emission stays fail-closed.
+def test_rejects_unvalidated_ratio_outside_the_hse8_general_model(sysclk, hse):
+    # check_pll can solve it (so the divider fields would fit), yet emission stays fail-closed:
+    # only HSE=8 gets the general validity-model admission path (PLL_RATIO_MODEL_20260925.md);
+    # every other HSE stays enumerated-only.
     assert pll_emit.check_pll(sysclk, hse)["clkout_div"][0] > 0
+    assert hse != pll_emit.GENERAL_RATIO_HSE_MHZ
     with pytest.raises(pll_emit.UnsupportedPLLConfiguration) as excinfo:
         pll_emit.emit_fields(sysclk, hse)
     message = str(excinfo.value)
     assert "unsupported PLL ratio SYSCLK/HSE=%d/%d MHz" % (sysclk, hse) in message
     assert "100/8" in message
     assert "50/8" in message
+
+
+# --------------------------------------------------------------------------- general ratio model
+
+
+@pytest.mark.parametrize("sysclk", [7, 9, 11, 13, 17, 33, 35, 65, 77, 99])
+def test_general_ratio_model_admits_any_legal_hse8_ratio_not_already_in_the_table(sysclk):
+    # None of these are in SUPPORTED_RATIOS, yet check_pll can solve every one of them within the
+    # recovered legal envelope, so the default (general model ON) admits them without a table entry.
+    assert (sysclk, 8) not in pll_emit.SUPPORTED_RATIOS
+    ratio = pll_emit.require_supported_ratio(sysclk, 8)
+    assert ratio == (sysclk, 8)
+    fields, c = pll_emit.emit_fields(sysclk, 8)
+    assert c["vco"] < pll_emit.VCO_MIN  # POST_DIV=1 regime, as every mapped ratio is
+    raw = bytearray(pll_emit.RAWLEN)
+    raw[144:151] = bytes.fromhex(BASELINE_144_150)
+    assert pll_emit.apply_fields(raw, fields) == []
+
+
+def test_general_ratio_model_covers_every_hse8_table_entry_too():
+    # The general model must never REJECT anything the old enumerated table already admitted.
+    for sysclk, hse in pll_emit.SUPPORTED_RATIOS:
+        if hse != pll_emit.GENERAL_RATIO_HSE_MHZ:
+            continue
+        c = pll_emit.evaluate_general_ratio(sysclk, hse)
+        assert c["clkout_div"][0] > 0
+
+
+def test_general_ratio_model_refuses_loudly_naming_the_limit():
+    # A rate with no legal VCO/PFD solution at all (check_pll itself raises RuntimeError).
+    with pytest.raises(pll_emit.UnsupportedPLLConfiguration, match="no legal PLL solution"):
+        pll_emit.evaluate_general_ratio(313, 8)
+    # A rate whose only solvable VCO is >=600 MHz (POST_DIV=0), which has no mapped config bit.
+    with pytest.raises(pll_emit.UnsupportedPLLConfiguration, match=r"POST_DIV=0"):
+        pll_emit.evaluate_general_ratio(1000, 8)
+    # A rate whose only legal divider needs BYP=1 (div==1), which has no mapped config bit.
+    with pytest.raises(pll_emit.UnsupportedPLLConfiguration, match=r"needs CLKOUT0_DIV=1 \(BYP=1\)"):
+        pll_emit.evaluate_general_ratio(300, 8)
+    # A rate whose divider is legal-valued but outside a mapped field's bit width.
+    with pytest.raises(pll_emit.UnsupportedPLLConfiguration, match=r"outside the recovered legal range"):
+        pll_emit.evaluate_general_ratio(75, 300)  # HSE=300 is unrealistic; only exercised for the message
+
+
+def test_general_ratio_model_kill_switch_reverts_hse8_to_the_enumerated_table_only(monkeypatch):
+    assert pll_emit.general_ratio_model_enabled()
+    monkeypatch.setenv(pll_emit.NO_GENERAL_RATIO_ENV, "1")
+    assert not pll_emit.general_ratio_model_enabled()
+    # 33/8 is legal under the general model (see the parametrized test above) but is NOT an
+    # enumerated table entry, so with the kill switch set it must be refused, naming the switch.
+    assert (33, 8) not in pll_emit.SUPPORTED_RATIOS
+    with pytest.raises(pll_emit.UnsupportedPLLConfiguration) as excinfo:
+        pll_emit.require_supported_ratio(33, 8)
+    assert pll_emit.NO_GENERAL_RATIO_ENV in str(excinfo.value)
+    # every enumerated table entry still works regardless of the switch
+    assert pll_emit.require_supported_ratio(100, 8) == (100, 8)
+
+
+def test_divider_legal_range_matches_brute_force_search():
+    def brute_max(bits):
+        best = 0
+        for d in range(2, 4096):
+            g = pll_emit.get_pll_div(d)
+            if g["divh"] < (1 << bits) and g["divl"] < (1 << bits):
+                best = d
+        return best
+
+    for bits in (2, 6, 7):
+        lo, hi = pll_emit.divider_legal_range(bits)
+        assert lo == 2
+        assert hi == brute_max(bits)
 
 
 def test_matched_controls_disentangle_output_input_and_feedback_divider_fields():
@@ -144,7 +217,10 @@ def test_field_overlay_fails_atomically_when_encoding_is_incomplete(edit):
 
 
 def test_emit_bin_rejects_before_reading_baseline_or_creating_output(tmp_path):
+    # 35/8 is legal under the general HSE=8 model (see above) and so is no longer a usable
+    # fail-closed example; 1000/8 needs VCO>=600 (POST_DIV=0), which stays refused under any policy.
+    assert (1000, 8) not in pll_emit.SUPPORTED_RATIOS
     output = tmp_path / "unsupported.bin"
     with pytest.raises(pll_emit.UnsupportedPLLConfiguration):
-        pll_emit.emit_bin(35, 8, output, baseline="missing-baseline.bin")
+        pll_emit.emit_bin(1000, 8, output, baseline="missing-baseline.bin")
     assert not output.exists()

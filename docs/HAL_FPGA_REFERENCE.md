@@ -538,10 +538,27 @@ unsupported semantics must use soft logic or fail.
 The PLL configuration is emitted from a **single closed-form divider equation**,
 not a per-ratio lookup table. It is **differentially validated byte-exact on
 every point of a 53-point vendor `(SYSCLK, HSE)` sweep** — all 53 decoded
-preambles reconstruct with zero residual. Seven profiles are emitted:
-`(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`, `(100,16)`, `(60,8)`, `(100,12)` MHz.
-Every other ratio — including byte-exact-but-unqualified `HSE != 8` sweep points
-— **fails before synthesis**.
+preambles reconstruct with zero residual.
+
+**Since 2026-09-25 the emission gate is a validity model, not only an
+enumerated table** (`PLL_RATIO_MODEL_20260925.md`). For `HSE = 8 MHz` — the
+one reference broadly silicon-swept — any `SYSCLK` is admitted by default
+whose computed dividers fall inside the recovered legal envelope: a solvable
+`PFD` (4–30 MHz) / `VCO` (300–600 MHz, the `POST_DIV=1` half-range the bit
+map covers) pair, with `CLKIN_DIV ∈ [2,8]`, `CLKOUT0_DIV ∈ [2,128]`,
+`CLKFB_DIV ∈ [2,256]` (the exact ranges each mapped field's bit width can
+represent; bypass, `div=1`, is excluded the same way). A ratio outside that
+envelope is refused **by name** (e.g. `"needs VCO=1000 MHz >= 600 MHz
+(POST_DIV=0); that regime has no recovered config bit"`). Kill switch
+`AGAMEMNON_NO_PLL_RATIO_MODEL` reverts to the pre-2026-09-25 enumerated-only
+table for `HSE=8`.
+
+Every other `HSE` stays enumerated-only: seven profiles are emitted —
+`(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`, `(100,16)`, `(60,8)`, `(100,12)`
+MHz — plus the general `HSE=8` model above. Every other ratio — including
+byte-exact-but-unqualified `HSE != 8` sweep points — **fails before
+synthesis**, naming the unsupported ratio and (for `HSE=8`) the exact legal
+range it fell outside of.
 
 The generated 164-byte preamble for each of the seven profiles is pinned to its
 retained vendor-oracle hash in `agamemnon/chipdb/pll_profile_manifest.json`.
@@ -574,6 +591,18 @@ reference board (they need 16/12 MHz HSE and would mis-clock), so they are
 outputs, phase, duty cycle, feedback and bypass modes are **not qualified and
 fail closed**. No general oscillator source is implemented — internal/external
 oscillator modes are **absent** from the open flow and **unqualified**.
+
+**2026-09-25 general ratio model [S]/[R]:** three more `HSE=8` rates outside
+the enumerated table — 20, 40, 62 MHz — were built through the vendor `.ve`
+mechanism and **board-PASSed** (`CLOCK_MODE_MATRIX_20260925.md`), and all
+three reproduce the closed-form divider bytes **bit-for-bit** against the
+recovered map (`PLL_RATIO_MODEL_20260925.md`). This is independent evidence
+the *mechanism* — not just the previously enumerated points — generalizes
+across the reachable `HSE=8` range, so emission for `HSE=8` now admits any
+ratio the recovered legal envelope (§ above) can represent, computed on
+demand rather than looked up. The AGaMEMnon open flow itself was silicon-
+proven at three such new rates (see `PLL_RATIO_MODEL_20260925.md` for board
+verdicts).
 
 Default when no frequency is supplied by CLI, project or environment: the
 qualified **10 MHz** setting.
