@@ -931,15 +931,16 @@ def test_current_physical_touching_pip_role_matrix_is_exhaustive(
     # 2026-09-20 ring-oscillator promotion (tools/pipwit): board-witnessed pips on physical-I/O catalog wires entered the strict graph: 822 -> 826 touching (incoming/outgoing/internal (279, 553, 10) -> (279, 557, 10)).
     # 2026-09-20 ring-oscillator promotion (tools/pipwit): board-witnessed pips on physical-I/O catalog wires entered the strict graph: 826 -> 823 touching (incoming/outgoing/internal (279, 557, 10) -> (279, 554, 10)).
     # 2026-09-21 ring-oscillator promotion (tools/pipwit): board-witnessed pips on physical-I/O catalog wires entered the strict graph: 823 -> 822 touching (incoming/outgoing/internal (279, 554, 10) -> (279, 553, 10)).
-    assert len(touching) == 822
+    # 2026-09-24 default OMUXPRES pips: three of the 2,061 touch catalog wires, all at X14Y11 (slices 4, 5, 6: OMUX14->OMUX12, OMUX17->OMUX15, OMUX20->OMUX18): 822 -> 825 touching (incoming/outgoing/internal (279, 553, 10) -> (281, 554, 10)).
+    assert len(touching) == 825
     assert hashlib.sha256(canonical).hexdigest() == (
-        "e71b5107c6d081e65562825b16fd0507024e16c01343ee91c478ca3e660c7fe1"
+        "e71cce3db3880b966fee7ce3b365f840569d0023c9f2bb5e45d7b8dc72d69386"
     )
     incoming = [edge for edge in touching if edge[1] in catalog.wires]
     outgoing = [edge for edge in touching if edge[0] in catalog.wires]
     internal = [edge for edge in touching
                 if edge[0] in catalog.wires and edge[1] in catalog.wires]
-    assert (len(incoming), len(outgoing), len(internal)) == (279, 553, 10)
+    assert (len(incoming), len(outgoing), len(internal)) == (281, 554, 10)
 
     # The census above binds the exact current physical graph.  Avoid 7,656
     # redundant catalog reads while still exercising the public validator for
@@ -1351,11 +1352,42 @@ def _pre_campaign_graph_bytes(admission, shared):
     # those two rows to reproduce the historical bytes.
     raw = b"".join(line for line in raw.splitlines(keepends=True)
                    if not line.startswith((b"X13Y4_BufMUX17.X13Y4_RMUX15,", b"X13Y4_BufMUX18.X13Y4_RMUX03,")))
+    # The default OMUXPRES pips (2026-09-24) postdate every predecessor in this chain.
+    raw = _without_omux_presentation(raw)
     count, digest = sr.PRE_RING_WITNESS_20260918_PHYSICAL_GRAPHS[shared][admission]
     assert raw.count(b"\n") - 1 == count
     assert hashlib.sha256(raw).hexdigest() == digest
     _PRE_CAMPAIGN_CACHE[key] = raw
     return raw
+
+
+def _without_omux_presentation(raw):
+    """Drop exactly the default OMUXPRES rows (column two of dev_pips.csv)."""
+    return b"".join(line for line in raw.splitlines(keepends=True)
+                    if line.split(b",", 2)[1:2] != [b"OMUXPRES"])
+
+
+def _check_omux_presentation_predecessor(devdb, tmp_path, admission, shared):
+    previous = tmp_path / ("pre-omuxpres-" + admission + "-" + shared)
+    shutil.copytree(devdb, previous)
+    path = previous / "dev_pips.csv"
+    current = path.read_bytes()
+    raw = _without_omux_presentation(current)
+    assert len(current.splitlines()) - len(raw.splitlines()) == 2061
+    count, digest = sr.PRE_OMUX_PRESENTATION_PHYSICAL_GRAPHS[shared][admission]
+    assert len(raw.splitlines()) - 1 == count
+    assert hashlib.sha256(raw).hexdigest() == digest
+    path.write_bytes(raw)
+    _replace_metadata_value(previous / sr.DEV_META_NAME, "graph_pip_count", count)
+    _replace_metadata_value(previous / sr.DEV_META_NAME, "graph_pips_sha256", digest)
+    _replace_metadata_value(previous / "dev_meta.csv", "n_pips", count)
+    assert sr.validate_devdb(previous, CHIPDB)
+
+
+def test_omux_presentation_strict_predecessor_is_the_graph_without_omuxpres(tmp_path):
+    # 2026-09-24: removing the 2,061 default OMUXPRES rows reproduces the previous strict
+    # graph byte-for-byte, and a device database built on it still validates.
+    _check_omux_presentation_predecessor(PHYSICAL_DEVDB, tmp_path, "release-strict", "0")
 
 
 def _check_pre_campaign_predecessor(devdb, tmp_path, admission, shared):

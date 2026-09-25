@@ -114,6 +114,11 @@ class Router:
         self.top = top
         self.adj = defaultdict(list)
         for row in strict_devdb_rows("dev_pips.csv"):
+            # The reviewed compositions were searched on the graph before the default
+            # OMUXPRES pips (2026-09-24). Excluding them keeps every search, and so
+            # every pinned artifact hash, exactly as reviewed.
+            if row.get("type") == "OMUXPRES":
+                continue
             self.adj[row["src"]].append((row["dst"], row["name"]))
         self.belpins = {}
         for row in strict_devdb_rows("dev_belpins.csv"):

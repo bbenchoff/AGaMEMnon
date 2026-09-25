@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "cd1c113564da5a8312a059542561c76d52341006438fb64cab2dc8baab944abb",
-  "file_count": 274,
+  "fingerprint_sha256": "726d3d35cd3634fe8c00e9fcecd4b795e91857718811e5db93a3d66eacab74e9",
+  "file_count": 275,
   "pinned_date": "2026-09-24",
-  "reason": "2026-09-24: add agamemnon/chipdb/vendor_recovered_edges.csv (103 LogicTile RMUX->RMUX/RMUX->IMUX hops the vendor router used in self-checking designs that PASSED on silicon, absent from every topology table; loaded as topology and as per-position conduction evidence) and 26 exact sel_edge_pairs.agdb clean_edge rows for those hops (the other 77 already had agreeing exact rows; every row agrees with its existing unanimous relative key, so no relative key changes). Strict and tiered graphs each gain exactly those 103 pips; nothing else moves."
+  "reason": "2026-09-24 merge of work/promote-vendor-edges-20260924 and work/omux3z-presentation-20260923: adds agamemnon/chipdb/vendor_recovered_edges.csv (103 vendor-routed hops recovered from silicon-passing images, tier 1, plus 26 exact sel_edge_pairs.agdb rows) and agamemnon/chipdb/omux3z_presentation_evidence.csv (2,068 silicon-witnessed OMUX[3z+0] slices gating the OMUXPRES pips, which are ON BY DEFAULT; AGAMEMNON_NO_OMUX_PRESENT0 is the kill switch); research_knowledge_manifest.json re-inventoried. GAP-1 Rule 2 on the combined chipdb: every retained release-strict artifact rebuilds byte-identical."
 }

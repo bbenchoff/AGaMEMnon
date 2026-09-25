@@ -157,6 +157,7 @@ OPTIONS = {
     "AGAMEMNON_FB_OFFSET3": _flag("arch", "experimental", "agamemnon/chipdb/ff_feedback_map.csv", "Restrict OMUX feedback to offset-three IMUX targets."),
     "AGAMEMNON_NO_INTRA_RMUX": _flag("arch", "experimental", "qualification/routing_evidence.jsonl", "Drop intra-tile RMUX-to-RMUX edges."),
     "AGAMEMNON_OBS_IMUX": _flag("arch", "experimental", "agamemnon/chipdb/pip_usage.csv", "Restrict IMUX input edges to corpus observations."),
+    "AGAMEMNON_NO_OMUX_PRESENT0": _flag("arch", "experimental", "qualification/omux_presentation_evidence.md", "Kill switch: drop the default OMUXPRES pips (OMUX[3z+2]->OMUX[3z+0] at the silicon-witnessed slices in agamemnon/chipdb/omux3z_presentation_evidence.csv). Surface-narrowing only."),
     "AGAMEMNON_NO_FFBRIDGE": _flag("arch", "experimental", "qualification/routing_evidence.jsonl", "Disable the qualified FF bridge."),
     "AGAMEMNON_PADFEED_ONLY": _value(None, "xyz", "arch", "diagnostic", "agamemnon/chipdb/padfeed_L48_top.csv", "Expose one pad feeder for an isolation campaign."),
     "AGAMEMNON_PROBE": _flag("arch", "diagnostic", "agamemnon/engine/arch.py", "Print nextpnr Python API probes."),

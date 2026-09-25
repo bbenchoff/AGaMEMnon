@@ -8,8 +8,8 @@
       "options": [
         "AGAMEMNON_BRAM_PORTB_EXIT=1"
       ],
-      "graph_pip_count": 317376,
-      "graph_pips_sha256": "60195bb4b9d6de0fbb4dd87e78cdfd1e2941645941ca23e4052b35a756f020b4",
+      "graph_pip_count": 319437,
+      "graph_pips_sha256": "11ef209f8f3272a623721530442d58c5edca3ec5f2a5d880dfb88b6906384efb",
       "why": "release-strict, data-logic enables, live BRAM Port B: the base graph minus the 221 Port-B exit-corridor RMUX rows"
     },
     {
@@ -18,8 +18,8 @@
       "options": [
         "AGAMEMNON_BRAM_PORTB_EXIT=1"
       ],
-      "graph_pip_count": 318449,
-      "graph_pips_sha256": "feff9345fa1f383d16dc56ae9093766cd1c6a2e24941c8c06270375f89aa2a2c",
+      "graph_pip_count": 320510,
+      "graph_pips_sha256": "a400b03cb17673c905e15a848ef74a8de1087dc35a15db06d774c459f1734bfd",
       "why": "release-strict, native enables, live BRAM Port B (examples/serv_blinky --release-strict)"
     },
     {
@@ -28,8 +28,8 @@
       "options": [
         "AGAMEMNON_BRAM_PORTB_EXIT=1"
       ],
-      "graph_pip_count": 330050,
-      "graph_pips_sha256": "9a7a29ebb5f4e692a0ec279cd382bf43de7db9295b1cf5f2bc20fd7b42f9fe42",
+      "graph_pip_count": 332111,
+      "graph_pips_sha256": "25658c8bb5da73886b60dd029f9231efbce1a4231238fc67fe0f0565151d5bad",
       "why": "tiered, data-logic enables, live BRAM Port B without a read port"
     },
     {
@@ -38,8 +38,8 @@
       "options": [
         "AGAMEMNON_BRAM_PORTB_EXIT=1"
       ],
-      "graph_pip_count": 331123,
-      "graph_pips_sha256": "7d62db1a6aa20e31ad8578f72ffcc943d95d400febcbc9a1f3d8990fc3ca36c0",
+      "graph_pip_count": 333184,
+      "graph_pips_sha256": "c32de31e4840f42685746ca32bfae95d50c8b5e6f17bf29111da9a9ba21f5904",
       "why": "tiered, native enables, live BRAM Port B without a read port"
     },
     {
@@ -48,8 +48,8 @@
       "options": [
         "AGAMEMNON_BRAM_SITE_READ_PATHS=1"
       ],
-      "graph_pip_count": 330503,
-      "graph_pips_sha256": "199971c81a626949ab3a18cf6740147f074bd4f995adbbfbe41fdf68075e0b7e",
+      "graph_pip_count": 332564,
+      "graph_pips_sha256": "7b25c49a8c80f133a79028d084d0be9d0e90fbac8e6d759803fdac39f7321459",
       "why": "tiered, data-logic enables, read-ported single-port BRAM (site-read pre-route auto-enabled from the typed cell)"
     },
     {
@@ -58,8 +58,8 @@
       "options": [
         "AGAMEMNON_BRAM_SITE_READ_PATHS=1"
       ],
-      "graph_pip_count": 331574,
-      "graph_pips_sha256": "181eda53b62eeaae337b1ef4b437cd78946527f25db8f1683b217163f3d6614a",
+      "graph_pip_count": 333635,
+      "graph_pips_sha256": "143802c1e34f5278f3b721e9b4f45cb5523fb1cebd842c00d1d73ea789866c94",
       "why": "tiered, native enables, read-ported single-port BRAM (the ordinary BRAM ROM/RAM build)"
     },
     {
@@ -69,8 +69,8 @@
         "AGAMEMNON_BRAM_PORTB_EXIT=1",
         "AGAMEMNON_BRAM_SITE_READ_PATHS=1"
       ],
-      "graph_pip_count": 330253,
-      "graph_pips_sha256": "3a631b11e5d304fc89c2d669e8eb85dcbcaf291b14752904039ba06ebab80675",
+      "graph_pip_count": 332314,
+      "graph_pips_sha256": "89ac520276d8ec096c28769562d1a0837cc5951b1482d4073f735788b8aed877",
       "why": "tiered, data-logic enables, read-ported BRAM with a live Port B (examples/serv_blinky --no-native-clock-enable)"
     },
     {
@@ -80,8 +80,8 @@
         "AGAMEMNON_BRAM_PORTB_EXIT=1",
         "AGAMEMNON_BRAM_SITE_READ_PATHS=1"
       ],
-      "graph_pip_count": 331324,
-      "graph_pips_sha256": "a76cea3ea7b1215a3883c03d21969e57390335fceaf2ff66ff0b1edef98ad523",
+      "graph_pip_count": 333385,
+      "graph_pips_sha256": "53477a5b43617aa4ac9a3816c1568db75acde89cbf83ff70f12aa0f48f75e5f4",
       "why": "tiered, native enables, read-ported BRAM with a live Port B: the ordinary examples/serv_blinky build"
     },
     {
@@ -90,8 +90,8 @@
       "options": [
         "AGAMEMNON_BRAM_SITE_READ_PATHS=1"
       ],
-      "graph_pip_count": 317791,
-      "graph_pips_sha256": "482572ad7ee5b36a727e79e60fff4a5b60ac6cbc91ab9b51070bcd149ddafa3b",
+      "graph_pip_count": 319852,
+      "graph_pips_sha256": "8f4d6c61cc0250a9d461e278dbedb7ac3e27b37bae59ba2b889e5ca11b66359c",
       "why": "release-strict, data-logic enables, board-witnessed BRAM site-read paths (adds the recorded site-read hops; the CLI auto-enables this for any MCU-read ALTA_BRAM9K, so without this profile a strict build of such a design cannot be produced at all)"
     },
     {
@@ -101,8 +101,8 @@
         "AGAMEMNON_BRAM_PORTB_EXIT=1",
         "AGAMEMNON_BRAM_SITE_READ_PATHS=1"
       ],
-      "graph_pip_count": 317593,
-      "graph_pips_sha256": "334c70fcf492d302dcf96787e0916330851f3caa3bbea375036ccf49c6389b82",
+      "graph_pip_count": 319654,
+      "graph_pips_sha256": "406080b49e1173f5ee0c810aab3bff43d304ce440eb4910a378b7726b3a4a377",
       "why": "release-strict, data-logic enables, live BRAM Port B (withholds the Port-B exit-corridor RMUX rows) + board-witnessed BRAM site-read paths (adds the recorded site-read hops; the CLI auto-enables this for any MCU-read ALTA_BRAM9K, so without this profile a strict build of such a design cannot be produced at all)"
     },
     {
@@ -111,8 +111,8 @@
       "options": [
         "AGAMEMNON_BRAM_SITE_READ_PATHS=1"
       ],
-      "graph_pip_count": 318862,
-      "graph_pips_sha256": "5fae9ee4d63a8af9938a10870a97fdce9ea3394f4b7fbde35a1909decd1b789e",
+      "graph_pip_count": 320923,
+      "graph_pips_sha256": "1a3b19ded8e39fd6f9e3c202f5f458b99a1da23338e2a048b8922587df11e06f",
       "why": "release-strict, native enables, board-witnessed BRAM site-read paths (adds the recorded site-read hops; the CLI auto-enables this for any MCU-read ALTA_BRAM9K, so without this profile a strict build of such a design cannot be produced at all)"
     },
     {
@@ -122,9 +122,185 @@
         "AGAMEMNON_BRAM_PORTB_EXIT=1",
         "AGAMEMNON_BRAM_SITE_READ_PATHS=1"
       ],
+      "graph_pip_count": 320725,
+      "graph_pips_sha256": "550be3330f1d1dfef57c3b076cfe2732508cbd917951c4d498e77c8470fe4107",
+      "why": "release-strict, native enables, live BRAM Port B (withholds the Port-B exit-corridor RMUX rows) + board-witnessed BRAM site-read paths (adds the recorded site-read hops; the CLI auto-enables this for any MCU-read ALTA_BRAM9K, so without this profile a strict build of such a design cannot be produced at all)"
+    },
+    {
+      "shared_control": "0",
+      "admission": "release-strict",
+      "options": [
+        "AGAMEMNON_NO_OMUX_PRESENT0=1"
+      ],
+      "graph_pip_count": 317579,
+      "graph_pips_sha256": "c556e527d114ab617708ae4ef649cfc0bf41d4d1451cf98ca2316b074fcd7453",
+      "why": "release-strict, data-logic enables, OMUX(3z) presentation disabled (removes the default OMUX[3z+2]->OMUX[3z+0] OMUXPRES pips at the silicon-witnessed slices of omux3z_presentation_evidence.csv)"
+    },
+    {
+      "shared_control": "0",
+      "admission": "release-strict",
+      "options": [
+        "AGAMEMNON_BRAM_PORTB_EXIT=1",
+        "AGAMEMNON_NO_OMUX_PRESENT0=1"
+      ],
+      "graph_pip_count": 317376,
+      "graph_pips_sha256": "60195bb4b9d6de0fbb4dd87e78cdfd1e2941645941ca23e4052b35a756f020b4",
+      "why": "release-strict, data-logic enables, live BRAM Port B (withholds the Port-B exit-corridor RMUX rows) + OMUX(3z) presentation disabled (removes the default OMUX[3z+2]->OMUX[3z+0] OMUXPRES pips at the silicon-witnessed slices of omux3z_presentation_evidence.csv)"
+    },
+    {
+      "shared_control": "0",
+      "admission": "release-strict",
+      "options": [
+        "AGAMEMNON_BRAM_SITE_READ_PATHS=1",
+        "AGAMEMNON_NO_OMUX_PRESENT0=1"
+      ],
+      "graph_pip_count": 317791,
+      "graph_pips_sha256": "482572ad7ee5b36a727e79e60fff4a5b60ac6cbc91ab9b51070bcd149ddafa3b",
+      "why": "release-strict, data-logic enables, board-witnessed BRAM site-read paths (adds the recorded site-read hops; the CLI auto-enables this for any MCU-read ALTA_BRAM9K, so without this profile a strict build of such a design cannot be produced at all) + OMUX(3z) presentation disabled (removes the default OMUX[3z+2]->OMUX[3z+0] OMUXPRES pips at the silicon-witnessed slices of omux3z_presentation_evidence.csv)"
+    },
+    {
+      "shared_control": "0",
+      "admission": "release-strict",
+      "options": [
+        "AGAMEMNON_BRAM_PORTB_EXIT=1",
+        "AGAMEMNON_BRAM_SITE_READ_PATHS=1",
+        "AGAMEMNON_NO_OMUX_PRESENT0=1"
+      ],
+      "graph_pip_count": 317593,
+      "graph_pips_sha256": "334c70fcf492d302dcf96787e0916330851f3caa3bbea375036ccf49c6389b82",
+      "why": "release-strict, data-logic enables, live BRAM Port B (withholds the Port-B exit-corridor RMUX rows) + board-witnessed BRAM site-read paths (adds the recorded site-read hops; the CLI auto-enables this for any MCU-read ALTA_BRAM9K, so without this profile a strict build of such a design cannot be produced at all) + OMUX(3z) presentation disabled (removes the default OMUX[3z+2]->OMUX[3z+0] OMUXPRES pips at the silicon-witnessed slices of omux3z_presentation_evidence.csv)"
+    },
+    {
+      "shared_control": "0",
+      "admission": "tiered",
+      "options": [
+        "AGAMEMNON_NO_OMUX_PRESENT0=1"
+      ],
+      "graph_pip_count": 330305,
+      "graph_pips_sha256": "b94685ab609828b643d779b6822befd1970d6312e2c9fb55babb214a9573dd33",
+      "why": "tiered, data-logic enables, OMUX(3z) presentation disabled (removes the default OMUX[3z+2]->OMUX[3z+0] OMUXPRES pips at the silicon-witnessed slices of omux3z_presentation_evidence.csv)"
+    },
+    {
+      "shared_control": "0",
+      "admission": "tiered",
+      "options": [
+        "AGAMEMNON_BRAM_PORTB_EXIT=1",
+        "AGAMEMNON_NO_OMUX_PRESENT0=1"
+      ],
+      "graph_pip_count": 330050,
+      "graph_pips_sha256": "9a7a29ebb5f4e692a0ec279cd382bf43de7db9295b1cf5f2bc20fd7b42f9fe42",
+      "why": "tiered, data-logic enables, live BRAM Port B (withholds the Port-B exit-corridor RMUX rows) + OMUX(3z) presentation disabled (removes the default OMUX[3z+2]->OMUX[3z+0] OMUXPRES pips at the silicon-witnessed slices of omux3z_presentation_evidence.csv)"
+    },
+    {
+      "shared_control": "0",
+      "admission": "tiered",
+      "options": [
+        "AGAMEMNON_BRAM_SITE_READ_PATHS=1",
+        "AGAMEMNON_NO_OMUX_PRESENT0=1"
+      ],
+      "graph_pip_count": 330503,
+      "graph_pips_sha256": "199971c81a626949ab3a18cf6740147f074bd4f995adbbfbe41fdf68075e0b7e",
+      "why": "tiered, data-logic enables, board-witnessed BRAM site-read paths (adds the recorded site-read hops; the CLI auto-enables this for any MCU-read ALTA_BRAM9K, so without this profile a strict build of such a design cannot be produced at all) + OMUX(3z) presentation disabled (removes the default OMUX[3z+2]->OMUX[3z+0] OMUXPRES pips at the silicon-witnessed slices of omux3z_presentation_evidence.csv)"
+    },
+    {
+      "shared_control": "0",
+      "admission": "tiered",
+      "options": [
+        "AGAMEMNON_BRAM_PORTB_EXIT=1",
+        "AGAMEMNON_BRAM_SITE_READ_PATHS=1",
+        "AGAMEMNON_NO_OMUX_PRESENT0=1"
+      ],
+      "graph_pip_count": 330253,
+      "graph_pips_sha256": "3a631b11e5d304fc89c2d669e8eb85dcbcaf291b14752904039ba06ebab80675",
+      "why": "tiered, data-logic enables, live BRAM Port B (withholds the Port-B exit-corridor RMUX rows) + board-witnessed BRAM site-read paths (adds the recorded site-read hops; the CLI auto-enables this for any MCU-read ALTA_BRAM9K, so without this profile a strict build of such a design cannot be produced at all) + OMUX(3z) presentation disabled (removes the default OMUX[3z+2]->OMUX[3z+0] OMUXPRES pips at the silicon-witnessed slices of omux3z_presentation_evidence.csv)"
+    },
+    {
+      "shared_control": "1",
+      "admission": "release-strict",
+      "options": [
+        "AGAMEMNON_NO_OMUX_PRESENT0=1"
+      ],
+      "graph_pip_count": 318652,
+      "graph_pips_sha256": "9881c41e64d2fc9150df462402ee80e7dab976e46439cf938b0f76453dcd099f",
+      "why": "release-strict, native enables, OMUX(3z) presentation disabled (removes the default OMUX[3z+2]->OMUX[3z+0] OMUXPRES pips at the silicon-witnessed slices of omux3z_presentation_evidence.csv)"
+    },
+    {
+      "shared_control": "1",
+      "admission": "release-strict",
+      "options": [
+        "AGAMEMNON_BRAM_PORTB_EXIT=1",
+        "AGAMEMNON_NO_OMUX_PRESENT0=1"
+      ],
+      "graph_pip_count": 318449,
+      "graph_pips_sha256": "feff9345fa1f383d16dc56ae9093766cd1c6a2e24941c8c06270375f89aa2a2c",
+      "why": "release-strict, native enables, live BRAM Port B (withholds the Port-B exit-corridor RMUX rows) + OMUX(3z) presentation disabled (removes the default OMUX[3z+2]->OMUX[3z+0] OMUXPRES pips at the silicon-witnessed slices of omux3z_presentation_evidence.csv)"
+    },
+    {
+      "shared_control": "1",
+      "admission": "release-strict",
+      "options": [
+        "AGAMEMNON_BRAM_SITE_READ_PATHS=1",
+        "AGAMEMNON_NO_OMUX_PRESENT0=1"
+      ],
+      "graph_pip_count": 318862,
+      "graph_pips_sha256": "5fae9ee4d63a8af9938a10870a97fdce9ea3394f4b7fbde35a1909decd1b789e",
+      "why": "release-strict, native enables, board-witnessed BRAM site-read paths (adds the recorded site-read hops; the CLI auto-enables this for any MCU-read ALTA_BRAM9K, so without this profile a strict build of such a design cannot be produced at all) + OMUX(3z) presentation disabled (removes the default OMUX[3z+2]->OMUX[3z+0] OMUXPRES pips at the silicon-witnessed slices of omux3z_presentation_evidence.csv)"
+    },
+    {
+      "shared_control": "1",
+      "admission": "release-strict",
+      "options": [
+        "AGAMEMNON_BRAM_PORTB_EXIT=1",
+        "AGAMEMNON_BRAM_SITE_READ_PATHS=1",
+        "AGAMEMNON_NO_OMUX_PRESENT0=1"
+      ],
       "graph_pip_count": 318664,
       "graph_pips_sha256": "9c71ae6c671d248ea03306c79ad325960a3a5b17535009d59e57d4eb24a7a04f",
-      "why": "release-strict, native enables, live BRAM Port B (withholds the Port-B exit-corridor RMUX rows) + board-witnessed BRAM site-read paths (adds the recorded site-read hops; the CLI auto-enables this for any MCU-read ALTA_BRAM9K, so without this profile a strict build of such a design cannot be produced at all)"
+      "why": "release-strict, native enables, live BRAM Port B (withholds the Port-B exit-corridor RMUX rows) + board-witnessed BRAM site-read paths (adds the recorded site-read hops; the CLI auto-enables this for any MCU-read ALTA_BRAM9K, so without this profile a strict build of such a design cannot be produced at all) + OMUX(3z) presentation disabled (removes the default OMUX[3z+2]->OMUX[3z+0] OMUXPRES pips at the silicon-witnessed slices of omux3z_presentation_evidence.csv)"
+    },
+    {
+      "shared_control": "1",
+      "admission": "tiered",
+      "options": [
+        "AGAMEMNON_NO_OMUX_PRESENT0=1"
+      ],
+      "graph_pip_count": 331378,
+      "graph_pips_sha256": "87509207f8dbede5cc9c9712f05320ebb2df8082b471de6d3c4bcdc64132ab82",
+      "why": "tiered, native enables, OMUX(3z) presentation disabled (removes the default OMUX[3z+2]->OMUX[3z+0] OMUXPRES pips at the silicon-witnessed slices of omux3z_presentation_evidence.csv)"
+    },
+    {
+      "shared_control": "1",
+      "admission": "tiered",
+      "options": [
+        "AGAMEMNON_BRAM_PORTB_EXIT=1",
+        "AGAMEMNON_NO_OMUX_PRESENT0=1"
+      ],
+      "graph_pip_count": 331123,
+      "graph_pips_sha256": "7d62db1a6aa20e31ad8578f72ffcc943d95d400febcbc9a1f3d8990fc3ca36c0",
+      "why": "tiered, native enables, live BRAM Port B (withholds the Port-B exit-corridor RMUX rows) + OMUX(3z) presentation disabled (removes the default OMUX[3z+2]->OMUX[3z+0] OMUXPRES pips at the silicon-witnessed slices of omux3z_presentation_evidence.csv)"
+    },
+    {
+      "shared_control": "1",
+      "admission": "tiered",
+      "options": [
+        "AGAMEMNON_BRAM_SITE_READ_PATHS=1",
+        "AGAMEMNON_NO_OMUX_PRESENT0=1"
+      ],
+      "graph_pip_count": 331574,
+      "graph_pips_sha256": "181eda53b62eeaae337b1ef4b437cd78946527f25db8f1683b217163f3d6614a",
+      "why": "tiered, native enables, board-witnessed BRAM site-read paths (adds the recorded site-read hops; the CLI auto-enables this for any MCU-read ALTA_BRAM9K, so without this profile a strict build of such a design cannot be produced at all) + OMUX(3z) presentation disabled (removes the default OMUX[3z+2]->OMUX[3z+0] OMUXPRES pips at the silicon-witnessed slices of omux3z_presentation_evidence.csv)"
+    },
+    {
+      "shared_control": "1",
+      "admission": "tiered",
+      "options": [
+        "AGAMEMNON_BRAM_PORTB_EXIT=1",
+        "AGAMEMNON_BRAM_SITE_READ_PATHS=1",
+        "AGAMEMNON_NO_OMUX_PRESENT0=1"
+      ],
+      "graph_pip_count": 331324,
+      "graph_pips_sha256": "a76cea3ea7b1215a3883c03d21969e57390335fceaf2ff66ff0b1edef98ad523",
+      "why": "tiered, native enables, live BRAM Port B (withholds the Port-B exit-corridor RMUX rows) + board-witnessed BRAM site-read paths (adds the recorded site-read hops; the CLI auto-enables this for any MCU-read ALTA_BRAM9K, so without this profile a strict build of such a design cannot be produced at all) + OMUX(3z) presentation disabled (removes the default OMUX[3z+2]->OMUX[3z+0] OMUXPRES pips at the silicon-witnessed slices of omux3z_presentation_evidence.csv)"
     }
   ]
 }

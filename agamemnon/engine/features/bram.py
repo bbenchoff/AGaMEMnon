@@ -1078,6 +1078,11 @@ class BramFeature:
         sx, sy, sf, si = source
         dx, dy, df, di = destination
         if (source, destination) == BRAM_FIXED_PRESENTATION:
+            # Outside a TMUX09 source profile this is the slice's ordinary OMUXPRES pip
+            # (OMUX[3z+2] -> OMUX[3z+0] at X14Y8_SLICE2), not a BRAM hop: defer it to the
+            # routing feature's same-tile presentation handler, which binds F/Q ownership.
+            if state.qualified_profile is None:
+                return None
             return state.qualified_profile in BRAM_TMUX9_QUALIFIED_PROFILES
         key = ("%s%d" % (df, di), "%s%d" % (sf, si), dx - sx, dy - sy)
         if sf == "BufMUX" and (sx, sy) == (13, 4) and df == "RMUX":

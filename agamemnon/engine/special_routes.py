@@ -52,13 +52,17 @@ EXPECTED_CATALOG_SHA256 = (
 # rows reproduces the prior strict/tiered CSV byte-for-byte; the physical pad
 # corridors and all other graph rows are unchanged. Keep both exact snapshots
 # for replay, without accepting arbitrary self-reported graph digests.
-EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 317579
+# 2026-09-24: the default graph gains 2,061 OMUXPRES pips (OMUX[3z+2]->OMUX[3z+0] at the
+# silicon-witnessed slices of omux3z_presentation_evidence.csv); nothing else changes, and
+# AGAMEMNON_NO_OMUX_PRESENT0 reproduces the predecessor byte-for-byte
+# (PRE_OMUX_PRESENTATION_PHYSICAL_GRAPHS below).
+EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 319640
 EXPECTED_PHYSICAL_GRAPH_SHA256 = (
-    "c556e527d114ab617708ae4ef649cfc0bf41d4d1451cf98ca2316b074fcd7453"
+    "b9e75738461616fc4bd8d918df7344e54c402f4f7f097fbd4fba3014f480b320"
 )
-EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 330305
+EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 332366
 EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
-    "b94685ab609828b643d779b6822befd1970d6312e2c9fb55babb214a9573dd33"
+    "874c9ce593a22085ab23fb8d82bb3942c8d6e0c778aac490263c192ce45c527d"
 )
 # The native-control graph contributes the finite, reviewed shared-control
 # topology.  It is a separate graph profile: accepting it by changing the base
@@ -66,13 +70,26 @@ EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
 # graph authority.
 EXPECTED_SHARED_CONTROL_PHYSICAL_GRAPHS = {
     "release-strict": (
-        318652,
-        "9881c41e64d2fc9150df462402ee80e7dab976e46439cf938b0f76453dcd099f",
+        320713,
+        "2fe0323d2c8b2d7455a1b03b4011105b20c8cf6d16c2c3d3ef226cebeebcbd62",
     ),
     "tiered": (
-        331378,
-        "87509207f8dbede5cc9c9712f05320ebb2df8082b471de6d3c4bcdc64132ab82",
+        333439,
+        "45ade0a5c4f88154387481f276e14f43906610a14429eaf848a7d21c036508bd",
     ),
+}
+# Exact predecessors before the default OMUXPRES pips (2026-09-24; they include the 103
+# vendor-recovered hops, which merged first). Device databases and
+# retained checkpoints built on them keep replaying against these identities.
+PRE_OMUX_PRESENTATION_PHYSICAL_GRAPHS = {
+    "0": {
+        "release-strict": (317579, "c556e527d114ab617708ae4ef649cfc0bf41d4d1451cf98ca2316b074fcd7453"),
+        "tiered": (330305, "b94685ab609828b643d779b6822befd1970d6312e2c9fb55babb214a9573dd33"),
+    },
+    "1": {
+        "release-strict": (318652, "9881c41e64d2fc9150df462402ee80e7dab976e46439cf938b0f76453dcd099f"),
+        "tiered": (331378, "87509207f8dbede5cc9c9712f05320ebb2df8082b471de6d3c4bcdc64132ab82"),
+    },
 }
 # Withdrawing the column-16 RMUX03 -> RMUX14 translation removes exactly
 # 108 tiered rows, changes no surviving row, and leaves strict graphs intact.
@@ -409,6 +426,7 @@ SOURCE_FRESH_PHYSICAL_ENV = (
 GRAPH_PROFILE_OPTIONS = (
     "AGAMEMNON_BRAM_PORTB_EXIT",
     "AGAMEMNON_BRAM_SITE_READ_PATHS",
+    "AGAMEMNON_NO_OMUX_PRESENT0",
 )
 GRAPH_PROFILES_NAME = "physical_graph_profiles.json"
 GRAPH_PROFILES_PATH = Path(__file__).resolve().parent / GRAPH_PROFILES_NAME
@@ -902,6 +920,9 @@ def _validated_devdb(devdb, chipdb_root=None):
             if (graph_pip_count, graph_pips_sha256) == historical:
                 expected_pip_count, expected_pips_sha256 = historical
             historical = PRE_RMUX81_WITHDRAWAL_PHYSICAL_GRAPHS[shared_control_graph][admission]
+            if (graph_pip_count, graph_pips_sha256) == historical:
+                expected_pip_count, expected_pips_sha256 = historical
+            historical = PRE_OMUX_PRESENTATION_PHYSICAL_GRAPHS[shared_control_graph][admission]
             if (graph_pip_count, graph_pips_sha256) == historical:
                 expected_pip_count, expected_pips_sha256 = historical
         except KeyError:
