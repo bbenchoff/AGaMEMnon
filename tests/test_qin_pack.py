@@ -760,10 +760,11 @@ def test_shared_qualified_bram_inputs_receive_distinct_identity_drivers(tmp_path
     assert split_shared_qualified_bram_inputs(path) == 0
 
 
-# --- narrow-write DataIn replication (AGAMEMNON_BRAM_NARROW_WRITE) ---
+# --- narrow-write DataIn replication (on by default; kill switch AGAMEMNON_NO_BRAM_NARROW_WRITE) ---
 from agamemnon.engine.qin_pack import (
     replicate_narrow_bram_write_datain,
     NARROW_WRITE_WINDOWS,
+    REPLICATION_EXEMPT_WIDTHS,
 )
 
 
@@ -786,8 +787,10 @@ def test_replicate_populates_every_window_all_widths(tmp_path, monkeypatch):
     # For each native narrow width, the logical DataInA bit j must end up driving
     # physical lane (base+j) for EVERY address-selected window base, all from the
     # same net -- exactly the vendor-model-verified fix.
-    monkeypatch.setenv("AGAMEMNON_BRAM_NARROW_WRITE", "1")
+    monkeypatch.delenv("AGAMEMNON_NO_BRAM_NARROW_WRITE", raising=False)
     for code, (w, windows) in NARROW_WRITE_WINDOWS.items():
+        if code in REPLICATION_EXEMPT_WIDTHS:
+            continue
         datain = [200 + j if j < w else "0" for j in range(18)]
         code_str = format(code, "05b")
         _, out = _run_replicate(tmp_path, _narrow_write_bram(code_str, [7], datain))
@@ -797,8 +800,20 @@ def test_replicate_populates_every_window_all_widths(tmp_path, monkeypatch):
                 assert di[base + j] == 200 + j, (code_str, j, base)
 
 
-def test_replicate_is_noop_without_optin(tmp_path, monkeypatch):
-    monkeypatch.delenv("AGAMEMNON_BRAM_NARROW_WRITE", raising=False)
+def test_replicate_leaves_x2_alone(tmp_path, monkeypatch):
+    # The SERV dual-port x2 register file is board-proven without replication and
+    # the replicated open x2 images failed on the board (2026-09-25): x2 is exempt,
+    # so serv_blinky stays byte-identical to its witnessed image.
+    monkeypatch.delenv("AGAMEMNON_NO_BRAM_NARROW_WRITE", raising=False)
+    assert REPLICATION_EXEMPT_WIDTHS == frozenset((0b01110,))
+    datain = [200 + j if j < 2 else "0" for j in range(18)]
+    n, out = _run_replicate(tmp_path, _narrow_write_bram("01110", [7], datain))
+    assert n == 0
+    assert out["modules"]["top"]["cells"]["mem"]["connections"]["DataInA"] == datain
+
+
+def test_replicate_is_noop_under_the_kill_switch(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGAMEMNON_NO_BRAM_NARROW_WRITE", "1")
     datain = [200 + j if j < 9 else "0" for j in range(18)]
     n, out = _run_replicate(tmp_path, _narrow_write_bram("01000", [7], datain))
     assert n == 0
@@ -807,7 +822,7 @@ def test_replicate_is_noop_without_optin(tmp_path, monkeypatch):
 
 def test_replicate_skips_read_only_bram(tmp_path, monkeypatch):
     # A constant WeA is read-only/ROM -> no write to correct, no replication.
-    monkeypatch.setenv("AGAMEMNON_BRAM_NARROW_WRITE", "1")
+    monkeypatch.delenv("AGAMEMNON_NO_BRAM_NARROW_WRITE", raising=False)
     datain = [200 + j if j < 9 else "0" for j in range(18)]
     n, _ = _run_replicate(tmp_path, _narrow_write_bram("01000", ["0"], datain))
     assert n == 0
@@ -816,7 +831,7 @@ def test_replicate_skips_read_only_bram(tmp_path, monkeypatch):
 def test_replicate_skips_constant_logical_lane(tmp_path, monkeypatch):
     # Only real (net-driven) logical bits fan out; a constant logical lane is left
     # as is (constant narrow writes stay refused by the emitter guard).
-    monkeypatch.setenv("AGAMEMNON_BRAM_NARROW_WRITE", "1")
+    monkeypatch.delenv("AGAMEMNON_NO_BRAM_NARROW_WRITE", raising=False)
     datain = ["0"] + [200 + j for j in range(1, 9)] + ["0"] * 9
     _, out = _run_replicate(tmp_path, _narrow_write_bram("01000", [7], datain))
     di = out["modules"]["top"]["cells"]["mem"]["connections"]["DataInA"]
@@ -825,7 +840,7 @@ def test_replicate_skips_constant_logical_lane(tmp_path, monkeypatch):
 
 
 def test_replicate_skips_wide_x18(tmp_path, monkeypatch):
-    monkeypatch.setenv("AGAMEMNON_BRAM_NARROW_WRITE", "1")
+    monkeypatch.delenv("AGAMEMNON_NO_BRAM_NARROW_WRITE", raising=False)
     datain = [200 + j for j in range(18)]
     n, _ = _run_replicate(tmp_path, _narrow_write_bram("00000", [7], datain))
     assert n == 0

@@ -419,10 +419,7 @@ byte of an 18-bit row while the other is written) is achievable on silicon; the 
 work is to drive the `CFG_KMUX` pos-8 gnd tie from the `ByteEnA` pin constant (a scoped,
 board-qualified routing-emitter change), not to route the pin. Do **not** read this as
 native narrow-**width** packing writes (x9/x4/x2/x1, address-selected sub-word windows):
-those are a distinct mechanism, are EMIT-verified only (opt-in `AGAMEMNON_BRAM_NARROW_WRITE`,
-replication fix), and a 2026-09-15 board session found a fresh generic x9 write does **not
-store in the open flow** (silicon capability UNRESOLVED — the vendor x9-write readback floated, so it is unproven either way; the BRAM write-ingress frontier; a 2026-09-15 attempt to transplant the vendor x9 `CFG_KMUX` write-mask lane (sel 62) was refuted — sel 62 breaks the open read egress on silicon, so store remains unobservable (corrected: sel 62/71 are ReA/ReB read-enable ties per `bram9k_pinmap.csv`, not a write mask — the open x9 write config is already vendor-identical, so x9 non-store is a mode/silicon property, not a config bug) — see STATUS.md and
-`qualification/bram_narrow_write_evidence.jsonl`).
+those are a distinct mechanism. **Corrected 2026-09-25:** narrow writes store on silicon (vendor `alta_bram9k` instantiated directly per mode, 39/39 board PASS), and the open flow's DataIn replication is on by default for the modes whose open images passed the board (x4 dual-port, x1 single-port); x9, x2 and x1 dual-port are refused fail-closed until their open-flow delivery bug is found (vendor-identical mode config; candidate per-lane DataOut egress). `AGAMEMNON_NO_BRAM_NARROW_WRITE=1` restores the blanket refusal. The 2026-09-15 'x9 does not store' reading is withdrawn: its vendor reference was a mis-elaborated inferred design (see STATUS.md and `qualification/bram_narrow_write_evidence.jsonl`).
 
 Separately, **39 configuration rows across `X13Y1` … `X13Y4`** are admitted only
 under the `experimental-strict` policy, and are **denied under the default
