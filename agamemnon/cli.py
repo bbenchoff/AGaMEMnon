@@ -134,6 +134,10 @@ from .engine.features.clock_validate import (                # noqa: E402
 from .engine.features.mcu_endpoint import (                   # noqa: E402
     validate_document_mcu_endpoints,
 )
+from .engine.features.placement_congestion import (           # noqa: E402
+    CongestionMarginalError,
+    validate_document_congestion_marginal,
+)
 
 RAW_LEN = 99936
 HDR = bytes.fromhex("40200001") + bytes.fromhex("0000ffff")   # DEVICE_ID | max_index
@@ -174,6 +178,14 @@ def _validate_mcu_endpoint_document(document, phase, chipdb_root):
         return validate_document_mcu_endpoints(document, chipdb_root)
     except SystemExit as exc:
         raise RuntimeError("typed MCU endpoint %s validation failed: %s" %
+                           (phase, exc)) from exc
+
+
+def _validate_congestion_marginal_document(document, phase, chipdb_root):
+    try:
+        validate_document_congestion_marginal(document, chipdb_root)
+    except CongestionMarginalError as exc:
+        raise RuntimeError("congestion-marginal %s validation failed: %s" %
                            (phase, exc)) from exc
 
 
@@ -4305,6 +4317,13 @@ def _cmd_build_once(a):
         sys.exit(1)
     try:
         _validate_mcu_endpoint_document(
+            final_snapshot.document, "pre-emission", data,
+        )
+    except RuntimeError as exc:
+        print("error: %s" % exc)
+        sys.exit(1)
+    try:
+        _validate_congestion_marginal_document(
             final_snapshot.document, "pre-emission", data,
         )
     except RuntimeError as exc:
