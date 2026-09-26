@@ -91,7 +91,11 @@ def test_uarch_consumes_the_generator_witness_column_without_a_formula():
     )
 
     assert "ctx->getDelayFromNS(to_double(c.at(4), 0.05))" in pip_load
-    assert "pip_delay_by_index[pip.index] = pip_delay" in pip_load
+    assert "delay_t routed_pip_delay = pip_delay;" in pip_load
+    assert "pip_delay_by_index[pip.index] = routed_pip_delay" in pip_load
+    # Router avoidance may add a configured cost; the lookahead must retain
+    # the measured delay so that it remains a lower bound.
+    assert "aggregate[source_node] = pip_delay;" in pip_load
     assert "base_ns = wire_timing.select_routing_delay_ns(" in routing
     assert "if family in _wt_measured:" in routing
     assert measured["families_ns"] == {

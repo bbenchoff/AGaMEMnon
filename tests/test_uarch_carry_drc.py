@@ -330,7 +330,7 @@ def test_admitted_linear_profiles_pack_with_seed_and_terminal_modes(
         if "AGRV2K_CARRY_PROFILE" in (cell.get("attributes") or {})
     }
     expected_profile = (
-        "SHORT_LOCAL" if expected_cells <= 9 else
+        "SHORT_LOCAL" if expected_cells <= 16 else
         "LEGACY_25" if expected_cells <= 25 else "X20_DOWNWARD_33"
     )
     assert carry_profiles == {expected_profile}
@@ -1017,6 +1017,9 @@ def test_unqualified_long_chain_translation_without_direct_seam_fails_before_rou
 @pytest.mark.parametrize('axis', ['A','B'])
 @pytest.mark.parametrize('width', [9,16,24,25,31,32])
 def test_registered_feedback_prefix_uses_owned_local_inputs(tmp_path, axis, width, monkeypatch):
+    # Exercise the fixed legacy corridor's implicit-high protocol even when
+    # the default widened corridor can place this length as a movable chain.
+    monkeypatch.setenv('AGAMEMNON_CARRY_WIDE_CORRIDOR', '0')
     monkeypatch.setenv('AGRV2K_MIN_INPUT_INDEG', '5')
     monkeypatch.setenv('AGRV2K_CARRY_GRAPH_PREFLIGHT', '1')
     design = CarryJson()
@@ -1056,9 +1059,10 @@ def test_registered_feedback_prefix_uses_owned_local_inputs(tmp_path, axis, widt
             or 'typed resource notification rejects PIP' in forged_log)
 
 
-def test_movable_short_feedback_chain_retains_ordinary_vcc(tmp_path):
+@pytest.mark.parametrize('width', [8, 9, 15])
+def test_movable_short_feedback_chain_retains_ordinary_vcc(tmp_path, width):
     design = CarryJson()
-    design.feedback_registered_chain(8)
+    design.feedback_registered_chain(width)
     result, log, output = _run(tmp_path,design)
     assert result.returncode == 0, log
     cells = json.loads(output.read_text())['modules']['top']['cells']
