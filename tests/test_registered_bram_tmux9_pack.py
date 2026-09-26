@@ -314,6 +314,32 @@ def test_fresh_source_profile_is_hash_bound_but_not_path_bound(
         )
 
 
+def test_current_source_image_pins_have_complete_paired_silicon_evidence():
+    evidence = json.loads((ROOT / "qualification" /
+        "registered_bram_tmux9_source_selector_silicon.json").read_text())
+    assert evidence["silicon_status"] == "PAIRED_RESEARCH_PASS_BOUNDED"
+    assert evidence["flash_writes"] == 0 and evidence["final_reset"] == "PASS"
+    assert [(c["label"], c["status"]) for c in evidence["controls"]] == [
+        ("before_1", "PASS"), ("before_2", "PASS"), ("after_pairs", "PASS")]
+    assert set(evidence["profiles"]) == set(PROFILES)
+    for profile, witnessed in evidence["profiles"].items():
+        pinned = cli.QUALIFIED_ROUTE_PROFILES[profile]
+        assert witnessed["raw_sha256"] == pinned["source_build_bitstream_sha256"]
+        assert witnessed["compressed_sha256"] == pinned["source_build_compressed_sha256"]
+        captures = witnessed["captures"]
+        assert len(captures) == 4
+        assert {(row["label"].rsplit("_", 1)[1], row["repetition"]) for row in captures} == {
+            (role, rep) for role in ("reference", "candidate") for rep in (1, 2)}
+        for row in captures:
+            role = row["label"].rsplit("_", 1)[1]
+            assert row["status"] == "PASS" and row["samples"] == row["h0_matches"] == 500
+            assert row["h1_h2_live"] is True
+            assert row["image_sha256"] == witnessed[
+                "raw_sha256" if role == "candidate" else "reference_raw_sha256"]
+        assert witnessed["changed_payload_bits"] == (
+            [[72141, 128], [72256, 2]] if profile.endswith("we1") else [])
+
+
 def test_ordinary_pack_cannot_use_scoped_codewords(tmp_path):
     profile = "bram-tmux9-i0-d1-we1"
     output = tmp_path / "ordinary.bin"
