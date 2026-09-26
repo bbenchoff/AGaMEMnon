@@ -1,6 +1,6 @@
 """Post-route refusal for board-confirmed corner-tile congestion-marginal pips.
 
-Placement bisect, 2026-09-25 (AG32-Docs tools/pipwit/scratch/PLACEMENT_BISECT_20260925.md).
+Placement and route qualification, 2026-09-25.
 Three open-flow narrow-BRAM designs failed on silicon (2x LED rate / 0 edges) although every
 pip they used carries a positive ring and corpus conduction witness and the designs simulate
 PASS as routed. Cell placement was found bit-identical between each failing image and a passing
@@ -12,9 +12,8 @@ family reached the equivalent terminal through a different, non-suspect feeder.
 ``route_surgery.py`` (strict mode: tier-1 graph, the suspect pip excluded, every other net's
 wires held fixed) reported each of the three nets UNROUTABLE without its suspect pip, confirming
 there is no alternate route once the rest of the design's routing has already claimed the corner
-tile's other legal feeders into the same IMUX terminal -- the aggregate-congestion mechanism
-CLAUDE.md's conduction reframe names for the MCU-exit corridor, recurring here at a different,
-BRAM-family corner tile.
+tile's other legal feeders into the same IMUX terminal. This is aggregate route congestion
+at the BRAM-family corner tile, rather than evidence that an isolated edge never conducts.
 
 These pips are NOT convicted as silicon-dead (``dead_edges_silicon.csv``): they conduct cleanly
 in an isolated ring or a small corpus design. They are unreliable specifically when a real,

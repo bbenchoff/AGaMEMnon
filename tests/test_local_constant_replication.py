@@ -118,15 +118,15 @@ def _constant_drivers(packed):
 
 def test_feature_is_explicitly_opt_in_and_after_constant_packing():
     source = UARCH.read_text(encoding="utf-8")
-    pack = source.split("static void pack_constants", 1)[1].split(
+    pack = source.split("pack_constants(Context *ctx)", 1)[1].split(
         "static void pack_inactive_constant_slice_clocks", 1
     )[0]
     assert 'std::getenv("AGRV2K_LOCAL_CONSTANTS") != nullptr' in pack
     assert pack.index('std::getenv("AGRV2K_LOCAL_CONSTANTS")') < pack.index(
-        'replicate_local_constants(ctx, ctx->id("$PACKER_GND_NET")'
+        'replicate_local_constants(ctx, gnd_net_name, gnd_cell_name'
     )
-    assert pack.index('replicate_local_constants(ctx, ctx->id("$PACKER_GND_NET")') < pack.index(
-        'replicate_local_constants(ctx, ctx->id("$PACKER_VCC_NET")'
+    assert pack.index('replicate_local_constants(ctx, gnd_net_name, gnd_cell_name') < pack.index(
+        'replicate_local_constants(ctx, vcc_net_name, vcc_cell_name'
     )
 
 

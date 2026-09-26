@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 
 import pytest
@@ -649,7 +650,40 @@ def test_user_fixed_reachable_bel_is_typed_and_accepted(tmp_path):
     assert _output_reaches("X1Y1_SLICE0")
 
 
-def test_user_fixed_unreachable_bel_is_rejected_by_placer_legality(tmp_path):
+def _disconnect_output_source(tmp_path, monkeypatch, bel="X1Y1_SLICE8"):
+    """Make a controlled unreachable source instead of assuming a graph hole.
+
+    Qualified graph growth made the former negative BEL routable. Remove
+    only its F-wire exits in a private test database so both placement and
+    pre-route checks must still reject the deliberately broken topology.
+    """
+    _tool()
+    with (DEVDB / "dev_belpins.csv").open(newline="", encoding="utf-8") as stream:
+        wire = next(row["wire"] for row in csv.DictReader(stream)
+                    if row["bel"] == bel and row["pin"] == "F")
+    isolated = tmp_path / "disconnected_devdb"
+    isolated.mkdir()
+    for source in DEVDB.iterdir():
+        if source.is_file() and source.name != "dev_pips.csv":
+            shutil.copyfile(source, isolated / source.name)
+    with (DEVDB / "dev_pips.csv").open(newline="", encoding="utf-8") as source:
+        reader = csv.DictReader(source)
+        rows = list(reader)
+        kept = [row for row in rows if row["src"] != wire]
+        assert len(kept) < len(rows)
+        with (isolated / "dev_pips.csv").open("w", newline="", encoding="utf-8") as output:
+            writer = csv.DictWriter(output, fieldnames=reader.fieldnames, lineterminator="\n")
+            writer.writeheader()
+            writer.writerows(kept)
+    meta = isolated / "dev_meta.csv"
+    text = meta.read_text(encoding="utf-8")
+    meta.write_text(re.sub(r"(?m)^n_pips,\d+$", "n_pips," + str(len(kept)), text), encoding="utf-8")
+    monkeypatch.setitem(globals(), "DEVDB", isolated)
+    assert not _output_reaches(bel)
+
+
+def test_user_fixed_unreachable_bel_is_rejected_by_placer_legality(tmp_path, monkeypatch):
+    _disconnect_output_source(tmp_path, monkeypatch)
     result, log, _ = _run(
         tmp_path, "fixed_bad", _design(driver_bel="X1Y1_SLICE8"),
         "--no-route", "--placer", "heap",
@@ -660,7 +694,8 @@ def test_user_fixed_unreachable_bel_is_rejected_by_placer_legality(tmp_path):
     assert not _output_reaches("X1Y1_SLICE8")
 
 
-def test_no_place_cannot_bypass_native_endpoint_preroute_drc(tmp_path):
+def test_no_place_cannot_bypass_native_endpoint_preroute_drc(tmp_path, monkeypatch):
+    _disconnect_output_source(tmp_path, monkeypatch)
     result, log, _ = _run(
         tmp_path, "no_place_bad", _design(driver_bel="X1Y1_SLICE8"),
         "--no-place", "--router", "router2", condplace=False,

@@ -12,7 +12,7 @@ different pip. route_surgery.py (strict mode: tier-1 graph, the suspect excluded
 net's wires held fixed) reports each of the three nets UNROUTABLE without its suspect pip --
 not merely rerouted -- confirming there is no alternate feeder once the tile's other RMUX
 sources are already claimed by the rest of the design. This is the aggregate-corner-tile-
-congestion mechanism CLAUDE.md's conduction reframe describes: a marginal pip that conducts
+congestion mechanism: a marginal pip that conducts
 cleanly in an isolated ring but is unreliable as the forced sole path for a real, loaded
 signal.
 
