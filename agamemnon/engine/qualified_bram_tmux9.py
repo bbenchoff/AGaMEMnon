@@ -132,6 +132,48 @@ def routes_match(module: dict, profile: str) -> bool:
     )
 
 
+def _prepare_ground_source(module: dict, profile: str) -> None:
+    """Represent the qualified constant's source before native pin placement.
+
+    A generated constant is otherwise free to move, while its qualified route
+    has a fixed root. Materialize the same logical zero with that placement and
+    route constraint instead of moving a cell after routing.
+    """
+    route = GROUND_ROUTES[profile]
+    fields = route.split(";")
+    roots = [fields[i] for i in range(0, len(fields) - 2, 3) if not fields[i + 1]]
+    match = re.fullmatch(r"X(\d+)Y(\d+)_OMUX(\d+)", roots[0]) if len(roots) == 1 else None
+    if match is None or int(match[3]) % 3 != 2:
+        raise ValueError("qualified TMUX09 ground tree must have one F-output root")
+    bel = "X%sY%s_SLICE%d" % (match[1], match[2], int(match[3]) // 3)
+    cells = module.setdefault("cells", {})
+    nets = module.setdefault("netnames", {})
+    if "$PACKER_GND" in cells or "$PACKER_GND_NET" in nets:
+        raise ValueError("qualified TMUX09 ground name already exists")
+    if any(cell.get("attributes", {}).get("BEL") == bel for cell in cells.values()):
+        raise ValueError("qualified TMUX09 ground BEL already requested")
+    vectors = [bits for cell in cells.values() for bits in cell.get("connections", {}).values()]
+    vectors += [net.get("bits", []) for net in nets.values()]
+    vectors += [port.get("bits", []) for port in module.get("ports", {}).values()]
+    if not any("0" in bits for bits in vectors):
+        raise ValueError("qualified TMUX09 source has no constant-zero consumers")
+    bit = max((value for bits in vectors for value in bits if isinstance(value, int)), default=1) + 1
+    for bits in vectors:
+        for index, value in enumerate(bits):
+            if value == "0":
+                bits[index] = bit
+    cells["$PACKER_GND"] = {
+        "hide_name": 1, "type": "GENERIC_SLICE",
+        "parameters": {"K": "100", "INIT": "0000000000000000", "FF_USED": "0"},
+        "attributes": {"BEL": bel, "keep": "1"},
+        "port_directions": {"I": "input", "CLK": "input", "F": "output", "Q": "output"},
+        "connections": {"I": [], "CLK": [], "F": [bit], "Q": []},
+    }
+    nets["$PACKER_GND_NET"] = {
+        "hide_name": 1, "bits": [bit], "attributes": {"AGAMEMNON_REQUIRED_ROUTE": route},
+    }
+
+
 def prepare_route_reservations(path, profile: str) -> None:
     """Carry the required trees into native routing before other nets compete."""
     source = Path(path)
@@ -144,6 +186,7 @@ def prepare_route_reservations(path, profile: str) -> None:
     missing = sorted(set(routes) - set(nets))
     if missing:
         raise ValueError("qualified TMUX09 reservations lost nets: " + ", ".join(missing))
+    _prepare_ground_source(modules["top"], profile)
     for name, route in routes.items():
         nets[name].setdefault("attributes", {})["AGAMEMNON_REQUIRED_ROUTE"] = route
     source.write_text(json.dumps(document, separators=(",", ":")) + "\n", encoding="utf-8")

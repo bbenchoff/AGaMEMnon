@@ -165,6 +165,38 @@ def test_packaged_profiles_satisfy_fresh_source_route_signature(profile):
 
 
 @pytest.mark.parametrize("profile", PROFILES)
+def test_fresh_source_declares_ground_truth_placement_and_tree(tmp_path, profile):
+    module = {"ports": {"clk": {"direction": "input", "bits": [10]}},
+              "cells": {"consumer": {"connections": {"I": ["0", "1", "x", 10]},
+                                       "parameters": {"INIT": "0010"}}},
+              "netnames": {name: {"bits": [index + 20], "attributes": {}}
+                           for index, name in enumerate(source_route.expected_routes(profile))}}
+    module["netnames"]["zero_alias"] = {"bits": ["0"]}
+    path = tmp_path / "source.json"
+    path.write_text(json.dumps({"modules": {"top": module}}))
+    source_route.prepare_route_reservations(path, profile)
+    actual = json.loads(path.read_text())["modules"]["top"]
+    ground = actual["cells"]["$PACKER_GND"]
+    ground_bit = ground["connections"]["F"][0]
+    assert ground_bit > 24
+    assert int(ground["parameters"]["INIT"], 2) == 0
+    assert int(ground["parameters"]["FF_USED"], 2) == 0
+    assert ground["attributes"]["BEL"] == (
+        "X14Y4_SLICE5" if profile.endswith("we1") else "X14Y4_SLICE0")
+    assert actual["cells"]["consumer"]["connections"]["I"] == [ground_bit, "1", "x", 10]
+    assert actual["cells"]["consumer"]["parameters"] == {"INIT": "0010"}
+    assert actual["netnames"]["zero_alias"]["bits"] == [ground_bit]
+    assert actual["ports"] == module["ports"]
+    assert actual["netnames"]["$PACKER_GND_NET"]["attributes"]["AGAMEMNON_REQUIRED_ROUTE"] == \
+        source_route.GROUND_ROUTES[profile]
+    # Re-preparing an already transformed input must not invent another driver.
+    before = path.read_bytes()
+    with pytest.raises(ValueError, match="ground name already exists"):
+        source_route.prepare_route_reservations(path, profile)
+    assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize("profile", PROFILES)
 @pytest.mark.parametrize("mutation", [None, "nonconstant", "wrong_bel", "foreign_owner"])
 def test_source_constant_tree_is_checked_and_replaced_atomically(tmp_path, profile, mutation):
     # Fresh-source constant placement differs from the legacy checkpoint.
