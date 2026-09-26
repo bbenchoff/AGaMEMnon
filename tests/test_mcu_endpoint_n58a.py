@@ -307,6 +307,9 @@ def _compiled_design(*, lane=25, endpoint_name="semantic_name_not_required",
             document["modules"]["top"]["cells"]["ordinary_consumer"]
         )
         second["parameters"]["INIT"] = format(0xCCCC, "016b")
+        # 0xCCCC observes I1. Keep the endpoint on that live input rather than
+        # connecting it to the unused I0 of the copied identity LUT.
+        second["connections"]["I"] = ["x", 7, "x", "x"]
         document["modules"]["top"]["cells"]["second_consumer"] = second
     return document
 

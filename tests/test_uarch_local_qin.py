@@ -1,5 +1,5 @@
 """Compiled local-feedback packing and actual routed internal edges."""
-import json,os
+import csv,json,os
 from pathlib import Path
 import pytest
 import test_uarch_register_input_legality as support
@@ -83,10 +83,29 @@ def test_local_qin_routes_same_slice_feedback(tmp_path,site):
     module=json.loads(out.read_text())["modules"]["top"]
     q=module["cells"]["state"]["connections"]["Q"][0]
     routes=[n["attributes"].get("ROUTING","") for n in module["netnames"].values() if n["bits"]==[q]]
-    import re
-    tile,z=re.fullmatch(r"(X\d+Y\d+)_SLICE(\d+)",site).groups();z=int(z)
-    expected=f"{tile}_OMUX{3*z+2:02d}.{tile}_IMUX{4*z+2:02d}"
-    assert any(expected in r for r in routes),routes
+    # The shared physical-output site has a distinct Q presentation. Derive
+    # both terminals from the actual graph instead of assuming 3*z+2, and
+    # verify the complete feedback path even when routing uses a detour.
+    with (support.DEVDB/'dev_belpins.csv').open(newline='') as stream:
+        pins = {(r['bel'],r['pin']):r['wire'] for r in csv.DictReader(stream)}
+    with (support.DEVDB/'dev_pips.csv').open(newline='') as stream:
+        admitted = {r['name'] for r in csv.DictReader(stream)}
+    source, sink = pins[site,'Q'], pins[site,'I[2]']
+    edges = set()
+    for route in routes:
+        fields = route.strip().split(';')
+        assert len(fields) % 3 == 0
+        edges.update(filter(None, fields[1::3]))
+    assert edges <= admitted
+    reached = {source}
+    while True:
+        expanded = reached | {e.split('.')[1] for e in edges if e.split('.')[0] in reached}
+        if expanded == reached:
+            break
+        reached = expanded
+    assert sink in reached, routes
+    assert module['cells']['state']['connections']['I'][2] == q
+    assert module['cells']['state']['attributes']['AGRV2K_REGISTER_INPUT_MODE'] == 'LOCAL_QIN_I2'
 
 
 @pytest.mark.parametrize("flow",[("--no-route","--placer","heap"),("--no-place","--router","router2")])
