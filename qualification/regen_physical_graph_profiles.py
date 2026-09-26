@@ -80,6 +80,10 @@ WHY_OPTION = {
     "AGAMEMNON_NO_OMUX_PRESENT0":
         "OMUX(3z) presentation disabled (removes the default OMUX[3z+2]->OMUX[3z+0] OMUXPRES pips "
         "at the silicon-witnessed slices of omux3z_presentation_evidence.csv)",
+    "AGRV2K_SHARED_CONTROL_ASYNC_CLEAR":
+        "async-clear reset admitted (adds the CtrlMUX->TileAsyncMUX01 pips + ASYNCCLR1 sink bels; "
+        "the CLI auto-enables this for any ordinary --uarch build, so without this profile a "
+        "strict build of an async-reset design cannot be produced at all)",
 }
 
 

@@ -1,0 +1,3 @@
+# `clock` binds to the hard CLKIN automatically (no PCF entry needed).
+set_io led   PIN_17
+set_io reset PIN_15

@@ -283,3 +283,57 @@ def test_sync_line_selection_is_flagged_undetermined():
 def _logic_tiles():
     with (CHIPDB / "slice_cfg.csv").open(newline="", encoding="utf-8") as stream:
         return sorted({(int(r["x"]), int(r["y"])) for r in csv.DictReader(stream)})
+
+
+# ---------------------------------------------------------------------------
+# async_clear: CFG_TILEASYNCMUX, columns 27-30 of the same rows "sync" uses
+# for columns 31-33.  See FAMILY_SOURCE_COLUMNS's docstring for the evidence.
+# ---------------------------------------------------------------------------
+
+def test_async_clear_shares_syncs_rows_but_not_its_columns():
+    assert ce.FAMILY_ROWS["async_clear"] == ce.FAMILY_ROWS["sync"]
+    a = A(19, 12, "async_clear", 1, "ctrl_a").bit()
+    s = A(19, 12, "sync", 1, "ctrl_a").bit()
+    assert a[0] == s[0]        # same byte...
+    assert a[1] != s[1]        # ...different bit
+
+
+def test_async_clear_ctrl_a_line_one_matches_the_board_witnessed_bit():
+    """Reproduces the exact (byte, mask) read off clk_rst_high/low's vendor
+    images at LogicTile (19,12): row 33 (line 1), CFG_TILEASYNCMUX index 1
+    (column 29), which BOTH board-PASS images assert for their sole
+    async-clear source (CtrlMUX instance 0)."""
+    byte, mask = A(19, 12, "async_clear", 1, "ctrl_a").bit()
+    assert (byte, mask) == (6553, 0x02)
+
+
+def test_async_clear_only_claims_one_source_and_stays_refused_elsewhere():
+    """ctrl_b (CtrlMUX instance 1) and the constant tie have no board
+    evidence for this family and must be refused, not guessed."""
+    for source in ("ctrl_b", "constant"):
+        with pytest.raises(ce.ControlEncodeError, match="unknown source"):
+            A(19, 12, "async_clear", 1, source).bit()
+
+
+def test_async_clear_line_zero_is_structurally_valid_but_unclaimed():
+    """Line 0 (row 34) is real silicon -- the formula resolves it -- but no
+    board image has ever exercised it, so only ctrl_a on line 1 is claimed."""
+    byte, mask = A(19, 12, "async_clear", 0, "ctrl_a").bit()
+    assert (byte, mask) != A(19, 12, "async_clear", 1, "ctrl_a").bit()
+
+
+def test_async_clear_bit_position_formula_matches_the_2026_09_03_override_sweep():
+    """Cross-check against the independently-measured vendor override sweep
+    at LogicTile (14,10) (memory ag32-config-bit-extractor-replay-2026-09-03):
+    CFG_TILEASYNCMUX landed inside bytes 22352 (line 1) / 22468 (line 0),
+    which is exactly what the general formula predicts for columns 27-30."""
+    for row, expected_byte in ((33, 22352), (34, 22468)):
+        for column in (27, 28, 29, 30):
+            byte, _mask = ce.bit_position(14, 10, row, column)
+            assert byte == expected_byte
+
+
+def test_async_clear_decode_reads_back_the_claimed_bit():
+    raw = bytearray(120000)
+    ce.apply(raw, [A(19, 12, "async_clear", 1, "ctrl_a")])
+    assert ce.decode_tile(raw, 19, 12, "async_clear") == {1: "ctrl_a"}

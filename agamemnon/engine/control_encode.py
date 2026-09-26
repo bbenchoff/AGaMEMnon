@@ -49,14 +49,55 @@ from dataclasses import dataclass
 
 CONTROL_ENCODE_SCHEMA = "agamemnon.control-encode.v1"
 
-#: W row carrying each family's two shared lines.
+#: W row carrying each family's two shared lines.  ``async_clear`` shares its
+#: rows with ``sync`` (both are the LogicTile's second shared-line pair, per
+#: the decoded template columns) but lives at a disjoint column range -- see
+#: ``FAMILY_SOURCE_COLUMNS``.
 FAMILY_ROWS = {
     "clock_enable": {1: 32, 0: 35},
     "sync": {1: 33, 0: 34},
+    "async_clear": {1: 33, 0: 34},
 }
 
 #: B column selecting each source position.
 SOURCE_COLUMNS = {"ctrl_a": 33, "ctrl_b": 32, "constant": 31}
+
+#: Families whose source-column layout is not the shared 3-position scheme
+#: above.  ``async_clear`` (``CFG_TILEASYNCMUX``) occupies columns 27-30 of
+#: the same two rows ``sync`` uses for columns 31-33 -- confirmed against
+#: ``logictile_config_template.csv`` and, independently, against the
+#: 2026-09-03 vendor differential-override sweep (memory
+#: ``ag32-config-bit-extractor-replay-2026-09-03``), which measured
+#: CFG_TILEASYNCMUX at LogicTile (14,10) landing inside bytes 22352/22468 --
+#: exactly what ``tile_bit_base(14,10) + row*928 - (column-31)`` predicts for
+#: columns 27-30 at rows 33/34.  Column 29 (source ``ctrl_a``) is the one
+#: physical position this flow claims: two real, board-PASS vendor images
+#: (clk_rst_high/clk_rst_low, LogicTile (19,12), CtrlMUX instance 0 driving
+#: line 1) both assert exactly that bit for their sole async-clear source, and
+#: nothing else in the field is common between them.  ``ctrl_b`` (CtrlMUX
+#: instance 1) and line 0 have no board evidence and are deliberately absent,
+#: so a route that needs them is refused (``ControlEncodeError``/
+#: ``SharedControlEmitError``) rather than guessed.
+FAMILY_SOURCE_COLUMNS = {
+    "async_clear": {"ctrl_a": 29},
+}
+
+
+def _source_columns(family):
+    return FAMILY_SOURCE_COLUMNS.get(family, SOURCE_COLUMNS)
+
+
+#: Column 27 of async_clear's rows (CFG_TILEASYNCMUX index 3) is NOT part of
+#: this family's claim, even though it lives in the same nibble as column 29:
+#: it is `logictile_asyncmux3.json`'s bit, owned by the ``clocks`` feature
+#: (agamemnon/engine/features/clocks.py), which sets it unconditionally for
+#: every "clocked" LogicTile (any tile hosting an active register) as part of
+#: ordinary clock distribution -- unrelated to whether that tile also carries
+#: an async-clear consumer. Reproduced 2026-09-25 attempting to explicitly
+#: clear it here: BitOwnershipError, "feature ownership collision ... shared_control
+#: and clocks" -- proof this bit is genuinely someone else's, not an
+#: unmanaged leftover. Do not touch columns 27/28/30 from this module.
+
 
 #: Which routing-graph ``CtrlMUX`` index drives a given line and position.
 CTRL_INDEX = {(1, "ctrl_a"): 0, (1, "ctrl_b"): 1, (0, "ctrl_a"): 2, (0, "ctrl_b"): 3}
@@ -116,7 +157,7 @@ class ControlAssignment:
             raise ControlEncodeError("unknown control family %r" % (self.family,))
         if self.line not in FAMILY_ROWS[self.family]:
             raise ControlEncodeError("family %s has no line %r" % (self.family, self.line))
-        if self.source not in SOURCE_COLUMNS:
+        if self.source not in _source_columns(self.family):
             raise ControlEncodeError("unknown source position %r" % (self.source,))
 
     @property
@@ -128,7 +169,7 @@ class ControlAssignment:
         self.validate()
         return bit_position(self.x, self.y,
                             FAMILY_ROWS[self.family][self.line],
-                            SOURCE_COLUMNS[self.source])
+                            _source_columns(self.family)[self.source])
 
 
 def encode(assignments):
@@ -175,7 +216,7 @@ def decode_tile(raw, x, y, family):
         raise ControlEncodeError("unknown control family %r" % (family,))
     found = {}
     for line, row in FAMILY_ROWS[family].items():
-        for source, column in SOURCE_COLUMNS.items():
+        for source, column in _source_columns(family).items():
             byte, mask = bit_position(x, y, row, column)
             if 0 <= byte < len(raw) and raw[byte] & mask:
                 found.setdefault(line, []).append(source)

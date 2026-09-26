@@ -16,6 +16,19 @@ import json
 import os
 import sys
 
+# Keep direct script entry points working in a clean checkout -- the same
+# guard pcf_bind_json.py already carries. Python puts only this engine
+# directory on sys.path for a direct `python3 qin_pack.py ...` invocation
+# (cli.py's "qin" build step runs it exactly that way), not the package's
+# repository root, so permute_pad_inputs_high's
+# `from agamemnon.engine import pcf_ports` raised ModuleNotFoundError even
+# with PYTHONPATH set at the shell: a pre-existing gap, reproduced on the
+# unmodified work/bram-sim-20260925 base (registered_input.v, and2.v), not
+# something this change introduced.
+_PACKAGE_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _PACKAGE_ROOT not in sys.path:
+    sys.path.insert(0, _PACKAGE_ROOT)
+
 
 def expand_uniform_bram_init(json_path):
     """Make a uniformly initialized narrow BRAM physical INIT deterministic.

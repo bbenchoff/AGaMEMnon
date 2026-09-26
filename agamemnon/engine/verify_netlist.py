@@ -35,13 +35,22 @@ def hrdata_bit_for_bel(bel):
 
 
 def sim_routed(routed_json, cycles=96, document=None, stimulus=None, probe=None,
-               bram_probe=None, bram_unconnected_data=0, dead_nets=(), qf_alias=()):
+               bram_probe=None, bram_unconnected_data=0, dead_nets=(), qf_alias=(),
+               pad_stimulus=None):
     """Simulate the routed netlist for `cycles` clocks. Returns (reads, bind):
        reads = per-cycle MCU-read value (bits ORed from each MCU_DOUT tap);
        bind  = {mcu-cell-name: (declared h<k>, bel AHB bit)} for the bind check.
        stimulus: optional callable(cycle, reads_so_far) -> {MCU_DIN/MCU cell name: 0|1}
        applied to that cell's DIN net for the cycle (an unlisted input holds its previous
        value; every MCU input starts at 0). Without it the sim is stimulus-free, as before.
+       pad_stimulus: optional {canonical net name: callable(cycle) -> 0|1} driving a plain
+       top-level input pad net directly (no MCU_DIN cell involved, e.g. a board-level reset
+       or button net on a standalone, non-MCU design). Unlisted pad nets default to 0, same
+       as an MCU input. Every GENERIC_SLICE carrying an `AGRV2K_ASYNC_CLEAR_NET` attribute
+       (the lifted/attribute-only shared-async-clear shape `lift_async_clear` produces in
+       agrv2k.cc) is modelled here: when that named net reads 1 at the clock edge, the
+       slice's Q clocks to 0 regardless of its LUT/INIT value, exactly like the real
+       CFG_TILEASYNCMUX-selected async clear line silicon presents to the slice's FF.
        probe: optional callable(cycle, value_of_net) invoked after each cycle's combinational
        evaluation, where value_of_net(canonical net name) -> 0|1 (for tracing a design offline).
        bram_probe: optional callable(cycle, brams) invoked after the clock edge with the
@@ -114,9 +123,10 @@ def sim_routed(routed_json, cycles=96, document=None, stimulus=None, probe=None,
                         "verify: slice %s input I[%d] is unconnected but INIT %04x depends on it; "
                         "an undriven LUT input reads 1 on silicon, so this netlist is not "
                         "predictable (packer cofactoring missing)" % (cn, k, init))
+            clear_net = c.get("attributes", {}).get("AGRV2K_ASYNC_CLEAR_NET")
             cells.append((netname(q[0]) if q else None, netname(f[0]) if f else None,
                           netname(cout[0]) if cout else None, init, I,
-                          netname(cin[0]) if cin else None, ffu))
+                          netname(cin[0]) if cin else None, ffu, clear_net))
         elif t == "MCU_DOUT":
             bel = c["attributes"].get("NEXTPNR_BEL", "")
             dn = c["connections"].get("DOUT", [])
@@ -134,7 +144,7 @@ def sim_routed(routed_json, cycles=96, document=None, stimulus=None, probe=None,
             if pin:
                 dout_bits.setdefault(netname(pin[0]), set()).add(0)
 
-    ff = {qn: 0 for (qn, fn, cout, init, I, cin, ffu) in cells if ffu and qn}
+    ff = {qn: 0 for (qn, fn, cout, init, I, cin, ffu, clear_net) in cells if ffu and qn}
     for bram in brams:
         for net in bram["out_a"] + bram["out_b"]:
             if net:
@@ -163,10 +173,13 @@ def sim_routed(routed_json, cycles=96, document=None, stimulus=None, probe=None,
                     raise KeyError("stimulus names no MCU_DIN/MCU cell %r" % cell_name)
                 if mcu_inputs[cell_name]:
                     inputs[mcu_inputs[cell_name]] = int(value) & 1
+        if pad_stimulus is not None:
+            for net, fn2 in pad_stimulus.items():
+                inputs[net] = int(fn2(cycle)) & 1
         comb = dict(inputs)                              # evaluate comb cells (FF_USED=0) to fixpoint
         for _it in range(len(cells) + 3):
             ch = False
-            for (qn, fn, cout, init, I, cin, ffu) in cells:
+            for (qn, fn, cout, init, I, cin, ffu, clear_net) in cells:
                 carry_mode = cin is not None or cout is not None
                 a = val(I[0], comb) if len(I) > 0 else 0
                 b = val(I[1], comb) if len(I) > 1 else 0
@@ -202,8 +215,11 @@ def sim_routed(routed_json, cycles=96, document=None, stimulus=None, probe=None,
         if probe is not None:
             probe(cycle, lambda net: val(net, comb))
         nxt = dict(ff)                                   # clock the FFs
-        for (qn, fn, cout, init, I, cin, ffu) in cells:
+        for (qn, fn, cout, init, I, cin, ffu, clear_net) in cells:
             if ffu and qn:
+                if clear_net is not None and val(clear_net, comb):
+                    nxt[qn] = 0                           # async clear dominates the clock edge
+                    continue
                 carry_mode = cin is not None or cout is not None
                 a = val(I[0], comb) if len(I) > 0 else 0
                 b = val(I[1], comb) if len(I) > 1 else 0

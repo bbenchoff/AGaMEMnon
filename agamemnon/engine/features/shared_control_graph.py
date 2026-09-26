@@ -75,25 +75,66 @@ SHARED_CONTROL_GRAPH_OPTION = "AGRV2K_SHARED_CONTROL_GRAPH"
 DUAL_NATIVE_CONTROL_OPTION = "AGRV2K_DUAL_NATIVE_CONTROL"
 MIXED_NATIVE_CONTROL_OPTION = "AGRV2K_MIXED_NATIVE_CONTROL"
 
+# Separate from SHARED_CONTROL_GRAPH_OPTION so a build can carry the
+# clock-enable graph without the async-clear one, or vice versa, and so the
+# registered physical-graph profiles for the two features stay distinct.
+# Kill switch: unset it (or pass --no-async-clear-reset at the CLI) to fall
+# back to the pre-N4.2 refusal.  Normal ``build --uarch`` sets it, matching
+# the witnessed-means-default-on policy.
+ASYNC_CLEAR_GRAPH_OPTION = "AGRV2K_SHARED_CONTROL_ASYNC_CLEAR"
+
 # Lives one level up in agamemnon/engine/ rather than beside this module: the
 # repository ignores *.csv globally and re-includes only ``agamemnon/engine/*.csv``,
 # not the features/ subdirectory. A table placed here would be silently dropped
 # from a commit and the feature would fail to load on a fresh clone.
 EDGE_TABLE = Path(__file__).resolve().parent.parent / "tile_control_edges.csv"
 
+#: CtrlMUX -> TileAsyncMUX edges, kept in a table of their own rather than
+#: merged into ``EDGE_TABLE``.  Every row here is the SAME uniform topology
+#: (CtrlMUX03 -> TileAsyncMUX01), computed for all 132 LogicTiles from the
+#: formula in :mod:`agamemnon.engine.control_encode`, not individually
+#: harvested per tile the way ``EDGE_TABLE``'s rows were -- their ``tier`` is
+#: ``formula``, not ``observed``, and callers must not conflate the two.  See
+#: ``control_encode.FAMILY_SOURCE_COLUMNS`` for the evidence behind the one
+#: claimed column (CFG_TILEASYNCMUX index 1).
+#:
+#: The CtrlMUX INSTANCE NUMBER is not a guess and is not shared with the
+#: clock-enable/sync instances below: it is board-independent vendor-routed
+#: evidence at X14Y10, decoded twice (2026-09-05/06,
+#: AG32-Docs docs/archive/2026-09/GPT6_ASYNC_CONTROL_ROUTE_INVENTORY_2026-09-05.md
+#: and tools/vendor_parity/gpt6_async_independent_sources_20260906/RESULT.json):
+#: CtrlMUX01 -> TileAsyncMUX00 (line 0) and CtrlMUX03 -> TileAsyncMUX01 (line
+#: 1), both at fixed placement, across four independent seeds/sources. This is
+#: the OPPOSITE pairing from clock-enable/sync's LINE_OF_CTRL below (there,
+#: even instances 0/2 drive lines 1/0; here, odd instances 1/3 drive lines
+#: 0/1) -- reusing LINE_OF_CTRL for async (2026-09-25) silently wrote a
+#: self-consistent but electrically disconnected CtrlMUX00, which never
+#: reaches TileAsyncMUX on real silicon and was the root cause of the first
+#: board round's CONTROL_FAIL/RATE_FAIL (0 edges, reset never actually
+#: asserted). See ASYNC_LINE_OF_CTRL / ASYNC_SOURCE_OF_CTRL.
+ASYNC_EDGE_TABLE = Path(__file__).resolve().parent.parent / "async_control_edges.csv"
+
 #: Control-line families a control signal terminates on.
-CONTROL_SINKS = ("TileClkEnMUX", "TileSyncMUX")
+CONTROL_SINKS = ("TileClkEnMUX", "TileSyncMUX", "TileAsyncMUX")
 
 #: Cell/bel type owning one tile clock-enable line. The packer creates one per
 #: (tile, enable net) and binds it so the net has a legal sink.
 TILE_CONTROL_BEL = "AGRV2K_TILE_CONTROL"
 
 #: First z past the sixteen slices, so a tile's control bels never collide with
-#: a slice bel inside a relative cluster.
+#: a slice bel inside a relative cluster.  Clock-enable sinks sit at
+#: TILE_CONTROL_Z_BASE + {0,1} (z=16/17); async-clear sinks are placed at
+#: ASYNC_CONTROL_Z_BASE + {0,1} (z=18/19) so the two families can never
+#: collide inside one relative cluster even if a future design mixes them.
 TILE_CONTROL_Z_BASE = 16
+ASYNC_CONTROL_Z_BASE = 18
 
 #: Sink resource -> the family name :mod:`control_encode` uses.
-FAMILY_OF_SINK = {"TileClkEnMUX": "clock_enable", "TileSyncMUX": "sync"}
+FAMILY_OF_SINK = {
+    "TileClkEnMUX": "clock_enable",
+    "TileSyncMUX": "sync",
+    "TileAsyncMUX": "async_clear",
+}
 
 #: Which shared line each ``CtrlMUX`` instance drives, and from which of the two
 #: source positions. Read straight off the harvested edges: instances 0 and 1
@@ -101,6 +142,16 @@ FAMILY_OF_SINK = {"TileClkEnMUX": "clock_enable", "TileSyncMUX": "sync"}
 #: and 1), with no exception in 1,074 edges.
 LINE_OF_CTRL = {0: 1, 1: 1, 2: 0, 3: 0}
 SOURCE_OF_CTRL = {0: "ctrl_a", 1: "ctrl_b", 2: "ctrl_a", 3: "ctrl_b"}
+
+#: The same two fields, but for TileAsyncMUX specifically: instances 1 and 3
+#: drive lines 0 and 1 respectively (the reverse pairing from the clock-enable
+#: /sync instances above), each the sole source for its line -- there is no
+#: witnessed "b" alternate source for async the way clock-enable/sync have
+#: two instances per line, so every entry maps to "ctrl_a", the one column
+#: ``control_encode.FAMILY_SOURCE_COLUMNS["async_clear"]`` claims. Evidence:
+#: see the comment on ``ASYNC_EDGE_TABLE`` above.
+ASYNC_LINE_OF_CTRL = {1: 0, 3: 1}
+ASYNC_SOURCE_OF_CTRL = {1: "ctrl_a", 3: "ctrl_a"}
 
 _WIRE = re.compile(r"X(\d+)Y(\d+)_([A-Za-z]+)(\d+)$")
 
@@ -152,6 +203,12 @@ def load_control_edges(path=None):
         return list(csv.DictReader(handle))
 
 
+def load_async_control_edges(path=None):
+    """Read the CtrlMUX -> TileAsyncMUX edges. See ``ASYNC_EDGE_TABLE``."""
+    with open(path or ASYNC_EDGE_TABLE, newline="", encoding="utf-8") as handle:
+        return list(csv.DictReader(handle))
+
+
 def _wire(x, y, resource):
     return "X%sY%s_%s" % (x, y, resource)
 
@@ -184,31 +241,43 @@ def logic_tiles(chipdb_root=None):
 class SharedControlGraphFeature:
     descriptor = FeatureDescriptor(
         feature_id="shared_control_graph",
-        options=(SHARED_CONTROL_GRAPH_OPTION,),
-        # The edge table ships beside this module rather than in chipdb/. That
+        options=(SHARED_CONTROL_GRAPH_OPTION, ASYNC_CLEAR_GRAPH_OPTION),
+        # The edge tables ship beside this module rather than in chipdb/. That
         # directory is content fingerprinted and adding a file there escalates
         # to a full rebuild-and-compare of every retained qualified artifact,
         # which is a gate this data has not been through.
         chipdb_files=(),
         writable_regions=(),
         phase=EmissionPhase.ROUTING,
-        evidence=("docs/NATIVE_CLOCK_ENABLE_EXPERIMENT.md",),
+        evidence=("docs/NATIVE_CLOCK_ENABLE_EXPERIMENT.md", "docs/ASYNC_CLEAR_RESET.md"),
         maturity="release",
         evidence_tier="individually_qualified",
         architecture=(
             "Add the harvested CtrlMUX and tile control-line pips so a register "
-            "control signal can reach a tile's shared line."
+            "control signal can reach a tile's shared line (clock enable: both "
+            "tile lines; async clear: the one board-evidenced CtrlMUX0->line-1 "
+            "route, gated independently on AGRV2K_SHARED_CONTROL_ASYNC_CLEAR)."
         ),
         bitstream=(
             "Resolve each routed control edge to its selector bits: the tile "
             "line's source position, the CtrlMUX source pair, and CFG_CLKMUX<z> "
-            "for slices taking line 1. Fails closed on an edge it cannot "
-            "resolve."
+            "for clock-enable slices taking line 1. Fails closed on an edge it "
+            "cannot resolve. Async clear claims one exact bit "
+            "(control_encode.FAMILY_SOURCE_COLUMNS['async_clear']) and no "
+            "per-slice bit -- the default per-slice selector already selects "
+            "the claimed line."
         ),
     )
 
     def add_architecture(self, context):
-        if not os.environ.get(SHARED_CONTROL_GRAPH_OPTION):
+        # The two flags are independent (a build can carry async-clear's
+        # graph without clock-enable's, e.g. --no-native-clock-enable, or
+        # vice versa): only bail out here if NEITHER wants anything, and gate
+        # each block below on its own flag so an unset one contributes
+        # nothing to the graph -- and to physical_graph_profiles.json's
+        # identity -- exactly as before this feature existed.
+        if not os.environ.get(SHARED_CONTROL_GRAPH_OPTION) and \
+                not os.environ.get(ASYNC_CLEAR_GRAPH_OPTION):
             return 0
         ctx, Loc = context.ctx, context.loc
         wires = context.shared["wires"]
@@ -225,7 +294,29 @@ class SharedControlGraphFeature:
         added = 0
         skipped_missing = 0
         skipped_present = 0
-        for row in load_control_edges():
+        base_on = bool(os.environ.get(SHARED_CONTROL_GRAPH_OPTION))
+        async_on = bool(os.environ.get(ASYNC_CLEAR_GRAPH_OPTION))
+        # tile_control_edges.csv is not clock-enable/sync-only: 811 of its
+        # 1,074 rows are the wire -> CtrlMUX INPUT half (dst_res starts with
+        # "CtrlMUX"), the shared infrastructure every family's control signal
+        # routes through on its way to a tile line. Only the remaining rows
+        # (dst_res "TileClkEnMUX"/"TileSyncMUX") are clock-enable/sync's own
+        # OUTPUT half. Loading the whole table only under base_on -- as an
+        # earlier version of this fix did -- silently starved async_clear of
+        # its own CtrlMUX input edges whenever a build carried async_clear
+        # without the base flag (e.g. --no-native-clock-enable): reproduced
+        # 2026-09-25 building clk_rst_high.v, which then had no admitted path
+        # from any pad to any LogicTile CtrlMUX at all.
+        edge_rows = []
+        if base_on or async_on:
+            for row in load_control_edges():
+                if row["dst_res"].startswith("CtrlMUX"):
+                    edge_rows.append(row)          # shared input half
+                elif base_on:
+                    edge_rows.append(row)          # clock-enable/sync output half
+        if async_on:
+            edge_rows += load_async_control_edges()
+        for row in edge_rows:
             source = _wire(row["src_x"], row["src_y"], row["src_res"])
             destination = _wire(row["dst_x"], row["dst_y"], row["dst_res"])
             # Only connect wires this device actually has. A row naming a wire
@@ -254,7 +345,7 @@ class SharedControlGraphFeature:
         return added
 
     def _add_control_sinks(self, context):
-        """Give an enable net somewhere to terminate.
+        """Give an enable (or async-clear) net somewhere to terminate.
 
         A routed net has to end on a bel pin, and the enable does not reach a
         slice: a tile control line is a pure sink, and each slice picks which of
@@ -263,31 +354,55 @@ class SharedControlGraphFeature:
         as a per-slice ``CE`` pin -- a pin there would model a wire the hardware
         does not have.
 
-        Placed at ``z = 16 + line``, past the sixteen slice positions, so a
-        relative cluster can carry a control cell and its registers in one tile
-        without colliding with a slice bel.
+        Clock-enable sinks are placed at ``z = TILE_CONTROL_Z_BASE + line``
+        (16/17), past the sixteen slice positions, so a relative cluster can
+        carry a control cell and its registers in one tile without colliding
+        with a slice bel.
 
-        Clock enable only. Sync gets no sink because its per-slice line
-        selection is not established, and a sink the packer could bind but the
-        emitter must refuse is worse than no sink at all.
+        Sync gets no sink because its per-slice line selection is not
+        established, and a sink the packer could bind but the emitter must
+        refuse is worse than no sink at all.
+
+        Async-clear gets ONE sink, line 1 only (``z = ASYNC_CONTROL_Z_BASE``,
+        18): the only tile line this flow has a board-evidenced codeword for
+        (``control_encode.FAMILY_SOURCE_COLUMNS["async_clear"]``). Line 0 is
+        omitted the same way sync's sink is omitted -- no evidence, no sink --
+        which also means the router has no way to pick it, so an ordinary
+        build cannot land on an unresolvable async route.
         """
         ctx, Loc = context.ctx, context.loc
         wires = context.shared["wires"]
         bels = 0
-        for x, y in sorted(logic_tiles()):
-            for line in range(2):
-                wire = _wire(x, y, "TileClkEnMUX%02d" % line)
-                if wire not in wires:
-                    continue
-                bel = "X%dY%d_CLKEN%d" % (x, y, line)
-                ctx.addBel(name=bel, type=TILE_CONTROL_BEL,
-                           loc=Loc(x, y, TILE_CONTROL_Z_BASE + line),
-                           gb=False, hidden=False)
-                ctx.addBelInput(bel=bel, name="I", wire=wire)
-                bels += 1
+        if os.environ.get(SHARED_CONTROL_GRAPH_OPTION):
+            for x, y in sorted(logic_tiles()):
+                for line in range(2):
+                    wire = _wire(x, y, "TileClkEnMUX%02d" % line)
+                    if wire not in wires:
+                        continue
+                    bel = "X%dY%d_CLKEN%d" % (x, y, line)
+                    ctx.addBel(name=bel, type=TILE_CONTROL_BEL,
+                               loc=Loc(x, y, TILE_CONTROL_Z_BASE + line),
+                               gb=False, hidden=False)
+                    ctx.addBelInput(bel=bel, name="I", wire=wire)
+                    bels += 1
         context.shared["shared_control_bels"] = bels
         print("AGRV2K arch: added %d tile clock-enable sink bels" % bels)
-        return bels
+
+        async_bels = 0
+        if os.environ.get(ASYNC_CLEAR_GRAPH_OPTION):
+            for x, y in sorted(logic_tiles()):
+                wire = _wire(x, y, "TileAsyncMUX01")
+                if wire not in wires:
+                    continue
+                bel = "X%dY%d_ASYNCCLR1" % (x, y)
+                ctx.addBel(name=bel, type=TILE_CONTROL_BEL,
+                           loc=Loc(x, y, ASYNC_CONTROL_Z_BASE),
+                           gb=False, hidden=False)
+                ctx.addBelInput(bel=bel, name="I", wire=wire)
+                async_bels += 1
+            context.shared["async_control_bels"] = async_bels
+            print("AGRV2K arch: added %d tile async-clear sink bels" % async_bels)
+        return bels + async_bels
 
     # ---------------------------------------------------------------- emit
 
@@ -315,6 +430,16 @@ class SharedControlGraphFeature:
         control_tiles = set()
         for name, cell in cells.items():
             if cell.get("type") != TILE_CONTROL_BEL:
+                continue
+            # Async-clear control cells share this bel TYPE but have their own
+            # sink (ASYNCCLR1, one line only) and need no per-slice line
+            # resolution: every async-clear slice takes the tile's line via
+            # the default (cleared) CFG_ASYNCMUX<z>, so nothing here concerns
+            # them. Recognise them by mode, not by inferring absence from a
+            # failed CLKEN name match, so a genuine naming mistake still
+            # raises below instead of being silently skipped.
+            if cell.get("attributes", {}).get(
+                    "AGRV2K_SHARED_CONTROL_MODE") == "ASYNC_CLEAR_POS_ZERO":
                 continue
             bel = cell.get("attributes", {}).get("NEXTPNR_BEL")
             if not bel:
@@ -431,11 +556,13 @@ class SharedControlGraphFeature:
                     raise SharedControlEmitError(
                         "%s is driven by %s, but a tile control line takes only "
                         "a CtrlMUX" % (destination_text, source_text))
-                if LINE_OF_CTRL[source_index] != destination_index:
+                line_of_ctrl = ASYNC_LINE_OF_CTRL if family == "async_clear" else LINE_OF_CTRL
+                source_of_ctrl = ASYNC_SOURCE_OF_CTRL if family == "async_clear" else SOURCE_OF_CTRL
+                if source_index not in line_of_ctrl or line_of_ctrl[source_index] != destination_index:
                     raise SharedControlEmitError(
-                        "CtrlMUX%d drives line %d, not the line %d named by %s"
-                        % (source_index, LINE_OF_CTRL[source_index],
-                           destination_index, destination_text))
+                        "CtrlMUX%d drives line %r, not the line %d named by %s"
+                        % (source_index, line_of_ctrl.get(source_index), destination_index,
+                           destination_text))
                 if (dx, dy) not in logic_tiles():
                     # The BRAM column at x=13 carries CtrlMUX and tile control
                     # lines too, and the corpus has 17 such edges -- but the
@@ -449,7 +576,7 @@ class SharedControlGraphFeature:
                         % (dx, dy, pip))
                 assignment = control_encode.ControlAssignment(
                     dx, dy, family, destination_index,
-                    SOURCE_OF_CTRL[source_index])
+                    source_of_ctrl[source_index])
                 key = (dx, dy, family, destination_index)
                 if state.tile_lines.get(key) not in (None, assignment.source):
                     raise SharedControlEmitError(
