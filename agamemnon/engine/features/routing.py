@@ -802,6 +802,7 @@ class RoutingFeature:
             "sel_edge_pairs.agdb", "sel_tables.agdb", "train_lut.agdb",
             "selector_conflict_atlas.agdb", "research_knowledge_manifest.json",
             "routing_selector_admission.json",
+            "selector_alias_repair.csv", "codeword_board_witness.csv",
             "rrg_edges_full.csv", "rrg_omux_imux_full.csv",
             "rrg_rmux_imux_full.csv", "dead_edges_silicon.csv",
             "exit_feeder_whitelist.csv", "master_conduction.csv",
@@ -1433,6 +1434,41 @@ class RoutingFeature:
         # consistent across every observation.  In strict mode, prune uncertain mesh edges before nextpnr sees
         # them, so the router finds another route instead of bitgen silently using an 84--98% predictor.
         CLEAN_SEL_GATE = bool(os.environ.get("AGAMEMNON_CLEAN_SEL_GATE"))
+        # DECODE-UNIQUENESS GATE (AGAMEMNON_DECODE_UNIQUE_GATE=1).  CLEAN_SEL_GATE
+        # above answers "which bits does this edge need"; it never asks whether those
+        # bits uniquely NAME this source among the destination's fan-in.  Several
+        # fan-in sources of one node can share one codeword, and then the emitted
+        # image does not determine which of them silicon selects; when the selection
+        # lands on an undriven node the input reads 1.  That is the tier-3 criterion
+        # as routing_tiers states it -- emission could write a codeword that selects
+        # the WRONG source -- but no gate here was testing for it.
+        #
+        # Deliberately independent of the admission model: the two silicon-proven
+        # instances (AG32-Docs 2026-09-09 BRAM address defect) were in a
+        # research-unsafe build, where the tier machinery never runs.  Refuses only
+        # aliased edges with no per-position vendor witness: 6,237 edges (2.13%),
+        # starving zero destination nodes, mean fan-in cost 1.38%.
+        DECODE_UNIQUE_GATE = bool(os.environ.get("AGAMEMNON_DECODE_UNIQUE_GATE"))
+        DECODE_UNIQUE = (routing_tiers.DecodeUniqueness.from_chipdb(DATA)
+                         if DECODE_UNIQUE_GATE else None)
+        # SELECTOR-ALIAS REPAIR (AGAMEMNON_ALIAS_REPAIR=1; OPT-IN for now).
+        # Drops rows whose recorded codeword was attributed to another source of
+        # the same mux. Unlike the gate above this is not a precaution: a mux has
+        # one input per code, so a contested row's codeword is known-wrong, and
+        # keeping it lets the router program the mux to select a DIFFERENT input
+        # -- undriven in most designs, and an undriven node reads 1.
+        #
+        # Opt-in rather than default DESPITE being a correctness fix: it removes
+        # ~7k rows, which moves graph_pip_count and so trips the D0 route-invariance
+        # check that binds every retained qualified artifact to an exact graph.
+        # Those artifacts must be re-qualified before this can become the default;
+        # flipping it silently would invalidate their evidence. See
+        # AG32-Docs docs/BRAM_SELECTOR_ALIASING_ROOTCAUSE_20260909.md.
+        ALIAS_REPAIR = (routing_tiers.SelectorAliasRepair.from_chipdb(DATA)
+                        if os.environ.get("AGAMEMNON_ALIAS_REPAIR") == "1" else None)
+        if ALIAS_REPAIR is not None and len(ALIAS_REPAIR):
+            print("AGRV2K arch: selector-alias repair active (%d contested rows)"
+                  % len(ALIAS_REPAIR))
         CLEAN_SEL_PREFER = bool(os.environ.get("AGAMEMNON_CLEAN_SEL_PREFER"))
         CLEAN_SEL_PENALTY_NS = OPTIONS.number("AGAMEMNON_CLEAN_SEL_PENALTY")
         CLEAN_SEL_EDGE = {}
@@ -1459,6 +1495,47 @@ class RoutingFeature:
             # corpus_conduction.csv: topology evidence is not a codeword.
             EXACT_HARD_BOUNDARY = MCU_AHB_FEATURE.load_routing_metadata(
                 context.chipdb_root, OPTIONS).exact_pips
+        # CODEWORD-OWNERSHIP GATE (AGAMEMNON_OWNERSHIP_GATE=1; OPT-IN).
+        # SelectorCertainty already applies this to INFERRED selectors, but a
+        # tier-1 edge never reaches it: is_trusted grants tier 1 on a vendor route
+        # occupancy witness, and occupancy is topology, not selection. This closes
+        # that path by refusing any edge whose codeword a different real driver was
+        # physically observed using -- including witnessed ones.
+        # DISTANCE-ENCODING GATE (AGAMEMNON_DISTANCE_GATE=1; OPT-IN). Refuses an
+        # inferred selector that contradicts the distance encoding the observations
+        # exhibit. Narrowly scoped: interior rows only, |dy| >= 2, and a physical
+        # observation always wins. 824 edges, zero nodes starved.
+        DISTANCE_GATE = os.environ.get("AGAMEMNON_DISTANCE_GATE") == "1"
+        DISTANCE = (routing_tiers.DistanceEncoding(CLEAN_SEL_EDGE, CLEAN_SEL_REL)
+                    if DISTANCE_GATE else None)
+        if DISTANCE is not None and not CLEAN_SEL_EDGE:
+            raise ValueError(
+                "AGAMEMNON_DISTANCE_GATE needs the clean-sel corpus; without "
+                "observations there is no encoding to compare against")
+        # UNMODELLED-ADJACENT-ROW GATE (AGAMEMNON_ADJACENT_ROW_GATE=1; OPT-IN).
+        # DistanceEncoding EXCLUDES |dy|==1 because a hidden variable governs its
+        # low sel (~11% second mode). That exclusion admits a class the model
+        # cannot predict, which is inference. This refuses it instead. Blast
+        # radius measured before shipping: 41,793/550,664 edges (7.59%), 38
+        # destination nodes starved -- which is why it is opt-in and off by
+        # default. Validated against the standing regression set with ZERO fatal
+        # over-refusals; see routing_tiers.UnmodelledAdjacentRow.
+        ADJACENT_ROW_GATE = os.environ.get("AGAMEMNON_ADJACENT_ROW_GATE") == "1"
+        ADJACENT_ROW = routing_tiers.UnmodelledAdjacentRow() if ADJACENT_ROW_GATE else None
+        if ADJACENT_ROW is not None:
+            print("AGRV2K arch: unmodelled-adjacent-row gate ON "
+                  "(refuses dx=0, |dy|=1 RMUX->RMUX)")
+        OWNERSHIP_GATE = os.environ.get("AGAMEMNON_OWNERSHIP_GATE") == "1"
+        CODEWORD_OWNER = (routing_tiers.CodewordOwnership.from_chipdb(DATA, CLEAN_SEL_EDGE)
+                          if OWNERSHIP_GATE else None)
+        if CODEWORD_OWNER is not None:
+            if not CLEAN_SEL_EDGE:
+                raise ValueError(
+                    "AGAMEMNON_OWNERSHIP_GATE needs the clean-sel corpus "
+                    "(AGAMEMNON_CLEAN_SEL_GATE or AGAMEMNON_CLEAN_SEL_PREFER); "
+                    "without observations there is no ownership to enforce")
+            print("AGRV2K arch: codeword-ownership gate ON (%d observed owners)"
+                  % len(CODEWORD_OWNER))
         # Tier 2 rests on the SAME two tables the clean-sel gate already trusts for emission, and on
         # nothing else: an exact conflict-free physical observation, or a tile-relative key that every
         # physical occurrence agrees on. Majority votes, mesh-template predictions, trained predictions
@@ -1481,9 +1558,16 @@ class RoutingFeature:
                 )
             SELECTOR_CERTAINTY = routing_tiers.SelectorCertainty(
                 CLEAN_SEL_EDGE, CLEAN_SEL_REL, _csr_conflict,
-                allow_closed_form=ADMISSION == "tiered")
+                allow_closed_form=ADMISSION == "tiered",
+                enforce_ownership=OWNERSHIP_GATE)
+
         _tier2_rows = []
         _tier2_seen = set()
+        _decode_ambiguous = 0
+        _alias_repaired = 0
+        _owner_refused = 0
+        _distance_refused = 0
+        _adjacent_row_refused = 0
         _witnessed_pips = set()
         _tier_counts = collections.Counter()
         def _clean_sel_encodable(r):
@@ -1867,6 +1951,22 @@ class RoutingFeature:
                     skipped += 1; continue
                 if CLEAN_SEL_GATE and not _clean_sel_encodable(r):
                     _sel_pruned += 1; continue
+                if DISTANCE is not None and DISTANCE.should_refuse(r):
+                    _distance_refused += 1; continue
+                if ADJACENT_ROW is not None and ADJACENT_ROW.should_refuse(r):
+                    _adjacent_row_refused += 1; continue
+                if CODEWORD_OWNER is not None and CODEWORD_OWNER.should_refuse(r):
+                    _owner_refused += 1; continue
+                # Deliberately NOT restricted to rrg_edges_full.csv. The same pip is
+                # often supplied by corpus_conduction.csv as well, and `seen_pip`
+                # dedup means whichever file is read first wins -- so filtering only
+                # the primary table let 12 contested edges back into the graph while
+                # the repair reported them retired. A silent partial refusal is worse
+                # than none, because it is invisible in the counts.
+                if ALIAS_REPAIR is not None and ALIAS_REPAIR.should_refuse(r):
+                    _alias_repaired += 1; continue
+                if DECODE_UNIQUE is not None and DECODE_UNIQUE.should_refuse(r):
+                    _decode_ambiguous += 1; continue
                 # AGAMEMNON_OBS_IMUX: LUT-input crossbar (x->IMUX) only from OBSERVED edges — the RMUX->IMUX
                 # sel-encoding is table-coverage-limited, so enumerated guesses drop the signal before the LUT.
                 if os.environ.get("AGAMEMNON_OBS_IMUX") and fam(r["dst_res"]) == "IMUX" \
@@ -1991,6 +2091,12 @@ class RoutingFeature:
                  "tier_3_refused_at_clean_sel_prune": _sel_pruned,
                  "tier_3_refused_at_admission_gate":
                      _tier_counts[routing_tiers.TIER_AMBIGUOUS],
+                 "tier_3_refused_at_decode_uniqueness": _decode_ambiguous,
+                 "rows_dropped_by_selector_alias_repair": _alias_repaired,
+                 "rows_refused_by_codeword_ownership": _owner_refused,
+                 "rows_refused_by_distance_encoding": _distance_refused,
+                 "rows_refused_by_adjacent_row": _adjacent_row_refused,
+                 "decode_uniqueness_gate": bool(DECODE_UNIQUE_GATE),
                  "clean_sel_physical_keys": len(CLEAN_SEL_EDGE),
                  "clean_sel_unanimous_relative_keys": len(CLEAN_SEL_REL),
                  "clean_sel_conflicting_relative_keys": len(_csr_conflict),

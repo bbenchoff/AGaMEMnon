@@ -165,6 +165,454 @@ def closed_form_is_legal_fanin(dst_fam, dst_idx, pair):
     return all(block + local in legal for local in pair)
 
 
+class UnmodelledAdjacentRow:
+    """Refuses same-column adjacent-row RMUX hops, the class we admit but cannot predict.
+
+    ``DistanceEncoding`` documents why it EXCLUDES ``|dy| == 1``: the low sel has
+    a genuine second mode (``lo=3`` 10,019 times against ``lo=6`` 1,238, ~11%)
+    that is "NOT explained by dx offset, the high sel, ``src_idx % 6`` or
+    ``dst_idx % 6``. Some hidden variable governs it."
+
+    That exclusion is an ADMISSION: for this class the model has no prediction,
+    and the gate therefore lets the edge through. Admitting what we cannot
+    predict is inference. This refuses it instead.
+
+    Scope is deliberately the narrowest cut that covers the class:
+
+    * ``dx == 0`` only. A hop with ``dx != 0`` is governed by the horizontal
+      encoding, not this one -- and the board-proven working route's second hop
+      is ``dx=-1, dy=0``, which must survive.
+    * ``|dy| == 1`` only. ``dy == 0`` is the intra-tile crossbar, an entirely
+      different mechanism; three shipped qualification artifacts are same-tile
+      hops and refusing them would be a fatal over-refusal.
+    * RMUX -> RMUX only.
+
+    WHAT THIS IS NOT. It is not a claim that these edges are dead, nor that their
+    codewords are wrong -- the failing chain's hops each carry the codeword the
+    vendor itself uses, verified against 21M corpus rows. It is a refusal to ROUTE
+    through a class whose selector encoding has a known unmodelled discriminator.
+    Admission is a separate axis from selector attribution, so this does not let a
+    closed form overrule a physical observation; an observed edge keeps its
+    codeword, it simply is not chosen.
+
+    Validated against the standing regression set, which is what matters -- a
+    refusal rule tested only on known failures confirms whatever you already
+    believe:
+
+        refuses  BROKEN h1/h2 (0,-1)      the failing write_pending hops
+        refuses  RMUX87->RMUX59 (0,+1)    VP-AGM-001
+        refuses  RMUX07->RMUX46 (0,+1)    hand-withdrawn
+        keeps    RMUX80->RMUX43 (0,-4)    board-proven working route
+        keeps    RMUX43->RMUX95 (-1,0)    board-proven working route
+        keeps    RMUX27->RMUX20 (0,+3)    SERV smoke, toggling board witness
+        keeps    three same-tile (0,0)    shipped qualification artifacts
+
+        ZERO fatal over-refusals.
+
+    It is INCOMPLETE, not wrong: it does not catch ``RMUX25->RMUX00`` (0,-3) or
+    the failing chain's third hop (0,-2). A gate that under-refuses is safe; one
+    that over-refuses destroys real capacity.
+
+    BLAST RADIUS, measured before shipping: 41,793 of 550,664 edges (7.59%) and
+    38 destination nodes starved. That is real and is why this is OPT-IN.
+    """
+
+    @staticmethod
+    def refuses(src_x, src_y, dst_x, dst_y, src_res, dst_res):
+        if not (str(src_res).startswith("RMUX") and str(dst_res).startswith("RMUX")):
+            return False
+        return (dst_x - src_x) == 0 and abs(dst_y - src_y) == 1
+
+    def should_refuse(self, row):
+        try:
+            return self.refuses(int(row["src_x"]), int(row["src_y"]),
+                                int(row["dst_x"]), int(row["dst_y"]),
+                                row.get("src_res", ""), row.get("dst_res", ""))
+        except (KeyError, TypeError, ValueError):
+            return False
+
+
+class DistanceEncoding:
+    """Refuses an INFERRED selector that contradicts the observed distance encoding.
+
+    Derived from the observation corpus, not assumed. For inter-tile RMUX->RMUX
+    edges the LOW sel is determined by ``dy = dst_y - src_y``::
+
+        dy   -4  -3  -2  -1 |  +1  +2  +3  +4
+        lo    6   5   4   3 |   6   0   1   2
+            100% 99% 99% 88%| 87% 99% 98% 100%
+
+    i.e. ``lo = |dy| + 2`` one way and ``(|dy| - 2) mod 7`` the other. 90.1% of
+    56,493 inter-tile rows obey it, and 98-100% for every ``|dy| >= 2``.
+
+    **A regularity, not a law**, so the scope is deliberately narrow:
+
+    * ``dy == 0`` is excluded: a same-tile low sel must encode WHICH of many
+      intra-tile sources, so it spreads across all values.
+    * ``|dy| == 1`` is excluded: there is a genuine second mode (``lo=3`` 10,019
+      times vs ``lo=6`` 1,238) that is NOT explained by dx offset, the high sel,
+      ``src_idx % 6`` or ``dst_idx % 6``. Some hidden variable governs it.
+    * Boundary rows are excluded. Destinations in the top IO row obey the rule
+      **6.2% of the time** (1 of 16) -- that row simply encodes differently.
+      Ignoring this flagged all 16 shipped pad-qualification artifacts, every one
+      of them wrongly.
+    * A PHYSICAL observation always wins. It outranks a derived regularity, so an
+      edge observed at its own coordinate is never refused whatever the rule says.
+
+    That leaves exactly one target: a selector emission would resolve by
+    *relative translation*, contradicted by the encoding the observations
+    themselves exhibit. 824 edges (0.28%), **zero** destination nodes starved.
+
+    It flags both halves of the 2026-09-09 BRAM defect -- the crossover-proven
+    `hwdata[5]` hop and the word-bit-6 ground branch -- while respecting the
+    codeword's true owner. Word bit 6 is the notable one: the crossover could not
+    prove it and that prediction is recorded as refuted, so this is independent
+    support from data the board never touched.
+
+    It does NOT subsume `CodewordOwnership`: VP-AGM-001 sits at ``|dy| == 1``, in
+    the excluded zone. The two cover different ground and agree where they meet.
+    """
+
+    #: tile grid is y=1..13; rows 1 and 13 are IO and encode differently.
+    INTERIOR = range(2, 13)
+
+    def __init__(self, clean_edge=None, relative_edge=None):
+        self.clean_edge = clean_edge or {}
+        self.relative_edge = relative_edge or {}
+
+    @staticmethod
+    def expected_low(dy):
+        """The low sel the corpus associates with this signed distance."""
+        if dy == 0 or abs(dy) < 2:
+            return None
+        return (abs(dy) + 2) if dy < 0 else ((abs(dy) - 2) % 7)
+
+    def should_refuse(self, row):
+        if not (row["src_res"].startswith("RMUX") and row["dst_res"].startswith("RMUX")):
+            return False
+        try:
+            sx, sy = int(row["src_x"]), int(row["src_y"])
+            dx, dy = int(row["dst_x"]), int(row["dst_y"])
+            si, di = int(row["src_res"][4:]), int(row["dst_res"][4:])
+        except (TypeError, ValueError):
+            return False
+        if sy not in self.INTERIOR or dy not in self.INTERIOR:
+            return False
+        expected = self.expected_low(dy - sy)
+        if expected is None:
+            return False
+        if self.clean_edge.get((dx, dy, "RMUX", di, "RMUX", sx, sy, si)) is not None:
+            return False                      # observation outranks the regularity
+        pair = self.relative_edge.get(("RMUX", di, "RMUX", si, dx - sx, dy - sy))
+        if pair is None:
+            return False                      # unresolved: emission refuses anyway
+        return min(pair) != expected
+
+
+class CodewordOwnership:
+    """Refuses any edge whose codeword a DIFFERENT real driver was observed using.
+
+    `SelectorCertainty` applies this test to inferred selectors, but an edge
+    admitted as tier 1 never reaches it: `is_trusted` grants tier 1 on a vendor
+    route occupancy witness, and occupancy is topology. A vendor route proves the
+    wire was used; it does not prove which codeword selected it. So an edge can be
+    routed today whose codeword provably belongs to someone else.
+
+    That is not hypothetical. `X18Y2_RMUX27 -> X18Y5_RMUX20` and
+    `X18Y3_RMUX27 -> X18Y6_RMUX20` are used by seven retained designs, and the
+    pair 2/9 at those destinations is physically observed for `X18Y1_RMUX75` and
+    `X18Y2_RMUX75`. The first is the case `routing_selectors` already documents
+    in NONPORTABLE_RELATIVE_KEYS; the second is the same shape one row over and
+    is not named anywhere. Withdrawing the relative KEY does not stop either,
+    because both are admitted on the witness.
+
+    Sources that cannot drive a routing mux are excluded from conferring
+    ownership as well as from holding it -- an IMUX co-sink recorded by path
+    adjacency must not be able to evict a real driver.
+
+    Blast radius on the shipped table: 5,767 edges, two destination nodes left
+    without fan-in. It only ever refuses.
+
+    **This is a hazard heuristic, not a proof, and it has a known false
+    positive.** The premise "a mux has one input per select code, so an
+    observation of A using C proves B cannot" is NOT universally true here.
+    `X18Y3_RMUX27 -> X18Y6_RMUX20` carries `mem_rdt[6]` in the shipped
+    `serv_rv32i_smoke_L48`, which passes on hardware, and bit 6 of that program's
+    instruction words is 1 in five and 0 in six -- so the net must toggle, and a
+    stuck net (an undriven node reads 1) would misdecode the opcodes. Yet [2,9]
+    at that destination is physically observed for `X18Y2_RMUX75`. Both sources
+    evidently work over the same codeword.
+
+    Meanwhile the opposite is equally well established: `X15Y7_RMUX25 ->
+    X15Y4_RMUX00` over [6,9] was proven on silicon NOT to deliver, by a
+    clear-polarity crossover. So a shared codeword sometimes delivers and
+    sometimes does not, and nothing in the tables currently distinguishes the two
+    cases. That is why this gate ships opt-in and why board witnesses are honoured
+    as exemptions rather than being argued away.
+
+    What the conflicts ARE, structurally: of the 5,767 claimant/owner pairs,
+    **98.7% have |idx(owner) - idx(claimant)| == 48**, and 48 is exactly half the
+    0..95 RMUX index space. Decomposed, that is *the same group offset in an
+    instance 8 higher or lower* -- with 16 instances, two banks of 8. Every one of
+    the four cases evidence has decided fits it: 27/75, 25/73, 87/39, 7/55, all
+    with matching group offset.
+
+    So this gate is really detecting **bank twins claiming one destination
+    codeword**, not arbitrary collisions. That is the shape of the data.
+
+    A tempting reading -- that the destination input is a track either twin can
+    drive, so your signal arrives only if yours is the twin currently driving it
+    -- was tested and does NOT survive as stated. Counting nodes whose bank twin
+    is used by a DIFFERENT net: a working image had 48 such pairs and a broken one
+    36. If twin co-use were harmful per se, that ordering would be reversed. So
+    the mechanism behind the mixed outcomes is still unknown, and this docstring
+    should not imply otherwise.
+    """
+
+    #: Families that cannot drive a routing mux, so cannot own a codeword.
+    NON_DRIVING = frozenset({"IMUX", "TileSyncMUX"})
+
+    #: Edges a board has watched DELIVER A TOGGLING signal over this codeword.
+    #: These are exemptions, and they exist because the exclusivity premise is
+    #: not universally true -- see the class docstring.
+    WITNESS_FILE = "codeword_board_witness.csv"
+
+    def __init__(self, owners=None, observed=None):
+        self.owners = owners or {}
+        #: every edge that has a physical observation OF ITS OWN, whatever
+        #: codeword the table records for it.
+        self.observed = observed or {}
+        #: edges exempted by a board-witnessed toggling delivery
+        self.witnessed = set()
+
+    @staticmethod
+    def family(res):
+        return res.rstrip("0123456789")
+
+    @classmethod
+    def from_chipdb(cls, data_dir, clean_edge):
+        """Build with the board-witness exemptions loaded from `data_dir`."""
+        gate = cls.from_clean_edges(clean_edge)
+        path = os.path.join(data_dir, cls.WITNESS_FILE)
+        if os.path.exists(path):
+            with open(path, newline="", encoding="utf-8") as handle:
+                for row in csv.DictReader(handle):
+                    gate.witnessed.add((row["src_res"], row["src_x"], row["src_y"],
+                                        row["dst_res"], row["dst_x"], row["dst_y"]))
+        return gate
+
+    @classmethod
+    def from_clean_edges(cls, clean_edge):
+        owners = collections.defaultdict(set)
+        observed = {}
+        for (dx, dy, df, di, sf, sx, sy, si), pair in (clean_edge or {}).items():
+            observed[(dx, dy, df, di, sf, sx, sy, si)] = tuple(pair)
+            if sf in cls.NON_DRIVING:
+                continue
+            owners[(dx, dy, df, di, tuple(pair))].add((sf, sx, sy, si))
+        return cls({key: frozenset(value) for key, value in owners.items()}, observed)
+
+    def should_refuse(self, row):
+        cfg = row.get("cfg") or ""
+        if "[" not in cfg or not cfg.endswith("]"):
+            return False
+        try:
+            pair = tuple(sorted(int(v) for v in cfg[cfg.index("[") + 1:-1].split(",")))
+            df, sf = self.family(row["dst_res"]), self.family(row["src_res"])
+            if sf in self.NON_DRIVING:
+                return False
+            key = (int(row["dst_x"]), int(row["dst_y"]), df,
+                   int(row["dst_res"][len(df):]), pair)
+            mine = (sf, int(row["src_x"]), int(row["src_y"]),
+                    int(row["src_res"][len(sf):]))
+        except (TypeError, ValueError):
+            return False
+        # An edge with a physical observation OF ITS OWN is not an ownership
+        # conflict, however the table labels it. It is a MIS-RECORDED codeword,
+        # and the repair emits those as corrections. Refusing them would throw
+        # away real, observed routing capacity -- and it did: this check was
+        # added after the gate refused 145 edges used by the shipped SERV,
+        # serial-mux and MCU-AHB qualification artifacts, whose own observations
+        # read (4,7) where the table claimed something else.
+        if (row["src_res"], row["src_x"], row["src_y"],
+                row["dst_res"], row["dst_x"], row["dst_y"]) in self.witnessed:
+            return False
+        if (key[0], key[1], key[2], key[3]) + mine in self.observed:
+            return False
+        holders = self.owners.get(key)
+        return bool(holders) and mine not in holders
+
+    def __len__(self):
+        return len(self.owners)
+
+
+class SelectorAliasRepair:
+    """Rows whose recorded selector codeword cannot be theirs.
+
+    A physical mux has ONE input per select code.  Our chipdb contains groups
+    where several sources claim the same (destination, codeword).  That is not a
+    property of the silicon -- 853 such groups contain two or more edges the
+    vendor router itself used, and af.exe cannot drive two sources into one mux
+    on one code -- so at most one row per group carries the true codeword.
+
+    ``chipdb/selector_alias_repair.csv`` names the rows that lost attribution.
+    Ownership is decided silicon-first, then by vendor-corpus usage; a group
+    containing a board-proven row is never resolved against that row.  Groups
+    the evidence cannot settle are NOT listed here: they stay in the graph and
+    remain covered by ``AGAMEMNON_DECODE_UNIQUE_GATE``.
+
+    A listed row means "this row's CODEWORD is not trustworthy", NOT "this wire
+    does not exist".  The edge may be real with a codeword we never recovered;
+    what the evidence supports is retiring the claim, not the wire.
+    """
+
+    FILENAME = "selector_alias_repair.csv"
+
+    def __init__(self, contested=()):
+        self.contested = frozenset(contested)
+
+    @classmethod
+    def from_chipdb(cls, data_dir, filename=None):
+        path = os.path.join(data_dir, filename or cls.FILENAME)
+        if not os.path.exists(path):
+            return cls(())
+        contested = set()
+        with open(path, newline="", encoding="utf-8") as handle:
+            for row in csv.DictReader(handle):
+                if row.get("table") != "rrg_edges_full.csv":
+                    continue
+                contested.add((row["src_res"], row["src_x"], row["src_y"],
+                               row["dst_res"], row["dst_x"], row["dst_y"]))
+        return cls(contested)
+
+    def should_refuse(self, row):
+        return (row["src_res"], row["src_x"], row["src_y"],
+                row["dst_res"], row["dst_x"], row["dst_y"]) in self.contested
+
+    def __len__(self):
+        return len(self.contested)
+
+
+class DecodeUniqueness:
+    """Decides whether an edge's selector codeword *uniquely names its source*.
+
+    `SelectorCertainty` above answers the encode question -- "do we
+    unambiguously know which config bits this edge needs".  This answers the
+    decode question -- "do those bits uniquely identify this source among the
+    destination node's fan-in".  They are different, and only the first was ever
+    tested.  An edge can be conflict-free, unanimous and well-supported and
+    still be non-deterministic on silicon, because several fan-in sources of the
+    same node share one codeword.  Selector *conflict* is not selector
+    *aliasing*; nothing in this module looked for the latter.
+
+    That is the tier-3 criterion as this module already states it: emission
+    could write a codeword that selects the WRONG source.  The failure mode is
+    the project's characteristic one -- a plausible bitstream that
+    config-accepts and misbehaves.  When the selection lands on an undriven
+    node, the input reads 1.
+
+    Silicon-confirmed on 2026-09-09: the AG32-Docs BRAM address defect was two
+    aliased hops feeding a synchronous clear and a ground branch, proven by a
+    clear-polarity crossover (bits 0 and 2 came alive, bit 1 went stuck, exactly
+    as registered beforehand).  Within the same ground net, 23 branches share
+    one driver, exactly one rides an aliased hop, and that is the one branch
+    that fails -- while branches of 10 and 11 hops deliver.
+
+    A per-position vendor *witness* is what distinguishes a dangerous alias from
+    a harmless one: it is evidence that the shared codeword does select this
+    source here, which is why `is_trusted` already admits such an edge as
+    tier 1.  So this predicate only ever fires on tier-2 candidates, which by
+    construction have no such witness.  Of the seven observable aliased hops
+    across two independent datasets, the six that failed were all unwitnessed.
+
+    Scope honestly: aliasing is a strong risk factor, not a complete theory of
+    tier-2 unreliability.  It explains 4 of the 13 known boundary-lane failures;
+    the rest ride long chains this predicate calls clean and need a separate
+    cause.  Do not read a refusal as "this edge is dead" -- read it as "these
+    bits do not say which source, so do not gamble the image on it".
+    """
+
+    #: Tables carrying per-position vendor evidence that an edge was really used.
+    WITNESS_FILES = ("pip_usage.csv", "corpus_conduction.csv")
+
+    def __init__(self, fanin=None, witnessed=None):
+        #: (dst_x, dst_y, dst_res) -> codeword -> number of sources sharing it
+        self.fanin = fanin or {}
+        #: (src_res, sx, sy, dst_res, dx, dy) seen in a real vendor route
+        self.witnessed = witnessed or frozenset()
+
+    @classmethod
+    def from_chipdb(cls, data_dir, filename="rrg_edges_full.csv"):
+        """Build from the same tables that supply the codewords and the witnesses.
+
+        Deliberately self-contained: it reads chipdb directly rather than
+        depending on which admission flags happen to be enabled, so the same
+        predicate means the same thing in every build mode -- including
+        ``research-unsafe``, where nothing else is gating.
+        """
+        path = os.path.join(data_dir, filename)
+        if not os.path.exists(path):
+            return cls({}, frozenset())
+        fanin = collections.defaultdict(lambda: collections.defaultdict(int))
+        with open(path, newline="", encoding="utf-8") as handle:
+            for row in csv.DictReader(handle):
+                code = cls.codeword(row.get("cfg"))
+                if code is None:
+                    continue
+                fanin[(row["dst_x"], row["dst_y"], row["dst_res"])][code] += 1
+        witnessed = set()
+        for name in cls.WITNESS_FILES:
+            witness_path = os.path.join(data_dir, name)
+            if not os.path.exists(witness_path):
+                continue
+            with open(witness_path, newline="", encoding="utf-8") as handle:
+                for row in csv.DictReader(handle):
+                    witnessed.add((row["src_res"], row["src_x"], row["src_y"],
+                                   row["dst_res"], row["dst_x"], row["dst_y"]))
+        return cls({key: dict(codes) for key, codes in fanin.items()},
+                   frozenset(witnessed))
+
+    def is_witnessed(self, row):
+        """True when a vendor route used this exact edge at this exact position."""
+        if row.get("source") == "observed":
+            return True
+        return (row["src_res"], row["src_x"], row["src_y"],
+                row["dst_res"], row["dst_x"], row["dst_y"]) in self.witnessed
+
+    def should_refuse(self, row):
+        """The gate: codeword does not name the source, and nothing witnesses it.
+
+        A witness is what separates a dangerous alias from a harmless one -- it
+        is positive evidence that the shared codeword selects THIS source at
+        THIS position.  Refusing witnessed aliases too would cost 9,118 further
+        edges to protect against a case no observation supports.
+        """
+        return self.is_ambiguous(row) and not self.is_witnessed(row)
+
+    @staticmethod
+    def codeword(cfg):
+        """``CFG_RMUX0[6,9]`` -> ``(6, 9)``; None when the row carries no codeword."""
+        if not cfg or "[" not in cfg or not cfg.endswith("]"):
+            return None
+        try:
+            return tuple(sorted(int(v) for v in
+                                cfg[cfg.index("[") + 1:-1].split(",")))
+        except ValueError:
+            return None
+
+    def sharing(self, row):
+        """How many fan-in sources of this destination share this codeword."""
+        code = self.codeword(row.get("cfg"))
+        if code is None:
+            return 1
+        return self.fanin.get(
+            (row["dst_x"], row["dst_y"], row["dst_res"]), {}).get(code, 1)
+
+    def is_ambiguous(self, row):
+        """True when this edge's codeword does not uniquely name its source."""
+        return self.sharing(row) > 1
+
+
 class SelectorCertainty:
     """Decides whether an edge's selector codeword is *unambiguously known*.
 
@@ -190,11 +638,22 @@ class SelectorCertainty:
     """
 
     def __init__(self, clean_edge, relative_edge, relative_conflicts=(),
-                 allow_closed_form=True):
+                 allow_closed_form=True, enforce_ownership=False):
         self.clean_edge = clean_edge or {}
         self.relative_edge = relative_edge or {}
         self.relative_conflicts = frozenset(relative_conflicts or ())
         self._allow_closed_form = bool(allow_closed_form)
+        #: Refuse an inferred pair that a DIFFERENT source physically owns.
+        #:
+        #: Off by default, and that default is the point. The check is a
+        #: correctness improvement -- it derives all three hand-withdrawn
+        #: nonportable keys from data -- but it removes ~4k edges from the TIERED
+        #: graph, and that graph is pinned by
+        #: test_special_routes.EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT. Enabling
+        #: it by default moved the count 328,308 -> 323,597 and broke that pin.
+        #: A gate that changes a pinned graph is a re-qualification decision, not
+        #: a default. Enable with AGAMEMNON_OWNERSHIP_GATE=1.
+        self._enforce_ownership = bool(enforce_ownership)
         self._support = collections.Counter()
         self._positions = collections.defaultdict(list)
         for (dx, dy, df, di, sf, sx, sy, si) in self.clean_edge:
@@ -209,6 +668,38 @@ class SelectorCertainty:
         for (dx, dy, df, di, sf, sx, sy, si) in self.clean_edge:
             if closed_form_selector(df, di, sf, si, dx - sx, dy - sy) is not None:
                 self.closed_form_support[(df, sf)] += 1
+        #: (dx, dy, dfam, didx, pair) -> the sources PHYSICALLY observed using it.
+        #: A codeword at a destination belongs to whoever was actually seen using
+        #: it there. An inference that hands the same codeword to someone else is
+        #: contradicted by observation, however unanimous the inference looks.
+        self._owner = collections.defaultdict(set)
+        for (dx, dy, df, di, sf, sx, sy, si), pair in self.clean_edge.items():
+            self._owner[(dx, dy, df, di, tuple(pair))].add((sf, sx, sy, si))
+
+    def physically_owned_by_other(self, dx, dy, df, di, pair, source):
+        """True when this destination's codeword was physically seen used by a
+        DIFFERENT source.
+
+        This is the rule that separates observation from inference. A relative
+        key is unanimous by construction -- ``relative_edges`` deletes it on the
+        first disagreement -- so unanimity says nothing about whether it is right
+        at a coordinate it was never observed at. Where a physical observation
+        exists for that (destination, codeword) and names someone else, the
+        inference is simply contradicted.
+
+        Found the hard way three times before this check existed. At X14Y12 the
+        pair 2/9 into RMUX46 has exact evidence for X14Y8_RMUX55, yet the
+        row-3-derived key handed it to X14Y11_RMUX07; the same shape convicted
+        X14Y11_RMUX87 -> X14Y12_RMUX59 (VP-AGM-001, where 2/9 selects
+        X14Y8_RMUX39). Each was withdrawn by hand after a board failure. This
+        derives all three from data instead.
+        """
+        if not self._enforce_ownership:
+            return False
+        owners = self._owner.get((dx, dy, df, di, tuple(pair)))
+        if not owners:
+            return False
+        return source not in owners
 
     def closed_form(self, df, di, sf, si, dx, dy):
         if not self._allow_closed_form:
@@ -259,6 +750,9 @@ class SelectorCertainty:
             }
         relative_key = (df, di, sf, si, dx - sx, dy - sy)
         pair = self.relative_edge.get(relative_key)
+        if pair is not None and self.physically_owned_by_other(dx, dy, df, di, pair,
+                                                              (sf, sx, sy, si)):
+            return None
         if pair is not None:
             return {
                 "basis": BASIS_RELATIVE,
@@ -275,6 +769,8 @@ class SelectorCertainty:
             return None
         pair = self.closed_form(df, di, sf, si, dx - sx, dy - sy)
         if pair is None:
+            return None
+        if self.physically_owned_by_other(dx, dy, df, di, pair, (sf, sx, sy, si)):
             return None
         return {
             "basis": BASIS_CLOSED_FORM,

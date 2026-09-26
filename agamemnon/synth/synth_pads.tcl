@@ -21,6 +21,11 @@ if {[info exists ::env(AGAMEMNON_YOSYS_JSON)]} {
 }
 set SCRIPT_DIR [file dirname [file normalize [info script]]]
 yosys read_verilog -lib $SCRIPT_DIR/prims.v
+# Keep the default library and Yosys autoidx unchanged. These declarations only
+# expose experimental config to synthesis; bitgen admission remains mandatory.
+if {[info exists ::env(AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG)] && $::env(AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG) ne ""} {
+    yosys read_verilog -lib -overwrite $SCRIPT_DIR/prims_bram_experimental.v
+}
 # Shared-control primitives live in their own file and are read only when the
 # feature is on.  Putting them in prims.v changed the synthesised design even
 # with the feature off: the extra library modules shift Yosys's autoidx, which

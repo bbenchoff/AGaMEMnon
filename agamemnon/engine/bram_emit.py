@@ -132,6 +132,27 @@ def owned_surface(x, y, experimental=False):
         for bm in sels.values()
     }
 
+def _observed_collision_composition(x, y, width, width_b, clkmode, enables, values):
+    """Encoding-only exception for the observed X13Y4 Port-A mode matrix.
+
+    See docs/BRAM_COLLISION_COMPOSITION.md. This does not admit a writable
+    design through the feature layer or qualify a new route/clock profile.
+    """
+    if (x, y, width, width_b, clkmode) != (13, 4, 0, 0, 1):
+        return False
+    if values["PORTB_WRITETHRU"] != 1:
+        return False
+    composed = {"PORTA_OUTREG", "PORTA_WRITETHRU", "PORTB_WRITETHRU"}
+    if any(value for name, value in values.items() if name not in composed):
+        return False
+    for port in ("PORTA", "PORTB"):
+        for signal in ("CLKIN", "CLKOUT", "RSTIN", "RSTOUT"):
+            expected = 1 if signal in ("CLKIN", "CLKOUT") else 0
+            if enables.get(f"{port}_{signal}_EN", 0) != expected:
+                return False
+    return True
+
+
 def emit(x, y, width, clkmode, init_val, enables, width_b=0,
          experimental=None, allow_experimental=False):
     """-> set of (byte,mask) to OR into raw. enables: dict of PORTA/B_{CLKIN,CLKOUT,RSTIN,RSTOUT}_EN->0/1.
@@ -156,9 +177,11 @@ def emit(x, y, width, clkmode, init_val, enables, width_b=0,
         )
     validate_width_code(width, "A", allow_experimental)
     validate_width_code(width_b, "B", allow_experimental)
-    if len(experimental_rows) > 1:
+    if len(experimental_rows) > 1 and not _observed_collision_composition(
+            x, y, width, width_b, clkmode, enables, values):
         raise ValueError(
-            "at most one B4 experimental config row may be selected per BRAM cell: %s" %
+            "at most one B4 experimental config row may be selected per BRAM cell "
+            "outside the observed X13Y4 collision composition: %s" %
             ", ".join(experimental_rows)
         )
     if allow_experimental and (x != 13 or y not in {1, 2, 3, 4}):
