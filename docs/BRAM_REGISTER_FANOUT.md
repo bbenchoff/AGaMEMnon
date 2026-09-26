@@ -16,6 +16,7 @@ byte-for-byte. This establishes the retained implementation's repair, not
 qualification of all BRAM modes or fresh placement seeds.
 
 The independent OMUX checker now accepts fanout beyond a BRAM hint and checks
-each routed output against its actual F/Q owner. An absent hinted wire, missing
-pin-packing marker, inactive Q, ambiguous owner, or incorrect selection bit
+each routed output against its actual F/Q owner. A placement hint can also
+differ from the router's eventual output. A missing pin-packing marker,
+out-of-range hint, inactive Q, ambiguous owner, or incorrect selection bit
 still fails validation.

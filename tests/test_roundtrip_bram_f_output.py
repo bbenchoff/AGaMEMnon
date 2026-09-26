@@ -61,15 +61,23 @@ def test_bram_hint_with_fanout_checks_each_output_independently(hint, registered
         assert errors[0]['feature'] == (4, 5, f'CFG_OMUX0[{index}]')
 
 
-@pytest.mark.parametrize('mutation', ('missing_marker', 'wrong_selector', 'inactive_q'))
+@pytest.mark.parametrize('mutation', ('missing_marker', 'out_of_range', 'inactive_q'))
 def test_combinational_fix_does_not_relax_invalid_owner_or_mode_checks(mutation):
     design = fixture(2, 0xaaaa, registered=mutation == 'inactive_q')
     cell = design['cells']['lut']
     if mutation == 'missing_marker':
         cell['attributes'].pop('AGRV2K_BRAM_PINPACKED')
-    elif mutation == 'wrong_selector':
-        cell['attributes']['AGRV2K_OMUX_SEL'] = '1'
+    elif mutation == 'out_of_range':
+        cell['attributes']['AGRV2K_OMUX_SEL'] = '11'
     else:
         cell['parameters']['FF_USED'] = '0'
     with pytest.raises(ValueError):
         compare_omux_selections(design, b'\x00', {(4, 5, 'CFG_OMUX0[2]'): (0, 4)})
+
+
+@pytest.mark.parametrize('registered', (False, True))
+def test_router_may_use_a_different_output_than_the_placement_hint(registered):
+    design = fixture(2, 0xaaaa, registered=registered)
+    design['cells']['lut']['attributes']['AGRV2K_OMUX_SEL'] = '1'
+    bits = {(4, 5, 'CFG_OMUX0[2]'): (0, 4)}
+    assert compare_omux_selections(design, bytes([4 if registered else 0]), bits) == (1, [], 0)

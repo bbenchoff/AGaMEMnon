@@ -36,12 +36,6 @@ def expected_omux_selections(module, environment=None):
         if site in placed:
             raise ValueError('duplicate OMUX slice owner at %s' % (site,))
         placed[site] = (name, cell)
-    routed_outputs = {
-        tuple(map(int, coords))
-        for net in module.get('netnames', {}).values()
-        for coords in re.findall(r'X(\d+)Y(\d+)_OMUX(\d+)(?!\d)',
-                                 net.get('attributes', {}).get('ROUTING', ''))
-    }
     expected, unowned = {}, set()
     for name, net in module.get('netnames', {}).items():
         route = net.get('attributes', {}).get('ROUTING', '')
@@ -85,11 +79,10 @@ def expected_omux_selections(module, environment=None):
                 # its register is active. Retain the independently reconstructed
                 # F/Q value: a combinational F owner requires zero even when
                 # pin packing assigned an explicit selector index.
-                # A hinted BRAM-facing output can coexist with ordinary
-                # fanout on other outputs. Require the hinted wire to exist,
-                # then independently check every routed output's actual owner.
-                if (packed != 1 or not 0 <= selection < 3 or
-                        (x, y, 3 * site[2] + selection) not in routed_outputs):
+                # A placement hint need not be the router's eventual output:
+                # an F buffer may use output 0 despite a hint of 2, and Q
+                # fanout may use several outputs. Check every actual owner.
+                if packed != 1 or not 0 <= selection < 3:
                     raise ValueError('unsupported explicit BRAM-output selection at %s' % owner_name)
             elif site == alternate_site or environment.get('AGAMEMNON_VENDOR_OUT_ALL'):
                 if index % 3 != (1 if registered else 0):
