@@ -654,32 +654,36 @@ class BramFeature:
             table = context.chipdb_root / "bram_tmux9_source_paths.csv"
             added = 0
             with table.open(newline="", encoding="utf-8") as stream:
-                for row in csv.DictReader(stream):
-                    source = row["src_wire"]
-                    destination = row["dst_wire"]
-                    if _blacklisted_wires(source, destination):
-                        continue
-                    if source not in wireset or destination not in wireset:
-                        raise RuntimeError(
-                            "qualified TMUX09 path wire is absent: %s -> %s" %
-                            (source, destination)
-                        )
-                    name = "%s.%s" % (source, destination)
-                    if name in seen_pip:
-                        continue
-                    match = re.match(r"X(-?\d+)Y(-?\d+)_", destination)
-                    if match is None:
-                        raise RuntimeError(
-                            "qualified TMUX09 destination is malformed: %s" % destination
-                        )
-                    ctx.addPip(
-                        name=name, type="ROUTE", srcWire=source,
-                        dstWire=destination, delay=0.0,
-                        loc=Loc(int(match.group(1)), int(match.group(2)), 0),
+                paths = {(row["src_wire"], row["dst_wire"])
+                         for row in csv.DictReader(stream)}
+            # Reservations also include reset, hard-output and constant trees.
+            # Derive their closure from the exact canonical profile data, not
+            # from geometry or general inferred connectivity.
+            paths.update(qualified_bram_tmux9.required_path_edges())
+            for source, destination in sorted(paths):
+                if _blacklisted_wires(source, destination):
+                    continue
+                if source not in wireset or destination not in wireset:
+                    raise RuntimeError(
+                        "qualified TMUX09 path wire is absent: %s -> %s" %
+                        (source, destination)
                     )
-                    seen_pip.add(name)
-                    n_bpip += 1
-                    added += 1
+                name = "%s.%s" % (source, destination)
+                if name in seen_pip:
+                    continue
+                match = re.match(r"X(-?\d+)Y(-?\d+)_", destination)
+                if match is None:
+                    raise RuntimeError(
+                        "qualified TMUX09 destination is malformed: %s" % destination
+                    )
+                ctx.addPip(
+                    name=name, type="ROUTE", srcWire=source,
+                    dstWire=destination, delay=0.0,
+                    loc=Loc(int(match.group(1)), int(match.group(2)), 0),
+                )
+                seen_pip.add(name)
+                n_bpip += 1
+                added += 1
             print("AGRV2K arch: added %d scoped qualified TMUX09 path pip(s)" % added)
 
         # ---- 5c. BRAM bel: an ALTA_BRAM9K on the BramTILE with each port pin bound to the harvested wire ----
