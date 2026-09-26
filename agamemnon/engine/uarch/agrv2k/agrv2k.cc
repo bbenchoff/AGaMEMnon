@@ -1898,6 +1898,29 @@ static void pack_lut_ff_broadcast(Context *ctx)
              groups, copies);
 }
 
+static std::string packing_bel_constraint(Context *ctx, const CellInfo *cell)
+{
+    if (cell->bel != BelId())
+        return ctx->nameOfBel(cell->bel);
+    auto attr = cell->attrs.find(ctx->id("BEL"));
+    return attr == cell->attrs.end() ? std::string() : attr->second.as_string();
+}
+
+static void transfer_packed_bel(Context *ctx, CellInfo *original, CellInfo *replacement)
+{
+    if (original->bel == BelId())
+        return;
+    const BelId bel = original->bel;
+    const PlaceStrength strength = original->belStrength;
+    NPNR_ASSERT(ctx->getBoundBelCell(bel) == original);
+    NPNR_ASSERT(replacement->bel == BelId());
+    // Imported NEXTPNR_BEL attributes bind the primitive before packing.
+    // Copying attributes alone leaves the BEL pointing to a deleted cell.
+    // Move the binding while both objects are alive, retaining its strength.
+    ctx->unbindBel(bel);
+    ctx->bindBel(bel, replacement, strength);
+}
+
 static void pack_lut_lutffs(Context *ctx)
 {
     log_info("Packing LUT-FFs..\n");
@@ -1943,13 +1966,14 @@ static void pack_lut_lutffs(Context *ctx)
                 dff = candidate;
                 preserve_f = true;
             }
-            auto lut_bel = ci->attrs.find(ctx->id("BEL"));
             bool packed_dff = false;
             if (dff) {
                 if (ctx->verbose)
                     log_info("found attached dff %s\n", dff->name.c_str(ctx));
                 auto dff_bel = dff->attrs.find(ctx->id("BEL"));
-                if (lut_bel != ci->attrs.end() && dff_bel != dff->attrs.end() && lut_bel->second != dff_bel->second) {
+                const auto lut_location = packing_bel_constraint(ctx, ci);
+                const auto dff_location = packing_bel_constraint(ctx, dff);
+                if (!lut_location.empty() && !dff_location.empty() && lut_location != dff_location) {
                     // Locations don't match, can't pack
                 } else {
                     lut_to_lc(ctx, ci, packed.get(), false);
@@ -1980,6 +2004,7 @@ static void pack_lut_lutffs(Context *ctx)
                     }
                     if (dff_bel != dff->attrs.end())
                         packed->attrs[ctx->id("BEL")] = dff_bel->second;
+                    transfer_packed_bel(ctx, dff, packed.get());
                     packed_cells.insert(dff->name);
                     if (ctx->verbose)
                         log_info("packed cell %s into %s\n", dff->name.c_str(ctx), packed->name.c_str(ctx));
@@ -1990,6 +2015,7 @@ static void pack_lut_lutffs(Context *ctx)
                 lut_to_lc(ctx, ci, packed.get(), true);
                 set_register_input_mode(ctx, packed.get(), RegisterInputMode::NONE);
             }
+            transfer_packed_bel(ctx, ci, packed.get());
             new_cells.push_back(std::move(packed));
         }
     }
@@ -2023,6 +2049,7 @@ static void pack_nonlut_ffs(Context *ctx)
             // The generic helper implements a physical LUT identity path:
             // INIT=0xAAAA, D on I[0], CLK/Q connected, and F unused.
             set_register_input_mode(ctx, packed.get(), RegisterInputMode::LUT_FEEDTHROUGH_I0);
+            transfer_packed_bel(ctx, ci, packed.get());
             new_cells.push_back(std::move(packed));
         }
     }
