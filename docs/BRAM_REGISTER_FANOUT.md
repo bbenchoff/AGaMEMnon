@@ -14,6 +14,9 @@ both interleaved loads; vendor and shared references and recovery checks passed.
 Repacking the retained routes with this fix reproduces the corrected image
 byte-for-byte. This establishes the retained implementation's repair, not
 qualification of all BRAM modes or fresh placement seeds.
+Hardware reproduction used the pending v0.5 integration's BRAM and carry
+support. Public main's mode-admission fence still applies: its fresh OUTREG1
+build rejects the experimental BRAM mode before emission.
 
 The independent OMUX checker now accepts fanout beyond a BRAM hint and checks
 each routed output against its actual F/Q owner. A placement hint can also
