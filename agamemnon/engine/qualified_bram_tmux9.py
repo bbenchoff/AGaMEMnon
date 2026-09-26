@@ -196,6 +196,44 @@ def _prepare_ground_source(module: dict, profile: str) -> None:
     }
 
 
+DATA_SOURCE_BELS = {
+    "bram-tmux9-i0-d1-we0": "X19Y6_SLICE10",
+    "bram-tmux9-i0-d1-we1": "X14Y4_SLICE13",
+    "bram-tmux9-i1-d0-we0": "X19Y6_SLICE10",
+    "bram-tmux9-i1-d0-we1": "X14Y4_SLICE0",
+}
+
+
+def _prepare_data_source(module: dict, profile: str) -> None:
+    """Bind the retained constant LUT as part of the exact-image contract.
+
+    A constant's unused/constant-folded route does not make its configured LUT
+    disappear. Its location must be declared before placement, just like the
+    active source and observer cells, for these hash-bound profiles.
+    """
+    cells = module.get("cells", {})
+    cell = cells.get("src_d1", {})
+    parameters = cell.get("parameters", {})
+    expected = 0xFFFF if profile.startswith("bram-tmux9-i0-d1-") else 0
+    try:
+        valid = (cell.get("type") == "GENERIC_SLICE"
+                 and int(str(parameters["INIT"]), 2) == expected
+                 and int(str(parameters["FF_USED"]), 2) == 0
+                 and len(cell.get("connections", {}).get("F", [])) == 1)
+    except (KeyError, ValueError):
+        valid = False
+    if not valid:
+        raise ValueError("qualified TMUX09 data source is missing or not the expected constant")
+    bel = DATA_SOURCE_BELS[profile]
+    attributes = cell.setdefault("attributes", {})
+    if attributes.get("BEL") not in (None, "", bel):
+        raise ValueError("qualified TMUX09 data source BEL disagrees")
+    if any(name != "src_d1" and other.get("attributes", {}).get("BEL") == bel
+           for name, other in cells.items()):
+        raise ValueError("qualified TMUX09 data source BEL already requested")
+    attributes["BEL"] = bel
+
+
 def prepare_route_reservations(path, profile: str) -> None:
     """Carry the required trees into native routing before other nets compete."""
     source = Path(path)
@@ -209,6 +247,7 @@ def prepare_route_reservations(path, profile: str) -> None:
     if missing:
         raise ValueError("qualified TMUX09 reservations lost nets: " + ", ".join(missing))
     _prepare_ground_source(modules["top"], profile)
+    _prepare_data_source(modules["top"], profile)
     for name, route in routes.items():
         nets[name].setdefault("attributes", {})["AGAMEMNON_REQUIRED_ROUTE"] = route
     source.write_text(json.dumps(document, separators=(",", ":")) + "\n", encoding="utf-8")

@@ -172,6 +172,9 @@ def test_fresh_source_declares_ground_truth_placement_and_tree(tmp_path, profile
               "netnames": {name: {"bits": [index + 20], "attributes": {}}
                            for index, name in enumerate(source_route.expected_routes(profile))}}
     module["netnames"]["zero_alias"] = {"bits": ["0"]}
+    module["cells"]["src_d1"] = {"type": "GENERIC_SLICE",
+        "parameters": {"INIT": "1" * 16 if "-i0-d1-" in profile else "0" * 16,
+                       "FF_USED": "0"}, "connections": {"F": [200]}}
     path = tmp_path / "source.json"
     path.write_text(json.dumps({"modules": {"top": module}}))
     source_route.prepare_route_reservations(path, profile)
@@ -187,6 +190,7 @@ def test_fresh_source_declares_ground_truth_placement_and_tree(tmp_path, profile
     assert actual["cells"]["consumer"]["parameters"] == {"INIT": "0010"}
     assert actual["netnames"]["zero_alias"]["bits"] == [ground_bit]
     assert actual["ports"] == module["ports"]
+    assert actual["cells"]["src_d1"]["attributes"]["BEL"] == source_route.DATA_SOURCE_BELS[profile]
     assert actual["netnames"]["$PACKER_GND_NET"]["attributes"]["AGAMEMNON_REQUIRED_ROUTE"] == \
         source_route.GROUND_ROUTES[profile]
     # Re-preparing an already transformed input must not invent another driver.
