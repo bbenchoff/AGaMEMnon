@@ -54,6 +54,13 @@ The graph and bitgen are independent checks. A route must be present in the
 filtered graph and every configurable PIP must have an accepted strict
 encoding.
 
+Imported LUT and DFF placements survive packing: replacing a primitive transfers
+its live BEL binding and placement strength to the packed slice. LUT and DFF
+primitives constrained to different sites remain separate. Attribute copying
+alone cannot preserve ownership because nextpnr binds `NEXTPNR_BEL` before
+packing. `tests/test_prebound_primitive_packing.py` exercises standalone and
+fused cases through placement; these cases also run under address sanitization.
+
 `--qualified-checkpoint PROFILE` does not accept a routed-JSON path and does not
 ask nextpnr to rediscover a dense qualified route. For `build`, the profile
 registry admits only the exact +0 and +4 bank16 structural fixtures and
@@ -81,6 +88,12 @@ signal's only path; both nets must finish on disjoint routes. Compiled tests
 in `tests/test_native_router2_ripup.py` run this case and the original
 reservation case for three seeds. This is routing-algorithm evidence, without
 a new device or silicon claim.
+
+The empty-net bounds patch normalizes router2's sentinel bounding box when a
+net has no routing arcs. This prevents signed overflow during wire-length and
+margin calculations without changing bounds for nets that have arcs. The three
+site variants in `test_local_qin_routes_same_slice_feedback` exercise this path
+with undefined-behavior sanitization.
 
 Placement uses bounded reachability checks in both directions. An output
 which reaches a large part of the routing graph can still be unable to drive
