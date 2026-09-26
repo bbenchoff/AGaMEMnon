@@ -34,6 +34,11 @@ becomes the download source only after those gates pass and publication complete
   Native-tool paths and synthesis Tcl libraries are staged safely for paths with
   spaces. Failed installed builds retain diagnostics, and archive smoke image
   identities are checked against the CLI and qualification record.
+- Shared BRAM driver packing retains every terminal's placement constraints,
+  including terminals with no admissible source. Incompatible shared requests
+  fail instead of silently dropping a required connection. Retained MCU-map
+  composition uses the packaged, hash-checked database independently of a local
+  development cache.
 
 ## Intended installation artifacts
 
