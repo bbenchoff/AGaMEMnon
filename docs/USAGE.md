@@ -379,8 +379,17 @@ agamemnon verify design_routed.json --observed 0,1,2,3
 
 The verifier models placed LUT INIT values, routed LUT/flip-flop connectivity,
 carry connections, and MCU read-lane binding. `--observed` checks that every
-hardware value is reachable in simulation and reports observation coverage.
-This does not replace silicon qualification of electrical paths.
+measured value occurs within the selected simulation window and stimulus, and
+reports coverage of the modeled value set. Empty observations fail. A successful
+comparison reports `CONSISTENT_WITH_MODEL`; even a stuck output can satisfy set
+inclusion if its value occurs in the model. Order, frequency, completed
+transactions and internal state are not checked by this comparison. Missing
+values can reflect either sampling or an actual failure.
+
+Simulation does not decode the emitted image or qualify physical connections,
+clock/reset distribution, timing or silicon behavior. A mismatch identifies a
+difference from the selected model window; it does not by itself identify a
+hardware defect. `build --verify` performs the offline model and binding checks.
 
 `--research-unsafe` is for reverse-engineering probes, not supported images.
 It selects the non-release recovered-knowledge graph and selector fallbacks and

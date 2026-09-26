@@ -2279,7 +2279,7 @@ def cmd_unpack(a):
 
 def cmd_verify(a):
     """Offline, hardware-free behavioural check of a routed design: cycle-sim the routed netlist and report
-    the AHB read-values it will produce. With --observed, compare a silicon-observed value set (SOUND/COVER
+    the AHB read-values predicted by the model. With --observed, compare a nonempty measured value set (SOUND/COVER
     + MCU_DOUT bind). See engine/verify_netlist.py."""
     from .engine import verify_netlist as V
     try:
@@ -5249,8 +5249,8 @@ def main(argv=None):
              "(default 10; AGAMEMNON_SYSCLK overrides the default)",
     )
     b.add_argument("--verify", action="store_true",
-                   help="after building, cycle-sim the routed netlist and print the AHB read-values it will "
-                        "produce + the MCU_DOUT bind check (hardware-free)")
+                   help="after building, simulate the routed netlist and print model-predicted AHB values "
+                        "and MCU_DOUT binding (hardware-free; does not qualify silicon)")
     b.add_argument("--verify-cycles", type=int, default=96, help="cycles to simulate for --verify")
     b.set_defaults(fn=cmd_build)
 
@@ -5301,10 +5301,10 @@ def main(argv=None):
     df.add_argument("-o", "--output")
     df.set_defaults(fn=cmd_diff)
     el = sub.add_parser("edit-lut"); el.add_argument("input"); el.add_argument("--le", required=True, help="x,y,z"); el.add_argument("--init", required=True, help="16-bit truth table, e.g. 0x96e9"); el.add_argument("-o", "--output", required=True); el.set_defaults(fn=cmd_edit_lut)
-    vf = sub.add_parser("verify", help="cycle-sim a routed nextpnr JSON offline: report the AHB read-values "
-                                       "it produces (+ optionally check a silicon-observed value set)")
+    vf = sub.add_parser("verify", help="simulate routed nextpnr JSON offline: report model-predicted AHB values "
+                                       "and optionally check consistency with measured values")
     vf.add_argument("input", help="routed nextpnr 'generic' --write JSON")
-    vf.add_argument("--observed", help="comma-separated silicon-observed read values to check (SOUND/COVER)")
+    vf.add_argument("--observed", help="nonempty comma-separated measured values to compare with the model window; no sequence or silicon proof")
     vf.add_argument("--cycles", type=int, default=96, help="cycles to simulate")
     vf.add_argument("--stimulus", help="JSON {\"schema\":1,\"events\":[[cycle,{\"mcu_cell\":bit}],...]} driving "
                                        "MCU_DIN/MCU cells by name; without it the sim is stimulus-free")

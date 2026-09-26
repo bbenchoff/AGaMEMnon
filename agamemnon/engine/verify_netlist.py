@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
-"""Offline, hardware-free verification of a routed design.
+"""Offline simulation of the logical model in a routed design.
 
-Cycle-accurate simulator of the ACTUAL ROUTED netlist (the `GENERIC_SLICE` INITs + the real I[0..3]/Q
-connectivity + FF_USED + the real MCU_DOUT->AHB-bit binding, all read straight from the nextpnr `--write`
-JSON). It answers "what values will the MCU read back over AHB `0x60000000` when this bitstream runs?"
-WITHOUT touching the board -- the sim IS the ground truth of what was actually built.
+The model reads `GENERIC_SLICE` INITs, I[0..3]/Q connectivity, FF_USED and
+MCU_DOUT-to-AHB binding from nextpnr `--write` JSON. It predicts read values for
+the selected stimulus and cycle window. It does not decode the final image or
+establish physical routing, clock/reset behavior, electrical timing or silicon
+correctness. A model and its encoder can share an incorrect device assumption.
 
 Two uses:
   * `summary(routed_json)` -> the set of read-values the design produces + the MCU_DOUT bind check
     (h<k> must map to AHB bit k; a mismatch is a read-bit-scramble class bug). This is what
     `agamemnon build --verify` prints after routing.
-  * `verify(routed_json, observed)` -> compare a silicon-observed value SET to the sim's reachable set:
-      SOUND: every observed value is reachable in the sim (a spurious value = the silicon is NOT faithfully
-             executing the routed netlist -> a real routing/config error).
-      COVER: fraction of sim states observed (misses = deterministic-sampling aliasing, not an error).
+  * `verify(routed_json, observed)` -> compare a nonempty observed value SET to
+    the finite model window. SOUND checks set inclusion; COVER reports the
+    fraction of modeled values observed. Neither checks sequence, frequency,
+    transaction completion or internal state. Missing values do not establish
+    sampling aliasing; a mismatch can also reflect model or stimulus differences.
 
 No vendor binaries, no board, no absolute paths. Usage:
   python -m agamemnon.engine.verify_netlist <routed.json> [observed e.g. 0,1,2,3] [cycles]
@@ -245,8 +247,10 @@ def _init_depends_on(init, k, n_inputs):
 
 
 # ---- behavioural ALTA_BRAM9K ------------------------------------------------
-# Vendor port organisation (tools/vendor_witness/alta_bram9k_vendor_sim.v, proved
-# against 39 board-passing direct-instantiated modes on 2026-09-25): 512 rows of
+# Behavioral port organization, checked against vendor-model mode fixtures.
+# Historical activity-only board checks did not independently establish completed
+# read transactions for every mode. This model is not silicon qualification.
+# The represented memory contains 512 rows of
 # 18 bits, row = Address[12:4]; the low four address bits (`blk`) select the
 # sub-word window of a narrow port.  A narrow WRITE lands the address-selected
 # window (x9 halves 0/9; x4 windows 0,4,9,13; x2 windows 0,2,4,6,9,11,13,15; x1 the
@@ -429,7 +433,7 @@ def _run_length(values):
 
 
 def summary(routed_json, cycles=96, document=None, stimulus=None, trace=None):
-    """Print the read-values a routed design will produce on silicon + the bind check. Returns True if the
+    """Print the read-values predicted by the routed model + the bind check. Returns True if the
     MCU_DOUT bind is sound (h<k> -> AHB bit k). Hardware-free. With `stimulus` (see load_stimulus) the
     per-cycle read sequence is printed run-length encoded; `trace` names nets whose values are printed
     whenever one of them changes."""
@@ -451,7 +455,7 @@ def summary(routed_json, cycles=96, document=None, stimulus=None, trace=None):
     bind_ok = all(k == bit for (k, bit) in bind.values())
     nff = "?"
     print("verify: routed-netlist sim over %d cycles%s" % (cycles, " with stimulus" if stimulus else ""))
-    print("  MCU read-values the design will produce (AHB 0x60000000): %s" % (simset,))
+    print("  MCU read-values predicted by this model (AHB 0x60000000): %s" % (simset,))
     if stimulus is not None:
         print("  read sequence (value x cycles): %s" % _run_length(reads))
     for cycle, vals in rows:
@@ -468,23 +472,30 @@ def summary(routed_json, cycles=96, document=None, stimulus=None, trace=None):
 
 
 def verify(routed_json, observed, cycles=96, stimulus=None):
-    """Compare a silicon-observed value set to the sim's reachable set (SOUND + COVER + BIND)."""
+    """Check nonempty observed values against the finite model window and binding.
+
+    True means set consistency only, not hardware or sequence qualification.
+    """
+    obs = set(observed)
+    if not obs:
+        print("VERDICT: NO_OBSERVATIONS (at least one measured value is required)")
+        return False
     reads, bind = sim_routed(routed_json, cycles, stimulus=stimulus)
     simset = set(reads)
-    obs = set(observed)
     bind_ok = all(k == bit for (k, bit) in bind.values())
     spurious = obs - simset
     cover = len(obs & simset) / max(1, len(simset))
-    print("routed-netlist sim reachable values:", sorted(simset))
+    print("routed-netlist model values in this window:", sorted(simset))
     print("silicon observed values:            ", sorted(obs))
     print("BIND  (MCU_DOUT h<k>->AHB bit k): %s %s"
           % ("OK" if bind_ok else "SCRAMBLED", {c: b for c, (k, b) in bind.items()}))
-    print("SOUND (observed subset of sim):   %s%s"
+    print("SOUND (observed subset of model window): %s%s"
           % ("PASS" if not spurious else "FAIL", "" if not spurious else "  spurious=%s" % sorted(spurious)))
-    print("COVER (sim states seen on silicon): %.0f%% (%d/%d)  missing=%s (aliasing if nonempty)"
+    print("COVER (modeled values observed): %.0f%% (%d/%d)  missing=%s"
           % (100 * cover, len(obs & simset), len(simset), sorted(simset - obs)))
     ok = bind_ok and not spurious
-    print("VERDICT:", "CORRECT (silicon faithfully executes the routed netlist)" if ok else "MISMATCH")
+    print("VERDICT:", "CONSISTENT_WITH_MODEL" if ok else "MISMATCH")
+    print("  Scope: value-set consistency only; sequence, timing and hardware correctness are unqualified.")
     return ok
 
 
@@ -492,6 +503,6 @@ if __name__ == "__main__":
     rj = sys.argv[1]
     cyc = int(sys.argv[3]) if len(sys.argv) > 3 else 96
     if len(sys.argv) > 2 and sys.argv[2]:
-        verify(rj, [int(x) for x in sys.argv[2].split(",")], cyc)
+        sys.exit(0 if verify(rj, [int(x) for x in sys.argv[2].split(",")], cyc) else 1)
     else:
-        summary(rj, cyc)
+        sys.exit(0 if summary(rj, cyc) else 1)
