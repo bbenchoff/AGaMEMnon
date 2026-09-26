@@ -91,27 +91,48 @@ EDGE_TABLE = Path(__file__).resolve().parent.parent / "tile_control_edges.csv"
 
 #: CtrlMUX -> TileAsyncMUX edges, kept in a table of their own rather than
 #: merged into ``EDGE_TABLE``.  Every row here is the SAME uniform topology
-#: (CtrlMUX03 -> TileAsyncMUX01), computed for all 132 LogicTiles from the
+#: (CtrlMUX00 -> TileAsyncMUX01), computed for all 132 LogicTiles from the
 #: formula in :mod:`agamemnon.engine.control_encode`, not individually
 #: harvested per tile the way ``EDGE_TABLE``'s rows were -- their ``tier`` is
 #: ``formula``, not ``observed``, and callers must not conflate the two.  See
 #: ``control_encode.FAMILY_SOURCE_COLUMNS`` for the evidence behind the one
 #: claimed column (CFG_TILEASYNCMUX index 1).
 #:
-#: The CtrlMUX INSTANCE NUMBER is not a guess and is not shared with the
-#: clock-enable/sync instances below: it is board-independent vendor-routed
-#: evidence at X14Y10, decoded twice (2026-09-05/06,
-#: AG32-Docs docs/archive/2026-09/GPT6_ASYNC_CONTROL_ROUTE_INVENTORY_2026-09-05.md
-#: and tools/vendor_parity/gpt6_async_independent_sources_20260906/RESULT.json):
-#: CtrlMUX01 -> TileAsyncMUX00 (line 0) and CtrlMUX03 -> TileAsyncMUX01 (line
-#: 1), both at fixed placement, across four independent seeds/sources. This is
-#: the OPPOSITE pairing from clock-enable/sync's LINE_OF_CTRL below (there,
-#: even instances 0/2 drive lines 1/0; here, odd instances 1/3 drive lines
-#: 0/1) -- reusing LINE_OF_CTRL for async (2026-09-25) silently wrote a
-#: self-consistent but electrically disconnected CtrlMUX00, which never
-#: reaches TileAsyncMUX on real silicon and was the root cause of the first
-#: board round's CONTROL_FAIL/RATE_FAIL (0 edges, reset never actually
-#: asserted). See ASYNC_LINE_OF_CTRL / ASYNC_SOURCE_OF_CTRL.
+#: History (2026-09-25, corrected same day): the first board round
+#: (CtrlMUX00, glitched during held reset -- CONTROL_FAIL) was mis-diagnosed
+#: as "wrong instance" from AG32-Docs
+#: docs/archive/2026-09/GPT6_ASYNC_CONTROL_ROUTE_INVENTORY_2026-09-05.md /
+#: tools/vendor_parity/gpt6_async_independent_sources_20260906/RESULT.json,
+#: which shows CtrlMUX03 -> TileAsyncMUX01 at LogicTile X14Y10. Switching to
+#: CtrlMUX03 gave a real, measured improvement (controls_static flipped
+#: False->True: the register now HOLDS during reset) but never resumed after
+#: release (RATE_FAIL, stuck). Directly decoding vendor's own board-PASSING
+#: clk_rst_high.bin settled it: raw bytes 6438/6439/6554/6555 (CtrlMUX
+#: instance 0's byte range, verified against agamemnon/chipdb/pips_full.csv's
+#: literal (x,y,"CFG_CTRLMUX",sel,byte,mask) rows, independent of any
+#: instance-number convention) carry the async source at LogicTile 19,12;
+#: bytes 6670/6671/6786/6787 (instance 3's range) are all zero. CtrlMUX00 IS
+#: the real instance for line 1 at X19Y12 -- matching, not contradicting,
+#: clock-enable/sync's own LINE_OF_CTRL (instances 0/1 drive line 1),
+#: `control_encode.CTRL_INDEX` (`(1,"ctrl_a")` -> instance 0), and
+#: `control_sets.py`'s "CtrlMUX 0/1 reach line 1" note -- three independent
+#: pieces of this codebase's own prior evidence that the X14Y10 finding
+#: apparently doesn't generalize to every tile the way it was read as doing.
+#: (Why CtrlMUX03 measurably changed the round-2 symptom despite being the
+#: wrong instance is still an open question; plausibly TileAsyncMUX read
+#: something equally undriven-but-different from each wrong wire.) The real,
+#: still-open problem is narrower than "which instance": ROUND 1 used
+#: CtrlMUX00 correctly but with RMUX94, a feeder witnessed for clock-enable's
+#: OWN net at this tile (tile_control_edges.csv), not for async's -- and it
+#: still failed. Vendor's own async source at this exact tile is RMUX10, not
+#: RMUX94 (same instance, same 2-hot codeword table, different physical
+#: wire). Being witnessed to reach CtrlMUX00 for ONE net does not prove a
+#: DIFFERENT net can ride the same pip on this silicon (the "wrong-node"/
+#: silent-lookup-miss bug class already burned this codebase before, memory
+#: ag32-silent-lookup-miss-class-2026-08-15). See ASYNC_FEEDER_WHITELIST
+#: below: admission is now restricted to feeders independently witnessed FOR
+#: THIS COMPOSITION, not merely witnessed to reach the same CtrlMUX instance
+#: for an unrelated net.
 ASYNC_EDGE_TABLE = Path(__file__).resolve().parent.parent / "async_control_edges.csv"
 
 #: Control-line families a control signal terminates on.
@@ -143,15 +164,14 @@ FAMILY_OF_SINK = {
 LINE_OF_CTRL = {0: 1, 1: 1, 2: 0, 3: 0}
 SOURCE_OF_CTRL = {0: "ctrl_a", 1: "ctrl_b", 2: "ctrl_a", 3: "ctrl_b"}
 
-#: The same two fields, but for TileAsyncMUX specifically: instances 1 and 3
-#: drive lines 0 and 1 respectively (the reverse pairing from the clock-enable
-#: /sync instances above), each the sole source for its line -- there is no
-#: witnessed "b" alternate source for async the way clock-enable/sync have
-#: two instances per line, so every entry maps to "ctrl_a", the one column
-#: ``control_encode.FAMILY_SOURCE_COLUMNS["async_clear"]`` claims. Evidence:
-#: see the comment on ``ASYNC_EDGE_TABLE`` above.
-ASYNC_LINE_OF_CTRL = {1: 0, 3: 1}
-ASYNC_SOURCE_OF_CTRL = {1: "ctrl_a", 3: "ctrl_a"}
+#: The same two fields, but restricted to the one composition this codebase
+#: has actual evidence for: CtrlMUX instance 0 (line 1, source "ctrl_a",
+#: column 29) -- see the corrected history on ``ASYNC_EDGE_TABLE`` above.
+#: Async has no witnessed "ctrl_b" alternate the way clock-enable/sync do
+#: (``FAMILY_SOURCE_COLUMNS["async_clear"]`` claims only "ctrl_a"), and no
+#: witnessed line-0 composition either, so only instance 0 is offered here.
+ASYNC_LINE_OF_CTRL = {0: 1}
+ASYNC_SOURCE_OF_CTRL = {0: "ctrl_a"}
 
 _WIRE = re.compile(r"X(\d+)Y(\d+)_([A-Za-z]+)(\d+)$")
 
@@ -207,6 +227,30 @@ def load_async_control_edges(path=None):
     """Read the CtrlMUX -> TileAsyncMUX edges. See ``ASYNC_EDGE_TABLE``."""
     with open(path or ASYNC_EDGE_TABLE, newline="", encoding="utf-8") as handle:
         return list(csv.DictReader(handle))
+
+
+#: Feeder (wire -> CtrlMUX) compositions independently proven for async_clear
+#: specifically, not merely proven to reach the same CtrlMUX instance for an
+#: unrelated (clock-enable/sync) net -- see the ``ASYNC_EDGE_TABLE`` history
+#: above for why that distinction is load-bearing (round 1, 2026-09-25, used
+#: a ledger-witnessed-for-clock-enable feeder, CtrlMUX00 at X19Y12 via
+#: RMUX94, and still failed on the board). One row is the vendor image's own
+#: proven composition (RMUX10, decoded from the board-PASSING clk_rst_high.bin);
+#: the rest are the pipwit ledger's other silicon-witnessed wire->CtrlMUX00
+#: feeders (`AG32-Docs/tools/pipwit`, `ledger.State.load().witnessed`),
+#: MINUS the one board-falsified entry (X19Y12/RMUX94), which stays excluded
+#: on purpose -- a negative board result is evidence too.
+ASYNC_FEEDER_WHITELIST = Path(__file__).resolve().parent.parent / "async_feeder_wl.csv"
+
+
+def load_async_feeder_whitelist(path=None):
+    """Read :data:`ASYNC_FEEDER_WHITELIST` as a set of ``(sx, sy, sres, dx, dy, dres)``."""
+    with open(path or ASYNC_FEEDER_WHITELIST, newline="", encoding="utf-8") as handle:
+        return {
+            (row["src_x"], row["src_y"], row["src_res"],
+             row["dst_x"], row["dst_y"], row["dst_res"])
+            for row in csv.DictReader(handle)
+        }
 
 
 def _wire(x, y, resource):
@@ -307,10 +351,23 @@ class SharedControlGraphFeature:
         # without the base flag (e.g. --no-native-clock-enable): reproduced
         # 2026-09-25 building clk_rst_high.v, which then had no admitted path
         # from any pad to any LogicTile CtrlMUX at all.
+        # When async_clear is the ONLY family active, its feeder half is
+        # restricted to ASYNC_FEEDER_WHITELIST: a composition witnessed to
+        # reach the same CtrlMUX instance for clock-enable/sync's OWN net is
+        # not thereby proven for a different net on this silicon (see the
+        # ASYNC_EDGE_TABLE history above). When base_on is also set, the full
+        # 811-row shared input half stays available -- clock-enable/sync's
+        # own admission, already validated elsewhere, is not narrowed by a
+        # restriction scoped to async_clear's own graph.
+        async_whitelist = load_async_feeder_whitelist() if (async_on and not base_on) else None
         edge_rows = []
         if base_on or async_on:
             for row in load_control_edges():
                 if row["dst_res"].startswith("CtrlMUX"):
+                    if async_whitelist is not None and (
+                            row["src_x"], row["src_y"], row["src_res"],
+                            row["dst_x"], row["dst_y"], row["dst_res"]) not in async_whitelist:
+                        continue
                     edge_rows.append(row)          # shared input half
                 elif base_on:
                     edge_rows.append(row)          # clock-enable/sync output half

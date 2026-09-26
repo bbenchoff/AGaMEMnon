@@ -1,4 +1,5 @@
 import os
+import re
 
 import pytest
 
@@ -493,7 +494,7 @@ def test_async_edge_table_is_the_one_evidenced_topology():
     rows = shared_control.load_async_control_edges()
     assert len(rows) == 132
     for row in rows:
-        assert row["src_res"] == "CtrlMUX03"
+        assert row["src_res"] == "CtrlMUX00"
         assert row["dst_res"] == "TileAsyncMUX01"
         assert row["cfg"] == "CFG_TILEASYNCMUX[1]"
         assert row["tier"] == "formula"   # NOT "observed": see ASYNC_EDGE_TABLE
@@ -519,9 +520,9 @@ def test_async_edges_and_sink_bel_appear_once_both_flags_are_set(monkeypatch):
     shared_control.FEATURE.add_architecture(context)
 
     async_pips = [p for p in context.ctx.pips
-                  if p[2].endswith("_CtrlMUX03") and p[3].endswith("_TileAsyncMUX01")]
+                  if p[2].endswith("_CtrlMUX00") and p[3].endswith("_TileAsyncMUX01")]
     assert len(async_pips) == 1
-    assert async_pips[0][0] == "X14Y8_CtrlMUX03.X14Y8_TileAsyncMUX01"
+    assert async_pips[0][0] == "X14Y8_CtrlMUX00.X14Y8_TileAsyncMUX01"
 
     async_bels = [b for b in context.ctx.bels if b[0] == "X14Y8_ASYNCCLR1"]
     assert len(async_bels) == 1
@@ -541,7 +542,7 @@ def test_async_clear_works_standalone_without_the_base_clock_enable_flag(monkeyp
     graph -- INCLUDING the shared wire->CtrlMUX input half of
     tile_control_edges.csv, not just async's own CtrlMUX->TileAsyncMUX edges.
 
-    Regression test for two real bugs, both hit building clk_rst_high.v
+    Regression test for three real bugs, all hit building clk_rst_high.v
     2026-09-25: (1) the base flag's early return used to swallow async's
     block whenever cli.py popped AGRV2K_SHARED_CONTROL_GRAPH for
     --no-native-clock-enable ("no BELs remaining to implement cell type
@@ -549,17 +550,27 @@ def test_async_clear_works_standalone_without_the_base_clock_enable_flag(monkeyp
     the base flag then starved async_clear of the wire->CtrlMUX rows it
     shares with clock-enable/sync (811 of tile_control_edges.csv's 1,074
     rows), so no pad's reset net could reach ANY CtrlMUX at all --
-    "ERROR: Failed to route arc ... net '$iopadmap$reset' ... unroutable".
+    "ERROR: Failed to route arc ... net '$iopadmap$reset' ... unroutable";
+    (3) admitting the full, unrestricted 811-row shared input half let the
+    router pick a feeder witnessed only for clock-enable's own net at that
+    tile (RMUX94 at X19Y12) rather than async's actual vendor-proven one
+    (RMUX10) -- board-tested CONTROL_FAIL, 2026-09-25. When async_clear is
+    the only family active its feeder half is now restricted to
+    ASYNC_FEEDER_WHITELIST.
     """
     monkeypatch.delenv(shared_control.SHARED_CONTROL_GRAPH_OPTION, raising=False)
     monkeypatch.setenv(shared_control.ASYNC_CLEAR_GRAPH_OPTION, "1")
     context = _arch_context(_all_wires() | {"X14Y8_TileAsyncMUX00", "X14Y8_TileAsyncMUX01"})
     added = shared_control.FEATURE.add_architecture(context)
-    # The shared wire->CtrlMUX input half (811 rows) plus async's own one
-    # CtrlMUX03->TileAsyncMUX01 edge this fixture's wire set admits.
-    assert added == 812
+    whitelist_size = len(shared_control.load_async_feeder_whitelist())
     ctrlmux_pips = [p for p in context.ctx.pips if "_CtrlMUX0" in p[3]]
-    assert len(ctrlmux_pips) == 811
+    # Every admitted wire->CtrlMUX00 pip is a whitelist entry -- none of the
+    # 811-row unrestricted set's other rows (nor the board-falsified RMUX94
+    # entry) ever reach the graph when async_clear is the only family active.
+    assert 0 < len(ctrlmux_pips) <= whitelist_size
+    assert len(ctrlmux_pips) < 811
+    assert "X19Y12_RMUX94.X19Y12_CtrlMUX00" not in {p[0] for p in context.ctx.pips}
+    assert added == len(ctrlmux_pips) + 1   # + async's own CtrlMUX00->TileAsyncMUX01 edge
     assert "X14Y8_ASYNCCLR1" in {b[0] for b in context.ctx.bels}
     # Clock-enable/sync's own OUTPUT half (CtrlMUX -> TileClkEnMUX/TileSyncMUX)
     # and sink bels stay absent: the base flag is genuinely off.
@@ -596,19 +607,23 @@ def test_slice_lines_from_module_skips_async_control_cells():
 
 
 def test_prepare_resolves_one_async_clear_edge_to_the_board_witnessed_bit():
-    """RMUX65 -> CtrlMUX3 -> TileAsyncMUX01: CtrlMUX03 is the instance vendor
-    evidence at X14Y10 (docs/archive/2026-09/GPT6_ASYNC_CONTROL_ROUTE_INVENTORY
-    _2026-09-05.md, tools/vendor_parity/gpt6_async_independent_sources_20260906
-    /RESULT.json in AG32-Docs) shows driving TileAsyncMUX01/line 1; CtrlMUX00
-    (used until the 2026-09-25 board round's CONTROL_FAIL diagnosis) never
-    reaches TileAsyncMUX at all. RMUX65 -> (38, 47) is the exact source/sel
-    pair the corrected open flow's own router picked rebuilding clk_rst_high
-    (LogicTile 16,11) the same day."""
+    """RMUX10 -> CtrlMUX0 -> TileAsyncMUX01: RMUX10 is vendor's OWN async
+    source at LogicTile (19,12), settled by decoding the board-PASSING
+    clk_rst_high.bin's raw bytes directly (6438/6439/6554/6555, CtrlMUX
+    instance 0's byte range per agamemnon/chipdb/pips_full.csv -- bytes
+    6670/6671/6786/6787, instance 3's range, are all zero). This also
+    matches this module's own pre-existing LINE_OF_CTRL (instance 0 drives
+    line 1), control_encode.CTRL_INDEX[(1,"ctrl_a")] == 0, and
+    control_sets.py's "CtrlMUX 0/1 reach line 1" note -- CtrlMUX03 (tried
+    2026-09-25 on a since-corrected reading of an unrelated RE campaign at a
+    different tile, AG32-Docs
+    docs/archive/2026-09/GPT6_ASYNC_CONTROL_ROUTE_INVENTORY_2026-09-05.md)
+    is not it."""
     from agamemnon.engine import control_encode
-    lo, hi = control_encode.ctrlmux_source_sels(3, "RMUX65")
+    lo, hi = control_encode.ctrlmux_source_sels(0, "RMUX10")
     state = shared_control.FEATURE.prepare(
-        ["X19Y12_RMUX65.X19Y12_CtrlMUX03", "X19Y12_CtrlMUX03.X19Y12_TileAsyncMUX01"],
-        {(19, 12, "CFG_CTRLMUX3", lo): (1, 1), (19, 12, "CFG_CTRLMUX3", hi): (1, 2)},
+        ["X19Y12_RMUX10.X19Y12_CtrlMUX00", "X19Y12_CtrlMUX00.X19Y12_TileAsyncMUX01"],
+        {(19, 12, "CFG_CTRLMUX0", lo): (1, 1), (19, 12, "CFG_CTRLMUX0", hi): (1, 2)},
     )
     assert state.routes == 1
     assert state.sources == 1
@@ -619,15 +634,47 @@ def test_prepare_resolves_one_async_clear_edge_to_the_board_witnessed_bit():
     assert state.slice_lines == {}
 
 
+def test_async_feeder_whitelist_excludes_the_board_falsified_entry():
+    """X19Y12/RMUX94 IS a real, ledger-witnessed CtrlMUX00 feeder (for
+    clock-enable's own net at that tile) but board-tested FALSE for
+    async_clear specifically (round 1, 2026-09-25: CONTROL_FAIL). Being
+    witnessed to reach an instance for one net does not carry over to a
+    different net on this silicon, so it must stay out of the whitelist even
+    though the ledger admits it for clock-enable."""
+    wl = shared_control.load_async_feeder_whitelist()
+    assert ("19", "12", "RMUX94", "19", "12", "CtrlMUX00") not in wl
+    assert ("19", "12", "RMUX10", "19", "12", "CtrlMUX00") in wl
+    assert len(wl) >= 100
+
+
+def test_async_architecture_admits_only_whitelisted_feeders(monkeypatch):
+    """Standalone (async_clear only, no clock-enable): the graph must never
+    contain the board-falsified X19Y12/RMUX94 pip, and every CtrlMUX00 pip it
+    does contain must be a whitelist entry."""
+    monkeypatch.delenv(shared_control.SHARED_CONTROL_GRAPH_OPTION, raising=False)
+    monkeypatch.setenv(shared_control.ASYNC_CLEAR_GRAPH_OPTION, "1")
+    context = _arch_context(_all_wires() | {"X14Y8_TileAsyncMUX00", "X14Y8_TileAsyncMUX01"})
+    shared_control.FEATURE.add_architecture(context)
+    wl = shared_control.load_async_feeder_whitelist()
+    wire_re = re.compile(r"X(\d+)Y(\d+)_(.+)$")
+    for _name, _type, src_wire, dst_wire, _loc in context.ctx.pips:
+        if not dst_wire.endswith("_CtrlMUX00"):
+            continue
+        sx, sy, sres = wire_re.match(src_wire).groups()
+        dx, dy, dres = wire_re.match(dst_wire).groups()
+        assert (sx, sy, sres, dx, dy, dres) in wl, (
+            "unwhitelisted feeder %s.%s" % (src_wire, dst_wire))
+
+
 def test_prepare_refuses_an_async_edge_from_the_wrong_ctrlmux_instance():
-    # CtrlMUX01 drives async line 0 (ASYNC_LINE_OF_CTRL[1] == 0); naming line 1
-    # is a contradiction, exactly as the pre-existing clock_enable/sync check
-    # already refuses for those families. (CtrlMUX00/02 are not valid async
-    # sources at all -- they carry clock-enable/sync instead -- so this also
-    # covers "wrong instance entirely" via KeyError->.get(...)==None.)
+    # ASYNC_LINE_OF_CTRL only defines instance 0 (the one composition this
+    # codebase has evidence for); naming any other instance, including the
+    # ones clock-enable/sync legitimately use for their own lines, is a
+    # contradiction and refuses exactly as the pre-existing clock_enable/sync
+    # check already does for those families.
     with pytest.raises(shared_control.SharedControlEmitError, match="drives line"):
         shared_control.FEATURE.prepare(
-            ["X19Y12_CtrlMUX01.X19Y12_TileAsyncMUX01"], {})
+            ["X19Y12_CtrlMUX02.X19Y12_TileAsyncMUX01"], {})
 
 
 def test_async_clear_line_zero_has_no_graph_offer_even_though_the_formula_resolves():
