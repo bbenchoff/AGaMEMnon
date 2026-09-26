@@ -44,12 +44,9 @@ BRAM_CONTROL_FIELD_WIDTHS = {"KMUX": 9, "TMUX": 8}
 # x18h 2-bit sim) and x2 (01110; the shipped dual-port SERV register file), so
 # those alone are exempt; x9 is proven-broken, x4/x1 are unqualified/unverified.
 # The x2 exemption rests on SERV being DUAL-PORT (write Port A / read Port B),
-# silicon-proven; a future SINGLE-PORT x2 (write AND read on Port A) is NOT proven
-# and shares x9's packing hazard (maskA_x2 selects a 2-lane window by block address;
-# with the upper lanes dangling, a non-lowest window silently drops). SERV is the
-# only x2 anywhere qualified, so the width-only exemption is zero-blast-radius today;
-# if a single-port x2 write design ever appears, tighten by conditioning the x2
-# exemption on dual-port (the `portb_read` signal computed below).
+# silicon-proven. The SINGLE-PORT x2 write/read probe is silicon-negative,
+# including with replicated inputs and widened carry placement. Its width must
+# not inherit SERV's exception: the guard requires a live Port-B read for x2.
 QUALIFIED_WRITE_WIDTHS = frozenset((0b00000, 0b01110))  # x18, x2 (see note above)
 
 # 2026-09-25: narrow writes STORE on silicon. The vendor primitive instantiated
@@ -143,7 +140,10 @@ def narrow_write_silently_wrong(width, wea_connection, datain_a_connection=None,
     write_enabled = any(isinstance(bit, int) for bit in (wea_connection or ()))
     if not write_enabled:
         return False
-    if width in QUALIFIED_WRITE_WIDTHS:
+    # The legacy x2 exemption is the write-A/read-B register-file shape.
+    # A same-Port-A x2 write/read probe fails on silicon even with replicated
+    # inputs, so width alone must not bypass the mode-specific guard.
+    if width in QUALIFIED_WRITE_WIDTHS and (width != 0b01110 or dual_port):
         return False
     if (narrow_write_optin and narrow_write_board_proven(width, dual_port)
             and _narrow_write_windows_populated(width, datain_a_connection)):

@@ -63,7 +63,7 @@ def test_x9_dynamic_write_without_replicated_windows_is_refused():
 def test_x2_and_x18_dynamic_write_are_admitted():
     # Flagship safety: SERV writes an x2 dual-port register file on silicon, and
     # x18 is the R9/x18h qualified writable width. Neither may be refused.
-    assert not narrow_write_silently_wrong(X2, NET)
+    assert not narrow_write_silently_wrong(X2, NET, dual_port=True)
     assert not narrow_write_silently_wrong(X18, NET)
 
 
@@ -92,9 +92,7 @@ from agamemnon.engine.features.bram import (
 from agamemnon.engine import qin_pack
 
 NARROW = (X9, X4, X2, X1)
-# Widths subject to the self-verifying window check: X2 is exempt up front via the
-# SERV dual-port QUALIFIED_WRITE_WIDTHS entry, so it is never refused and never
-# reaches the window-population logic.
+# X2's legacy exception applies only to the dual-port register-file shape.
 NARROW_REFUSED = (X9, X4, X1)
 # The board-proven (width, dual_port) combinations and the unproven ones per width.
 PROVEN = ((X4, True), (X1, False))
@@ -128,8 +126,17 @@ def test_default_admits_a_fully_replicated_board_proven_narrow_write():
     for width, dual in PROVEN:
         assert not narrow_write_silently_wrong(
             width, NET, _populated_datain(width), narrow_write_optin=True, dual_port=dual)
-    # x2 is admitted through QUALIFIED_WRITE_WIDTHS regardless of replication.
-    assert not narrow_write_silently_wrong(X2, NET, _populated_datain(X2), narrow_write_optin=True)
+    # x2 write-A/read-B is admitted independently of the replication option.
+    assert not narrow_write_silently_wrong(X2, NET, _populated_datain(X2),
+                                           narrow_write_optin=True, dual_port=True)
+
+
+def test_single_port_x2_write_is_refused_with_or_without_replication():
+    for datain in (None, _populated_datain(X2)):
+        for replication in (False, True):
+            assert narrow_write_silently_wrong(
+                X2, NET, datain, narrow_write_optin=replication, dual_port=False)
+    assert "x2 single-port is not board-proven" in narrow_write_refusal(X2, True)
 
 
 def test_default_refuses_the_modes_that_failed_on_the_board():
