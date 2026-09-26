@@ -2374,6 +2374,16 @@ def _tile_compaction_fallback_allowed(automatic, records):
                     for sig, _ in summary.signature_counts))
 
 
+def _apply_congestion_retry_penalty(env, records):
+    """Preserve ordinary costs until a completed candidate fails route safety."""
+    key = "AGRV2K_CONGESTION_PENALTY_NS"
+    if key in env or not any(
+            record.outcome == _attempt_ladder.ROUTED_UNSAFE for record in records):
+        return False
+    env[key] = "25"
+    return True
+
+
 def _native_enable_fallback_allowed(native_enable, document, records):
     """Retry an exhausted placement ladder only when native enables are present.
 
@@ -3865,6 +3875,9 @@ def _cmd_build_once(a):
                 env["AGRV2K_CONDPLACE_CAP"] = str(cap)
             placement_seeds = _uarch_placement_seeds(generic_place, route_seeds, requested_seed)
             for seed_index, seed in enumerate(placement_seeds):
+                if _apply_congestion_retry_penalty(env, attempt_records):
+                    print("[build] rejected congestion-marginal route; "
+                          "subsequent attempts use a 25 ns avoidance cost")
                 if not generic_place:
                     env["AGRV2K_CONDPLACE_SEED"] = seed
                 attempt_npr = npr + (["--placer", "heap", "--seed", seed]
