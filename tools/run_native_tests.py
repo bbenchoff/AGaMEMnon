@@ -13,6 +13,8 @@ sys.path.insert(0, str(ROOT / 'tests'))
 from devdb_fixtures import DatabaseFixtures
 
 COMPILED_CLOSURE_TARGETS = (
+    'test_dual_control_repartition.py',
+    'test_mixed_native_control.py',
     'test_uarch_carry_drc.py',
     'test_uarch_register_input_legality.py',
     'test_carry_routed_validation.py',

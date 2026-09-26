@@ -38,13 +38,14 @@ def _selectors():
     }
 
 
-def _prepare(lines=None, *, validation=None, options=None, selectors=None):
+def _prepare(lines=None, *, validation=None, options=None, selectors=None, async_tiles=()):
     return FEATURE.prepare(
         {TILE}, [], [], _selectors() if selectors is None else selectors,
         CHIPDB, options_from({"AGAMEMNON_SYSCLK": "100", "AGAMEMNON_HSE": "8"})
         if options is None else options,
         _validation() if validation is None else validation,
         slice_lines=lines,
+        async_clear_tiles=async_tiles,
     )
 
 
@@ -61,6 +62,28 @@ def test_native_line0_preserves_the_existing_clock_byte_sequence():
     assert line0.sets == baseline.sets
     assert control_encode.bit_position(14, 8, 35, 30) not in line0.sets
     assert (5001, 2) not in line0.sets
+
+
+def test_async_clear_changes_only_the_selected_tile_polarity_field():
+    from types import SimpleNamespace
+    baseline = _prepare()
+    active = _prepare(async_tiles={TILE})
+    polarity = control_encode.bit_position(*TILE, 33, 27)
+    assert polarity in baseline.sets
+    assert polarity not in active.sets
+    assert active.clears == [polarity]
+    assert FEATURE.writable_bits(active) == FEATURE.writable_bits(baseline)
+    raw = []
+    for state in (baseline, active):
+        image = bytearray([255]) * 99936
+        FEATURE.emit_bitstream(SimpleNamespace(state=state, image=image, ownership=None))
+        raw.append(image)
+    assert [(i, a ^ b) for i, (a, b) in enumerate(zip(*raw)) if a != b] == [polarity]
+
+
+def test_async_clear_rejects_a_tile_without_a_validated_clock():
+    with pytest.raises(SystemExit, match="no validated register clock"):
+        _prepare(async_tiles={(17, 11)})
 
 
 @pytest.mark.parametrize(

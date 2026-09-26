@@ -9,10 +9,12 @@ import shutil
 import subprocess
 
 import pytest
+from devdb_fixtures import devdb_path
 
 
 ROOT = Path(__file__).resolve().parents[1]
 SYNTH = ROOT / "agamemnon" / "synth" / "synth_pads.tcl"
+TIERED_DEVDB = devdb_path("tiered") if os.environ.get("AGAMEMNON_UARCH_NEXTPNR") else None
 
 
 MIXED_ADDERS = r"""
@@ -154,7 +156,7 @@ def test_mixed_counter_netlist_reaches_uarch_pack_without_global_carry_refusal(t
 
     synth_json = tmp_path / "mixed.json"
     packed_json = tmp_path / "packed.json"
-    devdb = ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "devdb_tiered"
+    devdb = TIERED_DEVDB
     pack_env = dict(os.environ)
     npr_runtime = pack_env.get("AGAMEMNON_UARCH_NEXTPNR_RUNTIME")
     if npr_runtime:

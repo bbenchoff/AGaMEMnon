@@ -5,11 +5,12 @@ import pytest
 from tools.bundle.release_notes import render_notes
 
 
-def test_release_notes_bind_local_links_to_tag():
-    notes = render_notes(Path(__file__).resolve().parents[1], "v0.4.0")
-    assert "blob/v0.4.0/docs/INSTALLATION.md" in notes
-    assert "blob/v0.4.0/ROADMAP.md" in notes
-    assert "releases/tag/v0.4.0" in notes
+@pytest.mark.parametrize("tag", ["v0.4.0", "v0.5.0"])
+def test_release_notes_bind_local_links_to_tag(tag):
+    notes = render_notes(Path(__file__).resolve().parents[1], tag)
+    assert "blob/" + tag + "/docs/INSTALLATION.md" in notes
+    assert "blob/" + tag + "/ROADMAP.md" in notes
+    assert "releases/tag/" + tag in notes
     assert "](INSTALLATION.md)" not in notes
 
 

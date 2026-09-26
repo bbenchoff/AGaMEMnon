@@ -43,7 +43,7 @@ extension; see docs/PROGRAMMING.md.
 import os, sys, argparse, subprocess, tempfile, json, hashlib, shutil, time, re, csv, importlib.util, copy
 import math
 
-from .tool_shim import stage_windows_directory, stage_windows_executable
+from .tool_shim import stage_native_directory, stage_windows_executable, split_tool_command
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ENGINE = os.path.join(HERE, "engine")        # the self-contained engine (single source of truth)
@@ -128,11 +128,16 @@ from .engine.features.carry_validate import (                # noqa: E402
 )
 from .engine.features.clock_validate import (                # noqa: E402
     ClockValidationError,
+    annotate_clock_intent,
     validate_clock_intent,
     validate_routed_clock,
 )
 from .engine.features.mcu_endpoint import (                   # noqa: E402
     validate_document_mcu_endpoints,
+)
+from .engine.features.placement_congestion import (           # noqa: E402
+    CongestionMarginalError,
+    validate_document_congestion_marginal,
 )
 
 RAW_LEN = 99936
@@ -141,14 +146,17 @@ DEFAULT_FABRIC_FREQUENCY_MHZ = int(ENGINE_OPTIONS["AGAMEMNON_SYSCLK"].default)
 QUALIFICATION = os.path.abspath(os.path.join(HERE, os.pardir, "qualification"))
 
 
-def _validate_carry_document(document, phase):
+def _validate_carry_document(document, phase, chipdb_root=None):
     modules = document.get("modules") if isinstance(document, dict) else None
     module = modules.get("top") if isinstance(modules, dict) else None
     if not isinstance(module, dict):
         raise CarryValidationError(
             "carry route: %s requires exact modules['top']" % phase
         )
-    return validate_routed_carry(module)
+    from .engine.features.carry import FEATURE, carry_wide_corridor_enabled
+    sites = FEATURE.load_qualified_sites(chipdb_root) if chipdb_root else frozenset()
+    cap = 16 if sites and carry_wide_corridor_enabled() else 9
+    return validate_routed_carry(module, wide_sites=sites, wide_cap=cap)
 
 
 def _validate_clock_document(document, phase, chipdb_root, options,
@@ -174,6 +182,14 @@ def _validate_mcu_endpoint_document(document, phase, chipdb_root):
         return validate_document_mcu_endpoints(document, chipdb_root)
     except SystemExit as exc:
         raise RuntimeError("typed MCU endpoint %s validation failed: %s" %
+                           (phase, exc)) from exc
+
+
+def _validate_congestion_marginal_document(document, phase, chipdb_root):
+    try:
+        validate_document_congestion_marginal(document, chipdb_root)
+    except CongestionMarginalError as exc:
+        raise RuntimeError("congestion-marginal %s validation failed: %s" %
                            (phase, exc)) from exc
 
 
@@ -299,8 +315,8 @@ QUALIFIED_ROUTE_PROFILES = {
         "checkpoint": "bram_tmux9_i0_d1_we1_routed.json",
         "checkpoint_sha256": "66f67c03d71b512c7ccdf2ee5b73e7cbac3ee10d7ba253d4c40d585fd3c3865a",
         "bitstream_sha256": "3bd2c82a2a18e2c66721de5687c940e915bc7a933f5ea88dbca45394901782df",
-        "source_build_bitstream_sha256": "41e5e304e2300a949d3be969149af5b6c195e25a3b1bf4e9e03ddd093756edd0",
-        "source_build_compressed_sha256": "42cf31c08d8f2a397ad5ef420a4d7e4a0bc9aa9d68320861a0eade054e681cfc",
+        "source_build_bitstream_sha256": "0abf85a61cde52ffbb58d9dccc64292c90fa6930e6290d8d52c18557df7df42c",
+        "source_build_compressed_sha256": "5f778f538c9903faeee28107dc122f98090deb9a31fddbb6229b0826bea6a0ad",
         "compressed_sha256": "221cdf15ccd9ef4d2220181861e724136a69387bb3647c4db550c1891a421ce5",
         "hse": 8,
         "sysclk": 10,
@@ -331,8 +347,8 @@ QUALIFIED_ROUTE_PROFILES = {
         "checkpoint": "bram_tmux9_i1_d0_we1_routed.json",
         "checkpoint_sha256": "e9b6d3a4acec861c28fa87eec32b2ff54b67b53362c8e5f65140f76f9657b89b",
         "bitstream_sha256": "3b8892052a726d0bbe93298ce70f0eb4149134620f4551b606ef0be24522b8ea",
-        "source_build_bitstream_sha256": "48991ea8b3030980ce365597e0cc8fc4c31ee18370d21e4540252c87897f3ab8",
-        "source_build_compressed_sha256": "58d32a0629de733875ca2b99071ec847300818563c9fa9a5bcec50e91429338a",
+        "source_build_bitstream_sha256": "cead049837433150e0d829ac9b6c24ecb8bc326087bfd59a7f294e6b16fc7d7e",
+        "source_build_compressed_sha256": "443a01f1b79a9db907e4ac1b01cbb3116180fd9fb95f2452e5e1622484ce04bc",
         "compressed_sha256": "56ffb26756a02d9042e99485e1e28b212fcceb004487782c01cb279804918f19",
         "hse": 8,
         "sysclk": 10,
@@ -1944,7 +1960,8 @@ def _uarch_placement_seeds(generic_place, route_seeds, requested_seed=None):
     return ["1", "2", "3", "4"] if generic_place else list(route_seeds)
 
 
-def _uarch_attempts(requested_cap, maxfo, split_first=False, heap_first=False):
+def _uarch_attempts(requested_cap, maxfo, split_first=False, heap_first=False,
+                    memory_lowered=False):
     """Return the deterministic placement/fanout escalation order.
 
     The requested density must remain a real candidate after fanout splitting;
@@ -1966,10 +1983,14 @@ def _uarch_attempts(requested_cap, maxfo, split_first=False, heap_first=False):
     attempts.extend((cap, fo) for fo in fos for cap in split_caps)
     if heap_first:
         attempts = [(0, 0)] + [attempt for attempt in attempts if attempt != (0, 0)]
-    if split_first:
+    if split_first or memory_lowered:
         # Every qualified true-dual-port SERV route needs the cap-5/maxfo-16
         # netlist. Try the caller's requested cap at maxfo 16 first, while
         # retaining the complete unsplit/split fallback matrix afterward.
+        # A memory lowered to registers has the same high-fanout address and
+        # control problem. Try the existing identity-buffer tree first instead
+        # of waiting on a congested untouched HeAP placement. If no eligible
+        # net needs buffering, the caller skips this rung without routing it.
         preferred = (requested_cap, 16)
         attempts = [preferred] + [attempt for attempt in attempts if attempt != preferred]
     return attempts
@@ -2353,9 +2374,20 @@ def _tile_compaction_fallback_allowed(automatic, records):
         return False
     summary = _attempt_ladder.summarize_ladder(records)
     return bool(summary and not summary.succeeded and summary.signature_counts and
-                all(record.outcome == _attempt_ladder.NOT_ROUTED for record in records) and
-                all(sig.kind in {"PLACEMENT", "ARC_FAILURE"}
+                all(record.outcome in {_attempt_ladder.NOT_ROUTED,
+                                       _attempt_ladder.ROUTED_UNSAFE} for record in records) and
+                all(sig.kind in {"PLACEMENT", "ARC_FAILURE", "ROUTE_SAFETY"}
                     for sig, _ in summary.signature_counts))
+
+
+def _apply_congestion_retry_penalty(env, records):
+    """Preserve ordinary costs until a completed candidate fails route safety."""
+    key = "AGRV2K_CONGESTION_PENALTY_NS"
+    if key in env or not any(
+            record.outcome == _attempt_ladder.ROUTED_UNSAFE for record in records):
+        return False
+    env[key] = "25"
+    return True
 
 
 def _native_enable_fallback_allowed(native_enable, document, records):
@@ -2621,6 +2653,16 @@ def _routed_native_population(document):
                    cell.get("attributes", {}).get("AGRV2K_CLOCK_ENABLE_NET"))
                for module in document.get("modules", {}).values()
                for cell in module.get("cells", {}).values())
+
+
+def _json_uses_async_clear(path):
+    """Select the async routing surface from typed synthesized cells."""
+    with open(path, encoding="utf-8") as stream:
+        document = json.load(stream)
+    cells = document["modules"]["top"].get("cells", {}).values()
+    return any(cell.get("type") == "$_DFF_PP0_" or
+               cell.get("attributes", {}).get("AGRV2K_SHARED_CONTROL_MODE") ==
+               "ASYNC_CLEAR_POS_ZERO" for cell in cells)
 
 
 def _native_clock_enable_requested(a):
@@ -2899,6 +2941,22 @@ def _cmd_build_once(a):
         env.pop("AGRV2K_SHARED_CONTROL_ENABLE", None)
     if native_enable:
         _native_mapping_defaults(env)
+    # Async-clear reset admission (N4.2): witnessed means default-on (memory
+    # ag32-witnessed-means-default-on-2026-09-24), independent of clock
+    # enable -- a build can carry one graph without the other, e.g.
+    # --no-native-clock-enable must not also silently drop async-clear's
+    # graph (a real bug hit and fixed 2026-09-25: shared_control_graph.py's
+    # add_architecture() used to gate its ENTIRE body, async included, on
+    # AGRV2K_SHARED_CONTROL_GRAPH alone). Kill switch: --no-async-clear-reset
+    # or AGRV2K_SHARED_CONTROL_ASYNC_CLEAR=0.
+    async_clear_flag = (a.uarch and not getattr(a, "no_async_clear_reset", False)
+                        and os.environ.get("AGRV2K_SHARED_CONTROL_ASYNC_CLEAR") != "0"
+                        and not a.qualified_checkpoint
+                        and not getattr(a, "qualified_bram_write", None))
+    if async_clear_flag:
+        env["AGRV2K_SHARED_CONTROL_ASYNC_CLEAR"] = "1"
+    else:
+        env.pop("AGRV2K_SHARED_CONTROL_ASYNC_CLEAR", None)
     control_description = "register data logic (--no-native-clock-enable)" if a.uarch else "register data logic"
     if native_enable:
         control_description = "native line 0 with isolated register tiles"
@@ -3135,7 +3193,7 @@ def _cmd_build_once(a):
         return r.stdout + r.stderr
 
     # always wrap top-level ports as GENERIC_IOB (iopadmap) so nextpnr can bind them to IO bels
-    synth_tcl = os.path.join(stage_windows_directory(SYNTH), "synth_pads.tcl")
+    synth_tcl = os.path.join(stage_native_directory(SYNTH), "synth_pads.tcl")
     oss_env = _build_tool_env(env, oss=oss, use_oss=bool(oss))
     # Pass the Tcl file as its own process argument. Embedding it in a Yosys
     # ``-p`` command loses paths containing spaces before Tcl can parse them.
@@ -3154,7 +3212,7 @@ def _cmd_build_once(a):
     else:
         run("synth", ["yosys", "-q", "-c", synth_tcl, *sources],
             child_env=synth_env)
-        if (getattr(a, "_native_srst_candidate", False) and
+        if (native_enable and getattr(a, "_native_srst_candidate", False) and
                 os.environ.get("AGRV2K_SHARED_CONTROL_SRST_RECOVERY") == "1"):
             try:
                 with open(synth_json + ".srst-recovery.json", encoding="utf-8") as stream:
@@ -3175,6 +3233,16 @@ def _cmd_build_once(a):
     if _presented_top and _presented_top != "top":
         print("[build] top module %r presented as modules['top']" % _presented_top)
         top = "top"
+    # Admit async-reset RTL by default without changing ordinary designs' graph.
+    # Even unused control sinks change router choices; preserve the established
+    # graph when no synthesized cell needs them. Explicit graph experiments
+    # retain their requested surface.
+    if (async_clear_flag and
+            "AGRV2K_SHARED_CONTROL_ASYNC_CLEAR" not in os.environ and
+            not getattr(a, "async_clear_reset", False) and
+            not _json_uses_async_clear(synth_json)):
+        async_clear_flag = False
+        env.pop("AGRV2K_SHARED_CONTROL_ASYNC_CLEAR", None)
     # SILENT-DEGRADATION GUARD: synth_pads.tcl writes a stable JSON sidecar
     # (<synth_json>.leftover_mem.json) naming every memory cell that
     # memory_libmap declined to map onto the hard ALTA_BRAM9K block RAM (see
@@ -3192,6 +3260,7 @@ def _cmd_build_once(a):
     # --allow-memory-lowering remains accepted (a no-op unless
     # --strict-memory-lowering is also set, in which case it suppresses that
     # failure) so nothing that already passes it breaks.
+    logic_memory_lowered = "logic_memory_data_enable" in getattr(a, "_fallback_stages", ())
     _mem_leftover_sidecar = synth_json + ".leftover_mem.json"
     if not _selective_snapshot and os.path.exists(_mem_leftover_sidecar):
         try:
@@ -3201,11 +3270,11 @@ def _cmd_build_once(a):
             print("error: could not read memory-lowering sidecar %s: %s" % (_mem_leftover_sidecar, exc))
             sys.exit(1)
         if _mem_leftover_names:
+            logic_memory_lowered = True
             print("AGAMEMNON WARNING: %d memory cell(s) did NOT map to the ALTA_BRAM9K block RAM "
                   "and were lowered to individual flip-flops + LUT address decoding by memory_map: "
-                  "%s -- this can silently balloon LUT/FF usage (a common cause: an "
-                  "asynchronous/combinational read port, or a pure read-only ROM with no write port, "
-                  "neither of which the block-RAM library's clocked read/write ports can express)."
+                  "%s -- small memories may prefer logic; incompatible block-RAM shapes also "
+                  "use this path. This consumes one flip-flop per stored bit plus decoding logic."
                   % (len(_mem_leftover_names), ", ".join(_mem_leftover_names)))
             _mem_lowering_strict = (getattr(a, "strict_memory_lowering", False)
                                      or env.get("AGAMEMNON_STRICT_MEMORY_LOWERING"))
@@ -3217,6 +3286,19 @@ def _cmd_build_once(a):
                       "acknowledge and continue, or fix the source (add `(* ram_style = \"block\" *)` "
                       "or restructure the read to be clocked).")
                 sys.exit(1)
+            if native_enable and not qualified_profile and not qualified_bram_source:
+                # memory_map creates one write-enable group per addressed word.
+                # Dedicated tile enables spread these groups over many tiles;
+                # ordinary data muxes keep the RAM local and preserve all write
+                # and read-enable semantics. Decide before any placement, rather
+                # than exhausting the native-control route ladder first.
+                print("[build] logic memory: using register data-logic enables")
+                a.no_native_clock_enable = True
+                a._native_enable_snapshot = None
+                a._native_enable_excluded_group_ids = ()
+                a._fallback_stages = (*getattr(a, "_fallback_stages", ()),
+                                      "logic_memory_data_enable")
+                return _cmd_build_once(a)
     # Physical BEL names are exposed by the C++ uarch database.  Generic
     # nextpnr consumes the PCF through arch.py and does not have those BELs.
     if a.pcf and a.uarch:
@@ -3419,9 +3501,9 @@ def _cmd_build_once(a):
         # engine/uarch/agrv2k/build.sh). The gated devdb is auto-emitted+cached on first use.
         udir = os.path.join(engine, "uarch", "agrv2k")
         unpr = os.environ.get("AGAMEMNON_UARCH_NEXTPNR", "nextpnr-generic")
-        # A literal Windows executable path may contain spaces. Preserve it as
+        # A literal executable path may contain spaces on any host. Preserve it as
         # one argv element before applying the non-ASCII nextpnr shim.
-        unpr_parts = [unpr] if os.name == "nt" and os.path.isfile(unpr) else unpr.split()
+        unpr_parts = split_tool_command(unpr)
         unpr_parts = stage_windows_executable(unpr_parts)
         npr_runtime = os.environ.get("AGAMEMNON_UARCH_NEXTPNR_RUNTIME")
         npr_env = _build_tool_env(env, oss=oss, runtime=npr_runtime)
@@ -3502,6 +3584,8 @@ def _cmd_build_once(a):
         custom_devdb = os.environ.get("AGAMEMNON_DEVDB")
         if native_enable:
             default_devdb += "_native_enable"
+        if async_clear_flag:
+            default_devdb += "_async_clear"
         if custom_devdb and "data_logic_enable" in getattr(a, "_fallback_stages", ()):
             # A caller-owned native graph is not a data-logic graph. Never
             # overwrite it or silently reuse it for the recursive build.
@@ -3610,6 +3694,7 @@ def _cmd_build_once(a):
         # database on every hard-carry -> LUT-carry resynthesis.
         ignored_cache_env.add("AGAMEMNON_HW_CARRY")
         runtime_assets = (
+            "carry_qualified_sites.csv",
             "master_conduction.csv", "mcu_ahb32_corridors.csv",
             "mcu_ahb32_pip_cfg.csv",
             "mcu_ahb32_addr_corridors.csv", "mcu_logic_consumer_footprints.csv",
@@ -3624,11 +3709,15 @@ def _cmd_build_once(a):
             "soft_ripple_region_witness.csv",
             "pad_oe_L48_left_corridors.csv", "pad_input_L48_left_corridors.csv",
             "bram_tmux9_source_paths.csv",
+            "congestion_marginal_edges.csv",
         )
         emit_context = emit_env + ["%s=%s" % item for item in env.items()
                                    if item[0].startswith("AGAMEMNON_")
                                    and item[0] not in ignored_cache_env]
         emit_context.append("AGRV2K_SHARED_CONTROL_GRAPH=%d" % int(native_enable))
+        # Independent of clock enable's own marker above -- see async_clear_flag's
+        # comment: the two graphs can be present or absent in any combination.
+        emit_context.append("AGRV2K_SHARED_CONTROL_ASYNC_CLEAR=%d" % int(async_clear_flag))
         # Runtime-only path tables are consumed directly by the C++ packer and
         # do not appear in dev_*.csv. Their content must still invalidate the
         # cached device database; otherwise a newly qualified path can leave a
@@ -3782,8 +3871,11 @@ def _cmd_build_once(a):
         shutil.copy(synth_json, pristine)
         heap_first = _uarch_prefers_heap(synth_json)
         attempts = _uarch_attempts(
-            a.cap, a.maxfo, split_first=live_portb, heap_first=heap_first)
-        if heap_first and not live_portb:
+            a.cap, a.maxfo, split_first=live_portb, heap_first=heap_first,
+            memory_lowered=logic_memory_lowered)
+        if logic_memory_lowered:
+            print("[build] logic memory: fanout-buffered placement first")
+        elif heap_first and not live_portb:
             print("[build] placer: placer_heap first for MCU-boundary/dense design")
         log = None
         routed_but_timing_failed = False
@@ -3824,6 +3916,9 @@ def _cmd_build_once(a):
                 env["AGRV2K_CONDPLACE_CAP"] = str(cap)
             placement_seeds = _uarch_placement_seeds(generic_place, route_seeds, requested_seed)
             for seed_index, seed in enumerate(placement_seeds):
+                if _apply_congestion_retry_penalty(env, attempt_records):
+                    print("[build] rejected congestion-marginal route; "
+                          "subsequent attempts use a 25 ns avoidance cost")
                 if not generic_place:
                     env["AGRV2K_CONDPLACE_SEED"] = seed
                 attempt_npr = npr + (["--placer", "heap", "--seed", seed]
@@ -3931,6 +4026,26 @@ def _cmd_build_once(a):
                     outcome = _attempt_ladder.TIMING_FAILED
                 else:
                     outcome = _attempt_ladder.NOT_ROUTED
+                # A completed route is only a candidate. Known unsafe feeder
+                # choices can change with placement, so reject this candidate
+                # before recording success and continue the bounded ladder.
+                # Keep the independent pre-emission check for every backend.
+                post_snapshot = None
+                if outcome == _attempt_ladder.SUCCESS:
+                    try:
+                        post_snapshot = special_routes.load_validated_routed_json(
+                            routed_json, "post-nextpnr", chipdb_root=data,
+                            environ=env, devdb=uarch_devdb)
+                    except special_routes.SpecialRouteError as exc:
+                        print("error: typed special-route post-nextpnr validation failed: %s" % exc)
+                        sys.exit(1)
+                    try:
+                        validate_document_congestion_marginal(post_snapshot.document, data)
+                    except CongestionMarginalError as exc:
+                        outcome = _attempt_ladder.ROUTED_UNSAFE
+                        diagnostic = "[build] rejecting unsafe route candidate: %s" % exc
+                        print(diagnostic)
+                        rlog += "\n" + diagnostic + "\n"
                 record = _attempt_ladder.AttemptRecord(attempt_no, cap, seed, fo, outcome, rlog)
                 attempt_records.append(record)
                 _attempt_ladder.write_attempt_log(attempts_dir, record)
@@ -4031,15 +4146,8 @@ def _cmd_build_once(a):
                     sys.exit(1)
                 if outcome == _attempt_ladder.SUCCESS:
                     try:
-                        post_snapshot = special_routes.load_validated_routed_json(
-                            routed_json, "post-nextpnr", chipdb_root=data,
-                            environ=env, devdb=uarch_devdb)
-                    except special_routes.SpecialRouteError as exc:
-                        print("error: typed special-route post-nextpnr validation failed: %s" % exc)
-                        sys.exit(1)
-                    try:
                         _validate_carry_document(
-                            post_snapshot.document, "post-nextpnr")
+                            post_snapshot.document, "post-nextpnr", data)
                     except CarryValidationError as exc:
                         print("error: typed carry post-nextpnr validation failed: %s" % exc)
                         sys.exit(1)
@@ -4064,11 +4172,11 @@ def _cmd_build_once(a):
                     if no_fmax_available and require_timing_path:
                         break
                 if not ladder_futile and seed_index + 1 < len(placement_seeds):
-                    print("[build]   did not route; retrying deterministic seed")
+                    print("[build]   no safe route met the target; retrying deterministic seed")
             if log is not None or ladder_futile or (no_fmax_available and require_timing_path):
                 break
             if attempt + 1 < len(attempts):
-                print("[build]   did not route; escalating")
+                print("[build]   no safe route met the target; escalating")
         os.remove(pristine)
         if log is None:
             if (getattr(a, "_control_sharing_candidate", False) and
@@ -4241,12 +4349,10 @@ def _cmd_build_once(a):
         try:
             with open(synth_json, encoding="utf-8") as stream:
                 pre_clock_document = json.load(stream)
-            _validate_clock_document(
-                pre_clock_document,
-                "pre-nextpnr",
-                data,
-                engine_options_from(env),
-            )
+            annotate_clock_intent(pre_clock_document, data, engine_options_from(env))
+            with open(synth_json, "w", encoding="utf-8") as stream:
+                json.dump(pre_clock_document, stream)
+                stream.write("\n")
         except (OSError, json.JSONDecodeError, ClockValidationError) as exc:
             print("error: typed clock pre-nextpnr validation failed: %s" % exc)
             sys.exit(1)
@@ -4273,7 +4379,7 @@ def _cmd_build_once(a):
             print("error: typed special-route post-nextpnr validation failed: %s" % exc)
             sys.exit(1)
         try:
-            _validate_carry_document(post_snapshot.document, "post-nextpnr")
+            _validate_carry_document(post_snapshot.document, "post-nextpnr", data)
         except CarryValidationError as exc:
             print("error: typed carry post-nextpnr validation failed: %s" % exc)
             sys.exit(1)
@@ -4323,7 +4429,7 @@ def _cmd_build_once(a):
         print("error: typed special-route pre-emission validation failed: %s" % exc)
         sys.exit(1)
     try:
-        _validate_carry_document(final_snapshot.document, "pre-emission")
+        _validate_carry_document(final_snapshot.document, "pre-emission", data)
     except CarryValidationError as exc:
         print("error: typed carry pre-emission validation failed: %s" % exc)
         sys.exit(1)
@@ -4340,6 +4446,13 @@ def _cmd_build_once(a):
         sys.exit(1)
     try:
         _validate_mcu_endpoint_document(
+            final_snapshot.document, "pre-emission", data,
+        )
+    except RuntimeError as exc:
+        print("error: %s" % exc)
+        sys.exit(1)
+    try:
+        _validate_congestion_marginal_document(
             final_snapshot.document, "pre-emission", data,
         )
     except RuntimeError as exc:
@@ -5093,6 +5206,12 @@ def main(argv=None):
                    help="[--uarch] map clock enables onto the tile's native enable line (the default); kept for scripts")
     b.add_argument("--no-native-clock-enable", action="store_true",
                    help="[--uarch] lower clock enables into register data logic instead of the tile's enable line")
+    b.add_argument("--async-clear-reset", action="store_true",
+                   help="[--uarch] map $_DFF_PP0_ async-clear registers onto the tile's async-clear "
+                        "line (the default); kept for scripts")
+    b.add_argument("--no-async-clear-reset", action="store_true",
+                   help="[--uarch] kill switch: refuse async-clear registers again (the pre-N4.2 "
+                        "behaviour), instead of admitting them onto the tile's async-clear line")
     b.add_argument("--qualified-checkpoint", metavar="PROFILE",
                    help="[--uarch] fail-closed exact BEL/route replay from a registered "
                         "qualification profile; source, checkpoint, clocks and output hashes "

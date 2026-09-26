@@ -56,6 +56,13 @@ def test_compact_exhaustion_allows_uncompacted_retry():
     assert not cli._tile_compaction_fallback_allowed(True, [])
 
 
+def test_known_unsafe_route_can_retry_placement_but_not_hide_timing_failure():
+    unsafe = record('Routing complete', ladder.ROUTED_UNSAFE)
+    assert cli._tile_compaction_fallback_allowed(True, [PLACEMENT, unsafe])
+    assert not cli._tile_compaction_fallback_allowed(
+        True, [unsafe, record('Timing failed', ladder.TIMING_FAILED)])
+
+
 @pytest.mark.parametrize('other', [
     record('unknown implementation failure'), record('timeout after 30 seconds'),
     record('Unable to place cell\nAGaMEMnon place&route time limit exceeded (30 seconds)'),

@@ -11,9 +11,12 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
+from devdb_fixtures import devdb_path
 
 import test_uarch_register_input_legality as support
+
+CONTROL_DEVDB = (devdb_path("strict_control")
+                 if os.environ.get("AGAMEMNON_UARCH_NEXTPNR") else None)
 
 
 def _dffe(enable: int, data: int, q: int) -> dict:
@@ -109,8 +112,8 @@ def _native_groups(module: dict) -> dict[str, list[tuple[str, dict]]]:
 
 
 def test_infeasible_dual_pair_unpairs_before_single_group_repartition(tmp_path, monkeypatch):
-    if os.environ.get("AGAMEMNON_UARCH_DEVDB"):
-        monkeypatch.setattr(support, "DEVDB", Path(os.environ["AGAMEMNON_UARCH_DEVDB"]))
+    if CONTROL_DEVDB is not None:
+        monkeypatch.setattr(support, "DEVDB", CONTROL_DEVDB)
     monkeypatch.setenv("AGRV2K_SHARED_CONTROL_ENABLE", "1")
     monkeypatch.setenv("AGRV2K_CONTROL_REPARTITION", "1")
 

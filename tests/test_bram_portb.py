@@ -33,11 +33,26 @@ def test_portb_vendor_oracle_config_is_byte_exact():
 
 
 def test_bram_owned_surface_covers_emitted_fields_but_not_unknown_controls():
+    # 2026-09-25: PORTx_OUTREG/WRITETHRU (CFG_SELOUT_A/B, CFG_SEL_WRITHU_A/B)
+    # are on by default (bram_emit.BOARD_PROVEN_CONFIG_FIELDS), so the default
+    # owned_surface() call now covers them too -- 4 bits more than the
+    # pre-2026-09-25 baseline of 9236 (9216 INIT + 5+5 width + 2 clock + 8 gates).
     surface = bram_emit.owned_surface(13, 4)
-    assert len(surface) == 9236  # 9216 INIT + 5+5 width + 2 clock + 8 gates
-    for mux in bram_emit.OWNED_MUXES:
+    assert len(surface) == 9240
+    for mux in bram_emit.OWNED_MUXES | bram_emit.BOARD_PROVEN_OWNED_MUXES:
         assert set(bram_emit.CELLS[(13, 4, mux)].values()) <= surface
     for mux in ("CFG_PACKEDMODE", "CFG_DLYTIME", "CFG_RSEN_DLY"):
+        assert surface.isdisjoint(bram_emit.CELLS[(13, 4, mux)].values())
+
+
+def test_bram_owned_surface_board_proven_false_reproduces_pre_20260925_baseline():
+    """The AGAMEMNON_NO_BRAM_OUTREG_WRITETHRU kill switch's surface."""
+    surface = bram_emit.owned_surface(13, 4, board_proven=False)
+    assert len(surface) == 9236
+    for mux in bram_emit.OWNED_MUXES:
+        assert set(bram_emit.CELLS[(13, 4, mux)].values()) <= surface
+    for mux in bram_emit.BOARD_PROVEN_OWNED_MUXES | frozenset(
+            {"CFG_PACKEDMODE", "CFG_DLYTIME", "CFG_RSEN_DLY"}):
         assert surface.isdisjoint(bram_emit.CELLS[(13, 4, mux)].values())
 
 
@@ -45,11 +60,12 @@ def test_experimental_bram_surface_is_separate_and_complete():
     release = bram_emit.owned_surface(13, 4)
     experimental = bram_emit.owned_surface(13, 4, experimental=True)
     added = experimental - release
-    assert len(added) == 9
+    assert len(added) == 5  # PACKEDMODE(1) + DLYTIME(2) + RSEN_DLY(2); OUTREG/WRITETHRU already in release
     assert added == {
         bit for mux in bram_emit.EXPERIMENTAL_OWNED_MUXES
         for bit in bram_emit.CELLS[(13, 4, mux)].values()
     }
+    assert bram_emit.EXPERIMENTAL_OWNED_MUXES.isdisjoint(bram_emit.BOARD_PROVEN_OWNED_MUXES)
 
 
 def test_bitgen_preserves_portb_gate_parameters():
@@ -134,6 +150,60 @@ def test_experimental_bram_config_rejects_unadmitted_compositions():
         bram_emit.emit(13, 4, 0, 0, 0, {},
                        experimental={"PORTA_OUTREG": 1, "DLYTIME": 1},
                        allow_experimental=True)
+
+
+@pytest.mark.parametrize("fields", [
+    {"PORTA_OUTREG": 1},
+    {"PORTB_OUTREG": 1},
+    {"PORTA_OUTREG": 1, "PORTB_OUTREG": 1},
+    {"PORTA_WRITETHRU": 1},
+    {"PORTB_WRITETHRU": 1},
+    {"PORTA_WRITETHRU": 1, "PORTB_WRITETHRU": 1},
+    {"PORTA_OUTREG": 1, "PORTB_OUTREG": 1, "PORTA_WRITETHRU": 1, "PORTB_WRITETHRU": 1},
+])
+def test_board_proven_outreg_writethru_admitted_by_default_no_flag_needed(fields):
+    """2026-09-25: OUTREG/WRITETHRU need no AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG
+    (evidence: qualification/bram_outreg_writethru_evidence.jsonl). Any
+    combination of the four board-proven fields together is admitted -- unlike
+    the general B4 "at most one row" rule -- because each is independently
+    board-proven and the vendor mode-bit measurement shows no interaction
+    between them."""
+    emitted = bram_emit.emit(13, 4, 0, 0, 0, {}, experimental=fields)
+    expected = {
+        bram_emit.CELLS[(13, 4, bram_emit.EXPERIMENTAL_FIELDS[name][0])][0]
+        for name in fields
+    }
+    assert emitted == expected
+
+
+def test_board_proven_outreg_writethru_still_scoped_to_x13_y1_y4():
+    with pytest.raises(ValueError, match="X13Y1..Y4"):
+        bram_emit.emit(12, 4, 0, 0, 0, {}, experimental={"PORTA_OUTREG": 1})
+
+
+def test_board_proven_outreg_writethru_cannot_combine_with_a_true_experimental_field():
+    """Composing a board-proven field with an unproven one still needs the flag
+    and still trips the "at most one" rule (unchanged from before 2026-09-25)."""
+    with pytest.raises(ValueError, match="AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG"):
+        bram_emit.emit(13, 4, 0, 0, 0, {},
+                       experimental={"PORTA_OUTREG": 1, "PACKEDMODE": 1})
+    with pytest.raises(ValueError, match="at most one B4 experimental config row"):
+        bram_emit.emit(13, 4, 0, 0, 0, {},
+                       experimental={"PORTA_OUTREG": 1, "PACKEDMODE": 1},
+                       allow_experimental=True)
+
+
+def test_no_bram_outreg_writethru_kill_switch_restores_fail_closed():
+    """allow_board_proven=False (the AGAMEMNON_NO_BRAM_OUTREG_WRITETHRU kill
+    switch's effect) requires AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG again, exactly
+    as before 2026-09-25."""
+    with pytest.raises(ValueError, match="AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG"):
+        bram_emit.emit(13, 4, 0, 0, 0, {}, experimental={"PORTA_OUTREG": 1},
+                       allow_board_proven=False)
+    # ...but the explicit flag still works under the kill switch.
+    emitted = bram_emit.emit(13, 4, 0, 0, 0, {}, experimental={"PORTA_OUTREG": 1},
+                             allow_experimental=True, allow_board_proven=False)
+    assert emitted == {bram_emit.CELLS[(13, 4, "CFG_SELOUT_A")][0]}
 
 
 def test_portb_bel_has_every_recovered_routable_pin():

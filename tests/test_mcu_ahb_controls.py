@@ -261,7 +261,7 @@ def test_wide_mcu_density_policy_is_immediate_bounded_and_carry_atomic():
     assert "wide-MCU density exposes %d routing-slack tile(s)" in condplace
     assert 'ctx->id("AGRV2K_DENSE_MCU_ODD_OK")' in condplace
     assert "preserves_bound_local_arcs" in condplace
-    assert "wire_reaches(ctx->getBelPinWire" in condplace
+    assert "if (!wire_reaches(src, dst))" in condplace
     assert "pre-routed %d dense same-tile arc(s)" in condplace
     assert "tkey(pl.x, pl.y) != arc.tile" in condplace
     assert 'AGRV2K_LOCK_DENSE_LOCAL_EARLY' in condplace

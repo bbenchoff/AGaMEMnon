@@ -31,6 +31,31 @@ def _physical_io_state(**overrides):
     return state
 
 
+def _selector_tables(**overrides):
+    values = dict(chipdb_root=None, archival_legacy=False, dir_bank={},
+                  clean_edge={}, relative_edge={}, admitted_edge={},
+                  admission_binding=None, lut=None)
+    values.update(overrides)
+    return routing_feature.RoutingSelectorTables(**values)
+
+
+def test_an_admitted_row_cannot_override_exact_rmux_source_identity():
+    from agamemnon.engine.routing_selectors import relative_edges
+    clean = {(2, 5, 'RMUX', 31, 'RMUX', 6, 5, 21): (5, 6),
+             (1, 4, 'RMUX', 31, 'RMUX', 1, 8, 67): (5, 6)}
+    relative, _ = relative_edges(clean)
+    admitted = _row()
+    tables = _selector_tables(clean_edge=clean, relative_edge=relative,
+                              admitted_edge={routing_admission.route_key(admitted): admitted})
+    with pytest.raises(SystemExit, match='withdrawn selector translation'):
+        ROUTING_FEATURE.prepare(
+            pips=['X5Y4_RMUX21.X1Y4_RMUX31'], cell={}, options=options_from({}),
+            tables=tables, physical_io_state=_physical_io_state(),
+            exact_mcu_pips={}, mcu_cells={}, mcu_exit_pairs={},
+            bram_feature=SimpleNamespace(resolve_route=lambda *a, **k: None),
+            bram_state=SimpleNamespace(), slice_config={}, left_vendor_slices=set())
+
+
 ROOT = Path(__file__).resolve().parents[1]
 CHIPDB = ROOT / "agamemnon" / "chipdb"
 OPTION = routing_admission.OPTION_NAME
@@ -290,7 +315,7 @@ def test_exact_row_normalizes_once_for_architecture_and_bitgen(tmp_path):
     )
     assert routing_admission.clearing_entries(row) == ((2, 4, "CFG_RMUX7", 43),)
 
-    tables = SimpleNamespace(
+    tables = _selector_tables(
         chipdb_root=root,
         admission_binding={"test": True},
         clean_edge={},
@@ -398,7 +423,7 @@ def test_exact_iotile_row_supplies_absent_pip_only_in_experiment_and_emits_exact
         rows=(), delay_for=lambda record: None,
     ) == 0
 
-    tables = SimpleNamespace(
+    tables = _selector_tables(
         chipdb_root=root, admission_binding={"test": True},
         clean_edge={},
         admitted_edge=selected,
@@ -584,7 +609,7 @@ def test_runtime_rejects_two_admitted_rows_in_one_owner_field(tmp_path):
         routing_admission.route_key(first): first,
         routing_admission.route_key(second): second,
     }
-    tables = SimpleNamespace(
+    tables = _selector_tables(
         chipdb_root=tmp_path, admission_binding={}, admitted_edge=admitted,
         clean_edge={},
     )
@@ -612,7 +637,7 @@ def test_runtime_rejects_generic_route_in_admitted_owner_field(tmp_path):
     admitted = _row()
     admitted_map = {routing_admission.route_key(admitted): admitted}
     generic_key = (2, 4, "RMUX", 46, "RMUX", 5, 4, 22)
-    tables = SimpleNamespace(
+    tables = _selector_tables(
         chipdb_root=tmp_path, admission_binding={}, admitted_edge=admitted_map,
         archival_legacy=False, clean_edge={generic_key: (3, 5)},
         relative_edge={}, group_context={},

@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
-
 import pytest
+from devdb_fixtures import devdb_path
 
 import test_uarch_register_input_legality as support
 
 
 TILE = "X14Y8"
+CONTROL_DEVDB = (devdb_path("strict_control")
+                 if os.environ.get("AGAMEMNON_UARCH_NEXTPNR") else None)
 
 
 def _native_slice(name, enable, z):
@@ -62,8 +63,9 @@ def _design(root_groups=("enable_a",), native_groups=None, ordinary=True):
 
 
 def _run(tmp_path, monkeypatch, name, groups, mixed, *, native_groups=None, ordinary=True):
-    if os.environ.get("AGAMEMNON_UARCH_DEVDB"):
-        monkeypatch.setattr(support, "DEVDB", Path(os.environ["AGAMEMNON_UARCH_DEVDB"]))
+    if CONTROL_DEVDB is not None:
+        # Runtime enable flags cannot add the CLKEN BELs to a caller's graph.
+        monkeypatch.setattr(support, "DEVDB", CONTROL_DEVDB)
     monkeypatch.setenv("AGRV2K_SHARED_CONTROL_ENABLE", "1")
     monkeypatch.setenv("AGRV2K_DUAL_NATIVE_CONTROL", "1")
     monkeypatch.setenv("AGRV2K_MIXED_NATIVE_CONTROL", mixed)

@@ -6,19 +6,12 @@ import json
 import os
 from pathlib import Path
 import platform
-import shlex
 import shutil
 import subprocess
 import sys
 
 from . import __version__
-from .tool_shim import stage_windows_executable
-
-
-def _split_command(value):
-    if os.name == "nt" and Path(value).exists():
-        return [value]
-    return shlex.split(value, posix=os.name != "nt")
+from .tool_shim import stage_windows_executable, split_tool_command as _split_command
 
 
 def _run(command, env=None, timeout=8):

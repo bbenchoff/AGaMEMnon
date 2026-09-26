@@ -335,14 +335,18 @@ def test_current_conduction_count_is_derived_from_the_production_gate():
     dead_rows = list(csv.DictReader(
         (ROOT / "agamemnon" / "chipdb" / "dead_edges_silicon.csv")
         .open(newline="", encoding="utf-8")))
-    # The X14Y8 turnaround is an independently qualified route exclusion, not
-    # one of this older fourteen-edge ungating campaign.  Do not let an
-    # unrelated negative falsify the campaign-specific documentation count.
+    # Later negative campaigns add unrelated edges. Count only the original
+    # campaign's exact targets, as recorded in its immutable evidence ledger.
     independent_dead = {"IMUX17@14,8->RMUX69@14,8"}
     dead = {row["edge"] for row in dead_rows}
-    assert dead == independent_dead
-    original = 14
-    blocked = len(dead - independent_dead)
+    assert independent_dead <= dead
+    campaign_rows = [json.loads(line) for line in (
+        ROOT / "qualification" / "conduction_ungate_evidence.jsonl"
+    ).read_text(encoding="utf-8").splitlines() if line.strip()]
+    campaign_edges = {row["edge"] for row in campaign_rows if "edge" in row}
+    assert len(campaign_edges) == 14
+    original = len(campaign_edges)
+    blocked = len(dead & campaign_edges)
     admitted = original - blocked
     assert (admitted, blocked) == (14, 0)
 
@@ -575,6 +579,8 @@ def test_p2_docs_separate_release_safe_containment_from_hardware_gated_root_caus
         assert "0/13" in text
         assert "73 retained routes" in text
         assert "hardware-gated" in text
-        # The current blocker index link does not relabel historical containment.
-        prose = re.sub(r"\[[^\]]*\]\([^)]*\)", "", text)
+        # Bound this historical containment check to its own paragraph. New
+        # independently reproduced failures may legitimately block a release.
+        paragraph = next(p for p in text.split("\n\n") if "RELEASE-SAFE" in p)
+        prose = re.sub(r"\[[^\]]*\]\([^)]*\)", "", paragraph)
         assert "release blocker" not in prose.lower()

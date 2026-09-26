@@ -1308,7 +1308,8 @@ def _pre_campaign_graph_bytes(admission, shared):
     kept = [line for line in whitelist.read_text(encoding="utf-8").splitlines(keepends=True)
             if not line.rstrip().endswith(("vendor_passing_image", "open_passing_image",
                                             "silicon_ring_20260925"))]
-    whitelist.write_text("".join(kept), encoding="utf-8", newline="")
+    with whitelist.open("w", encoding="utf-8", newline="") as stream:
+        stream.write("".join(kept))
     # positive-evidence rows that a campaign conviction retired come back for the pre-campaign graph
     retired = data / "conduction_retired_by_conviction.csv"
     if retired.exists():
@@ -1344,9 +1345,19 @@ def _pre_campaign_graph_bytes(admission, shared):
         for edge in PRE_CAMPAIGN_DEAD_EDGES:
             writer.writerow([edge])
     devdb = work / ("devdb_" + admission + "_sc" + shared)
+    wrapper = work / "historical_graph_emitter.py"
+    wrapper.write_text(
+        "import runpy, sys\n"
+        + "sys.path.insert(0, " + repr(str(root)) + ")\n"
+        + "from agamemnon.engine import routing_selectors as rs\n"
+        + "rs.rmux_identity_conflicts = lambda clean_edges, relative=None: frozenset()\n"
+        + "rs.NONPORTABLE_RELATIVE_KEYS = rs.NONPORTABLE_RELATIVE_KEYS - "
+          "{('RMUX', 58, 'RMUX', 39, 0, -1), ('RMUX', 85, 'RMUX', 68, -1, 0)}\n"
+        + "runpy.run_path(" + repr(str(root / "agamemnon/engine/emit_uarch_db.py"))
+        + ", run_name='__main__')\n", encoding="utf-8")
     command = [
         sys.executable,
-        str(root / "agamemnon" / "engine" / "emit_uarch_db.py"),
+        str(wrapper),
         "--arch", str(root / "agamemnon" / "engine" / "arch.py"),
         "--data", str(data),
         "--out", str(devdb),
@@ -1403,12 +1414,99 @@ def _without_bram_parity_exits(raw):
                     if line.split(b",", 1)[0] not in names)
 
 
+def _restore_selector_identity_rows(raw):
+    """Restore measured rows only when the entire current graph matches its pin."""
+    actual = (len(raw.splitlines()) - 1, hashlib.sha256(raw).hexdigest())
+    for shared in ("0", "1"):
+        for admission in ("release-strict", "tiered"):
+            before = sr.PRE_SELECTOR_IDENTITY_PHYSICAL_GRAPHS[shared][admission]
+            if actual == before:
+                return raw
+            current = (sr.EXPECTED_PHYSICAL_GRAPHS if shared == "0" else
+                       sr.EXPECTED_SHARED_CONTROL_PHYSICAL_GRAPHS)[admission]
+            if actual != current:
+                continue
+            fixture = Path(__file__).parent / "fixtures" / (
+                "selector_identity_withdrawal_" + admission + "_" + shared + ".json")
+            rows = json.loads(fixture.read_text(encoding="utf-8"))
+            assert len(rows) == (32 if admission == "release-strict" else 1409)
+            lines = raw.splitlines(keepends=True)
+            for row in rows:
+                line = row["line"].encode("ascii") + b"\r\n"
+                assert line not in lines
+                lines.insert(row["index"], line)
+            restored = b"".join(lines)
+            assert (len(lines)-1, hashlib.sha256(restored).hexdigest()) == before
+            return restored
+    raise AssertionError("Unrecognized graph in selector identity predecessor reconstruction")
+
+
+def _check_selector_identity_predecessor(devdb, tmp_path, admission, shared):
+    previous = tmp_path / ("pre-selector-identity-" + admission + "-" + shared)
+    shutil.copytree(devdb, previous)
+    path = previous / "dev_pips.csv"
+    path.write_bytes(_restore_selector_identity_rows(path.read_bytes()))
+    count, digest = sr.PRE_SELECTOR_IDENTITY_PHYSICAL_GRAPHS[shared][admission]
+    _replace_metadata_value(previous / sr.DEV_META_NAME, "graph_pip_count", count)
+    _replace_metadata_value(previous / sr.DEV_META_NAME, "graph_pips_sha256", digest)
+    _replace_metadata_value(previous / "dev_meta.csv", "n_pips", count)
+    assert sr.validate_devdb(previous, CHIPDB)
+
+
+def test_selector_identity_strict_predecessor_remains_exactly_bound(tmp_path):
+    _check_selector_identity_predecessor(PHYSICAL_DEVDB, tmp_path, "release-strict", "0")
+
+
+def _restore_fifo_policy_rows(raw):
+    """Restore measured rows only when the entire current graph matches its pin."""
+    raw = _restore_selector_identity_rows(raw)
+    actual = (len(raw.splitlines()) - 1, hashlib.sha256(raw).hexdigest())
+    for shared in ("0", "1"):
+        for admission in ("release-strict", "tiered"):
+            before = sr.PRE_FIFO_POLICY_PHYSICAL_GRAPHS[shared][admission]
+            if actual == before:
+                return raw
+            current = sr.PRE_SELECTOR_IDENTITY_PHYSICAL_GRAPHS[shared][admission]
+            if actual != current:
+                continue
+            fixture = Path(__file__).parent / "fixtures" / (
+                "fifo_policy_withdrawal_" + admission + "_" + shared + ".json")
+            rows = json.loads(fixture.read_text(encoding="utf-8"))
+            assert len(rows) == (7 if admission == "release-strict" else 124)
+            lines = raw.splitlines(keepends=True)
+            for row in rows:
+                line = row["line"].encode("ascii") + b"\r\n"
+                assert line not in lines
+                lines.insert(row["index"], line)
+            restored = b"".join(lines)
+            assert (len(lines)-1, hashlib.sha256(restored).hexdigest()) == before
+            return restored
+    raise AssertionError("Unrecognized graph in FIFO predecessor reconstruction")
+
+
+def _check_fifo_policy_predecessor(devdb, tmp_path, admission, shared):
+    previous = tmp_path / ("pre-fifo-policy-" + admission + "-" + shared)
+    shutil.copytree(devdb, previous)
+    path = previous / "dev_pips.csv"
+    path.write_bytes(_restore_fifo_policy_rows(path.read_bytes()))
+    count, digest = sr.PRE_FIFO_POLICY_PHYSICAL_GRAPHS[shared][admission]
+    _replace_metadata_value(previous / sr.DEV_META_NAME, "graph_pip_count", count)
+    _replace_metadata_value(previous / sr.DEV_META_NAME, "graph_pips_sha256", digest)
+    _replace_metadata_value(previous / "dev_meta.csv", "n_pips", count)
+    assert sr.validate_devdb(previous, CHIPDB)
+
+
+def test_fifo_policy_strict_predecessor_remains_exactly_bound(tmp_path):
+    _check_fifo_policy_predecessor(PHYSICAL_DEVDB, tmp_path, "release-strict", "0")
+
+
 def _without_bram_address_whitelist(raw):
     """Reverse the 2026-09-25 address final-hop whitelist on the strict base graph.
 
     The whitelist removed the two feeders no passing image ever used and admitted 13
     vendor-proven feeders the ring-witness restriction had kept out; the fixture holds both
     sides with the removed rows' original positions."""
+    raw = _restore_fifo_policy_rows(raw)
     fixture = json.loads((Path(__file__).parent / "fixtures" / "bram_address_whitelist_strict_base.json")
                          .read_text(encoding="utf-8"))
     added = {line.encode("ascii") for line in fixture["added"]}
@@ -2060,6 +2158,8 @@ def test_source_fresh_tiered_physical_devdb_matches_pinned_graph(tmp_path):
     assert sr._csv_dict(devdb / sr.DEV_META_NAME)[sr.SHARED_CONTROL_GRAPH_MARKER] == "0"
     assert sr.validate_devdb(devdb, CHIPDB) is True
 
+    _check_selector_identity_predecessor(devdb, tmp_path, "tiered", "0")
+    _check_fifo_policy_predecessor(devdb, tmp_path, "tiered", "0")
     _check_pre_campaign_predecessor(devdb, tmp_path, "tiered", "0")
     _check_rmux14_predecessor(devdb, tmp_path, "0")
     _check_rmux08_predecessor(devdb, tmp_path, "tiered", "0")
@@ -2132,6 +2232,8 @@ def test_source_fresh_shared_control_graph_is_exact_and_tamper_proof(
     assert hashlib.sha256(raw).hexdigest() == digest
     assert sr._csv_dict(devdb / sr.DEV_META_NAME)[sr.SHARED_CONTROL_GRAPH_MARKER] == "1"
     assert sr.validate_devdb(devdb, CHIPDB) is True
+    _check_selector_identity_predecessor(devdb, tmp_path, admission, "1")
+    _check_fifo_policy_predecessor(devdb, tmp_path, admission, "1")
     _check_pre_campaign_predecessor(devdb, tmp_path, admission, "1")
     _check_rmux08_predecessor(devdb, tmp_path, admission, "1")
     _check_rmux86_predecessor(devdb, tmp_path, admission, "1")

@@ -1,5 +1,14 @@
 # Supported feature matrix
 
+## Current release assessment — September 26
+
+The v0.5 release is pending. Fresh LFSR and x1 BRAM failures are release blockers;
+earlier passing activity counts do not override them. The bounded P2 containment
+record below concerns its own retained negatives, not these newly built images.
+The [current hardware summary](../qualification/release05_current_hardware_results.json)
+retains passing and failing alternatives and passing controls. Compiler acceptance,
+model agreement and decoded field equality are separate evidence from silicon.
+
 ## Routing graph made true by silicon witness — 2026-09-19
 
 Release-strict admission is the default (`--tiered` is an experiment flag). Since 2026-09-18 an
@@ -45,7 +54,7 @@ the board. Emit-verified ≠ silicon-proven: a built route can float until witne
 | Width | Read emit | Write emit | Silicon |
 |---|---|---|---|
 | x18 | **PROMOTED** (default; hready-gated corridor via board-proven `RMUX84→CtrlMUX02={31,32}`) | emits (default; `w18write` 272 pips, 0 unmapped) | read: **composed OPEN image silicon-witnessed** (`hbread10`, 2026-09-15, INIT-0 driven read delivers at X13Y4 over the RMUX84 corridor; independently audited PASS; scope = driven-0 delivery only, NOT driven-1/address-varied — see hbread6, partial); write: 5 of 18 DataInA lanes board-witnessed, rest emit-only |
-| x9 / x4 / x2 / x1 | emits (default; byte-distinct per-width configs) | **DEFAULT-ON per board-proven mode (2026-09-25):** x4 dual-port (write A / read B, and true dual port) and x1 single-port build and PASS with the default command (qin_pack DataIn replication across every address-selected window + packer keeps the real-driven lanes + self-verifying guard). x9 (single-port; x9-write/x4-read), x2 (with replication) and x1 dual-port FAILED on the board with vendor-identical mode config and stay **refused fail-closed** (the refusal names the mode and the proven set); they are open-flow delivery bugs, not chip limits. `AGAMEMNON_NO_BRAM_NARROW_WRITE=1` restores the blanket refusal. x2 is exempt from replication (SERV register file byte-identical). | **silicon: narrow writes STORE.** Vendor `alta_bram9k` instantiated directly per mode passes 39/39 on the board (every narrow width, SP and SDP; AG32-Docs `tools/rando_corpus/results/parity_20260925/`). Open: x4 dual-port and x1 single-port PASS; x9, x2, x1-dual-port FAIL (`results/narrow_20260925/`, `qualification/bram_narrow_write_evidence.jsonl`). The 2026-09-15 'x9 does not store' finding is withdrawn: its vendor reference was a mis-elaborated inferred design. |
+| x9 / x4 / x2 / x1 | emits configurations subject to mode and routing admission | DataIn replication is enabled for admitted x4 dual-port and x1 single-port shapes; other narrow writes remain guarded. Acceptance is not hardware qualification. | Current completed-read-round tests: x4 dual-port passes twice; selected x1 OUTREG0 and OUTREG1 images fail twice while both vendor counterparts pass. One retained x1 OUTREG0 alternative passes; both OUTREG1 alternatives fail. The historical 39-mode activity count is not functional qualification. See the September 26 correction above. |
 | x36 | emits (opt-in `AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG`) | experimental / untested | board-witness-pending |
 | ByteEn per-byte masking (on x18) | n/a | **SHIPPED + board-proven** (`CFG_KMUX` pos-8 gnd tie; `test_bram_byteen_emission`) | board-proven (obs 0xE4→0xFF) |
 
@@ -85,7 +94,28 @@ explicit setting; a design without the cell is byte-identical, and release-stric
 (the options are experimental maturity, which release-strict refuses by design). This changes which
 qualified paths ordinary builds take; it does not change any silicon claim, fence, or write refusal.
 
-**Narrow-width writes (corrected 2026-09-25; the 'accepted final limitation' below is withdrawn):** (1) **narrow writes store on silicon.** The vendor primitive instantiated directly per mode passed its self-checking board test for every narrow write width and every SDP pairing (39/39, AG32-Docs `tools/vendor_witness/gen_bram_modes.py`, `tools/rando_corpus/results/parity_20260925/`). The 2026-09-15 'x9 write does not store' conclusion rested on a vendor reference that `af_bram_elab.py` had elaborated as x9 without the output register the vendor yosys requested; its floating readback said nothing about the mode. (2) **Open flow, default command:** the DataIn replication path is on by default and admitted per (width, port mode) that passed the board: x4 dual-port (`bmd_sdp4_4_c00`, `bmd_tdp4_c10`) and x1 single-port (`bmd_sp1_c10_o0`) PASS with BRAM cell config byte-identical to the vendor image of the same mode. x9 single-port, x9-write/x4-read, x2 (replicated) and x1 dual-port FAIL on the board and are refused fail-closed until the delivery bug is found (candidate: per-lane DataOut BufMUX egress -- passing modes read lanes 3..6 or Port-A lane 0, failing modes lanes 0 (Port B), 1, 2, 7, 9..16). `AGAMEMNON_NO_BRAM_NARROW_WRITE=1` is the kill switch. x2 stays exempt from replication so the SERV register file image is unchanged. Record: `qualification/bram_narrow_write_evidence.jsonl` (2026-09-25-narrow-write-default-on-per-mode-board).
+**Narrow writes and output modes (corrected 2026-09-26):** the compiler currently
+admits replicated x4 dual-port and x1 single-port writes and retains the other
+narrow-write guards. The identifier `BOARD_PROVEN_NARROW_WRITES` is historical;
+its name is not evidence that every accepted implementation works. Historical
+39-mode heartbeat tests can pass without memory reads, so they cannot establish
+the claimed functional mode matrix. The older malformed vendor reference also
+cannot establish that x9 is unsupported by the device.
+
+Fresh identical-source comparisons use completed readback rounds. The selected
+x1 OUTREG0 and OUTREG1 images each fail twice while their vendor counterparts
+pass twice. x4 dual-port and x18 single-port pass twice in both flows. Retained
+x1 OUTREG0 mapping alternatives differ on hardware; both OUTREG1 alternatives
+fail. These vendor-supported x1 modes remain unresolved, not out of scope.
+
+`PORTA_OUTREG`, `PORTB_OUTREG`, `PORTA_WRITETHRU` and `PORTB_WRITETHRU` remain
+accepted configuration fields. Differential field decoding establishes the
+tested encodings, not memory transaction correctness or all shared-field
+interactions. `AGAMEMNON_NO_BRAM_OUTREG_WRITETHRU=1` restores the earlier guard;
+PACKEDMODE, DLYTIME and RSEN_DLY remain experimental. Constant-HIGH x18 write
+enable with a connected read side is admitted, but connection alone does not
+prove that reads complete or collisions behave correctly. See the
+[current hardware summary](../qualification/release05_current_hardware_results.json).
 
 Historical text (superseded): the silent-drop mechanism was fixed behind the former opt-in on 2026-09-15, and the x9 board sessions of that day (x9inf_c, x9inf_dp, x9w3) read back only the INIT through reads that were themselves unqualified narrow-lane egress; those results are now read as open-flow delivery failures, consistent with the 2026-09-25 lane pattern, not as a mode property. Not the guard;
 (2) **per-width/per-lane SILICON witnessing** of the composed open images
@@ -561,7 +591,7 @@ neither is a general correctness certificate.
 | Physical inputs | Mixed exact evidence; generic path not qualified | Several earlier retained exact L48 input demonstrations pass. The independent PIN_10/PIN_12 held-input defects have controlled silicon recovery and fresh ordinary-build evidence. Known bad images remain rejected. Do not transfer an exact-path result to a new ingress composition. |
 | Bidirectional/OE | Silicon-qualified exact subsets | Selected PIN_25â€“PIN_28 OE corridors and exact IÂ²C0/IÂ²C1 open-drain routes pass. Generic direction changes, broad simultaneous readback, electrical/PVT margins, and other pins remain open. |
 | BRAM | Characterized read-only modes and narrow retained write profiles | Initialized single-port x1/x18 ROM has ordinary semantic admission at X13Y4/L48, 10 MHz MCU bus/8 MHz HSE with write-disabled controls and inactive Port B. Four fixed-address source profiles reproduce their qualified images after the ground-route repair. Old bad images remain fenced. General writable/dual-port RAM, other sites/clocks, collisions and arbitrary inference remain unqualified. |
-| PLL output frequency | Silicon-qualified bounded subset | With an 8 MHz HSE, 43 requested SYSCLK rates from 4â€“248 MHz were measured and locked; two additional byte-exact profiles require unavailable 12/16 MHz HSEs. Phase, duty, feedback/bypass, other outputs, other HSEs, and distribution to arbitrary state remain open. |
+| PLL output frequency | Silicon-qualified points plus a general validity model | With an 8 MHz HSE, 43 requested SYSCLK rates from 4-248 MHz were individually measured and locked; three more (20/40/62 MHz) were board-PASSed via the vendor .ve mechanism 2026-09-25. Since 2026-09-25 the emitter admits by default any 8 MHz-HSE SYSCLK whose computed dividers fall inside the recovered legal PFD/VCO/bit-width envelope (`PLL_RATIO_MODEL_20260925.md`), not only the enumerated points -- the same closed-form equation that reproduces all 46 measured points computes every other admissible ratio on demand, refusing by name outside the envelope. Kill switch `AGAMEMNON_NO_PLL_RATIO_MODEL` reverts to the enumerated-only table. Two additional byte-exact profiles require unavailable 12/16 MHz HSEs and stay enumerated-only. Phase, duty, feedback/bypass, other outputs, other HSEs, and distribution to arbitrary state remain open. |
 | Clock reach / regions | Correctness escape outside exact points | A matched PLL/shift point passes, but a five-site registered design spanning far regions produced zero state despite a correct routed model (`VP-AGM-007`). The exact five-tile constellation now refuses at its tested 100 MHz / 8 MHz profile even if routing changes; this is not evidence that every route is dead or that the PLL divider is wrong. Other constellations and profiles remain unqualified. |
 | Timing | Conservative estimate, not sign-off | Exact timing overlays exist for a bounded local subset; most wires retain worst-family fallback. Clock skew, IO, BRAM, PLL, package, broad PVT, and complete Fmax behavior are not modeled. Silicon ring-oscillator measurements (2026-09-16) (129 rings over all 128 buildable logic tiles) show the shipped model ~1.5–1.8x pessimistic (LUT+IMUX ~1.8x, RMUX ~1.5x; tile-to-tile spread ~10%); the per-family rescale (`AGRV2K_TIMING_CAL`, derated ×0.85) and the placement legality floor (`AGRV2K_MIN_INPUT_INDEG=5`) are the `build --uarch` defaults since 2026-09-17 after a silicon A/B (SERV core 133 vs 120 MHz, dense FF-RF SERV 96 vs 80 MHz best-of); see `SILICON_TIMING_CALIBRATION.md`. Requires a uarch built from that revision. |
 | Packages | L48 exact; other maps recovered/build-only | L100, L64, L48, and Q32 bond maps exist. Silicon qualification is primarily AG32VF303CCT6/L48; no qualification transfers by package pin number. |

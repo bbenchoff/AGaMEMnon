@@ -1,14 +1,14 @@
 {
   "schema": 1,
-  "date": "2026-08-25",
+  "date": "2026-09-26",
   "hardware": false,
   "result": "composer_reproducibility_repair",
   "hash_mode": "sha256-lf-v1",
-  "reason": "Strict-graph growth gave the public32 composer's BFS a new legal status-pending branch. Exact-map composition now replays the reviewed branch while revalidating every hop and wire owner; text digests are canonical LF. Historical silicon ledgers remain unchanged.",
+  "reason": "Strict-graph growth gave the public32 composer's BFS a new legal status-pending branch. Exact-map composition now replays the reviewed branch while revalidating every hop and wire owner; text digests are canonical LF. Historical silicon ledgers remain unchanged. The default composer now always uses the packaged hash-checked graph snapshot; an ignored generated cache must not silently change these exact retained artifacts. Explicit graph comparisons remain possible. No routed-image or silicon-ledger hash changed.",
   "profiles": {
     "public16": {
       "routed_sha256": "aa7ff307b6d59035928bf79306a3e55a69434e9458672a36ed51a7abe162c5fe",
-      "composer_sha256": "f6736f44fc88efb2ff38fba5293897f4f6e7deb56e318324cd42c583401440ed",
+      "composer_sha256": "822be310f92e944a70a49acc648047164c4efb52cbbf54a310de91b274cff991",
       "checker_sha256": "8a592e4bc7e5a64d55d76164eec8b02f01bfec63804c1f0af91b6777bb237a10"
     },
     "public32": {

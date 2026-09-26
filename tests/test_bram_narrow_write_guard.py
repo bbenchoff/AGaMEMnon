@@ -1,35 +1,11 @@
-"""A narrow Port-A BRAM WRITE is a silently-wrong image; the emitter refuses it.
+"""Narrow-write admission and DataIn replication constraints.
 
-A narrow PORTA_WIDTH packs several logical words into one 18-bit physical row
-(x9=2, x4=4, x2=9, x1=18 words/row). nextpnr's BRAM packer drives only the lowest
-`active_width` DataInA lanes, so a WRITE can only store the packed sub-word those
-lanes reach -- every other address silently keeps its old value, with no error and
-no unmapped pip. PROVEN for x9 against the vendor alta_bram9k model: odd addresses
-(upper 9 bits) never store (AG32-Docs tools/vendor_parity/bram_x9_write_multibit_
-20260913; iverilog even 4/4 OK, odd 4/4 read-0). The x9wr2 image (sha f531b54b)
-bitgens clean but is silently wrong.
-
-The disconnect is internal to nextpnr and is NOT visible in the routed netlist:
-the broken x9 image AND the working x2 SERV register file both present all 18
-DataInA lanes as connected nets (measured 2026-09-13). So the only netlist-visible
-signal is the width code, and the guard keys on it. The silicon-qualified writable
-widths are x18 (R9 single-bit + x18h 2-bit sim) and x2 (the shipped dual-port SERV
-register file, PORTA_WIDTH=01110, dynamic WeA, silicon-proven across
-serv_rv32i_smoke/blinky/heartbeat). Those are exempt; x9 is proven-broken and
-x4/x1 are unqualified/unverified -> refuse. Blast radius on the qualified set is
-zero: x2 is the ONLY writable width in any qualified routed netlist.
-
-2026-09-25 correction: narrow writes STORE on silicon. The vendor primitive
-instantiated directly per mode passed its board oracle for every narrow write width
-(AG32-Docs tools/rando_corpus/results/parity_20260925/, 39/39 modes), and the open
-x9/x4/x2/x1 images with the DataIn replication passed the same oracle. The
-replication path is therefore ON BY DEFAULT for the (width, port mode) combinations
-in BOARD_PROVEN_NARROW_WRITES -- x4 dual-port and x1 single-port passed; x9, x2 and
-x1 dual-port FAILED on the board and stay refused as open-flow bugs to find -- still
-self-verifying (every address-selected window must be populated in the routed
-netlist), and AGAMEMNON_NO_BRAM_NARROW_WRITE=1 restores the blanket refusal. An
-unreplicated narrow write (the packer's lowest-window-only DataIn) is refused
-exactly as before.
+These tests check compiler policy and address-window population, not silicon.
+The historical BOARD_PROVEN_NARROW_WRITES identifier names an admission list;
+the old activity-only board oracle did not require completed reads. Current
+source-paired x1 hardware failures and bounded x4/x18 passes are documented in
+qualification/release05_current_hardware_results.json. Keep those failures open
+while testing that malformed or unsupported writes are rejected consistently.
 """
 from agamemnon.engine.features.bram import (
     BOARD_PROVEN_NARROW_WRITES,
@@ -63,7 +39,7 @@ def test_x9_dynamic_write_without_replicated_windows_is_refused():
 def test_x2_and_x18_dynamic_write_are_admitted():
     # Flagship safety: SERV writes an x2 dual-port register file on silicon, and
     # x18 is the R9/x18h qualified writable width. Neither may be refused.
-    assert not narrow_write_silently_wrong(X2, NET)
+    assert not narrow_write_silently_wrong(X2, NET, dual_port=True)
     assert not narrow_write_silently_wrong(X18, NET)
 
 
@@ -92,9 +68,7 @@ from agamemnon.engine.features.bram import (
 from agamemnon.engine import qin_pack
 
 NARROW = (X9, X4, X2, X1)
-# Widths subject to the self-verifying window check: X2 is exempt up front via the
-# SERV dual-port QUALIFIED_WRITE_WIDTHS entry, so it is never refused and never
-# reaches the window-population logic.
+# X2's legacy exception applies only to the dual-port register-file shape.
 NARROW_REFUSED = (X9, X4, X1)
 # The board-proven (width, dual_port) combinations and the unproven ones per width.
 PROVEN = ((X4, True), (X1, False))
@@ -128,8 +102,17 @@ def test_default_admits_a_fully_replicated_board_proven_narrow_write():
     for width, dual in PROVEN:
         assert not narrow_write_silently_wrong(
             width, NET, _populated_datain(width), narrow_write_optin=True, dual_port=dual)
-    # x2 is admitted through QUALIFIED_WRITE_WIDTHS regardless of replication.
-    assert not narrow_write_silently_wrong(X2, NET, _populated_datain(X2), narrow_write_optin=True)
+    # x2 write-A/read-B is admitted independently of the replication option.
+    assert not narrow_write_silently_wrong(X2, NET, _populated_datain(X2),
+                                           narrow_write_optin=True, dual_port=True)
+
+
+def test_single_port_x2_write_is_refused_with_or_without_replication():
+    for datain in (None, _populated_datain(X2)):
+        for replication in (False, True):
+            assert narrow_write_silently_wrong(
+                X2, NET, datain, narrow_write_optin=replication, dual_port=False)
+    assert "x2 single-port is not board-proven" in narrow_write_refusal(X2, True)
 
 
 def test_default_refuses_the_modes_that_failed_on_the_board():
@@ -204,3 +187,26 @@ def test_refusal_names_the_cause_and_the_proven_modes():
     for text in (off, unproven, unpopulated):
         assert "board-proven open modes: x4 dual-port, x1 single-port" in text
         assert "x18 (00000) and x2 dual-port (01110, the SERV register file) are always admitted" in text
+
+
+def test_board_proven_bram_modes_pins_the_generalized_evidence_set():
+    """2026-09-25 item 4: the generalized (width, port, OUTREG, WRITETHRU,
+    PACKEDMODE, CLKMODE) evidence table, distinct from the narrow-write-only
+    BOARD_PROVEN_NARROW_WRITES above. Pin the exact set so a regression (or an
+    unreviewed addition) is caught -- see the module note in features/bram.py
+    for why bmd_sp1_c10_o0 and bmd_byteen18_c10 are deliberately NOT in it
+    despite once/nominally being expected to pass."""
+    from agamemnon.engine.features.bram import (
+        BOARD_PROVEN_BRAM_MODES, bram_mode_board_proven,
+    )
+    assert BOARD_PROVEN_BRAM_MODES == frozenset((
+        (X4, X4, 0b00, 0, 0, 0, 0, 0),  # bmd_sdp4_4_c00
+        (X4, X4, 0b10, 0, 0, 0, 0, 0),  # bmd_tdp4_c10
+        (X1, X1, 0b10, 1, 0, 0, 0, 0),  # bmd_sp1_c10_o1
+    ))
+    assert bram_mode_board_proven(X4, X4, 0b00, 0, 0, 0, 0, 0)
+    assert bram_mode_board_proven(X1, X1, 0b10, True, False, False, False, False)
+    # Not proven: same width/port as a proven row but a different OUTREG.
+    assert not bram_mode_board_proven(X1, X1, 0b10, 0, 0, 0, 0, 0)
+    # Not proven: the RATE_FAIL/anomalous 2026-09-25 results stay excluded.
+    assert not bram_mode_board_proven(X18, X18, 0b10, 0, 0, 0, 0, 0)  # bmd_sp18_c10_o0

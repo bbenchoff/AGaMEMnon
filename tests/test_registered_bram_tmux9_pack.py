@@ -165,6 +165,42 @@ def test_packaged_profiles_satisfy_fresh_source_route_signature(profile):
 
 
 @pytest.mark.parametrize("profile", PROFILES)
+def test_fresh_source_declares_ground_truth_placement_and_tree(tmp_path, profile):
+    module = {"ports": {"clk": {"direction": "input", "bits": [10]}},
+              "cells": {"consumer": {"connections": {"I": ["0", "1", "x", 10]},
+                                       "parameters": {"INIT": "0010"}}},
+              "netnames": {name: {"bits": [index + 20], "attributes": {}}
+                           for index, name in enumerate(source_route.source_signal_routes(profile))}}
+    module["netnames"]["zero_alias"] = {"bits": ["0"]}
+    module["cells"]["src_d1"] = {"type": "GENERIC_SLICE",
+        "parameters": {"INIT": "1" * 16 if "-i0-d1-" in profile else "0" * 16,
+                       "FF_USED": "0"}, "connections": {"F": [200]}}
+    path = tmp_path / "source.json"
+    path.write_text(json.dumps({"modules": {"top": module}}))
+    source_route.prepare_route_reservations(path, profile)
+    actual = json.loads(path.read_text())["modules"]["top"]
+    ground = actual["cells"]["$PACKER_GND"]
+    ground_bit = ground["connections"]["F"][0]
+    assert ground_bit > 24
+    assert int(ground["parameters"]["INIT"], 2) == 0
+    assert int(ground["parameters"]["FF_USED"], 2) == 0
+    assert ground["attributes"]["BEL"] == (
+        "X14Y4_SLICE5" if profile.endswith("we1") else "X14Y4_SLICE0")
+    assert actual["cells"]["consumer"]["connections"]["I"] == [ground_bit, "1", "x", 10]
+    assert actual["cells"]["consumer"]["parameters"] == {"INIT": "0010"}
+    assert actual["netnames"]["zero_alias"]["bits"] == [ground_bit]
+    assert actual["ports"] == module["ports"]
+    assert actual["cells"]["src_d1"]["attributes"]["BEL"] == source_route.DATA_SOURCE_BELS[profile]
+    assert actual["netnames"]["$PACKER_GND_NET"]["attributes"]["AGAMEMNON_REQUIRED_ROUTE"] == \
+        source_route.GROUND_ROUTES[profile]
+    # Re-preparing an already transformed input must not invent another driver.
+    before = path.read_bytes()
+    with pytest.raises(ValueError, match="ground name already exists"):
+        source_route.prepare_route_reservations(path, profile)
+    assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize("profile", PROFILES)
 @pytest.mark.parametrize("mutation", [None, "nonconstant", "wrong_bel", "foreign_owner"])
 def test_source_constant_tree_is_checked_and_replaced_atomically(tmp_path, profile, mutation):
     # Fresh-source constant placement differs from the legacy checkpoint.
@@ -174,7 +210,7 @@ def test_source_constant_tree_is_checked_and_replaced_atomically(tmp_path, profi
                   "NEXTPNR_BEL": "X14Y4_SLICE5" if profile.endswith("we1") else "X14Y4_SLICE0"}}
     module = {"cells": {"ground": driver}, "netnames": {
         name: {"bits": [index], "attributes": {"ROUTING": route}}
-        for index, (name, route) in enumerate(source_route.expected_routes(profile).items())}}
+        for index, (name, route) in enumerate(source_route.source_signal_routes(profile).items())}}
     module["netnames"]["$PACKER_GND_NET"] = {"bits": [50], "attributes": {"ROUTING": ""}}
     document = {"modules": {"top": module}}
     if mutation == "nonconstant":
@@ -197,6 +233,8 @@ def test_source_constant_tree_is_checked_and_replaced_atomically(tmp_path, profi
         assert actual["netnames"]["$PACKER_GND_NET"]["attributes"]["ROUTING"] == source_route.GROUND_ROUTES[profile]
         assert actual["cells"] == module["cells"]
         assert source_route.routes_match(actual, profile)
+        if profile.endswith("we1"):
+            assert actual["netnames"]["din1"]["attributes"]["ROUTING"] == source_route.DATA_SOURCE_ROUTES[profile]
 
 
 def test_scoped_architecture_path_table_matches_canonical_source_trees():
@@ -280,6 +318,32 @@ def test_fresh_source_profile_is_hash_bound_but_not_path_bound(
             args, [str(source)], cli.ENGINE, cli.CHIPDB,
             {"AGAMEMNON_HSE": "8"}, 10,
         )
+
+
+def test_current_source_image_pins_have_complete_paired_silicon_evidence():
+    evidence = json.loads((ROOT / "qualification" /
+        "registered_bram_tmux9_source_selector_silicon.json").read_text())
+    assert evidence["silicon_status"] == "PAIRED_RESEARCH_PASS_BOUNDED"
+    assert evidence["flash_writes"] == 0 and evidence["final_reset"] == "PASS"
+    assert [(c["label"], c["status"]) for c in evidence["controls"]] == [
+        ("before_1", "PASS"), ("before_2", "PASS"), ("after_pairs", "PASS")]
+    assert set(evidence["profiles"]) == set(PROFILES)
+    for profile, witnessed in evidence["profiles"].items():
+        pinned = cli.QUALIFIED_ROUTE_PROFILES[profile]
+        assert witnessed["raw_sha256"] == pinned["source_build_bitstream_sha256"]
+        assert witnessed["compressed_sha256"] == pinned["source_build_compressed_sha256"]
+        captures = witnessed["captures"]
+        assert len(captures) == 4
+        assert {(row["label"].rsplit("_", 1)[1], row["repetition"]) for row in captures} == {
+            (role, rep) for role in ("reference", "candidate") for rep in (1, 2)}
+        for row in captures:
+            role = row["label"].rsplit("_", 1)[1]
+            assert row["status"] == "PASS" and row["samples"] == row["h0_matches"] == 500
+            assert row["h1_h2_live"] is True
+            assert row["image_sha256"] == witnessed[
+                "raw_sha256" if role == "candidate" else "reference_raw_sha256"]
+        assert witnessed["changed_payload_bits"] == (
+            [[72141, 128], [72256, 2]] if profile.endswith("we1") else [])
 
 
 def test_ordinary_pack_cannot_use_scoped_codewords(tmp_path):

@@ -9,6 +9,8 @@ import pytest
 
 from agamemnon.engine.features.core_logic import FEATURE as CORE_LOGIC_FEATURE
 from agamemnon.engine.features.shared_control import (
+    ASYNC_CLEAR_ADMIT_OPTION,
+    ASYNC_CLEAR_NET_ATTRIBUTE,
     SHARED_CONTROL_MODE_ATTRIBUTE,
     SHARED_CONTROL_MODE_TOKENS,
     SHARED_CONTROL_PORT_TOKENS,
@@ -24,6 +26,16 @@ SYNTH = ROOT / "agamemnon" / "synth" / "synth_pads.tcl"
 
 def _slice(*, mode="NONE", control="missing", name="state", extra_ports=(),
            ff_used=1):
+    """Build a synthetic routed ``GENERIC_SLICE``.
+
+    ``control="bound"`` means the POST-PACKING lifted shape: for
+    ASYNC_CLEAR_POS_ZERO that is the ``AGRV2K_ASYNC_CLEAR_NET`` attribute (no
+    ARST port -- a packed slice never carries one, see
+    ``agamemnon/engine/features/shared_control.py``'s module docstring).  Use
+    ``extra_ports`` to inject an actual control PORT (e.g. a stray ``ARST`` on
+    a ``NONE``-mode cell, or a second port alongside a bound async net) --
+    that is a genuinely different, still-malformed shape.
+    """
     attrs = {
         "NEXTPNR_BEL": "X14Y8_SLICE0",
         "AGRV2K_REGISTER_INPUT_MODE": (
@@ -32,18 +44,16 @@ def _slice(*, mode="NONE", control="missing", name="state", extra_ports=(),
     }
     if mode is not None:
         attrs[SHARED_CONTROL_MODE_ATTRIBUTE] = mode
+    if mode == "ASYNC_CLEAR_POS_ZERO" and control == "bound":
+        attrs[ASYNC_CLEAR_NET_ATTRIBUTE] = "reset"
+    elif control not in ("missing", "bound"):
+        raise ValueError(control)
     connections = {
         "I": [3, "x", "x", "x"],
         "CLK": [2] if ff_used else [],
         "Q": [4] if ff_used else [],
         "F": [],
     }
-    if control == "bound":
-        connections["ARST"] = [5]
-    elif control == "unbound":
-        connections["ARST"] = [105]
-    elif control != "missing":
-        raise ValueError(control)
     for port in extra_ports:
         connections[port] = [6]
     cell = {
@@ -60,8 +70,6 @@ def _slice(*, mode="NONE", control="missing", name="state", extra_ports=(),
         "clock": {"bits": [2]}, "data": {"bits": [3]},
         "q": {"bits": [4]},
     }
-    if control == "bound":
-        netnames["reset"] = {"bits": [5]}
     for port in extra_ports:
         netnames[port.lower()] = {"bits": [6]}
     return {
@@ -100,23 +108,35 @@ def test_none_is_inert_and_legacy_compatible(explicit):
 
 
 def test_async_clear_requirement_carries_exact_semantics_and_bound_net():
+    """Unset AGRV2K_SHARED_CONTROL_ASYNC_CLEAR: still refused, by default."""
     requirement = validate_module_shared_controls(
         _slice(mode="ASYNC_CLEAR_POS_ZERO", control="bound")
     )["state"]
     assert requirement.active
     assert requirement.polarity == "POSITIVE"
     assert requirement.clear_value == 0
-    assert requirement.control_bit == 5
+    assert requirement.async_clear_net == "reset"
     assert not requirement.legacy_derived
+
+
+def test_async_clear_becomes_inactive_once_admitted(monkeypatch):
+    monkeypatch.setenv(ASYNC_CLEAR_ADMIT_OPTION, "1")
+    requirement = validate_module_shared_controls(
+        _slice(mode="ASYNC_CLEAR_POS_ZERO", control="bound")
+    )["state"]
+    assert not requirement.active
+    assert requirement.async_clear_net == "reset"
 
 
 @pytest.mark.parametrize(
     "module, reason",
     [
-        (_slice(mode="ASYNC_CLEAR_POS_ZERO"), "requires an ARST"),
-        (_slice(mode="ASYNC_CLEAR_POS_ZERO", control="unbound"), "no bound net"),
-        (_slice(mode="NONE", control="bound"), "inactive attribute disagrees"),
-        (_slice(mode=None, control="bound"), "inactive attribute disagrees"),
+        (_slice(mode="ASYNC_CLEAR_POS_ZERO"),
+         "requires a AGRV2K_ASYNC_CLEAR_NET"),
+        (_slice(mode="NONE", extra_ports=("ARST",)),
+         "inactive attribute disagrees"),
+        (_slice(mode=None, extra_ports=("ARST",)),
+         "inactive attribute disagrees"),
         (_slice(mode="ASYNC_CLEAR_POS_ZERO", control="bound", ff_used=0),
          "FF_USED=1"),
     ],
@@ -133,14 +153,14 @@ def test_attr_port_and_active_shape_mismatch_fail_closed(module, reason):
 ])
 def test_unknown_or_unsupported_mode_tokens_fail_closed(token):
     with pytest.raises(SystemExit, match="shared control"):
-        validate_module_shared_controls(_slice(mode=token, control="bound"))
+        validate_module_shared_controls(_slice(mode=token))
 
 
 @pytest.mark.parametrize("port", [
-    "R", "ASET", "SET", "CE", "EN", "SRST", "SCLR", "SLOAD", "ALOAD",
+    "R", "ARST", "ASET", "SET", "CE", "EN", "SRST", "SCLR", "SLOAD", "ALOAD",
 ])
 def test_unsupported_and_combined_control_ports_fail_closed(port):
-    with pytest.raises(SystemExit, match="unsupported or combined"):
+    with pytest.raises(SystemExit, match="must carry no control port"):
         validate_module_shared_controls(
             _slice(
                 mode="ASYNC_CLEAR_POS_ZERO", control="bound",

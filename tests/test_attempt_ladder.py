@@ -24,6 +24,18 @@ def _arc_log(net, src="X15Y9_OMUX14", dst="X0Y5_SinkMUXPseudo199"):
 ROUTED_OK_LOG = "Info: Routing..\nInfo: Routing complete.\nInfo: Max frequency ...\n"
 
 
+def test_unsafe_route_is_retried_without_becoming_success_or_route_failure():
+    unsafe = _rec(1, 0, "1", 0, A.ROUTED_UNSAFE, ROUTED_OK_LOG)
+    exhausted = A.summarize_ladder([unsafe])
+    assert not exhausted.succeeded
+    assert exhausted.representative_signature.kind == "ROUTE_SAFETY"
+    recovered = A.summarize_ladder([
+        unsafe, _rec(2, 0, "2", 0, A.SUCCESS, ROUTED_OK_LOG)])
+    assert recovered.succeeded
+    assert recovered.success_index == 2
+    assert recovered.signature_counts[0][0].kind == "ROUTE_SAFETY"
+
+
 # ---------------------------------------------------------------------------------------------
 # attempt_filename / attempt_header / write_attempt_log
 # ---------------------------------------------------------------------------------------------

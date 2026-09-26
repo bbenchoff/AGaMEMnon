@@ -411,7 +411,8 @@ def test_foreign_net_cannot_prebind_a_protected_clock_leaf(tmp_path):
     log = result.stdout + result.stderr
     assert (
         "clock audit rejects extra/foreign/wrong-class PIP" in log or
-        "not bound to wire 'GCLK0' in wires map" in log
+        "not bound to wire 'GCLK0' in wires map" in log or
+        "would rebind wire GCLK0 still owned by 'foreign_claim'" in log
     )
     assert not output.exists()
 

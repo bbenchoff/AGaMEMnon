@@ -197,7 +197,7 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT, document=None,
         chipdb_root, options, tuple(supplemental_fields)
     )
 
-    carry_state = CARRY_FEATURE.prepare(module, slice_config, cell_map)
+    carry_state = CARRY_FEATURE.prepare(module, slice_config, cell_map, chipdb_root=chipdb_root)
     core_logic_state = CORE_LOGIC_FEATURE.prepare(
         module, cell_map, options, CONSTANTS,
         chipdb_root=chipdb_root, node_pinout=node_pinout,
@@ -245,6 +245,15 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT, document=None,
         set(core_logic_state.register_sets) | set(bram_state.sets),
     )
     control_slice_lines = SHARED_CONTROL_GRAPH_FEATURE.slice_lines_from_module(module)
+    # Resolve control ownership before clock defaults. The selected external
+    # async line changes the polarity field otherwise used for its idle tie.
+    shared_control_state = SHARED_CONTROL_GRAPH_FEATURE.prepare(
+        routing_state.shared_control_pips,
+        cell_map,
+        slice_lines=control_slice_lines,
+        ordinary_slices=SHARED_CONTROL_GRAPH_FEATURE.ordinary_slice_sites_from_module(module),
+        options=options,
+    )
     clock_state = CLOCK_FEATURE.prepare(
         core_logic_state.clocked_tiles,
         core_logic_state.register_sets,
@@ -254,6 +263,8 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT, document=None,
         options,
         clock_validation,
         slice_lines=control_slice_lines,
+        async_clear_tiles={(x, y) for x, y, family, line in shared_control_state.tile_lines
+                           if family == "async_clear" and line == 1},
     )
     CLOCK_FEATURE.exclude_ownership(
         clock_state, PHYSICAL_IO_FEATURE.writable_bits(physical_io_state)
@@ -265,16 +276,6 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT, document=None,
     ROUTING_FEATURE.delegate_bits(
         routing_state,
         ROUTE_THROUGH_FEATURE.writable_bits(route_through_state),
-    )
-
-    # Routed control pips are resolved from the netlist, independently of the
-    # current graph-generation environment (including standalone pack).
-    shared_control_state = SHARED_CONTROL_GRAPH_FEATURE.prepare(
-        routing_state.shared_control_pips,
-        cell_map,
-        slice_lines=control_slice_lines,
-        ordinary_slices=SHARED_CONTROL_GRAPH_FEATURE.ordinary_slice_sites_from_module(module),
-        options=options,
     )
 
     return PreparedDesign(

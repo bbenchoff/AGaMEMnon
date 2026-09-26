@@ -62,6 +62,48 @@ def _dffe_feedback_netlist(*, extra_port=None, en=7):
     return data
 
 
+@pytest.mark.parametrize("axis", range(4))
+def test_async_clear_feedback_preserves_truth_table_clock_and_reset(monkeypatch, tmp_path, axis):
+    monkeypatch.setenv("AGRV2K_SHARED_CONTROL_ASYNC_CLEAR", "1")
+    inputs = [10, 11, 12, 13]
+    inputs[axis] = 5
+    init = 0x39A6
+    data = _self_feedback_netlist()
+    cells = data["modules"]["top"]["cells"]
+    cells["lut"]["connections"]["I"] = inputs.copy()
+    cells["lut"]["parameters"]["INIT"] = format(init, "016b")
+    cells["ff"] = {"type": "$_DFF_PP0_",
+                   "connections": {"C": [1], "R": [2], "D": [6], "Q": [5]}}
+    path = tmp_path / "async.json"
+    path.write_text(json.dumps(data))
+    assert lower_local_qin_feedback(path) == 1
+    transformed = json.loads(path.read_text())["modules"]["top"]["cells"]
+    assert transformed["ff"] == cells["ff"]
+    lut = transformed["lut"]
+    assert lut["connections"]["I"][2] == 5
+    new_init = int(lut["parameters"]["INIT"], 2)
+    for assignment in range(16):
+        values = {net: (assignment >> i) & 1 for i, net in enumerate(inputs)}
+        new_index = sum(values[net] << i for i, net in enumerate(lut["connections"]["I"]))
+        assert (init >> assignment) & 1 == (new_init >> new_index) & 1
+    assert lower_local_qin_feedback(path) == 1
+    assert json.loads(path.read_text())["modules"]["top"]["cells"] == transformed
+    permute_reads_to_inputD(path)
+    permute_pad_inputs_high(path)
+    assert json.loads(path.read_text())["modules"]["top"]["cells"]["lut"] == lut
+
+
+def test_async_clear_feedback_requires_admitted_mode(monkeypatch, tmp_path):
+    monkeypatch.delenv("AGRV2K_SHARED_CONTROL_ASYNC_CLEAR", raising=False)
+    data = _self_feedback_netlist()
+    data["modules"]["top"]["cells"]["ff"] = {
+        "type": "$_DFF_PP0_", "connections": {"C": [1], "R": [2], "D": [6], "Q": [5]}}
+    path = tmp_path / "async.json"
+    path.write_text(json.dumps(data))
+    assert lower_local_qin_feedback(path) == 0
+    assert json.loads(path.read_text()) == data
+
+
 def test_native_enable_local_qin_is_default_off_and_preserves_dffe(monkeypatch, tmp_path):
     monkeypatch.delenv("AGRV2K_NATIVE_ENABLE_LOCAL_QIN", raising=False)
     monkeypatch.delenv("AGRV2K_SHARED_CONTROL_ENABLE", raising=False)

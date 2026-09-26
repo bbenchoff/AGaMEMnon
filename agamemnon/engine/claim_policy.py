@@ -466,6 +466,17 @@ def evaluate_policy(options, features=FEATURES, include_constants=True):
             # emitter's guard (features/bram.py) then refuses every narrow Port-A
             # write. Worst case is a refused build, never a silently-wrong image.
             error = None
+        elif name == "AGAMEMNON_NO_BRAM_OUTREG_WRITETHRU" and policy == "release-strict":
+            # Kill switch for the default PORTA/B_OUTREG and PORTA/B_WRITETHRU
+            # config-bit admission (2026-09-25). Its two engine uses both NARROW
+            # the surface: bram_emit.emit/owned_surface stop treating those four
+            # fields as board-proven (falling back to requiring the explicit
+            # AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG flag like every other B4-admitted
+            # field), and the agrv2k packer (pack_bram_localize_const) stops
+            # admitting a constant-HIGH WeA/WeB with a real read side as a
+            # warning, restoring the original hard refusal. Worst case is a
+            # refused build, never a silently-wrong image.
+            error = None
         elif name == "AGAMEMNON_BRAM_NARROW_WRITE" and policy == "release-strict":
             # The CLI sets this ITSELF (cli.py, 2026-09-25) when the synthesized
             # design has a dynamic narrow (x9/x4/x1) Port-A write: it is the agrv2k
@@ -480,6 +491,31 @@ def evaluate_policy(options, features=FEATURES, include_constants=True):
             # every write window to be populated in the routed netlist. Keeping an
             # extra real-driven lane in the packer with the guard refusing is a
             # refused build, never a wrong image.
+            error = None
+        elif name == "AGAMEMNON_NO_PLL_RATIO_MODEL" and policy == "release-strict":
+            # Kill switch for the default general HSE=8 PLL ratio validity-model
+            # admission path (2026-09-25, pll_emit.evaluate_general_ratio). Its one
+            # engine use (pll_emit.require_supported_ratio) only SKIPS the general
+            # model and falls back to the enumerated SUPPORTED_RATIOS table, so
+            # setting it can only shrink the set of ratios a build will accept --
+            # worst case is a refused (fail-closed) build naming the unsupported
+            # ratio, never a silently-wrong image. Same surface-narrowing class as
+            # AGAMEMNON_NO_FFBRIDGE/AGAMEMNON_NO_OMUX_PRESENT0 above.
+            error = None
+        elif name == "AGRV2K_SHARED_CONTROL_ASYNC_CLEAR" and policy == "release-strict":
+            # The CLI sets this ITSELF (cli.py, 2026-09-25) for ordinary --uarch
+            # builds (witnessed-means-default-on). Same shape as
+            # AGAMEMNON_BRAM_NARROW_WRITE: it is the mechanism switch (adds the
+            # CtrlMUX->TileAsyncMUX01 pips + ASYNCCLR1 sink bels so the router CAN
+            # reach a tile's async-clear line), registered ``experimental``
+            # because it is not itself the safety gate. The actual admission is
+            # control_encode.py's FAMILY_SOURCE_COLUMNS['async_clear'], which
+            # claims exactly one board-evidenced (line, source) composition --
+            # CtrlMUX instance 0 driving LogicTile line 1 -- and fails closed
+            # (ControlEncodeError/SharedControlEmitError) on any other route the
+            # switch might expose. Evidence: two silicon-PASS vendor images
+            # (clk_rst_high/clk_rst_low, qualification/async_clear_reset_evidence.jsonl).
+            # Worst case is a refused build, never a silently-wrong image.
             error = None
         else:
             error = _permission_error(policy_name, spec.maturity, claim, policy, explicit)

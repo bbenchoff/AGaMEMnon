@@ -132,6 +132,134 @@ def routes_match(module: dict, profile: str) -> bool:
     )
 
 
+DATA_SOURCE_ROUTES = {
+    "bram-tmux9-i0-d1-we1": (
+        "X14Y4_OMUX41;;1;"
+        "X13Y4_IMUX29;X13Y4_RMUX05.X13Y4_IMUX29;5;"
+        "X13Y4_RMUX05;X15Y4_RMUX03.X13Y4_RMUX05;5;"
+        "X15Y4_RMUX03;X14Y4_RMUX74.X15Y4_RMUX03;5;"
+        "X14Y4_RMUX74;X14Y4_OMUX41.X14Y4_RMUX74;5"
+    ),
+    "bram-tmux9-i1-d0-we1": (
+        "X13Y4_IMUX29;X13Y4_RMUX53.X13Y4_IMUX29;5;"
+        "X13Y4_RMUX53;X15Y4_RMUX63.X13Y4_RMUX53;5;"
+        "X15Y4_RMUX63;X14Y4_RMUX15.X15Y4_RMUX63;5;"
+        "X14Y4_RMUX15;X14Y4_OMUX02.X14Y4_RMUX15;5;"
+        "X14Y4_OMUX02;;5"
+    ),
+}
+
+
+def source_signal_routes(profile: str) -> dict[str, str]:
+    """All fixed source-profile signal trees, including live write data."""
+    routes = expected_routes(profile)
+    if is_high(profile):
+        routes["din1"] = DATA_SOURCE_ROUTES[profile]
+    return routes
+
+
+def required_routes(profile: str) -> dict[str, str]:
+    """Return every reserved tree, including the explicitly placed zero source."""
+    return {**source_signal_routes(profile), "$PACKER_GND_NET": GROUND_ROUTES[profile]}
+
+
+def required_path_edges() -> list[tuple[str, str]]:
+    """Exact graph closure for the four hash-bound source profiles only."""
+    edges = set()
+    for profile in sorted(PROFILES):
+        for route in required_routes(profile).values():
+            fields = route.split(";")
+            for offset in range(0, len(fields), 3):
+                destination, pip = fields[offset:offset + 2]
+                if not pip:
+                    continue
+                source, pip_destination = pip.split(".")
+                if destination != pip_destination:
+                    raise ValueError("qualified TMUX09 route destination disagrees with pip")
+                edges.add((source, destination))
+    return sorted(edges)
+
+
+def _prepare_ground_source(module: dict, profile: str) -> None:
+    """Represent the qualified constant's source before native pin placement.
+
+    A generated constant is otherwise free to move, while its qualified route
+    has a fixed root. Materialize the same logical zero with that placement and
+    route constraint instead of moving a cell after routing.
+    """
+    route = GROUND_ROUTES[profile]
+    fields = route.split(";")
+    roots = [fields[i] for i in range(0, len(fields) - 2, 3) if not fields[i + 1]]
+    match = re.fullmatch(r"X(\d+)Y(\d+)_OMUX(\d+)", roots[0]) if len(roots) == 1 else None
+    if match is None or int(match[3]) % 3 != 2:
+        raise ValueError("qualified TMUX09 ground tree must have one F-output root")
+    bel = "X%sY%s_SLICE%d" % (match[1], match[2], int(match[3]) // 3)
+    cells = module.setdefault("cells", {})
+    nets = module.setdefault("netnames", {})
+    if "$PACKER_GND" in cells or "$PACKER_GND_NET" in nets:
+        raise ValueError("qualified TMUX09 ground name already exists")
+    if any(cell.get("attributes", {}).get("BEL") == bel for cell in cells.values()):
+        raise ValueError("qualified TMUX09 ground BEL already requested")
+    vectors = [bits for cell in cells.values() for bits in cell.get("connections", {}).values()]
+    vectors += [net.get("bits", []) for net in nets.values()]
+    vectors += [port.get("bits", []) for port in module.get("ports", {}).values()]
+    if not any("0" in bits for bits in vectors):
+        raise ValueError("qualified TMUX09 source has no constant-zero consumers")
+    bit = max((value for bits in vectors for value in bits if isinstance(value, int)), default=1) + 1
+    for bits in vectors:
+        for index, value in enumerate(bits):
+            if value == "0":
+                bits[index] = bit
+    cells["$PACKER_GND"] = {
+        "hide_name": 1, "type": "GENERIC_SLICE",
+        "parameters": {"K": "100", "INIT": "0000000000000000", "FF_USED": "0"},
+        "attributes": {"BEL": bel, "keep": "1"},
+        "port_directions": {"I": "input", "CLK": "input", "F": "output", "Q": "output"},
+        "connections": {"I": [], "CLK": [], "F": [bit], "Q": []},
+    }
+    nets["$PACKER_GND_NET"] = {
+        "hide_name": 1, "bits": [bit], "attributes": {"AGAMEMNON_REQUIRED_ROUTE": route},
+    }
+
+
+DATA_SOURCE_BELS = {
+    "bram-tmux9-i0-d1-we0": "X19Y6_SLICE10",
+    "bram-tmux9-i0-d1-we1": "X14Y4_SLICE13",
+    "bram-tmux9-i1-d0-we0": "X19Y6_SLICE10",
+    "bram-tmux9-i1-d0-we1": "X14Y4_SLICE0",
+}
+
+
+def _prepare_data_source(module: dict, profile: str) -> None:
+    """Bind the retained constant LUT as part of the exact-image contract.
+
+    A constant's unused/constant-folded route does not make its configured LUT
+    disappear. Its location must be declared before placement, just like the
+    active source and observer cells, for these hash-bound profiles.
+    """
+    cells = module.get("cells", {})
+    cell = cells.get("src_d1", {})
+    parameters = cell.get("parameters", {})
+    expected = 0xFFFF if profile.startswith("bram-tmux9-i0-d1-") else 0
+    try:
+        valid = (cell.get("type") == "GENERIC_SLICE"
+                 and int(str(parameters["INIT"]), 2) == expected
+                 and int(str(parameters["FF_USED"]), 2) == 0
+                 and len(cell.get("connections", {}).get("F", [])) == 1)
+    except (KeyError, ValueError):
+        valid = False
+    if not valid:
+        raise ValueError("qualified TMUX09 data source is missing or not the expected constant")
+    bel = DATA_SOURCE_BELS[profile]
+    attributes = cell.setdefault("attributes", {})
+    if attributes.get("BEL") not in (None, "", bel):
+        raise ValueError("qualified TMUX09 data source BEL disagrees")
+    if any(name != "src_d1" and other.get("attributes", {}).get("BEL") == bel
+           for name, other in cells.items()):
+        raise ValueError("qualified TMUX09 data source BEL already requested")
+    attributes["BEL"] = bel
+
+
 def prepare_route_reservations(path, profile: str) -> None:
     """Carry the required trees into native routing before other nets compete."""
     source = Path(path)
@@ -140,10 +268,12 @@ def prepare_route_reservations(path, profile: str) -> None:
     if "top" not in modules:
         raise ValueError("qualified TMUX09 reservations require a top module")
     nets = modules["top"].get("netnames", {})
-    routes = expected_routes(profile)
+    routes = source_signal_routes(profile)
     missing = sorted(set(routes) - set(nets))
     if missing:
         raise ValueError("qualified TMUX09 reservations lost nets: " + ", ".join(missing))
+    _prepare_ground_source(modules["top"], profile)
+    _prepare_data_source(modules["top"], profile)
     for name, route in routes.items():
         nets[name].setdefault("attributes", {})["AGAMEMNON_REQUIRED_ROUTE"] = route
     source.write_text(json.dumps(document, separators=(",", ":")) + "\n", encoding="utf-8")
@@ -174,18 +304,17 @@ def canonicalize_routed_file(path, profile: str, *, include_constants: bool = Fa
         raise ValueError("qualified TMUX09 source build requires one top module")
     module = modules["top"]
     netnames = module.get("netnames", {})
-    missing = sorted(set(expected_routes(profile)) - set(netnames))
+    replacement = source_signal_routes(profile) if include_constants else expected_routes(profile)
+    missing = sorted(set(replacement) - set(netnames))
     if missing:
         raise ValueError(
             "qualified TMUX09 source build lost routed net(s): %s" %
             ", ".join(missing)
         )
-    replacement = expected_routes(profile)
     if include_constants:
-        # These nets are created by native constant packing, so they cannot
-        # be attached to the synthesized netlist's pre-pack reservations.
-        # Restore the qualified source tree atomically with the signal trees.
-        # Historical checkpoint canonicalization keeps its existing behavior.
+        # Fresh builds declare this source and tree before native packing.
+        # Verify them again before atomic canonicalization; historical
+        # checkpoint canonicalization keeps its existing behavior.
         name = "$PACKER_GND_NET"
         bits = netnames.get(name, {}).get("bits", [])
         drivers = [cell for cell in module.get("cells", {}).values()

@@ -32,6 +32,7 @@
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "cells.h"
@@ -143,6 +144,24 @@ static int to_int(const std::string &s, int dflt = 0)
 static double to_double(const std::string &s, double dflt = 0.0)
 {
     return s.empty() ? dflt : std::strtod(s.c_str(), nullptr);
+}
+
+// Kill switch for the widened native short-same-tile carry corridor
+// (chipdb/carry_qualified_sites.csv). Default-on (witnessed means
+// default-on): a chain of 10-16 sites may root at any silicon-witnessed
+// tile, not only the fixed X20Y12-downward corridor.
+// AGAMEMNON_CARRY_WIDE_CORRIDOR=0 reproduces the exact previous behaviour
+// byte-for-byte (cap back to 9; every chain over 9 sites requires the
+// retained absolute X20 profiles).
+static bool carry_wide_corridor_enabled()
+{
+    const char *e = std::getenv("AGAMEMNON_CARRY_WIDE_CORRIDOR");
+    return e == nullptr || std::string(e) != "0";
+}
+
+static size_t carry_native_short_cap()
+{
+    return carry_wide_corridor_enabled() ? 16 : 9;
 }
 
 // ---- Opt-in silicon calibration of the timing model. ----
@@ -396,6 +415,21 @@ static bool shared_control_enable_admitted()
     return admitted;
 }
 
+// AGRV2K_SHARED_CONTROL_ASYNC_CLEAR admits a second physical shared control:
+// a positive-edge register with an active-high asynchronous clear to zero.
+// Evidence: two silicon-PASS vendor images (clk_rst_high/clk_rst_low) whose
+// decoded config asserts the identical CFG_TILEASYNCMUX index-1 bit for
+// their sole async source (CtrlMUX instance 0 driving LogicTile line 1); see
+// agamemnon/engine/control_encode.py's FAMILY_SOURCE_COLUMNS docstring and
+// agamemnon/engine/features/shared_control_graph.py. Kill switch: leave it
+// unset (or pass --no-async-clear-reset at the CLI, which does not set it)
+// to fall back to the pre-N4.2 refusal every $_DFF_PP0_ hit before this.
+static bool async_clear_admitted()
+{
+    static const bool admitted = getenv("AGRV2K_SHARED_CONTROL_ASYNC_CLEAR") != nullptr;
+    return admitted;
+}
+
 // The second native line is experimental and must remain opt-in.  Keep the
 // exact value check here so accidental environment inheritance cannot widen
 // ordinary builds.
@@ -441,6 +475,16 @@ static const IdString clock_enable_net_attr(Context *ctx)
     return ctx->id("AGRV2K_CLOCK_ENABLE_NET");
 }
 
+// Same idea as clock_enable_net_attr, for the async-clear net: a
+// GENERIC_SLICE has no ARST/R pin either -- the clear terminates on a tile
+// control line, not a per-slice pin -- so the net travels as a name from
+// lift_async_clear until pack_shared_async_clear creates the cell that owns
+// that line.
+static const IdString async_clear_net_attr(Context *ctx)
+{
+    return ctx->id("AGRV2K_ASYNC_CLEAR_NET");
+}
+
 static constexpr const char *SHARED_CONTROL_PORT_TOKENS[] = {
         "ARST", "R", "ASET", "SET", "CE", "EN", "SRST", "SCLR",
         "SLOAD", "ALOAD",
@@ -461,10 +505,20 @@ struct SharedControlRequirement
     std::string error;
 
     // "active" means a physical shared control that this flow REFUSES.  An
-    // admitted clock enable is deliberately not active, so the five refusal
-    // sites keep rejecting exactly what they rejected before.
-    bool active() const { return mode == SharedControlMode::ASYNC_CLEAR_POS_ZERO; }
+    // admitted clock enable is deliberately, UNCONDITIONALLY not active, so
+    // the refusal sites keep rejecting exactly what they rejected before.
+    // Async clear is admitted only while async_clear_admitted() -- unlike
+    // clock enable, ingress (reject_unsupported_shared_control_ingress) is
+    // not the only enforcement point that matters here: shared_control.py's
+    // OWN admission check (mirrored from this one) is what makes bitgen
+    // refuse it too, so the kill switch has to work even if some future
+    // caller reaches this struct without going through nextpnr ingress.
+    bool active() const
+    {
+        return mode == SharedControlMode::ASYNC_CLEAR_POS_ZERO && !async_clear_admitted();
+    }
     bool clock_enable() const { return mode == SharedControlMode::CLOCK_ENABLE_POS; }
+    bool async_clear() const { return mode == SharedControlMode::ASYNC_CLEAR_POS_ZERO; }
     bool malformed() const { return !error.empty(); }
 };
 
@@ -578,17 +632,34 @@ static SharedControlRequirement shared_control_requirement(Context *ctx,
                "or a packed GENERIC_SLICE");
         return result;
     }
+
     if (generic_slice) {
+        // Post-pack. Same lifted shape as CLOCK_ENABLE_POS: R/ARST is gone --
+        // lift_async_clear moved it onto the tile control cell and left the
+        // net's NAME behind, because the slice has no ARST pin to hold it
+        // (the clear terminates on a tile control line, selected by the
+        // slice's own per-slice line selector, not a per-slice pip).
         auto ff_it = cell->params.find(ctx->id("FF_USED"));
-        if (ff_it == cell->params.end()) {
-            reject("ASYNC_CLEAR_POS_ZERO requires FF_USED=1 (parameter missing)");
-            return result;
-        }
-        if (int(ff_it->second.as_int64()) != 1) {
+        if (ff_it == cell->params.end() || int(ff_it->second.as_int64()) != 1) {
             reject("ASYNC_CLEAR_POS_ZERO requires FF_USED=1");
             return result;
         }
+        for (const char *port : SHARED_CONTROL_PORT_TOKENS)
+            if (cell->ports.count(ctx->id(port)) != 0) {
+                reject(std::string("unsupported or combined control port ") + port);
+                return result;
+            }
+        if (cell->attrs.count(async_clear_net_attr(ctx)) == 0) {
+            reject("ASYNC_CLEAR_POS_ZERO slice has no recorded async-clear net");
+            return result;
+        }
+        result.polarity = SharedControlPolarity::POSITIVE;
+        result.clear_value = 0;
+        return result;
     }
+
+    // raw_async_clear: the exact $_DFF_PP0_ frontend shape synth_pads.tcl
+    // emits, before packing has a chance to lift anything.
     for (const char *port : SHARED_CONTROL_PORT_TOKENS)
         if (std::string(port) != expected_port &&
             cell->ports.count(ctx->id(port)) != 0) {
@@ -1782,14 +1853,17 @@ static void make_relative_cluster(Context *ctx,
 // Helpers (create_generic_cell/lut_to_lc/dff_to_lc/nxio_to_iob/is_lut/is_ff/is_lc/net_only_drives) are
 // the generic arch's own (cells.h / design_utils.h) and link in since we compile into nextpnr-generic.
 
-// A register this flow can pack: the ordinary DFF, or -- behind the flag -- the
-// clock-enable DFFE.  Upstream's is_ff() only knows DFF and is not ours to
-// patch, so the widened predicate lives here.
+// A register this flow can pack: the ordinary DFF, the clock-enable DFFE
+// (behind AGRV2K_SHARED_CONTROL_ENABLE), or the async-clear $_DFF_PP0_
+// (behind AGRV2K_SHARED_CONTROL_ASYNC_CLEAR).  Upstream's is_ff() only knows
+// DFF and is not ours to patch, so the widened predicate lives here.
 static bool is_packable_ff(const BaseCtx *ctx, const CellInfo *cell)
 {
     if (is_ff(ctx, cell))
         return true;
-    return shared_control_enable_admitted() && cell->type == ctx->id("DFFE");
+    if (shared_control_enable_admitted() && cell->type == ctx->id("DFFE"))
+        return true;
+    return async_clear_admitted() && cell->type == ctx->id("$_DFF_PP0_");
 }
 
 // Move the enable off the register and onto the packed slice as a NAME.
@@ -1815,6 +1889,46 @@ static void lift_clock_enable(Context *ctx, CellInfo *dff, CellInfo *lc)
     if (dff->attrs.count(group_id))
         lc->attrs[group_id] = dff->attrs.at(group_id);
     dff->disconnectPort(ctx->id("EN"));
+}
+
+// Move the async-clear net off the register and onto the packed slice as a
+// NAME, mirroring lift_clock_enable exactly.
+//
+// It cannot stay a port: a GENERIC_SLICE has no ARST/R bel pin, because the
+// clear does not reach a slice as a routed pip at all.  It terminates on one
+// of the tile's two shared TileAsyncMUX lines (CtrlMUX -> TileAsyncMUX01 is
+// the one this flow has a board-witnessed codeword for), and the slice's own
+// per-slice line selector -- left at its cleared/default value, which
+// already selects that line -- is what a real register consumes.
+// pack_shared_async_clear later creates the cell that owns the tile line and
+// reconnects the net to it.
+static void lift_async_clear(Context *ctx, CellInfo *dff, CellInfo *lc)
+{
+    if (dff->type != ctx->id("$_DFF_PP0_"))
+        return;
+    if (!async_clear_admitted())
+        log_error("agrv2k: $_DFF_PP0_ '%s' reached packing without "
+                  "AGRV2K_SHARED_CONTROL_ASYNC_CLEAR\n", ctx->nameOf(dff));
+    NetInfo *clear = dff->getPort(ctx->id("R"));
+    if (clear == nullptr)
+        log_error("agrv2k: $_DFF_PP0_ '%s' has no async-clear net\n", ctx->nameOf(dff));
+    lc->attrs[async_clear_net_attr(ctx)] = clear->name.str(ctx);
+    lc->attrs[shared_control_mode_attr(ctx)] = std::string("ASYNC_CLEAR_POS_ZERO");
+    dff->disconnectPort(ctx->id("R"));
+
+    // $_DFF_PP0_ is a standard Yosys internal simulation cell whose clock pin
+    // is named "C", not "CLK" -- upstream dff_to_lc() (called just before
+    // this, for both the LUT-fused and standalone packing paths) only knows
+    // "CLK" and CellInfo::movePortTo() silently no-ops on a source port name
+    // that does not exist. Without this, the packed slice's CLK stays
+    // permanently disconnected: a design that builds and emits a bitstream
+    // with every registered bit silently undriven. Move it by hand.
+    NetInfo *clock = dff->getPort(ctx->id("C"));
+    if (clock == nullptr)
+        log_error("agrv2k: $_DFF_PP0_ '%s' has no clock net\n", ctx->nameOf(dff));
+    lc->disconnectPort(ctx->id("CLK"));
+    lc->connectPort(ctx->id("CLK"), clock);
+    dff->disconnectPort(ctx->id("C"));
 }
 
 // If a combinational LUT feeds only register D pins, replicating its function
@@ -1955,6 +2069,7 @@ static void pack_lut_lutffs(Context *ctx)
                     lut_to_lc(ctx, ci, packed.get(), false);
                     dff_to_lc(ctx, dff, packed.get(), false);
                     lift_clock_enable(ctx, dff, packed.get());
+                    lift_async_clear(ctx, dff, packed.get());
                     const bool registered_pad =
                             packed->attrs.count(ctx->id("agamemnon_registered_pad_input")) != 0;
                     const bool direct_d =
@@ -2020,6 +2135,7 @@ static void pack_nonlut_ffs(Context *ctx)
             packed_cells.insert(ci->name);
             dff_to_lc(ctx, ci, packed.get(), true);
             lift_clock_enable(ctx, ci, packed.get());
+            lift_async_clear(ctx, ci, packed.get());
             // The generic helper implements a physical LUT identity path:
             // INIT=0xAAAA, D on I[0], CLK/Q connected, and F unused.
             set_register_input_mode(ctx, packed.get(), RegisterInputMode::LUT_FEEDTHROUGH_I0);
@@ -2425,6 +2541,123 @@ static void pack_shared_control(Context *ctx)
         ctx->cells[cell->name] = std::move(cell);
     log_info("  %d tile control cell(s) for %d enable net(s)\n",
              controls, int(by_enable.size()));
+}
+
+// Async-clear counterpart to pack_shared_control, narrowed to the one
+// board-evidenced composition: line 1 only, CtrlMUX instance 0 ("ctrl_a")
+// only, no dual-line pairing -- see control_encode.py's
+// FAMILY_SOURCE_COLUMNS for why. Groups larger than 16 registers split
+// across multiple tiles the same way clock enable's do. One
+// AGRV2K_TILE_CONTROL cell per (async-clear net, tile), clustered onto
+// z=18 (ASYNC_CONTROL_Z_BASE in shared_control_graph.py, past clock
+// enable's z=16/17 so the two families can never collide) with its members
+// at z=0.. -- see shared_control_graph.py's _add_control_sinks for the
+// sink bel this binds to (X<x>Y<y>_ASYNCCLR1, wired to TileAsyncMUX01).
+static void pack_shared_async_clear(Context *ctx)
+{
+    if (!async_clear_admitted())
+        return;
+
+    // Deterministic order: cluster shapes must not depend on hash iteration.
+    std::map<std::string, std::vector<CellInfo *>> by_clear;
+    for (auto &entry : ctx->cells) {
+        CellInfo *cell = entry.second.get();
+        if (cell->type != ctx->id("GENERIC_SLICE"))
+            continue;
+        auto it = cell->attrs.find(async_clear_net_attr(ctx));
+        if (it == cell->attrs.end())
+            continue;
+        by_clear[it->second.as_string()].push_back(cell);
+    }
+    if (by_clear.empty())
+        return;
+
+    log_info("Packing shared async-clear controls..\n");
+    std::vector<std::unique_ptr<CellInfo>> new_cells;
+    int controls = 0;
+    for (auto &group : by_clear) {
+        std::vector<CellInfo *> members = group.second;
+        std::sort(members.begin(), members.end(),
+                  [](const CellInfo *a, const CellInfo *b) { return a->name < b->name; });
+
+        NetInfo *clear = nullptr;
+        auto net_it = ctx->nets.find(ctx->id(group.first));
+        if (net_it != ctx->nets.end())
+            clear = net_it->second.get();
+        if (clear == nullptr)
+            log_error("agrv2k: async-clear net '%s' named by %d slice(s) does not "
+                      "exist\n", group.first.c_str(), int(members.size()));
+
+        for (size_t base = 0; base < members.size(); base += 16) {
+            const size_t count = std::min<size_t>(16, members.size() - base);
+            // Built directly rather than through create_generic_cell (see
+            // pack_shared_control's own comment: that helper only knows
+            // GENERIC_SLICE/GENERIC_IOB). A tile control cell is one input
+            // and nothing else.
+            const std::string control_name =
+                    "$agrv2k_asyncclr$" + group.first + "$" + std::to_string(base / 16);
+            auto control = std::make_unique<CellInfo>(
+                    ctx, ctx->id(control_name), ctx->id("AGRV2K_TILE_CONTROL"));
+            control->addInput(ctx->id("I"));
+            control->connectPort(ctx->id("I"), clear);
+            control->attrs[shared_control_mode_attr(ctx)] = std::string("ASYNC_CLEAR_POS_ZERO");
+            control->attrs[async_clear_net_attr(ctx)] = group.first;
+
+            // As in pack_shared_control: if every member of the chunk is
+            // pinned, pin the control cell to the same tile's async-clear
+            // sink and add no cluster; otherwise cluster the whole chunk.
+            const IdString bel_attr = ctx->id("BEL");
+            int pinned = 0, tile_x = -1, tile_y = -1;
+            for (size_t index = 0; index < count; ++index) {
+                auto it = members.at(base + index)->attrs.find(bel_attr);
+                if (it == members.at(base + index)->attrs.end())
+                    continue;
+                BelId bel = ctx->getBelByNameStr(it->second.as_string());
+                if (bel == BelId())
+                    log_error("agrv2k: async-cleared slice '%s' names BEL '%s', "
+                              "which this device does not have\n",
+                              ctx->nameOf(members.at(base + index)),
+                              it->second.as_string().c_str());
+                const Loc loc = ctx->getBelLocation(bel);
+                if (pinned && (loc.x != tile_x || loc.y != tile_y))
+                    log_error("agrv2k: async-clear set '%s' is pinned across "
+                              "tiles X%dY%d and X%dY%d; one control set is one "
+                              "tile\n", group.first.c_str(), tile_x, tile_y,
+                              loc.x, loc.y);
+                tile_x = loc.x; tile_y = loc.y; ++pinned;
+            }
+            if (pinned && size_t(pinned) != count)
+                log_error("agrv2k: async-clear set '%s' has %d of %d slice(s) "
+                          "pinned; pin all of them or none\n",
+                          group.first.c_str(), pinned, int(count));
+
+            if (pinned) {
+                const std::string sink = "X" + std::to_string(tile_x) + "Y" +
+                                         std::to_string(tile_y) + "_ASYNCCLR1";
+                if (ctx->getBelByNameStr(sink) == BelId())
+                    log_error("agrv2k: pinned tile X%dY%d has no async-clear "
+                              "sink bel '%s'\n", tile_x, tile_y, sink.c_str());
+                control->attrs[bel_attr] = Property(sink);
+                log_info("  async clear '%s': %d pinned register(s) in X%dY%d, "
+                         "control pinned to %s\n", group.first.c_str(),
+                         int(count), tile_x, tile_y, sink.c_str());
+            } else {
+                std::vector<std::pair<CellInfo *, Loc>> shape;
+                shape.push_back({control.get(), Loc(0, 0, 18)});
+                for (size_t index = 0; index < count; ++index)
+                    shape.push_back({members.at(base + index), Loc(0, 0, int(index))});
+                make_relative_cluster(ctx, shape, true);
+                log_info("  async clear '%s': tile cluster of %d register(s)\n",
+                         group.first.c_str(), int(count));
+            }
+            new_cells.push_back(std::move(control));
+            ++controls;
+        }
+    }
+    for (auto &cell : new_cells)
+        ctx->cells[cell->name] = std::move(cell);
+    log_info("  %d tile control cell(s) for %d async-clear net(s)\n",
+             controls, int(by_clear.size()));
 }
 
 static std::vector<IdString> pack_constants(Context *ctx)
@@ -2923,10 +3156,32 @@ static void pack_carries(Context *ctx)
         }
     }
 
+    // Admit only the already-qualified physical templates. Template selection
+    // also happens before mutation, so an unsupported topology cannot leave a
+    // half-packed design behind.
+    std::vector<CarrySite> sites;
+    auto append_tile = [&](int x, int y, int limit = 16) {
+        for (int z = 0; z < limit; ++z)
+            sites.push_back({x, y, z});
+    };
+    size_t total = chains.size(); // one seed per chain
+    for (const CarryChain &chain : chains)
+        total += chain.fa.size() + size_t(chain.export_cout);
+    const bool native_short_profile = total <= carry_native_short_cap();
+
     // Fixed-root prefixes reuse the same witnessed arithmetic sites and
     // local inputs as the full 32-bit corridor. Movable short chains retain
     // ordinary routed D/VCC; they can occupy sites outside that corridor.
-    bool d_default_high = reset_capture.empty() && chains.size() == 1 && fa_cells.size() >= 9 && fa_cells.size() <= 32 &&
+    // Mutually exclusive with native_short_profile: the D-default-high /
+    // CARRY_QFB_A local-input mechanism is silicon-witnessed only at the
+    // fixed X20 corridor (chipdb/carry_qualified_sites.csv never admits it;
+    // CARRY_QFB_A itself is 0/32 witnessed), so a chain that now qualifies
+    // for the widened any-witnessed-tile native profile must not also take
+    // this X20-only path -- it keeps the ordinary routed D/VCC + general
+    // SLICE_QFB (I[1]) own-Q path the native profile already used below 10
+    // sites, unchanged by widening the site list.
+    bool d_default_high = !native_short_profile && reset_capture.empty() && chains.size() == 1 &&
+            fa_cells.size() >= 9 && fa_cells.size() <= 32 &&
             !chains.front().export_cout && capture_dff.size() == fa_cells.size();
     if (d_default_high) {
         NetInfo *shared_clock = capture_dff.at(fa_cells.front())->getPort(ctx->id("CLK"));
@@ -2940,18 +3195,6 @@ static void pack_carries(Context *ctx)
         }
     }
 
-    // Admit only the already-qualified physical templates. Template selection
-    // also happens before mutation, so an unsupported topology cannot leave a
-    // half-packed design behind.
-    std::vector<CarrySite> sites;
-    auto append_tile = [&](int x, int y, int limit = 16) {
-        for (int z = 0; z < limit; ++z)
-            sites.push_back({x, y, z});
-    };
-    size_t total = chains.size(); // one seed per chain
-    for (const CarryChain &chain : chains)
-        total += chain.fa.size() + size_t(chain.export_cout);
-    const bool native_short_profile = total <= 9;
     if (!native_short_profile && chains.size() == 1 && total <= 25) {
         append_tile(20, 12);
         append_tile(20, 11, 9);
@@ -4266,6 +4509,12 @@ static void pack_bram_localize_const(Context *ctx)
     // width-padding don't-care. Constant/dangling padded lanes still trim, so the SERV
     // 512x2 RF (whose upper lanes are constant 0) stays byte-identical. Opt-in.
     bool narrow_write_optin = std::getenv("AGAMEMNON_BRAM_NARROW_WRITE") != nullptr;
+    // Kill switch for the board-proven-x18-unconditional-write admission below
+    // (same registry option agamemnon/engine/registry.py wires for the Python
+    // OUTREG/WRITETHRU config-bit gate, and the same presence-semantics
+    // convention as AGAMEMNON_BRAM_NARROW_WRITE above): restores the original
+    // hard refusal for a constant-HIGH WeA/WeB unconditionally.
+    bool outreg_writethru_kill = std::getenv("AGAMEMNON_NO_BRAM_OUTREG_WRITETHRU") != nullptr;
     PackedNameAllocator names(ctx);
     int idx = 0;
     long n = 0, hard_n = 0, local_n = 0, routed_gnd_n = 0;
@@ -4331,6 +4580,28 @@ static void pack_bram_localize_const(Context *ctx)
                 break;
             }
         }
+        // 2026-09-25: an unconditional WeA/WeB is not always a silent-degradation
+        // hazard. The vendor self-checking read-during-write/write-through mode
+        // images (AG32-Docs tools/vendor_witness/designs_open/bmd_rdw18_wt0.v,
+        // bmd_rdw18_wt1.v: x18, WeA tied HIGH every cycle, genuinely single-port,
+        // no live Port-B read) PASS on the board at the exact heartbeat (39/39
+        // direct-mode images, tools/rando_corpus/results/parity_20260925/): the
+        // design's own read side (DataOutA feeding a real downstream comparator)
+        // is the observable that the write happened -- exactly the signal this
+        // guard exists to protect when it is ABSENT. A live read on either port
+        // downgrades the hard refusal to a warning, scoped to the proven x18
+        // width only (narrower widths keep the original hard refusal; a narrow
+        // write's own correctness is a separate, independently gated claim --
+        // see features/bram.py narrow_write_silently_wrong).
+        bool port_a_read_used = false;
+        for (auto &p : ci->ports) {
+            if (p.first.str(ctx).rfind("DataOutA[", 0) == 0 &&
+                    p.second.net != nullptr && !p.second.net->users.empty()) {
+                port_a_read_used = true;
+                break;
+            }
+        }
+        bool bram_read_side_is_real = port_a_read_used || port_b_read_used;
         for (IdString p : unused_data)
             ci->disconnectPort(p);
         if (!unused_data.empty())
@@ -4352,11 +4623,24 @@ static void pack_bram_localize_const(Context *ctx)
                      (data_b && data_b_bit < active_b));
             const bool is_write_enable =
                     pin_name.rfind("WeA", 0) == 0 || pin_name.rfind("WeB", 0) == 0;
+            // Board-proven admission (2026-09-25): an unconditional WeA/WeB at the
+            // proven x18 width, on a BRAM whose own read side is real, is routed as
+            // a real per-pin driven constant (below) instead of being swallowed by
+            // the ROM control blob's write-disabled default. Scoped to x18 because
+            // that is the exact width the board evidence covers; a narrower width's
+            // write correctness is a separate, independently evidence-gated claim
+            // (features/bram.py narrow_write_silently_wrong / BOARD_PROVEN_NARROW_WRITES).
+            const bool this_port_is_x18 =
+                    (pin_name.rfind("WeA", 0) == 0) ? (active_a == 18) : (active_b == 18);
+            const bool unconditional_write_admitted =
+                    is_write_enable && pr.second && bram_read_side_is_real && this_port_is_x18 &&
+                    !outreg_writethru_kill;
             const bool characterized_control =
-                    pin_name.rfind("ReA", 0) == 0 || pin_name.rfind("ReB", 0) == 0 ||
-                    is_write_enable ||
-                    pin_name.rfind("ByteEnA", 0) == 0 || pin_name.rfind("ByteEnB", 0) == 0 ||
-                    pin_name.rfind("ClkEn0", 0) == 0 || pin_name.rfind("ClkEn1", 0) == 0;
+                    (pin_name.rfind("ReA", 0) == 0 || pin_name.rfind("ReB", 0) == 0 ||
+                     is_write_enable ||
+                     pin_name.rfind("ByteEnA", 0) == 0 || pin_name.rfind("ByteEnB", 0) == 0 ||
+                     pin_name.rfind("ClkEn0", 0) == 0 || pin_name.rfind("ClkEn1", 0) == 0) &&
+                    !unconditional_write_admitted;
             // A live Port-B address bus is a simultaneously routed tree.  Do
             // not strand all of its zero-valued lanes on the single global
             // hard-constant source: the vendor witness uses independent
@@ -4371,20 +4655,35 @@ static void pack_bram_localize_const(Context *ctx)
             // branch below does for every other characterized control default -- removes the
             // ONLY signal downstream bitgen has that a write was ever intended: the emitted
             // image quietly comes out as the ROM control blob (write permanently off) no
-            // matter what the RTL asked for.  This exact shape (inferred BRAM write, constant
-            // tied write-enable, no live Port-B read) has never been silicon-qualified for the
-            // generic control-blob path -- refuse instead of guessing.  Route a dynamic
-            // write-enable, exercise Port-B read alongside it, or use a
-            // --qualified-bram-write profile for the individually qualified corridor.
+            // matter what the RTL asked for.  Refuse instead of guessing UNLESS the design's
+            // own read side is real at the proven x18 width (unconditional_write_admitted
+            // above): then it is exactly the board-proven bmd_rdw18_wt0/wt1 shape
+            // (AG32-Docs tools/vendor_witness/designs_open/, 39/39 direct-mode PASS,
+            // tools/rando_corpus/results/parity_20260925/) and a warning is enough.  Route a
+            // dynamic write-enable, exercise Port-B read alongside it, add a real read on
+            // this port, or use --qualified-bram-write for the individually qualified
+            // corridor.
             if (hardconst && is_write_enable && pr.second) {
-                log_error(
-                    "agrv2k: BRAM pin '%s' is tied to a constant 1 (an unconditional "
-                    "write-enable). The generic control-blob path has no silicon-qualified "
-                    "write-enabled default for this shape, so silently dropping it would fold "
-                    "the image to the read-only ROM control blob. Route a dynamic "
-                    "write-enable signal, pair the write with a live Port-B read, or use "
-                    "--qualified-bram-write.\n",
-                    pin_name.c_str());
+                if (unconditional_write_admitted) {
+                    log_warning(
+                        "agrv2k: BRAM pin '%s' is tied to a constant 1 (an unconditional "
+                        "write-enable), admitted because this x18 BRAM's own read side is "
+                        "real (DataOutA or DataOutB reaches a live consumer): routing it as "
+                        "a real per-pin driven constant instead of the ROM control-blob "
+                        "default. Board-proven shape: AG32-Docs tools/vendor_witness/"
+                        "designs_open/bmd_rdw18_wt0.v / bmd_rdw18_wt1.v (2026-09-25).\n",
+                        pin_name.c_str());
+                } else {
+                    log_error(
+                        "agrv2k: BRAM pin '%s' is tied to a constant 1 (an unconditional "
+                        "write-enable). The generic control-blob path has no silicon-qualified "
+                        "write-enabled default for this shape, so silently dropping it would fold "
+                        "the image to the read-only ROM control blob. Route a dynamic "
+                        "write-enable signal, pair the write with a live Port-B read, add a real "
+                        "read on this port at x18, or use "
+                        "--qualified-bram-write.\n",
+                        pin_name.c_str());
+                }
             }
             if (hardconst && !pr.second && (addr_a || addr_b || data_a || data_b) &&
                     !split_live_portb_address) {
@@ -4629,13 +4928,18 @@ static void pack_bram_pin_drivers(Context *ctx)
             if (item.candidates.empty()) {
                 log_warning("agrv2k: no gated-graph slice output reaches dynamic BRAM pin %s (driver '%s')\n",
                             p.first.c_str(ctx), drv->name.c_str(ctx));
-            } else {
+            }
+            {
                 // One packed slice output can legitimately feed more than one
                 // BRAM terminal (SERV shares a low address source between the
                 // A and B ports).  Treat that as one placement variable whose
                 // candidate set is the intersection for every driven pin;
                 // binding the same cell independently twice silently moves it
                 // away from the first terminal.
+                // An empty terminal constraint must also participate. Dropping
+                // it let another terminal bind this shared driver while the
+                // omitted user had no legal source placement at all. Keep the
+                // ordinary unassigned fallback for a single-terminal driver.
                 auto prior = std::find_if(items.begin(), items.end(),
                                           [&](const PinItem &x) { return x.drv == drv; });
                 if (prior == items.end()) {
@@ -9619,6 +9923,12 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
 struct AgrvImpl : ViaductAPI
 {
     pool<WireId> carry_d_default_high_wires;
+    // Silicon-witnessed (x, y) LogicTile roots for the widened native
+    // short-same-tile carry profile (chipdb/carry_qualified_sites.csv):
+    // every intra-tile CARRYOUT->CARRYIN pip a 10-16 site chain at that
+    // tile needs is ring-witnessed. Loaded once in load_db(); empty (not an
+    // error) if the table is absent, e.g. an older devdb emission.
+    std::set<std::pair<int, int>> carry_qualified_wide_sites;
     std::string chipdb;
     ViaductHelpers h;
     dict<IdString, WireId> wire_by_name;
@@ -9810,6 +10120,15 @@ struct AgrvImpl : ViaductAPI
     // collapse the admitted graph by (tile, wire type) for a fast, witnessed
     // lower-bound lookahead. No geometry formula or unadmitted edge enters it.
     std::unordered_map<int, delay_t> pip_delay_by_index;
+    // Board-confirmed corner-tile congestion-marginal pips (AG32-Docs
+    // tools/pipwit/scratch/PLACEMENT_BISECT_20260925.md, chipdb/congestion_marginal_edges.csv):
+    // each conducts cleanly in an isolated ring but failed on silicon as the forced sole route
+    // into a scarce IMUX terminal once a real design's other nets had already claimed the tile's
+    // other legal feeders. Router-avoided by default via a large-but-finite delay penalty (below);
+    // agamemnon/engine/features/placement_congestion.py's post-route refusal remains the backstop
+    // for the rare design that truly has no alternative route.
+    std::set<std::pair<std::string, std::string>> congestion_marginal_wire_pairs;
+    long congestion_marginal_penalized = 0;
     std::vector<int> timing_node_by_wire;
     std::vector<std::unordered_map<int, delay_t>> timing_uphill;
     mutable std::unordered_map<int, std::vector<delay_t>> timing_distance_cache;
@@ -10546,12 +10865,28 @@ struct AgrvImpl : ViaductAPI
             }
         }
         if (!absolute_z) {
-            if (members.size() > 9 || relative_z.size() != members.size())
+            if (members.size() > carry_native_short_cap() || relative_z.size() != members.size())
                 return false;
             int position = 0;
             for (int z : relative_z)
                 if (z != position++)
                     return false;
+            // The original <=9 range is an existing, any-tile checkpoint and
+            // keeps its exact behaviour. Only the widened 10-16 range needs
+            // its root tile to be a silicon-witnessed site: every intra-tile
+            // CARRYOUT->CARRYIN pip the chain needs is ring-witnessed there
+            // (chipdb/carry_qualified_sites.csv, tools/pipwit ledger). The
+            // corner tile X20Y12 is one of 117 such sites, never the only
+            // legal one, so a design with several legal roots is free to
+            // spread away from it.
+            if (members.size() > 9 &&
+                !carry_qualified_wide_sites.count({root_loc.x, root_loc.y})) {
+                if (explain_invalid)
+                    log_info("agrv2k validity: wide native carry chain rooted at X%dY%d is "
+                             "not a silicon-witnessed site (chipdb/carry_qualified_sites.csv)\n",
+                             root_loc.x, root_loc.y);
+                return false;
+            }
         }
         for (CellInfo *member : members) {
             NetInfo *cin = member->getPort(ctx->id("CIN"));
@@ -14463,7 +14798,8 @@ struct AgrvImpl : ViaductAPI
         result.length = int(cell->attrs.at(keys[4]).as_int64());
         result.role = cell->attrs.at(keys[5]).as_string();
         const bool profile_valid =
-                (result.profile == "SHORT_LOCAL" && result.length >= 2 && result.length <= 9) ||
+                (result.profile == "SHORT_LOCAL" && result.length >= 2 &&
+                 size_t(result.length) <= carry_native_short_cap()) ||
                 (result.profile == "LEGACY_25" && result.length >= 10 && result.length <= 25) ||
                 (result.profile == "X20_DOWNWARD_33" && result.length >= 26 && result.length <= 33);
         const std::string expected_role = result.position == 0 ? "SEED" :
@@ -14528,7 +14864,7 @@ struct AgrvImpl : ViaductAPI
         if (root == nullptr)
             return false;
         short_local = !root->constr_abs_z;
-        return short_local ? member_count >= 2 && member_count <= 9
+        return short_local ? member_count >= 2 && size_t(member_count) <= carry_native_short_cap()
                            : (member_count == 25 || member_count == 33);
     }
 
@@ -14781,6 +15117,10 @@ struct AgrvImpl : ViaductAPI
                 if (short_local && root->bel != BelId() && current->bel != BelId()) {
                     const Loc root_loc = ctx->getBelLocation(root->bel);
                     const Loc current_loc = ctx->getBelLocation(current->bel);
+                    if (ordered.size() > 9 &&
+                        !carry_qualified_wide_sites.count({root_loc.x, root_loc.y}))
+                        log_error("agrv2k: %s wide carry closure rejects unwitnessed tile X%dY%d\n",
+                                  phase, root_loc.x, root_loc.y);
                     if (current_loc.x != root_loc.x || current_loc.y != root_loc.y ||
                         current_loc.z != root_loc.z + int(index))
                         log_error("agrv2k: %s short carry closure rejects nonconsecutive member '%s'\n",
@@ -15048,8 +15388,90 @@ struct AgrvImpl : ViaductAPI
         log_info("agrv2k: loaded %ld conducting inter-tile RMUX->RMUX edges (master_conduction.csv)\n", n);
     }
 
+    // AGRV2K_CONGESTION_PENALTY_NS overrides the router-avoidance delay charged to every pip in
+    // congestion_marginal_edges.csv; 0 disables the penalty entirely (the pip keeps its ordinary
+    // witnessed delay, and only the post-route agamemnon.engine.features.placement_congestion
+    // refusal remains). Preserve ordinary costs by default: a global 25 ns penalty changes
+    // otherwise working routes and regressed the SERV hardware example. The build driver
+    // rejects unsafe candidates and retries placement before accepting a routed image.
+    // Positive penalties remain available for controlled routing experiments.
+    static double congestion_marginal_penalty_ns()
+    {
+        const char *e = std::getenv("AGRV2K_CONGESTION_PENALTY_NS");
+        if (e == nullptr || *e == '\0')
+            return 0.0;
+        double v = to_double(e, -1.0);
+        if (v < 0.0)
+            log_error("agrv2k: AGRV2K_CONGESTION_PENALTY_NS must be >= 0\n");
+        return v;
+    }
+
+    // Board-confirmed congestion-marginal pips (chipdb/congestion_marginal_edges.csv), read as
+    // (source wire name, destination wire name) pairs so the dev_pips.csv loader below can match
+    // them without any separate PipId lookup. Optional and fail-open, matching the Python
+    // post-route validator: an absent table (e.g. an older devdb emission, or a graph variant that
+    // never copies it) simply leaves the penalty disabled, not an error.
+    void load_congestion_marginal_wire_pairs()
+    {
+        std::ifstream probe(path("congestion_marginal_edges.csv"));
+        if (!probe) {
+            log_info("agrv2k: no congestion_marginal_edges.csv in chipdb dir — router avoidance DISABLED "
+                      "(post-route refusal, if any, remains the only guard)\n");
+            return;
+        }
+        probe.close();
+        Csv c(path("congestion_marginal_edges.csv"));
+        static const std::vector<std::string> header = {"edge", "tile", "source", "evidence", "note"};
+        if (!c.next() || c.fields != header)
+            log_error("agrv2k: malformed congestion_marginal_edges.csv schema\n");
+        while (c.next()) {
+            if (c.at(0).empty())
+                continue;
+            char src[64], dst[64];
+            int sx, sy, dx, dy;
+            if (std::sscanf(c.at(0).c_str(), "%63[^@]@%d,%d->%63[^@]@%d,%d",
+                             src, &sx, &sy, dst, &dx, &dy) != 6)
+                log_error("agrv2k: malformed congestion-marginal edge '%s'\n", c.at(0).c_str());
+            char src_name[96], dst_name[96];
+            std::snprintf(src_name, sizeof(src_name), "X%dY%d_%s", sx, sy, src);
+            std::snprintf(dst_name, sizeof(dst_name), "X%dY%d_%s", dx, dy, dst);
+            congestion_marginal_wire_pairs.emplace(std::string(src_name), std::string(dst_name));
+        }
+        log_info("agrv2k: loaded %ld congestion-marginal pip(s) for router avoidance "
+                 "(congestion_marginal_edges.csv)\n", long(congestion_marginal_wire_pairs.size()));
+    }
+
+    // Board-confirmed sites
+    // whose complete 16-slice intra-tile CARRY pip set is ring-witnessed.
+    // Optional and fail-open: an absent table just means the widened
+    // profile has no qualified sites (every chain over 9 sites falls back
+    // to the retained absolute X20 profiles), not a build error.
+    void load_carry_qualified_sites()
+    {
+        std::ifstream probe(path("carry_qualified_sites.csv"));
+        if (!probe) {
+            log_info("agrv2k: no carry_qualified_sites.csv in chipdb dir -- wide native carry "
+                      "corridor has no qualified sites (only the retained X20 corridor remains)\n");
+            return;
+        }
+        probe.close();
+        Csv c(path("carry_qualified_sites.csv"));
+        static const std::vector<std::string> header = {"x", "y", "evidence"};
+        if (!c.next() || c.fields != header)
+            log_error("agrv2k: malformed carry_qualified_sites.csv schema\n");
+        while (c.next()) {
+            if (c.at(0).empty())
+                continue;
+            carry_qualified_wide_sites.emplace(to_int(c.at(0)), to_int(c.at(1)));
+        }
+        log_info("agrv2k: loaded %ld silicon-witnessed wide-native-carry site(s) "
+                 "(carry_qualified_sites.csv)\n", long(carry_qualified_wide_sites.size()));
+    }
+
     void load_db()
     {
+        load_congestion_marginal_wire_pairs();
+        load_carry_qualified_sites();
         int lutk = 4;
         {
             Csv c(path("dev_meta.csv"));
@@ -15154,9 +15576,22 @@ struct AgrvImpl : ViaductAPI
                 delay_t pip_delay = ctx->getDelayFromNS(to_double(c.at(4), 0.05));
                 if (timing_cal().active)
                     pip_delay = ctx->getDelayFromNS(to_double(c.at(4), 0.05) * timing_cal_pip_scale(c.at(3)));
+                // Board-confirmed congestion-marginal pips get a large-but-finite ROUTED delay so
+                // router2's timing-driven cost prefers any other legal feeder; the true witnessed
+                // delay above still seeds the A*/Dijkstra lookahead aggregate below (unchanged), so
+                // the heuristic stays an admissible lower bound instead of inflating past what
+                // silicon actually measured for this hop.
+                delay_t routed_pip_delay = pip_delay;
+                if (congestion_marginal_wire_pairs.count(std::make_pair(c.at(2), c.at(3)))) {
+                    double penalty_ns = congestion_marginal_penalty_ns();
+                    if (penalty_ns > 0.0) {
+                        routed_pip_delay = ctx->getDelayFromNS(penalty_ns);
+                        ++congestion_marginal_penalized;
+                    }
+                }
                 PipId pip = ctx->addPip(IdStringList(ctx->id(c.at(0))), ctx->id(c.at(1)), si->second,
-                                        di->second, pip_delay, loc);
-                pip_delay_by_index[pip.index] = pip_delay;
+                                        di->second, routed_pip_delay, loc);
+                pip_delay_by_index[pip.index] = routed_pip_delay;
                 if (g_wire_external_feed.size() != ctx->wires.size())
                     g_wire_external_feed.assign(ctx->wires.size(), 0);
                 if (wire_family_of(c.at(2)) != "OMUX")
@@ -15185,6 +15620,10 @@ struct AgrvImpl : ViaductAPI
 
         log_info("agrv2k: witnessed interconnect timing active for %ld pips over %ld lookahead nodes\n",
                  long(pip_delay_by_index.size()), long(timing_uphill.size()));
+        if (!congestion_marginal_wire_pairs.empty())
+            log_info("agrv2k: %ld/%ld congestion-marginal pip(s) matched this graph and were "
+                     "router-penalised at %.3f ns\n", congestion_marginal_penalized,
+                     long(congestion_marginal_wire_pairs.size()), congestion_marginal_penalty_ns());
 
         // Precompute the K-hop conducting closure for CONDPAIR legality (AGRV2K_CONDPAIR_HOPS, default 1 =
         // single-hop = unchanged). K>1 follows outgoing tile edges only: a reverse-only path is not a legal
@@ -16085,6 +16524,7 @@ struct AgrvImpl : ViaductAPI
         // After both FF paths, so every lifted enable is visible at once and a
         // control set is clustered as a whole rather than in two halves.
         pack_shared_control(ctx);
+        pack_shared_async_clear(ctx);
         pack_inactive_constant_slice_clocks(ctx);
         prune_unused_generated_constants(ctx, generated_constants);
         validate_native_direct_d_pool(ctx, false);

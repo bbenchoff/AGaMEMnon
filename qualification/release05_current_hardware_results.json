@@ -1,0 +1,492 @@
+{
+  "schema": "agamemnon.hardware-result-summary.v1",
+  "date": "2026-09-26",
+  "publication": "Release preparation; not a v0.5 release qualification",
+  "compiled_candidate": "eb49aff3bbae2f3f805b2d91532ddd36a3b40c3a",
+  "scope": [
+    "Source-paired direct-primitive BRAM and stronger-checker LFSR images, plus retained mapping and clock-only comparisons.",
+    "BRAM activity follows completed readback rounds and a sticky error check; passing is limited to the named sources, images and observation windows.",
+    "Clock-only 3 MHz vendor-derived images are edited diagnostics, not fresh vendor builds.",
+    "Historical 39-mode activity-only passes do not establish completion of memory reads; deliberate missing-read mutations passed that older oracle.",
+    "No physical root cause, arbitrary RTL qualification, general BRAM mode qualification or passing default release flow follows from this summary."
+  ],
+  "batches": [
+    {
+      "id": "bram_progress_board_terminal1",
+      "workbench_receipt_sha256": "3bedd362f96f26b39972228198a3f14f4243260f9046cf38921fa14268ac4317",
+      "qualification": "FOUR_SOURCE_BOUND_COMPLETED_READ_ROUND_IMAGES_ONE_SITE",
+      "loads": 17,
+      "reference_passes": 9,
+      "all_recovery_pass": true,
+      "variants": [
+        {
+          "variant": "bmd_sp1_c10_o0",
+          "image_sha256": "221bc4ad07352942989cc35f2cce5c91f5e3a8647d63c105be21c0378f6fb738",
+          "trials": 2,
+          "verdict_counts": {
+            "RATE_FAIL": 2
+          },
+          "observations": {
+            "LOW": 2
+          }
+        },
+        {
+          "variant": "bmd_sp1_c10_o1",
+          "image_sha256": "bad1f43b508d208b4b73e37019882038a1598fd90523ae875dad3888ba9ebbe9",
+          "trials": 2,
+          "verdict_counts": {
+            "RATE_FAIL": 2
+          },
+          "observations": {
+            "LOW": 2
+          }
+        },
+        {
+          "variant": "bmd_sdp4_4_c00",
+          "image_sha256": "3914d16c59c114d5753dff6b0459ccd3c3556ee1768e4f357112680a08dee374",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        },
+        {
+          "variant": "bmd_sp18_c10_o0",
+          "image_sha256": "43de8a0927e9209780686486ebae3c0d4435e0bdb43c4516744d45f9fbba6128",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "bram_progress_vendor_board_terminal1",
+      "workbench_receipt_sha256": "c222b29b0c751b496155ea935e303b5bd8814e90803783cef8995d62173dd403",
+      "qualification": "FOUR_SOURCE_BOUND_COMPLETED_READ_ROUND_IMAGES_VENDOR_ACTUAL_SITES",
+      "loads": 17,
+      "reference_passes": 9,
+      "all_recovery_pass": true,
+      "variants": [
+        {
+          "variant": "bmd_sp1_c10_o0",
+          "image_sha256": "4bce66ab880274109e37f29970b84462bbbc9d268b553302fdb1932548e507ac",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        },
+        {
+          "variant": "bmd_sp1_c10_o1",
+          "image_sha256": "8927b715a7f2ecfb4f76f038a493fbe72e8bef2b0307696f2dfebdc10ef4ecea",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        },
+        {
+          "variant": "bmd_sdp4_4_c00",
+          "image_sha256": "7e8cf15e01ae3b717a7ed58df9eae195845196be8f9234370f2b6333dd37f36e",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        },
+        {
+          "variant": "bmd_sp18_c10_o0",
+          "image_sha256": "9789b0dff52f7da36cf6cdfdc7474805cfda299b3d102cd5d5db0e7c9697e730",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "bram_candidate_board_terminal2",
+      "workbench_receipt_sha256": "1e5850ab42b7d1d9e25d84d50cdb13b75b89556f6b24abc665d787155db0336b",
+      "qualification": "SOURCE_PAIRED_X1_BRAM_RETAINED_MAPPING_COMPARISON",
+      "loads": 25,
+      "reference_passes": 13,
+      "all_recovery_pass": true,
+      "variants": [
+        {
+          "variant": "bmd_sp1_c10_o0-vendor",
+          "image_sha256": "4bce66ab880274109e37f29970b84462bbbc9d268b553302fdb1932548e507ac",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        },
+        {
+          "variant": "bmd_sp1_c10_o0-legacy",
+          "image_sha256": "221bc4ad07352942989cc35f2cce5c91f5e3a8647d63c105be21c0378f6fb738",
+          "trials": 2,
+          "verdict_counts": {
+            "RATE_FAIL": 2
+          },
+          "observations": {
+            "LOW": 2
+          }
+        },
+        {
+          "variant": "bmd_sp1_c10_o0-recovered",
+          "image_sha256": "0c48c3b3bd1917b613b9a6025f792b3b409340f4d4979a4615761157b35a4aaa",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        },
+        {
+          "variant": "bmd_sp1_c10_o1-vendor",
+          "image_sha256": "8927b715a7f2ecfb4f76f038a493fbe72e8bef2b0307696f2dfebdc10ef4ecea",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        },
+        {
+          "variant": "bmd_sp1_c10_o1-legacy",
+          "image_sha256": "bad1f43b508d208b4b73e37019882038a1598fd90523ae875dad3888ba9ebbe9",
+          "trials": 2,
+          "verdict_counts": {
+            "RATE_FAIL": 2
+          },
+          "observations": {
+            "LOW": 2
+          }
+        },
+        {
+          "variant": "bmd_sp1_c10_o1-recovered",
+          "image_sha256": "6f28abc43c353533ebe4ebd5910a639333454ec3efc0b53b8ee06b2b7ed0a884",
+          "trials": 2,
+          "verdict_counts": {
+            "RATE_FAIL": 2
+          },
+          "observations": {
+            "LOW": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "lfsr_progress_compare_board_terminal1",
+      "workbench_receipt_sha256": "05d106d85c86e9ec3a5f980b440b0c21f791a456e99726fc3fe4d52a32023140",
+      "qualification": "PAIRED_STRONG_LFSR_DIRECT_AND_SAMPLED_RESET",
+      "loads": 17,
+      "reference_passes": 9,
+      "all_recovery_pass": true,
+      "variants": [
+        {
+          "variant": "vendor_direct",
+          "image_sha256": "bb1df24f1b20c7e9c4f1a0cdc216265e6abaf42e282ae81338843c9e1191c23c",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        },
+        {
+          "variant": "open_direct",
+          "image_sha256": "7f98088825c1d869f42f143699ed750afec49c7cd816ed13afe0b4ff48384dc0",
+          "trials": 2,
+          "verdict_counts": {
+            "RATE_FAIL": 2
+          },
+          "observations": {
+            "LOW": 2
+          }
+        },
+        {
+          "variant": "vendor_sampled_twice",
+          "image_sha256": "8bd1790ae27d424826bed90f2f8e26caffaea576bb1188230223b1239973533e",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        },
+        {
+          "variant": "open_sampled_twice",
+          "image_sha256": "e2908b34e2e93c10f4310032dbcb57738027e105fdadc109f1a7d55ddf52ed4f",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "lfsr_candidate_board_terminal1",
+      "workbench_receipt_sha256": "58fc716973bb02735941eaad56994c21c3904dea8dfa771b60d35bed4feb5656",
+      "qualification": "IDENTICAL_DIRECT_RESET_LFSR_RETAINED_MAPPING_COMPARISON",
+      "loads": 13,
+      "reference_passes": 7,
+      "all_recovery_pass": true,
+      "variants": [
+        {
+          "variant": "vendor",
+          "image_sha256": "bb1df24f1b20c7e9c4f1a0cdc216265e6abaf42e282ae81338843c9e1191c23c",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        },
+        {
+          "variant": "recovered",
+          "image_sha256": "7f98088825c1d869f42f143699ed750afec49c7cd816ed13afe0b4ff48384dc0",
+          "trials": 2,
+          "verdict_counts": {
+            "RATE_FAIL": 2
+          },
+          "observations": {
+            "LOW": 2
+          }
+        },
+        {
+          "variant": "legacy",
+          "image_sha256": "8859a792fe22f22f7d37dee3460dfbd3d72138b5979fe54f7388a9489bb14688",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "lfsr_clock_board_terminal1",
+      "workbench_receipt_sha256": "3a879e8a27d5647c23762b632c42470244f39fecdecee69207a485b9a3e788c4",
+      "qualification": "RETAINED_LFSR_CLOCK_ONLY_COMPARISON",
+      "loads": 33,
+      "reference_passes": 17,
+      "all_recovery_pass": true,
+      "variants": [
+        {
+          "variant": "vendor-10mhz",
+          "image_sha256": "bb1df24f1b20c7e9c4f1a0cdc216265e6abaf42e282ae81338843c9e1191c23c",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        },
+        {
+          "variant": "legacy-10mhz",
+          "image_sha256": "8859a792fe22f22f7d37dee3460dfbd3d72138b5979fe54f7388a9489bb14688",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        },
+        {
+          "variant": "recovered-10mhz",
+          "image_sha256": "7f98088825c1d869f42f143699ed750afec49c7cd816ed13afe0b4ff48384dc0",
+          "trials": 2,
+          "verdict_counts": {
+            "RATE_FAIL": 2
+          },
+          "observations": {
+            "LOW": 2
+          }
+        },
+        {
+          "variant": "original-10mhz",
+          "image_sha256": "dcfe82aba3ef8df27f8eff073b78cc86803f7d79e2962159c7531c58bf865919",
+          "trials": 2,
+          "verdict_counts": {
+            "RATE_FAIL": 2
+          },
+          "observations": {
+            "LOW": 2
+          }
+        },
+        {
+          "variant": "vendor-3mhz",
+          "image_sha256": "c31b6d608d5a62f7c560004ad169a7114264123d6ace4c528131373074f42e5b",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        },
+        {
+          "variant": "legacy-3mhz",
+          "image_sha256": "581f656955730fadb894684a433a71e8f68482008e648ad139ef3e6bf0624234",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        },
+        {
+          "variant": "recovered-3mhz",
+          "image_sha256": "683901f810b19bec67852ff191304e1c770ae9d0b32e85b90f6926b54542da83",
+          "trials": 2,
+          "verdict_counts": {
+            "RATE_FAIL": 2
+          },
+          "observations": {
+            "LOW": 2
+          }
+        },
+        {
+          "variant": "original-3mhz",
+          "image_sha256": "8688443bf3987fb50127efe42f9def785b76d3ebeae619c4dfa28642ed361571",
+          "trials": 2,
+          "verdict_counts": {
+            "RATE_FAIL": 2
+          },
+          "observations": {
+            "LOW": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "bram_clock_board_terminal1",
+      "workbench_receipt_sha256": "2bca7537cc5850ae0a9bab1b09d5a4154c07c90488fdf1b435ea273614816805",
+      "qualification": "RETAINED_BRAM_CLOCK_ONLY_COMPARISON",
+      "loads": 33,
+      "reference_passes": 17,
+      "all_recovery_pass": true,
+      "variants": [
+        {
+          "variant": "vendor_o1-10mhz",
+          "image_sha256": "8927b715a7f2ecfb4f76f038a493fbe72e8bef2b0307696f2dfebdc10ef4ecea",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        },
+        {
+          "variant": "recovered_o0-10mhz",
+          "image_sha256": "0c48c3b3bd1917b613b9a6025f792b3b409340f4d4979a4615761157b35a4aaa",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        },
+        {
+          "variant": "legacy_o1-10mhz",
+          "image_sha256": "bad1f43b508d208b4b73e37019882038a1598fd90523ae875dad3888ba9ebbe9",
+          "trials": 2,
+          "verdict_counts": {
+            "RATE_FAIL": 2
+          },
+          "observations": {
+            "LOW": 2
+          }
+        },
+        {
+          "variant": "recovered_o1-10mhz",
+          "image_sha256": "6f28abc43c353533ebe4ebd5910a639333454ec3efc0b53b8ee06b2b7ed0a884",
+          "trials": 2,
+          "verdict_counts": {
+            "RATE_FAIL": 2
+          },
+          "observations": {
+            "LOW": 2
+          }
+        },
+        {
+          "variant": "vendor_o1-3mhz",
+          "image_sha256": "eb1fd75e8faa15c6a4ad5b17bd7a2de6cecfada1c6c8808ba301b4b20fcfabe9",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        },
+        {
+          "variant": "recovered_o0-3mhz",
+          "image_sha256": "4d842aa1c5719a2a41fdd0a25a7d02dbd6a87f461cd59ea2a3ff05bc6d730f89",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        },
+        {
+          "variant": "legacy_o1-3mhz",
+          "image_sha256": "08bfc3e147135cc061c8311e618a1b569a2ff331168dd8631acf25f499d5775c",
+          "trials": 2,
+          "verdict_counts": {
+            "RATE_FAIL": 2
+          },
+          "observations": {
+            "LOW": 2
+          }
+        },
+        {
+          "variant": "recovered_o1-3mhz",
+          "image_sha256": "89ffdf797bb4663a4eb83d27c9e8e7dde60a6860f6661c640a5510c71b6ba0c5",
+          "trials": 2,
+          "verdict_counts": {
+            "RATE_FAIL": 2
+          },
+          "observations": {
+            "LOW": 2
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -55,6 +55,7 @@ def test_reserved_data_and_dynamic_address_corridors_remain_complete(tmp_path):
     source.write_text(json.dumps(design))
     env = {k: v for k, v in os.environ.items() if not k.startswith(('AGRV2K_', 'AGAMEMNON_'))}
     env.update(AGRV2K_BRAM_PINPACK='1', AGRV2K_BRAM_HARDCONST='1',
+               AGRV2K_BRAM_GENERIC_LOCK='1',
                AGRV2K_TRACE_BRAM_CORRIDORS='1',
                AGAMEMNON_DATA=str(Path(__file__).resolve().parents[1]/'agamemnon/chipdb'))
     run = subprocess.run([binary, '--uarch', 'agrv2k', '-o', 'chipdb='+database,

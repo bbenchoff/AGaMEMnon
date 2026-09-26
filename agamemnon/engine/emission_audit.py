@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import collections
 import csv
+from agamemnon.engine import routing_selectors
 import os
 import re
 
@@ -79,7 +80,7 @@ def read_codewords(image, nodes):
     return found
 
 
-def expected_codeword(src, dst, clean, relative):
+def expected_codeword(src, dst, clean, relative, identity_conflicts=None):
     """Codeword the destination must carry to select this source, or None.
 
     The tile-relative table keys on ``dst - src``. Writing ``src - dst`` returns a
@@ -90,6 +91,10 @@ def expected_codeword(src, dst, clean, relative):
     exact = (dst[0], dst[1], dst[2], dst[3], src[2], src[0], src[1], src[3])
     if exact in clean:
         return clean[exact]
+    if identity_conflicts is None:
+        identity_conflicts = routing_selectors.rmux_identity_conflicts(clean, relative)
+    if exact in identity_conflicts:
+        return None
     return relative.get((dst[2], dst[3], src[2], src[3],
                          dst[0] - src[0], dst[1] - src[1]))
 
@@ -112,8 +117,9 @@ def audit(image, pips, nodes, clean, relative, tiles=None):
             wanted[dst].add(src)
 
     missing, unresolvable = [], []
+    identity_conflicts = routing_selectors.rmux_identity_conflicts(clean, relative)
     for dst, sources in wanted.items():
-        acceptable = {expected_codeword(s, dst, clean, relative) for s in sources}
+        acceptable = {expected_codeword(s, dst, clean, relative, identity_conflicts) for s in sources}
         if acceptable == {None}:
             unresolvable.append((dst, sorted(sources)))
             continue

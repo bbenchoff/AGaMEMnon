@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agamemnon-ag32"
-version = "0.4.0"
+version = "0.5.0"
 description = "Open SDK, FPGA toolchain, and English documentation for the AGM AG32 RISC-V MCU with embedded AGRV2K fabric"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -48,6 +48,7 @@ agamemnon = [
   "chipdb/*.json",
   "chipdb/*.agdb",
   "chipdb/[abcdefhilmsw]*.csv",
+  "chipdb/omux3z_presentation_evidence.csv",
   "chipdb/pad*.csv",
   "chipdb/physical_*.csv",
   "chipdb/pips_*.csv",
@@ -56,6 +57,8 @@ agamemnon = [
   "chipdb/rrg_omux_imux_full.csv",
   "chipdb/rrg_rmux_imux_full.csv",
   "chipdb/route_through_footprints.csv",
+  "chipdb/ring_witness_conduction.csv",
+  "chipdb/vendor_recovered_edges.csv",
   "synth/*",
   "openocd/*",
   "sdk/*",
@@ -63,7 +66,7 @@ agamemnon = [
   "templates/*",
   "templates/**/*",
 ]
-"agamemnon.engine" = ["mesh_resolver_table.json", "physical_graph_profiles.json", "pips_bram_pll.csv", "status_overlay_dev_*.csv.gz", "status_overlay_devdb_manifest.json", "uarch/agrv2k/README.md", "uarch/agrv2k/agrv2k.cc", "uarch/agrv2k/build.sh", "uarch/agrv2k/nextpnr-viaduct-timing.patch", "uarch/agrv2k/nextpnr-viaduct-clusters.patch", "uarch/agrv2k/nextpnr-router2-reservations.patch", "uarch/agrv2k/nextpnr-router2-constant-ripup.patch", "uarch/agrv2k/nextpnr-json-direction-failclosed.patch", "uarch/agrv2k/router2_probe_uarch/constids.inc", "uarch/agrv2k/router2_probe_uarch/router2_probe.cc"]
+"agamemnon.engine" = ["mesh_resolver_table.json", "physical_graph_profiles.json", "pips_bram_pll.csv", "tile_control_edges.csv", "ctrlmux_source_sel.csv", "async_control_edges.csv", "async_feeder_wl.csv", "status_overlay_dev_*.csv.gz", "status_overlay_devdb_manifest.json", "uarch/agrv2k/README.md", "uarch/agrv2k/agrv2k.cc", "uarch/agrv2k/build.sh", "uarch/agrv2k/nextpnr-viaduct-timing.patch", "uarch/agrv2k/nextpnr-viaduct-clusters.patch", "uarch/agrv2k/nextpnr-router2-reservations.patch", "uarch/agrv2k/nextpnr-router2-constant-ripup.patch", "uarch/agrv2k/nextpnr-json-direction-failclosed.patch", "uarch/agrv2k/router2_probe_uarch/constids.inc", "uarch/agrv2k/router2_probe_uarch/router2_probe.cc"]
 "agamemnon.sim" = ["*.v"]
 
 [tool.pytest.ini_options]

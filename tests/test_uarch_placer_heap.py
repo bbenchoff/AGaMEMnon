@@ -39,6 +39,20 @@ def test_heap_rung_is_first_except_for_qualified_portb_shape():
     assert portb[1] == (0, 0)
 
 
+def test_logic_memory_prioritizes_buffering_without_losing_fallbacks():
+    for cap in (2, 5, 8):
+        for heap_first in (False, True):
+            ordinary = _uarch_attempts(cap, 2, heap_first=heap_first)
+            memory = _uarch_attempts(cap, 2, heap_first=heap_first, memory_lowered=True)
+            assert memory[0] == (cap, 16)
+            assert len(memory) == len(set(memory))
+            assert set(memory) == set(ordinary)
+            assert [rung for rung in memory if rung != (cap, 16)] == [
+                rung for rung in ordinary if rung != (cap, 16)]
+            assert _uarch_attempts(cap, 2, heap_first=heap_first,
+                                   split_first=True, memory_lowered=True) == memory
+
+
 def test_uarch_advertises_canonical_logic_and_io_bel_buckets():
     source = UARCH.read_text(encoding="utf-8")
     bucket = source.split(

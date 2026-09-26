@@ -19,7 +19,7 @@ Policy version: `D0-v1`.
 | `physical_io` | release | individually_qualified | electrical | preexisting_v4 | preexisting V4 release scope | qualification/io_evidence.jsonl<br>qualification/left_edge_output_evidence.jsonl<br>qualification/bidir_left_quad_evidence.jsonl |
 | `route_through` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/bram_evidence.jsonl<br>qualification/bram_site_read_evidence.jsonl |
 | `routing` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/routing_evidence.jsonl |
-| `shared_control_graph` | release | individually_qualified | configuration | approved | positive-edge active-high native enable on the MCU bus clock; isolated, one-native-group mixed, or two-native-group dual tiles; dual tiles exclude ordinary FFs and mixed/dual profiles are never combined | docs/NATIVE_CLOCK_ENABLE_EXPERIMENT.md |
+| `shared_control_graph` | release | individually_qualified | configuration | approved | positive-edge active-high native enable on the MCU bus clock; isolated, one-native-group mixed, or two-native-group dual tiles; dual tiles exclude ordinary FFs and mixed/dual profiles are never combined | docs/NATIVE_CLOCK_ENABLE_EXPERIMENT.md<br>docs/ASYNC_CLEAR_RESET.md |
 
 ## Engine options
 
@@ -74,12 +74,14 @@ Policy version: `D0-v1`.
 | `AGAMEMNON_NOSPINE` | experimental | decoded | timing | unapproved | inventory only | agamemnon/chipdb/clk0_spine.json |
 | `AGAMEMNON_NO_BRAM_DATA_WL` | archival | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/ring_witness_conduction.csv |
 | `AGAMEMNON_NO_BRAM_NARROW_WRITE` | experimental | decoded | configuration | unapproved | inventory only | qualification/bram_narrow_write_evidence.jsonl |
+| `AGAMEMNON_NO_BRAM_OUTREG_WRITETHRU` | experimental | decoded | configuration | unapproved | inventory only | qualification/bram_outreg_writethru_evidence.jsonl |
 | `AGAMEMNON_NO_BRAM_WL` | archival | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/bram_wl.csv |
 | `AGAMEMNON_NO_CLKGEN` | experimental | decoded | timing | unapproved | inventory only | qualification/clock_divider_probe.v |
 | `AGAMEMNON_NO_EXIT_WL` | archival | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/exit_feeder_whitelist.csv |
 | `AGAMEMNON_NO_FFBRIDGE` | experimental | decoded | configuration | unapproved | inventory only | qualification/routing_evidence.jsonl |
 | `AGAMEMNON_NO_INTRA_RMUX` | experimental | decoded | configuration | unapproved | inventory only | qualification/routing_evidence.jsonl |
 | `AGAMEMNON_NO_OMUX_PRESENT0` | experimental | decoded | configuration | unapproved | inventory only | qualification/omux_presentation_evidence.md |
+| `AGAMEMNON_NO_PLL_RATIO_MODEL` | experimental | decoded | configuration | unapproved | inventory only | qualification/pll_ratio_model_evidence.jsonl |
 | `AGAMEMNON_NO_SEAM` | experimental | decoded | timing | unapproved | inventory only | qualification/clock_divider_probe.v |
 | `AGAMEMNON_OBSERVED_ONLY` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/pip_usage.csv |
 | `AGAMEMNON_OBS_IMUX` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/pip_usage.csv |
@@ -115,6 +117,7 @@ Policy version: `D0-v1`.
 | `AGAMEMNON_X9_Q5_ALT_EXPERIMENT` | experimental | decoded | configuration | unapproved | inventory only | qualification/bram_evidence.jsonl |
 | `AGAMEMNON_XBAR_CONDUCT` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | agamemnon/chipdb/ff2_conduction.csv |
 | `AGAMEMNON_XBAR_FULL` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/rrg_rmux_imux_full.csv |
+| `AGRV2K_SHARED_CONTROL_ASYNC_CLEAR` | experimental | decoded | configuration | unapproved | inventory only | qualification/async_clear_reset_evidence.jsonl |
 
 ## Silicon-derived constants
 

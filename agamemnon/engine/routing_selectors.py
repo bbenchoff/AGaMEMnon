@@ -201,12 +201,55 @@ NONPORTABLE_RELATIVE_KEYS = frozenset({
     # translation, not an assertion that the physical edge cannot exist.
     # Preserve coordinate-specific observations and other RMUX92 directions.
     ("RMUX", 81, "RMUX", 92, 0, -1),
+    # A row-2/10 observation of RMUX39 -> RMUX58 does not establish the
+    # same one-row hop in the interior. At X15Y6 the inferred pair 6/9
+    # instead has exact evidence for RMUX87 at Y10. Driving that source
+    # restores static and changing data while preserving the target bits.
+    ("RMUX", 58, "RMUX", 39, 0, -1),
+    # RMUX68 -> RMUX85 one column left is observed at destination X19.
+    # At X14 the inferred pair 1/8 has exact evidence for RMUX20 at X18.
+    # Retaining all cells and bypassing this branch after the RMUX58 repair
+    # restores the complete FIFO checker in three controlled hardware runs.
+    # Neither observation qualifies translation to other coordinates;
+    # preserve every exact edge and the distinct four-tile connections.
+    ("RMUX", 85, "RMUX", 68, -1, 0),
 })
 
 _WIRE = re.compile(r"X(-?\d+)Y(-?\d+)_([A-Za-z]+)(\d+)")
 
 
-def nonportable_translation(clean_edges, source, destination):
+def rmux_identity_conflicts(clean_edges, relative=None):
+    """Unobserved translations whose codeword has another exact RMUX source.
+
+    Unanimity at other tiles does not identify the source at this destination.
+    An exact observation wins over that extrapolation. Keep every exact edge,
+    including explicitly observed aliases; do not infer aliases between RMUX
+    wires merely because a translated codeword would select them both.
+
+    IMUX/control source names and BramTILE grouping require separate models and
+    are outside this check. The result is coordinate-specific: a conflict at
+    one destination does not withdraw that relative key everywhere else.
+    """
+    if relative is None:
+        relative, _ = relative_edges(clean_edges)
+    by_selector = {}
+    for key, pair in relative.items():
+        df, di, sf, si, ox, oy = key
+        if df == sf == "RMUX":
+            by_selector.setdefault((di, tuple(sorted(pair))), []).append((si, ox, oy))
+    conflicts = set()
+    for exact, pair in clean_edges.items():
+        dx, dy, df, di, sf, sx, sy, si = exact
+        if dx == BRAM_COLUMN or df != "RMUX" or sf != "RMUX":
+            continue
+        for predicted_index, ox, oy in by_selector.get((di, tuple(sorted(pair))), ()):
+            proposed = (dx, dy, df, di, sf, dx-ox, dy-oy, predicted_index)
+            if proposed not in clean_edges:
+                conflicts.add(proposed)
+    return frozenset(conflicts)
+
+
+def nonportable_translation(clean_edges, source, destination, *, identity_conflicts=None):
     """Reject a withdrawn translation even when a supplemental path repeats it.
 
     A path listing is not an independent selector observation. Exact physical
@@ -220,7 +263,15 @@ def nonportable_translation(clean_edges, source, destination):
     sx, sy, si, dx, dy, di = map(int, (sx, sy, si, dx, dy, di))
     relative = (df, di, sf, si, dx - sx, dy - sy)
     exact = (dx, dy, df, di, sf, sx, sy, si)
-    return relative in NONPORTABLE_RELATIVE_KEYS and exact not in clean_edges
+    if exact in clean_edges:
+        return False
+    if relative in NONPORTABLE_RELATIVE_KEYS:
+        return True
+    if sf != "RMUX" or df != "RMUX":
+        return False
+    if identity_conflicts is None:
+        identity_conflicts = rmux_identity_conflicts(clean_edges)
+    return exact in identity_conflicts
 
 
 def load_clean_edges(data_dir):

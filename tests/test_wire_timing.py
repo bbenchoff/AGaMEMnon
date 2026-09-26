@@ -166,14 +166,19 @@ def test_certified_exact_table_is_hash_pinned_normalized_and_narrow():
                 family["total_strict_release_pips"])
 
 
-def test_hash_pinned_exact_json_is_forced_to_lf_on_every_checkout():
+def test_hash_pinned_exact_json_is_forced_to_lf_on_every_checkout(tmp_path):
     paths = [
         "agamemnon/chipdb/wire_timing_exact_safe.json",
         "agamemnon/chipdb/wire_timing_exact_safe_manifest.json",
     ]
+    # Check the shipped rules in a fresh repository. A Windows-created
+    # worktree's absolute gitdir pointer is not readable by Linux Git in WSL.
+    (tmp_path / ".gitattributes").write_bytes((ROOT / ".gitattributes").read_bytes())
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True,
+                   capture_output=True, text=True, timeout=10)
     result = subprocess.run(
         ["git", "check-attr", "eol", "--", *paths],
-        cwd=ROOT, capture_output=True, text=True, timeout=10,
+        cwd=tmp_path, capture_output=True, text=True, timeout=10,
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout.count(": eol: lf") == 2
@@ -221,11 +226,11 @@ def test_emitted_strict_release_devdb_binds_only_certified_route_pips(tmp_path):
         destination = row["dst"].rsplit("_", 1)[-1]
         if row["type"] == "ROUTE" and exact_delay_ns(exact, source, destination) is not None:
             bound.append(row)
-    # 2026-08-21 vendor-topology landing: 3,622 exact-position consecutive
-    # Harvested route hops enlarged the strict graph; 1,206 of the newly emitted
-    # ROUTE pips have already-certified OMUX->IMUX timing identities.  This
-    # count asserts propagation into devdb, not electrical conduction.
-    assert len(bound) == 10581
+    # The September strict-graph promotions expanded the concrete routes
+    # carrying existing certified OMUX->IMUX timing identities. This checks
+    # propagation into the current fingerprinted graph, not conduction or
+    # a new timing measurement; the historical certification remains unchanged.
+    assert len(bound) == 67893
     assert {float(row["delay_ns"]) for row in bound} == {0.401}
 
     feedback = [row for row in rows if row["type"] == "DIRECT_D_FB"]

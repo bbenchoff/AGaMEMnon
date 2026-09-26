@@ -1,12 +1,37 @@
-"""Packing must not query a missing BRAM BEL for an inactive site profile."""
+"""BRAM BEL resolution and output reach must respect the supplied graph.
+
+These are native packing checks, not bitstream or silicon qualification of the
+optional site-read profile. A packer flag cannot add pips to an existing graph.
+"""
+import csv
+from functools import lru_cache
 import json
 import os
 from pathlib import Path
 import subprocess
 
 import pytest
+from devdb_fixtures import devdb_path
 
 ROOT = Path(__file__).resolve().parents[1]
+BINARY = os.environ.get("AGAMEMNON_UARCH_NEXTPNR")
+# These cases test two specific graph contracts, so a caller's shared native
+# database must not silently substitute for either freshly emitted fixture.
+DEVDBS = ({name: devdb_path(name) for name in ("strict_pcf", "strict_pcf_bram_site")}
+          if BINARY and Path(BINARY).is_file() else {})
+
+
+@lru_cache(maxsize=2)
+def _egress_sources(devdb):
+    with (devdb / "dev_pips.csv").open(newline="") as stream:
+        return {row["src"] for row in csv.DictReader(stream)}
+
+
+def _has_output_egress(devdb, bel):
+    with (devdb / "dev_belpins.csv").open(newline="") as stream:
+        source = next(row["wire"] for row in csv.DictReader(stream)
+                      if row["bel"] == bel and row["pin"] == "DataOutA[0]")
+    return source in _egress_sources(devdb)
 
 
 def _design(bel):
@@ -26,22 +51,21 @@ def _design(bel):
                       "clock": dict(bits=[3], attributes={})})}}
 
 
-def _pack(tmp_path, bel, site_profile):
-    binary = os.environ.get("AGAMEMNON_UARCH_NEXTPNR")
-    devdb = Path(os.environ.get("AGAMEMNON_UARCH_DEVDB", str(
-        ROOT / "agamemnon/engine/uarch/agrv2k/devdb_strict")))
-    if not binary or not Path(binary).is_file() or not (devdb / "dev_pips.csv").is_file():
-        pytest.skip("set the isolated native executable and strict devdb")
+def _pack(tmp_path, bel, site_profile, graph_profile="strict_pcf"):
+    if not DEVDBS:
+        pytest.skip("set the isolated native executable")
+    devdb = DEVDBS[graph_profile]
+    assert (devdb / "dev_pips.csv").is_file()
     source = tmp_path / "source.json"
     source.write_text(json.dumps(_design(bel)))
     output = tmp_path / "packed.json"
     env = {k: v for k, v in os.environ.items() if not k.startswith(("AGAMEMNON_", "AGRV2K_"))}
-    # Isolate BEL resolution, not exact site-path replay. The ordinary strict
-    # devdb does not admit every optional site-profile route table edge.
+    # A slice sink isolates BEL resolution/output packing from exact MCU exit
+    # replay, while leaving ordinary output-reach bridge checks enabled.
     env["AGRV2K_BRAM_PINPACK"] = "1"
     if site_profile:
         env["AGAMEMNON_BRAM_SITE_READ_PATHS"] = "1"
-    result = subprocess.run([binary, "--uarch", "agrv2k", "-o", f"chipdb={devdb}",
+    result = subprocess.run([BINARY, "--uarch", "agrv2k", "-o", f"chipdb={devdb}",
                              "--json", str(source), "--write", str(output),
                              "--top", "top", "--pack-only"],
                             env=env, capture_output=True, text=True, timeout=60)
@@ -70,6 +94,28 @@ def test_site_profile_refuses_missing_or_non_bram_bel_by_name(tmp_path, bel):
 @pytest.mark.parametrize("bel", [f"X13Y{y}_BRAM" for y in range(1, 5)])
 @pytest.mark.parametrize("site_profile", [False, True])
 def test_requested_bram_output_packs_at_every_site(tmp_path, bel, site_profile):
-    result, transcript, output = _pack(tmp_path, bel, site_profile)
+    result, transcript, output = _pack(tmp_path, bel, site_profile, "strict_pcf_bram_site")
+    assert _has_output_egress(DEVDBS["strict_pcf_bram_site"], bel)
     assert result.returncode == 0, transcript
     assert output.is_file()
+    packed = json.loads(output.read_text())
+    assert packed["modules"]["top"]["cells"]["ram"]["attributes"]["BEL"] == bel
+
+
+@pytest.mark.parametrize("site_profile", [False, True])
+def test_default_graph_packs_the_site_with_admitted_output(tmp_path, site_profile):
+    result, transcript, output = _pack(tmp_path, "X13Y4_BRAM", site_profile)
+    assert _has_output_egress(DEVDBS["strict_pcf"], "X13Y4_BRAM")
+    assert result.returncode == 0, transcript
+    assert output.is_file()
+
+
+@pytest.mark.parametrize("bel", [f"X13Y{y}_BRAM" for y in (1, 2, 3)])
+@pytest.mark.parametrize("site_profile", [False, True])
+def test_packer_flag_cannot_supply_a_missing_graph_output(tmp_path, bel, site_profile):
+    result, transcript, output = _pack(tmp_path, bel, site_profile)
+    assert not _has_output_egress(DEVDBS["strict_pcf"], bel)
+    assert result.returncode > 0, transcript
+    assert "BRAM output DataOutA[0] reaches slice input pins in only 0 tile(s)" in transcript
+    assert "std::out_of_range" not in transcript
+    assert not output.exists()

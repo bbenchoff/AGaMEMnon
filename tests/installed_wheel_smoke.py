@@ -3,6 +3,7 @@
 
 import os
 import hashlib
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -50,6 +51,16 @@ def main():
 
     with zipfile.ZipFile(wheel) as archive:
         names = set(archive.namelist())
+        # Check the normalized runtime inventory independently of setuptools'
+        # allow-list: a missing declaration must not silently shrink the graph.
+        inventory = json.loads(archive.read(
+            "agamemnon/chipdb/research_knowledge_manifest.json"))
+        for dataset in inventory["datasets"]:
+            name = dataset["path"]
+            if name not in names:
+                fail(f"wheel is missing inventoried runtime data: {name}")
+            if hashlib.sha256(archive.read(name)).hexdigest() != dataset["sha256"]:
+                fail(f"wheel runtime data differs from inventory: {name}")
 
     required = declared_package_data(repository)
     missing = sorted(required - names)
@@ -91,6 +102,8 @@ def main():
     import agamemnon
     from agamemnon import project
     from agamemnon.engine import bram_emit, mesh_template, status_overlay, wire_timing
+    from agamemnon.engine import control_encode
+    from agamemnon.engine.features import shared_control_graph
 
     installed = Path(agamemnon.__file__).resolve()
     if installed == source_package / "__init__.py" or source_package in installed.parents:
@@ -104,6 +117,14 @@ def main():
         fail("installed BRAM/PLL table contains no configuration cells")
     if wire_timing.normalize_resource("OMUX1") != "OMUX01":
         fail("installed exact wire-timing loader is unavailable")
+    # Exercise runtime readers, independently of package-data declarations.
+    # Checkout builds can otherwise hide omitted default clock/reset tables.
+    if not (shared_control_graph.load_control_edges()
+            and shared_control_graph.load_async_control_edges()
+            and shared_control_graph.load_async_feeder_whitelist()):
+        fail("installed native clock/reset routing tables are empty")
+    if control_encode.ctrlmux_source_sels(0, "OMUX01") != (0, 8):
+        fail("installed shared-control source selection is unavailable")
 
     with tempfile.TemporaryDirectory(prefix="agamemnon-wheel-smoke-") as temporary:
         temporary = Path(temporary)

@@ -154,7 +154,6 @@ def test_enable_and_synchronous_reset_lower_to_plain_ff_d_path(body, tmp_path):
     "always @(negedge clk) if (ctrl) q <= d;",
     "always @(posedge clk or posedge ctrl) if (ctrl) q <= 1'b1; else q <= d;",
     "always @(posedge clk or negedge ctrl) if (!ctrl) q <= 1'b0; else q <= d;",
-    "always @(posedge clk or posedge ctrl) if (ctrl) q <= 1'b0; else if (en) q <= d;",
 ])
 def test_unsupported_asynchronous_control_forms_remain_rejected(body, tmp_path):
     source = "module top(input clk, ctrl, en, d, output reg q); %s endmodule" % body
@@ -164,6 +163,80 @@ def test_unsupported_asynchronous_control_forms_remain_rejected(body, tmp_path):
     log = result.stdout + result.stderr
     assert "AGAMEMNON shared control: unsupported register control/polarity/value" in log
     assert "unsupported shared register control" in log
+
+
+@pytest.mark.parametrize("enable", ["en", "!en"])
+@pytest.mark.parametrize("native_enable", [False, True])
+def test_async_enable_retains_clear_and_maps_hold_to_data(tmp_path, enable, native_enable):
+    source = """module top(input clk, ctrl, en, d, output reg q);
+always @(posedge clk or posedge ctrl)
+    if (ctrl) q <= 1'b0; else if (%s) q <= d;
+endmodule""" % enable
+    result, netlist = _synth(tmp_path, source, "async_enable", native_enable=native_enable)
+    assert result.returncode == 0, result.stdout + result.stderr
+    cells = _active_cells(netlist)
+    assert len(cells) == 1
+    assert set(cells[0]["connections"]) == {"C", "R", "D", "Q"}
+    assert any(c["type"] == "LUT" for c in netlist["modules"]["top"]["cells"].values())
+    assert not any(c["type"] == "DFFE" for c in netlist["modules"]["top"]["cells"].values())
+
+
+def test_async_enable_lowering_preserves_between_clock_reset(tmp_path, monkeypatch):
+    yosys, iverilog, vvp = _yosys(), _iverilog(), shutil.which("vvp")
+    if not all((yosys, iverilog, vvp)):
+        pytest.skip("yosys and iverilog are required")
+    monkeypatch.setenv("AGAMEMNON_INTERNAL_PORTS", "1")
+    source = """module top(input clk, rst, en, d, output reg [1:0] q);
+always @(posedge clk or posedge rst)
+    if (rst) q <= 0;
+    else begin if (en) q[0] <= d; if (!en) q[1] <= d; end
+endmodule"""
+    result, _ = _synth(tmp_path, source, "async_temporal", native_enable=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    candidate = tmp_path / "candidate.v"
+    converted = subprocess.run([yosys, "-q", "-p",
+        'read_json "%s"; write_verilog "%s"' % (tmp_path / "async_temporal.json", candidate)],
+        cwd=ROOT, capture_output=True, text=True, timeout=120)
+    assert converted.returncode == 0, converted.stdout + converted.stderr
+    reference = tmp_path / "reference.v"
+    reference.write_text(source.replace("module top", "module golden"))
+    bench = tmp_path / "bench.v"
+    bench.write_text(r"""
+module LUT #(parameter [15:0] INIT=0, parameter K=4)(input [3:0] I, output Q);
+assign Q=INIT[I];
+endmodule
+module bench;
+reg clk=0, rst=0, en=0, d=0;
+wire [1:0] expected, actual;
+golden ref_dut(clk,rst,en,d,expected);
+top dut(clk,rst,en,d,actual);
+integer n;
+initial begin
+    #1; rst=1; #1;
+    if (actual !== 0) $fatal(1,"initial async clear");
+    rst=0;
+    for(n=0;n<32;n=n+1) begin
+        en=n[0]; d=n[1]; #2;
+        clk=1; #1;
+        if(actual !== expected) $fatal(1,"enable/data update %0d",n);
+        clk=0; #1;
+        if(n[2]) begin
+            rst=1; #1;
+            if(actual !== 0 || actual !== expected) $fatal(1,"reset without clock");
+            rst=0; #1;
+            if(actual !== 0) $fatal(1,"reset release without clock");
+        end
+    end
+    $finish;
+end
+endmodule
+""")
+    executable = tmp_path / "simulation"
+    compiled = subprocess.run([iverilog, "-g2012", "-s", "bench", "-o", str(executable),
+        str(reference), str(candidate), str(bench)], capture_output=True, text=True, timeout=120)
+    assert compiled.returncode == 0, compiled.stdout + compiled.stderr
+    simulated = subprocess.run([vvp, str(executable)], capture_output=True, text=True, timeout=120)
+    assert simulated.returncode == 0, simulated.stdout + simulated.stderr
 
 
 RESET_ENABLE_PRIORITY = """

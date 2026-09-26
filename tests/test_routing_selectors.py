@@ -1,4 +1,89 @@
 from agamemnon.engine.routing_selectors import relative_edges, nonportable_translation
+from agamemnon.engine.routing_selectors import rmux_identity_conflicts
+import pytest
+
+
+@pytest.mark.parametrize('destination,source,offset,support,other', [
+    (95, 19, (0, -1), [(5, 2), (14, 10)], (16, 4, 16, 8, 67, (6, 9))),
+    (34, 57, (0, 1), [(2, 3), (14, 3)], (16, 5, 16, 1, 9, (2, 9))),
+    # A synthetic combination ensures the rule is not a list of known muxes.
+    (11, 17, (1, 0), [(3, 5), (7, 8)], (9, 6, 9, 2, 23, (1, 7))),
+])
+def test_inference_yields_to_exact_source_identity_at_the_destination(
+        destination, source, offset, support, other):
+    ox, oy = offset
+    dx, dy, sx, sy, si, pair = other
+    clean = {(x, y, 'RMUX', destination, 'RMUX', x-ox, y-oy, source): pair
+             for x, y in support}
+    observed = (dx, dy, 'RMUX', destination, 'RMUX', sx, sy, si)
+    proposed = (dx, dy, 'RMUX', destination, 'RMUX', dx-ox, dy-oy, source)
+    clean[observed] = pair
+    saved = dict(clean)
+    relative, _ = relative_edges(clean)
+    key = ('RMUX', destination, 'RMUX', source, ox, oy)
+    assert relative[key] == pair  # no blanket withdrawal across other tiles
+    conflicts = rmux_identity_conflicts(clean, relative)
+    assert proposed in conflicts and observed not in conflicts
+    assert nonportable_translation(clean, f'X{dx-ox}Y{dy-oy}_RMUX{source:02d}',
+                                   f'X{dx}Y{dy}_RMUX{destination:02d}',
+                                   identity_conflicts=conflicts)
+    assert not nonportable_translation(clean, f'X{sx}Y{sy}_RMUX{si:02d}',
+                                       f'X{dx}Y{dy}_RMUX{destination:02d}')
+    assert clean == saved
+    # An explicitly observed alias is evidence, not an inferred second source.
+    clean[proposed] = pair
+    assert proposed not in rmux_identity_conflicts(clean)
+
+
+def test_source_identity_guard_does_not_invent_cross_family_alias_rules():
+    clean = {(3, 5, 'RMUX', 11, 'RMUX', 2, 5, 17): (1, 7),
+             (9, 6, 'RMUX', 11, 'IMUX', 9, 6, 23): (1, 7),
+             (10, 6, 'RMUX', 11, 'RMUX', 10, 2, 23): (2, 7)}
+    proposed = (9, 6, 'RMUX', 11, 'RMUX', 8, 6, 17)
+    assert proposed not in rmux_identity_conflicts(clean)
+    assert not nonportable_translation(clean, 'X8Y6_RMUX17', 'X9Y6_RMUX11')
+
+
+def test_emission_audit_does_not_validate_a_conflicting_translation_against_itself():
+    from agamemnon.engine.emission_audit import expected_codeword
+    clean = {(3, 5, 'RMUX', 11, 'RMUX', 2, 5, 17): (1, 7),
+             (9, 6, 'RMUX', 11, 'RMUX', 9, 2, 23): (1, 7)}
+    relative, _ = relative_edges(clean)
+    assert expected_codeword((8, 6, 'RMUX', 17), (9, 6, 'RMUX', 11), clean, relative) is None
+    assert expected_codeword((9, 2, 'RMUX', 23), (9, 6, 'RMUX', 11), clean, relative) == (1, 7)
+
+
+@pytest.mark.parametrize("destination,source,offset,support,alternative", [
+    (58, 39, (0, -1), [(5, 2), (14, 10), (20, 10)],
+     (15, 6, "RMUX", 58, "RMUX", 15, 10, 87)),
+    (85, 68, (-1, 0), [(19, 1), (19, 6), (19, 11)],
+     (14, 6, "RMUX", 85, "RMUX", 18, 6, 20)),
+])
+def test_fifo_boundary_observations_preserve_exact_edges_without_translation(
+        destination, source, offset, support, alternative):
+    ox, oy = offset
+    pair = (6, 9) if destination == 58 else (1, 8)
+    clean = {(x, y, "RMUX", destination, "RMUX", x-ox, y-oy, source): pair
+             for x, y in support}
+    clean[alternative] = pair
+    original = dict(clean)
+    relative, rejected = relative_edges(clean)
+    key = ("RMUX", destination, "RMUX", source, ox, oy)
+    assert key in rejected and key not in relative
+    assert clean == original
+    for x, y in support:
+        assert not nonportable_translation(
+            clean, f"X{x-ox}Y{y-oy}_RMUX{source:02d}",
+            f"X{x}Y{y}_RMUX{destination:02d}")
+    # Test multiple unseen interior positions, not only the failing design.
+    for x, y in ((14, 6), (16, 7), (18, 8)):
+        assert nonportable_translation(
+            clean, f"X{x-ox}Y{y-oy}_RMUX{source:02d}",
+            f"X{x}Y{y}_RMUX{destination:02d}")
+    dx, dy, df, di, sf, sx, sy, si = alternative
+    assert relative[(df, di, sf, si, dx-sx, dy-sy)] == pair
+    assert not nonportable_translation(clean, f"X{sx}Y{sy}_{sf}{si:02d}",
+                                       f"X{dx}Y{dy}_{df}{di:02d}")
 
 
 def test_row_one_rmux27_boundary_observations_do_not_translate_to_interior():

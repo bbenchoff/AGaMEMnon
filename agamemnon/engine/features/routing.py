@@ -845,6 +845,18 @@ class RoutingFeature:
             "selector_alias_repair.csv", "codeword_board_witness.csv",
             "rrg_edges_full.csv", "rrg_omux_imux_full.csv",
             "rrg_rmux_imux_full.csv", "dead_edges_silicon.csv",
+            # congestion_marginal_edges.csv: declared here for chipdb-file ownership only, per
+            # the "every chipdb CSV has exactly one feature owner" hygiene invariant -- it is NOT
+            # loaded into this module's EDGE_BLACKLIST or any device-graph emission. Ring/corpus
+            # positive evidence exists for its three rows, so unlike dead_edges_silicon.csv they
+            # must not be pulled out of the physical graph; that would retroactively change every
+            # pinned historical graph identity in special_routes.py for a claim narrower than
+            # non-conduction. It is read post-route instead, by
+            # agamemnon/engine/features/placement_congestion.py, wired into cli.py's build at the
+            # shared pre-emission checkpoint: a routed design that used one of the three pips is
+            # refused instead of shipped. See tests/test_congestion_marginal_edges.py and
+            # qualification/x20y12_congestion_marginal_evidence.jsonl.
+            "congestion_marginal_edges.csv",
             "afexe_absent_edges.csv", "afexe_column_dead.csv",
             "exit_feeder_whitelist.csv", "master_conduction.csv",
             "ff2_conduction.csv", "harvest_conduction.csv",
@@ -1121,7 +1133,8 @@ class RoutingFeature:
             # path must not reintroduce a withdrawn selector translation after
             # the ordinary RRG encoding gate has removed it.
             if CLEAN_SEL_GATE and routing_selectors.nonportable_translation(
-                    CLEAN_SEL_EDGE, source, destination):
+                    CLEAN_SEL_EDGE, source, destination,
+                    identity_conflicts=CLEAN_SEL_IDENTITY_CONFLICTS):
                 return True
             if mcu_entry_first_hop_denied(
                     MCU_ENTRY_FIRST_HOPS, source, destination):
@@ -1602,6 +1615,7 @@ class RoutingFeature:
         CLEAN_SEL_PENALTY_NS = OPTIONS.number("AGAMEMNON_CLEAN_SEL_PENALTY")
         CLEAN_SEL_EDGE = {}
         CLEAN_SEL_REL = {}
+        CLEAN_SEL_IDENTITY_CONFLICTS = frozenset()
         EXACT_HARD_BOUNDARY = {}
         _csr_conflict = frozenset()
         _cse = os.path.join(DATA, "sel_edge_pairs.agdb")
@@ -1611,6 +1625,8 @@ class RoutingFeature:
             from agamemnon.engine import routing_selectors
             CLEAN_SEL_EDGE = routing_selectors.load_clean_edges(DATA)
             CLEAN_SEL_REL, _csr_conflict = routing_selectors.relative_edges(CLEAN_SEL_EDGE)
+            CLEAN_SEL_IDENTITY_CONFLICTS = routing_selectors.rmux_identity_conflicts(
+                CLEAN_SEL_EDGE, CLEAN_SEL_REL)
             CLEAN_SEL_TYPED = routing_selectors.tile_typed_enabled()
             CLEAN_SEL_REL_BRAM, _csr_conflict_bram = (
                 routing_selectors.bram_relative_edges(CLEAN_SEL_EDGE) if CLEAN_SEL_TYPED
@@ -2793,6 +2809,8 @@ class RoutingFeature:
         from .shared_control_graph import logic_tiles
         logic_tile_coords = logic_tiles()
         state.admission_binding = tables.admission_binding
+        identity_conflicts = routing_selectors.rmux_identity_conflicts(
+            tables.clean_edge, getattr(tables, "relative_edge", None))
         general = collections.defaultdict(list)
         debug = bool(os.environ.get("AGAMEMNON_DEBUG"))
         mesh_template = options.enabled("AGAMEMNON_MESH_TEMPLATE")
@@ -2834,7 +2852,8 @@ class RoutingFeature:
             # Check before every resolver, including context groups, admitted
             # rows and predictors. Graph exclusion alone cannot protect pack.
             if (routing_selectors.nonportable_translation(
-                    tables.clean_edge, source_text, destination_text) and
+                    tables.clean_edge, source_text, destination_text,
+                    identity_conflicts=identity_conflicts) and
                     pip not in retained_withdrawn_pips):
                 raise SystemExit("withdrawn selector translation: " + pip)
             source, destination = parse_wire(source_text), parse_wire(destination_text)

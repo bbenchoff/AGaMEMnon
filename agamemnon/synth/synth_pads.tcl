@@ -42,13 +42,13 @@ yosys deminout
 yosys synth -run coarse
 # map inferred memories to the AGRV2K block RAM (ALTA_BRAM9K) before the generic FF fallback; leftover
 # small/odd memories still fall through to memory_map -> FFs.
-# A 9-Kibit hard block is always cheaper than lowering a matching RAM into
-# slices on this device.  Give soft RAM a deliberately high cost so narrow,
-# deep memories (notably SERV's 512x2 register file) cannot be misclassified
-# as a distributed-memory win and expanded into thousands of LUT/FF cells.
+# Small writable memories prefer flip-flops and LUT decoding. The 0.2 per-bit
+# cost makes a 32x8 RAM cheaper than a cost-64 block, while deep memories such
+# as SERV's 512x2 register file still prefer hard RAM. Explicit ram_style and
+# BEL constraints retain their hard-block request. ROM cost is unchanged.
 source $SCRIPT_DIR/memory_bel.tcl
 agamemnon_preserve_memory_bels $SCRIPT_DIR
-yosys memory_libmap -logic-cost-ram 100000 -lib $SCRIPT_DIR/ag32_brams.txt
+yosys memory_libmap -logic-cost-ram 0.2 -lib $SCRIPT_DIR/ag32_brams.txt
 yosys techmap -map $SCRIPT_DIR/ag32_brams_map.v
 # SILENT-DEGRADATION GUARD: memory_map (next) irreversibly lowers any memory that
 # memory_libmap declined to place on the hard ALTA_BRAM9K block into one flip-flop
@@ -197,9 +197,9 @@ yosys opt -fast
 # Clock enables and synchronous resets do not require a slice control pin:
 # both are exactly representable as muxes on D feeding an ordinary positive-
 # edge FF.  Lower only the fine-grain families that have no asynchronous
-# control.  In particular, do not select the longer $_DFFE_* forms carrying
-# an asynchronous reset, nor $_DFFSRE_* / $_ALDFFE_*; the fail-closed guard
-# below must still see and reject those physical-control combinations.
+# control. The exact positive-clock, active-high clear-to-zero enabled
+# forms below lower only their enable to a data mux and retain async clear.
+# Other asynchronous control combinations remain visible to the guard.
 # AGRV2K_SHARED_CONTROL_ENABLE keeps exactly one of these forms: $_DFFE_PP_,
 # positive-edge clock with an active-high enable.  That is the only shape the
 # decoded silicon selector covers -- CFG_CLKMUX<z> picks which of the tile's two
@@ -264,6 +264,10 @@ if {!$_shared_control_enable} {
 }
 lappend _dffunmap_families t:\$_SDFF_* t:\$_SDFFE_* t:\$_SDFFCE_*
 yosys dffunmap {*}$_dffunmap_families
+# Async reset plus clock enable needs only the admitted clear line: realize
+# hold/update in D logic, preserving reset priority and both enable polarities.
+# Do not unmap async reset itself or admit set/nonzero/negative-clock forms.
+yosys dffunmap -ce-only t:\$_DFFE_PP0P_ t:\$_DFFE_PP0N_
 # Shared slice controls are a typed frontend boundary.  Inspect every remaining
 # fine-grain controlled-FF form before dfflegalize is allowed to invert its
 # polarity or otherwise erase asynchronous source semantics.  N4.1 keeps

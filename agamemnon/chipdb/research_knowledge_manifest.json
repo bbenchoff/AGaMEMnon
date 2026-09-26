@@ -346,6 +346,12 @@
       "sha256": "fddbf0abf620cc4cd4d07908b8a3d9c8241c75a8b8bf41f7b742b3b3be2fa969"
     },
     {
+      "bytes": 1864,
+      "data_rows": 117,
+      "path": "agamemnon/chipdb/carry_qualified_sites.csv",
+      "sha256": "458b917cb18df120e66b25658d93caf0d9a50a0bce53ef33f40b5e48ea6a4013"
+    },
+    {
       "bytes": 6339,
       "data_rows": 123,
       "path": "agamemnon/chipdb/carry_seam_corpus.csv",
@@ -389,6 +395,12 @@
       "data_rows": 419,
       "path": "agamemnon/chipdb/conduction_retired_by_conviction.csv",
       "sha256": "9486a8f503c8083aa011cda6bc26bea6c2c77ec5a1d4afeeae3ae6d032865397"
+    },
+    {
+      "bytes": 6508,
+      "data_rows": 6,
+      "path": "agamemnon/chipdb/congestion_marginal_edges.csv",
+      "sha256": "c01e9ada0ba39122404f29f650beb41ca40f86b20bfee43e909c6838ce186507"
     },
     {
       "bytes": 9754635,

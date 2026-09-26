@@ -16,6 +16,15 @@ import tempfile
 import zipfile
 
 
+BRAM_SOURCE_PROFILE = "bram-tmux9-i0-d1-we1"
+# Independent archive-smoke pins, bound to the paired source-image evidence by
+# test_sdk_source_identity.py. Do not derive these from the installed candidate.
+BRAM_SOURCE_HASHES = {
+    "raw": "0abf85a61cde52ffbb58d9dccc64292c90fa6930e6290d8d52c18557df7df42c",
+    "compressed": "5f778f538c9903faeee28107dc122f98090deb9a31fddbb6229b0826bea6a0ad",
+}
+
+
 def sha256(path):
     digest = hashlib.sha256()
     with Path(path).open("rb") as source:
@@ -92,19 +101,24 @@ def executable(root, relative):
     raise RuntimeError(f"bundle executable missing: {plain}[.exe]")
 
 
-def run(command, cwd=None, env=None, capture=False):
+def run(command, cwd=None, env=None, capture=False, record=None):
     print("+ " + " ".join(str(item) for item in command))
-    return subprocess.run(
+    result = subprocess.run(
         [str(item) for item in command],
         cwd=cwd,
         env=env,
-        check=True,
+        check=False,
         text=True,
-        capture_output=capture,
+        capture_output=capture or record is not None,
     )
+    if record is not None:
+        Path(str(record) + ".stdout").write_text(result.stdout, encoding="utf-8")
+        Path(str(record) + ".stderr").write_text(result.stderr, encoding="utf-8")
+    result.check_returncode()
+    return result
 
 
-def smoke(bundle, workspace, python=sys.executable):
+def smoke(bundle, workspace, python=sys.executable, build_temp=None):
     manifest = json.loads((bundle / "manifest.json").read_text(encoding="utf-8"))
     version = (bundle / "BUNDLE_VERSION").read_text(encoding="ascii").strip()
     if version != manifest["bundle_version"]:
@@ -124,6 +138,12 @@ def smoke(bundle, workspace, python=sys.executable):
     ])
 
     env = dict(os.environ)
+    # Keep compiler intermediates beside the smoke result so a failed installed
+    # build can be diagnosed with its actual synthesized and routed netlists.
+    build_temp = Path(build_temp).resolve() if build_temp else workspace / "build-temporary"
+    build_temp.mkdir()
+    for name in ("TMPDIR", "TMP", "TEMP"):
+        env[name] = str(build_temp)
     env["PIP_NO_INDEX"] = "1"
     env["AGAMEMNON_OSS"] = str(bundle / "tools" / "oss-cad-suite")
     env["AGAMEMNON_UARCH_NEXTPNR"] = str(
@@ -144,7 +164,7 @@ def smoke(bundle, workspace, python=sys.executable):
 
     doctor = run(
         cli + ["doctor", "--no-hardware", "--json"],
-        cwd=workspace, env=env, capture=True,
+        cwd=workspace, env=env, capture=True, record=workspace / "doctor",
     )
     report = json.loads(doctor.stdout)
     missing = [
@@ -162,7 +182,7 @@ def smoke(bundle, workspace, python=sys.executable):
          "import agamemnon,pathlib; print(pathlib.Path(agamemnon.__file__).parent)"],
         cwd=workspace, env=env, capture=True,
     ).stdout.strip())
-    bram_profile = "bram-tmux9-i0-d1-we1"
+    bram_profile = BRAM_SOURCE_PROFILE
     bram_source = installed_root / "sdk" / "qualified_bram_tmux9" / \
         "bram_tmux9_i0_d1_we1.v"
     bram_image = workspace / "bram-source-to-route.bin"
@@ -174,10 +194,7 @@ def smoke(bundle, workspace, python=sys.executable):
         "raw": sha256(bram_image),
         "compressed": sha256(Path(str(bram_image) + ".comp")),
     }
-    expected_bram_hashes = {
-        "raw": "41e5e304e2300a949d3be969149af5b6c195e25a3b1bf4e9e03ddd093756edd0",
-        "compressed": "42cf31c08d8f2a397ad5ef420a4d7e4a0bc9aa9d68320861a0eade054e681cfc",
-    }
+    expected_bram_hashes = BRAM_SOURCE_HASHES
     if bram_hashes != expected_bram_hashes:
         raise RuntimeError(
             f"qualified BRAM source build hashes are {bram_hashes}, "
@@ -236,6 +253,10 @@ def main(argv=None):
         help="working directory to retain (default: temporary and removed)",
     )
     parser.add_argument("--python", default=sys.executable)
+    parser.add_argument(
+        "--build-temp",
+        help="retain compiler scratch in this new directory (use an ASCII path for pinned Windows Tcl)",
+    )
     args = parser.parse_args(argv)
     archive = Path(args.archive).resolve()
     digest = verify_sidecar(archive)
@@ -246,12 +267,12 @@ def main(argv=None):
             raise RuntimeError(f"--work directory is not empty: {workspace}")
         workspace.mkdir(parents=True, exist_ok=True)
         extract_archive(archive, workspace / "extract")
-        result = smoke(locate_bundle(workspace / "extract"), workspace, args.python)
+        result = smoke(locate_bundle(workspace / "extract"), workspace, args.python, args.build_temp)
     else:
         with tempfile.TemporaryDirectory(prefix="agamemnon-bundle-smoke-") as temp:
             workspace = Path(temp)
             extract_archive(archive, workspace / "extract")
-            result = smoke(locate_bundle(workspace / "extract"), workspace, args.python)
+            result = smoke(locate_bundle(workspace / "extract"), workspace, args.python, args.build_temp)
 
     result["archive_sha256"] = digest
     print(json.dumps(result, indent=2))
