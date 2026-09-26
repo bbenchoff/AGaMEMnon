@@ -43,7 +43,7 @@ extension; see docs/PROGRAMMING.md.
 import os, sys, argparse, subprocess, tempfile, json, hashlib, shutil, time, re, csv, importlib.util, copy
 import math
 
-from .tool_shim import stage_windows_directory, stage_windows_executable
+from .tool_shim import stage_windows_directory, stage_windows_executable, split_tool_command
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ENGINE = os.path.join(HERE, "engine")        # the self-contained engine (single source of truth)
@@ -3471,9 +3471,9 @@ def _cmd_build_once(a):
         # engine/uarch/agrv2k/build.sh). The gated devdb is auto-emitted+cached on first use.
         udir = os.path.join(engine, "uarch", "agrv2k")
         unpr = os.environ.get("AGAMEMNON_UARCH_NEXTPNR", "nextpnr-generic")
-        # A literal Windows executable path may contain spaces. Preserve it as
+        # A literal executable path may contain spaces on any host. Preserve it as
         # one argv element before applying the non-ASCII nextpnr shim.
-        unpr_parts = [unpr] if os.name == "nt" and os.path.isfile(unpr) else unpr.split()
+        unpr_parts = split_tool_command(unpr)
         unpr_parts = stage_windows_executable(unpr_parts)
         npr_runtime = os.environ.get("AGAMEMNON_UARCH_NEXTPNR_RUNTIME")
         npr_env = _build_tool_env(env, oss=oss, runtime=npr_runtime)
