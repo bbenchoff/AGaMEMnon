@@ -43,7 +43,7 @@ extension; see docs/PROGRAMMING.md.
 import os, sys, argparse, subprocess, tempfile, json, hashlib, shutil, time, re, csv, importlib.util, copy
 import math
 
-from .tool_shim import stage_windows_directory, stage_windows_executable, split_tool_command
+from .tool_shim import stage_native_directory, stage_windows_executable, split_tool_command
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ENGINE = os.path.join(HERE, "engine")        # the self-contained engine (single source of truth)
@@ -3157,7 +3157,7 @@ def _cmd_build_once(a):
         return r.stdout + r.stderr
 
     # always wrap top-level ports as GENERIC_IOB (iopadmap) so nextpnr can bind them to IO bels
-    synth_tcl = os.path.join(stage_windows_directory(SYNTH), "synth_pads.tcl")
+    synth_tcl = os.path.join(stage_native_directory(SYNTH), "synth_pads.tcl")
     oss_env = _build_tool_env(env, oss=oss, use_oss=bool(oss))
     # Pass the Tcl file as its own process argument. Embedding it in a Yosys
     # ``-p`` command loses paths containing spaces before Tcl can parse them.

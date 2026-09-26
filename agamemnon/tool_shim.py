@@ -92,9 +92,20 @@ def stage_windows_executable(command, platform_name=None):
 
 def stage_windows_directory(directory, platform_name=None):
     """Stage a non-ASCII native-tool data directory into the same safe cache."""
-    source = Path(directory)
     platform_name = platform_name or os.name
-    if platform_name != "nt" or _ascii(source) or not source.is_dir():
+    if platform_name != "nt":
+        return Path(directory)
+    return stage_native_directory(directory)
+
+
+def stage_native_directory(directory):
+    """Keep native Tcl library paths ASCII even with a non-UTF8 system encoding.
+
+    The pinned Linux Tcl runtime can default to iso8859-1 as well. A correct
+    UTF-8 filesystem path then fails before the synthesis script can run.
+    """
+    source = Path(directory)
+    if _ascii(source) or not source.is_dir():
         return source
     digest = _tree_sha256(source)
     roots = [
@@ -107,7 +118,8 @@ def stage_windows_directory(directory, platform_name=None):
         if not root_value or not _ascii(root_value):
             continue
         target = (
-            Path(root_value) / "agamemnon-ascii-tools" / digest[:16] / source.name
+            Path(root_value) / "agamemnon-ascii-tools" / digest[:16]
+            / (source.name if _ascii(source.name) else "data")
         )
         marker = target / ".source_sha256"
         try:

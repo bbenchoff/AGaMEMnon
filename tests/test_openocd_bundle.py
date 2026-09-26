@@ -26,7 +26,7 @@ from tools.bundle.smoke_archive import extract_archive, verify_sidecar, run as s
 from tools.bundle.verify_release_set import verify as verify_release_set
 from tools.bundle.fetch_tools import extract as extract_tool_archive
 from tools.bundle.openocd_audit import classify_dap_probe, validate_corresponding_source
-from agamemnon.tool_shim import stage_windows_directory, stage_windows_executable, split_tool_command
+from agamemnon.tool_shim import stage_windows_directory, stage_windows_executable, split_tool_command, stage_native_directory
 from tools.openocd import release as openocd_release
 
 
@@ -224,6 +224,18 @@ def test_windows_native_tool_data_stages_from_non_ascii_path(tmp_path, monkeypat
 
     str(staged).encode("ascii")
     assert (staged / "prims.v").read_bytes() == (source / "prims.v").read_bytes()
+
+
+@pytest.mark.parametrize("directory_name", ["synth", "synth ü"])
+def test_native_tcl_data_stages_on_every_host_and_keeps_ascii_paths(tmp_path, monkeypatch, directory_name):
+    source = tmp_path / "SDK ü path" / directory_name
+    source.mkdir(parents=True)
+    (source / "synth.tcl").write_bytes(b"puts ready\n")
+    monkeypatch.setenv("AGAMEMNON_ASCII_TOOL_CACHE", str(tmp_path / "ascii-cache"))
+    staged = stage_native_directory(source)
+    str(staged).encode("ascii")
+    assert (staged / "synth.tcl").read_bytes() == (source / "synth.tcl").read_bytes()
+    assert stage_native_directory(staged) == staged
 
 
 def test_native_tool_command_preserves_literal_path_and_wrapper_arguments(tmp_path):
