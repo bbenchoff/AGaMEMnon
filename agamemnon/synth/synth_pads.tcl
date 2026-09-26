@@ -48,6 +48,7 @@ yosys synth -run coarse
 # BEL constraints retain their hard-block request. ROM cost is unchanged.
 source $SCRIPT_DIR/memory_bel.tcl
 agamemnon_preserve_memory_bels $SCRIPT_DIR
+agamemnon_map_independent_memories $SCRIPT_DIR
 yosys memory_libmap -logic-cost-ram 0.2 -lib $SCRIPT_DIR/ag32_brams.txt
 yosys techmap -map $SCRIPT_DIR/ag32_brams_map.v
 # SILENT-DEGRADATION GUARD: memory_map (next) irreversibly lowers any memory that

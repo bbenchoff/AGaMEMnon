@@ -3165,6 +3165,7 @@ def _cmd_build_once(a):
     synth_env["AGAMEMNON_YOSYS_LUT_K"] = "4"
     synth_env["AGAMEMNON_YOSYS_JSON"] = synth_json
     synth_env["AGAMEMNON_YOSYS_TOP"] = top or ""
+    synth_env["AGAMEMNON_PYTHON"] = sys.executable
     _selective_snapshot = (getattr(a, "_native_enable_snapshot", None)
                            if native_enable else None)
     if _selective_snapshot:

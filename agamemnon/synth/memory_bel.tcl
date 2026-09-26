@@ -1,3 +1,30 @@
+proc agamemnon_map_independent_memories {synth_dir} {
+    set fh [file tempfile scratch]
+    close $fh
+    try {
+        yosys select -write $scratch t:\$mem_v2
+        set fh [open $scratch r]
+        set memories [string trim [read $fh]]
+        close $fh
+        if {$memories eq ""} { return }
+        yosys write_json "$scratch.json"
+        set python python3
+        if {[info exists ::env(AGAMEMNON_PYTHON)]} { set python $::env(AGAMEMNON_PYTHON) }
+        exec $python [file join $synth_dir memory_policy.py] "$scratch.json" $scratch
+        set fh [open $scratch r]
+        set selected [string trim [read $fh]]
+        close $fh
+        if {$selected eq ""} { return }
+        yosys select -read $scratch
+        # This changes the cost preference, not legality. Unsupported memories
+        # remain available to the ordinary logic fallback below.
+        yosys memory_libmap -logic-cost-ram 1 -lib $synth_dir/ag32_brams.txt
+    } finally {
+        yosys select -clear
+        file delete -force $scratch "$scratch.json"
+    }
+}
+
 # Preserve explicit memory placement through memory_libmap. That pass creates
 # new library cells and need not retain source attributes. Map each constrained
 # memory separately, then identify its outputs by selection-set difference;

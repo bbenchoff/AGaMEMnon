@@ -41,3 +41,28 @@ def test_explicit_block_or_deep_ram_stays_on_hard_memory(tmp_path, depth, width,
     module = json.loads((tmp_path / "hard.v.json").read_text())["modules"]["top"]
     assert sum(cell["type"] == "ALTA_BRAM9K" for cell in module["cells"].values()) == 1
     assert json.loads((tmp_path / "hard.v.json.leftover_mem.json").read_text()) == []
+
+
+@pytest.mark.parametrize("depth,width,attribute,hard", [
+    (16, 8, "", True), (32, 8, "", True), (64, 4, "", True),
+    (16, 8, '(* ram_style = "logic" *)', False), (8, 4, "", False),
+])
+def test_independent_registered_addresses_use_memory_cost_model(tmp_path, depth, width, attribute, hard):
+    abits = (depth - 1).bit_length()
+    source = """
+module top(input clk, input we, input [%d:0] write_addr, read_addr,
+           input [%d:0] din, output reg [%d:0] dout);
+  reg [%d:0] wr, rd;
+  %s reg [%d:0] storage [0:%d];
+  always @(posedge clk) begin
+    wr <= write_addr;
+    rd <= read_addr;
+    if (we) storage[wr] <= din;
+    dout <= storage[rd];
+  end
+endmodule
+""" % (abits - 1, width - 1, width - 1, abits - 1, attribute, width - 1, depth - 1)
+    result = _synth(tmp_path, source, "independent.v")
+    assert result.returncode == 0, result.stdout
+    module = json.loads((tmp_path / "independent.v.json").read_text())["modules"]["top"]
+    assert any(cell["type"] == "ALTA_BRAM9K" for cell in module["cells"].values()) == hard
