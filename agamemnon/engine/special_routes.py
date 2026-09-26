@@ -56,13 +56,13 @@ EXPECTED_CATALOG_SHA256 = (
 # silicon-witnessed slices of omux3z_presentation_evidence.csv); nothing else changes, and
 # AGAMEMNON_NO_OMUX_PRESENT0 reproduces the predecessor byte-for-byte
 # (PRE_OMUX_PRESENTATION_PHYSICAL_GRAPHS below).
-EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 319689
+EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 319691
 EXPECTED_PHYSICAL_GRAPH_SHA256 = (
-    "5878db6fca84e86368528c06987fb90af9067fce2f9f07c1c0aba9166c8ebbce"
+    "f902447a69c30ce38a3f493bc8bd478d89dd24210b7f3e667097a2c48e35cd6b"
 )
-EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 332415
+EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 332417
 EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
-    "de7accb87bfc417977219de2de3a4b7fa155b8f99c62325df00cffcaf3cabad6"
+    "d487a746575ce9a45f94c03021185db5aedf85ccd37ace46300e5cc915ac65bf"
 )
 # The native-control graph contributes the finite, reviewed shared-control
 # topology.  It is a separate graph profile: accepting it by changing the base
@@ -70,12 +70,12 @@ EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
 # graph authority.
 EXPECTED_SHARED_CONTROL_PHYSICAL_GRAPHS = {
     "release-strict": (
-        320762,
-        "b83a9de3784b6d9a40b5ba2aaa5c0a3db9db32ebb47ead65ca34a7ed2a27a23e",
+        320764,
+        "05b1ba72dd9df2a45996e8761e58046c89fb1c30b8261b7211729d8879665da1",
     ),
     "tiered": (
-        333488,
-        "ebbc08665876a5edce878df31e756d3f0a8b536b5cf9598ff04a3e72eef671f1",
+        333490,
+        "809b00c1b9c8c083e6e3625d853bbcc833675b798fc8d9dfc590c5cc5a4d4602",
     ),
 }
 # Exact predecessors before the default OMUXPRES pips (2026-09-24; they include the 103
@@ -299,6 +299,20 @@ PRE_BRAM_PARITY_EXITS_20260925_PHYSICAL_GRAPHS = {
     "1": {
         "release-strict": (320713, "2fe0323d2c8b2d7455a1b03b4011105b20c8cf6d16c2c3d3ef226cebeebcbd62"),
         "tiered": (333439, "45ade0a5c4f88154387481f276e14f43906610a14429eaf848a7d21c036508bd"),
+    },
+}
+# Exact predecessors before the serv addr regression 20260925 promotion: every pip a ring oscillator
+# witnessed on the board joins tier 1 (ring_witness_conduction.csv); convicted pips
+# leave every graph (dead_edges_silicon.csv). Retained checkpoints built on the
+# previous graphs keep replaying against these identities.
+PRE_SERV_ADDR_REGRESSION_20260925_PHYSICAL_GRAPHS = {
+    "0": {
+        "release-strict": (319689, "5878db6fca84e86368528c06987fb90af9067fce2f9f07c1c0aba9166c8ebbce"),
+        "tiered": (332415, "de7accb87bfc417977219de2de3a4b7fa155b8f99c62325df00cffcaf3cabad6"),
+    },
+    "1": {
+        "release-strict": (320762, "b83a9de3784b6d9a40b5ba2aaa5c0a3db9db32ebb47ead65ca34a7ed2a27a23e"),
+        "tiered": (333488, "ebbc08665876a5edce878df31e756d3f0a8b536b5cf9598ff04a3e72eef671f1"),
     },
 }
 # Preserve exact historical graph snapshots after the retained58 byte gate.
@@ -892,6 +906,9 @@ def _validated_devdb(devdb, chipdb_root=None):
             if (graph_pip_count, graph_pips_sha256) == historical:
                 expected_pip_count, expected_pips_sha256 = historical
             historical = PRE_RMUX86_WITHDRAWAL_PHYSICAL_GRAPHS[shared_control_graph][admission]
+            if (graph_pip_count, graph_pips_sha256) == historical:
+                expected_pip_count, expected_pips_sha256 = historical
+            historical = PRE_SERV_ADDR_REGRESSION_20260925_PHYSICAL_GRAPHS[shared_control_graph][admission]
             if (graph_pip_count, graph_pips_sha256) == historical:
                 expected_pip_count, expected_pips_sha256 = historical
             historical = PRE_BRAM_PARITY_EXITS_20260925_PHYSICAL_GRAPHS[shared_control_graph][admission]

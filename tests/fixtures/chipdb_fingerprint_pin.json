@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "e42a1284c5ded250cb7d1cdeed30528da08ec1f5722761b5cd18ed441eed5611",
+  "fingerprint_sha256": "e230c6d890afbf35c69bcb9e645eb69e0505caf97be5d90d0a31a48fa6625a0a",
   "file_count": 276,
   "pinned_date": "2026-09-25",
-  "reason": "2026-09-25: (1) add agamemnon/chipdb/bram_vendor_recovered_exits.csv, the BRAM DataOut first hops (BufMUX -> RMUX) af.exe routed in direct-instantiated BRAM mode images that PASSED on the board: parity lanes DataOutA[8]/[17], DataOutB[8]/[17] at every site (evidence only outside X13Y4) and every Port-B lane first hop at X13Y4; the X13Y4 rows gain bram9k_edges.csv topology (mirrored into bram_site_route_corpus.csv) and byte-exact bram_pip_cfg.csv codewords; every graph gains exactly the 44 X13Y4 pips, so a full 18-lane read is no longer refused at packing. (2) bram_wl.csv now governs all 26 X13Y4 address terminals (315 rows: feeders af.exe routed in 2,240 board-passing images plus feeders of passing open images); the two hops the failing open Port-B x1/x2 images used on AddressB[1]/AddressA[1], which no passing image ever used, are gone."
+  "reason": "2026-09-25 serv_blinky integration fix: retag the two readmitted X13Y4 address feeders silicon_ring_20260925 so the pre-campaign predecessor replay excludes them (bram_wl.csv rows unchanged in effect, tag only)"
 }

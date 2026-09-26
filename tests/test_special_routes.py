@@ -1299,10 +1299,15 @@ def _pre_campaign_graph_bytes(admission, shared):
     # their exact sel_edge_pairs.agdb rows only restate unanimous relative keys, so they change no pip
     (data / "vendor_recovered_edges.csv").unlink(missing_ok=True)
     # so do the address final-hop whitelist rows harvested from passing images (2026-09-25); the
-    # campaign baseline had none (the recovered DataOut exits stay and are dropped by name below)
+    # campaign baseline had none (the recovered DataOut exits stay and are dropped by name below).
+    # X13Y4_RMUX17->IMUX11 and X13Y4_RMUX22->IMUX52 (source=silicon_ring_20260925) are a same-day
+    # correction, not pre-campaign evidence -- they were momentarily pruned by the widening above
+    # and readmitted once ring-witness (silicon_ring, chipdb/ring_witness_conduction.csv) and
+    # serv_blinky's board PASS on plain main showed they conduct -- so they drop here too.
     whitelist = data / "bram_wl.csv"
     kept = [line for line in whitelist.read_text(encoding="utf-8").splitlines(keepends=True)
-            if not line.rstrip().endswith(("vendor_passing_image", "open_passing_image"))]
+            if not line.rstrip().endswith(("vendor_passing_image", "open_passing_image",
+                                            "silicon_ring_20260925"))]
     whitelist.write_text("".join(kept), encoding="utf-8", newline="")
     # positive-evidence rows that a campaign conviction retired come back for the pre-campaign graph
     retired = data / "conduction_retired_by_conviction.csv"

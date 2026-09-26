@@ -382,3 +382,5 @@ RMUX42,14,4,IMUX63,13,4,vendor_passing_image
 RMUX66,14,4,IMUX63,13,4,vendor_passing_image
 RMUX90,14,4,IMUX63,13,4,vendor_passing_image
 OMUX25,17,7,IMUX63,13,4,vendor_passing_image
+RMUX17,13,4,IMUX11,13,4,silicon_ring_20260925
+RMUX22,13,4,IMUX52,13,4,silicon_ring_20260925

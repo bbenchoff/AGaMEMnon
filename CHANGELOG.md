@@ -7,6 +7,14 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+- bram: X13Y4_RMUX17->IMUX11 (AddressA[1]) and X13Y4_RMUX22->IMUX52 (AddressB[1]) are readmitted
+  to the address final-hop whitelist. The 2026-09-25 widening that covered all 26 X13Y4 address
+  terminals excluded both, reasoning from two failing open images (x1/x2 simple-dual-port) that
+  they were dead entry pips; both were already silicon-ring-witnessed and unrelated to the actual
+  cause of that failure (a DataOut-egress lane bug, documented separately), and excluding them
+  broke placement for any other design using that address bit, including SERV's always-qualified
+  x2 true-dual-port register file (`serv_blinky`, which builds and passes the board on `main`
+  using exactly these two hops, but failed to build once they were pruned).
 - bram: narrow-width Port-A writes (x9/x4/x2/x1) are on by default for the modes board-proven in the open flow --
   x4 dual-port (write A / read B, true dual port) and x1 single-port -- with the DataIn replication across every
   address-selected write window, the packer keeping the replicated lanes, and the self-verifying window guard.

@@ -145,13 +145,28 @@ def test_every_x13y4_address_terminal_has_a_board_proven_feeder_whitelist():
 
     Until 2026-09-25 the final-hop whitelist covered ten Port-A address terminals; the low
     Port-A bits (AddressA[0], [1], [3]) and all of Port B were open to any config-accepting
-    feeder.  The open x1 and x2 dual-port images that failed on the board both entered
-    AddressB[1] through X13Y4_RMUX22 -> IMUX52, a hop no passing image (2,240 vendor
-    images, four open images) had ever used, while every other boundary hop of every failing
-    image was board-proven; the x2 image also used RMUX17 -> IMUX11 on AddressA[1].  The
-    whitelist now lists, per terminal, the feeders af.exe routed in images that passed
-    their self-checking oracle (vendor_passing_image) plus the feeders of passing
-    default-build open images (open_passing_image).
+    feeder. The 0278236 widening (same date) covered all 26 terminals but excluded
+    X13Y4_RMUX22 -> IMUX52 (AddressB[1]) and X13Y4_RMUX17 -> IMUX11 (AddressA[1]),
+    reasoning from the open x1/x2 simple-dual-port board failures (bmd_sdp1_1_c00,
+    bmd_sdp2_2_c00) that those were "the known shape of a config-accepting but dead entry
+    pip." That reasoning is corrected here: both hops were already silicon-ring-witnessed
+    (chipdb/ring_witness_conduction.csv, source=silicon_ring) -- the campaign's own
+    ring-oscillator conduction proof, independent of any one design -- and
+    integration-testing serv_blinky (SERV's x2 TRUE-dual-port register file, always
+    admitted per QUALIFIED_WRITE_WIDTHS, unrelated to the narrow-write feature) showed it
+    fails to build on work/integrate-20260925 with exactly these two hops as its only
+    placement-reachable feeders for rf_raddr[0], while it builds AND PASSES on the board
+    from plain main (AG32-Docs tools/rando_corpus/results/omux_ab,
+    RESULT_omuxab_on_serv_blinky_pin17.json, verdict PASS, 77/77/77 edges) using exactly
+    X13Y4_RMUX17 -> IMUX11 and X13Y4_RMUX22 -> IMUX52 (confirmed from a fresh
+    --write-routed main build's ROUTING attributes on 2026-09-25). The bmd_sdp1_1_c00 /
+    bmd_sdp2_2_c00 board failures are therefore not evidence against these address-entry
+    pips: both modes are already documented elsewhere (docs/STATUS.md,
+    BOARD_PROVEN_NARROW_WRITES) as failing on a DataOut-egress lane bug, not an address-
+    entry one. The whitelist lists, per terminal, the feeders af.exe routed in images that
+    passed their self-checking oracle (vendor_passing_image), the feeders of passing
+    default-build open images (open_passing_image), and ring/design-witnessed feeders
+    (silicon, silicon_ring_20260925).
     """
     pins = {r["wire"]: (r["port"], int(r["bit"])) for r in _rows("bram9k_pinmap.csv")
             if r["port"] in ("AddressA", "AddressB")}
@@ -165,8 +180,10 @@ def test_every_x13y4_address_terminal_has_a_board_proven_feeder_whitelist():
                 int(r["src_res"][len(r["src_res"].rstrip("0123456789")):])))
     missing = sorted(w for w in pins if w not in allowed)
     assert not missing, missing
-    assert "X13Y4_RMUX22" not in allowed["X13Y4_IMUX52"]
-    assert "X13Y4_RMUX17" not in allowed["X13Y4_IMUX11"]
+    # 2026-09-25 (serv_blinky integration): re-admitted on ring-witness + serv_blinky board-PASS
+    # evidence (see docstring); both were silicon_ring-witnessed all along.
+    assert "X13Y4_RMUX22" in allowed["X13Y4_IMUX52"]
+    assert "X13Y4_RMUX17" in allowed["X13Y4_IMUX11"]
     # the feeders the passing open x1 single-port image used stay admitted
     assert "X13Y4_RMUX23" in allowed["X13Y4_IMUX11"]
     assert "X13Y4_RMUX46" in allowed["X13Y4_IMUX12"]

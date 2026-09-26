@@ -274,10 +274,10 @@
       "sha256": "b3e2f9a100f4756bc9db2a9adb9b0bb76cf5a96f06ad48d25c9cb246fa06216a"
     },
     {
-      "bytes": 16555,
-      "data_rows": 383,
+      "bytes": 16647,
+      "data_rows": 385,
       "path": "agamemnon/chipdb/bram_wl.csv",
-      "sha256": "6116370b5f64b8e7a7f75a2e86edcf80d3b82c0fe6de8ac67eb31ea9739c12c6"
+      "sha256": "802dbd20878e29ec30e54c8f14e436dcb8a5878b6b9fb924a0593e261ca4dc73"
     },
     {
       "bytes": 172,

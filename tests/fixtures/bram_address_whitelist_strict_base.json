@@ -1,15 +1,6 @@
 {
- "note": "Strict base graph delta of the 2026-09-25 BRAM address final-hop whitelist (bram_wl.csv governing all 26 X13Y4 address terminals): 'removed' rows (with their line index in the previous graph) are the two feeders no passing image ever used; 'added' rows are vendor-proven feeders the ring-witness restriction had kept out. Applied in reverse by tests/test_special_routes.py to reproduce the exit-only predecessor byte-for-byte.",
- "removed": [
-  {
-   "index": 303999,
-   "line": "X13Y4_RMUX22.X13Y4_IMUX52,ROUTE,X13Y4_RMUX22,X13Y4_IMUX52,0.336,13,4,0"
-  },
-  {
-   "index": 318827,
-   "line": "X13Y4_RMUX17.X13Y4_IMUX11,ROUTE,X13Y4_RMUX17,X13Y4_IMUX11,0.336,13,4,0"
-  }
- ],
+ "note": "Strict base graph delta of the 2026-09-25 BRAM address final-hop whitelist (bram_wl.csv governing all 26 X13Y4 address terminals), corrected the same day (serv_blinky integration): the whitelist widening momentarily pruned X13Y4_RMUX22->IMUX52 and X13Y4_RMUX17->IMUX11 from the graph, reasoning from two failing open images that they were dead entry pips; both were already silicon-ring-witnessed (chipdb/ring_witness_conduction.csv, source=silicon_ring) via the OTHER final-hop mechanism before the widening moved their terminals under the curated table's (incomplete) coverage, and serv_blinky (SERV's always-qualified x2 true-dual-port register file, unrelated to the failing images' narrow-write modes) fails to build without them and passes the board with them. bram_wl.csv now lists both directly (source=silicon), so relative to the predecessor graph below neither pip is actually removed any more -- 'removed' is empty. 'added' rows (vendor-proven feeders the ring-witness restriction had kept out, unaffected by this correction) are still applied in reverse by tests/test_special_routes.py to reproduce the exit-only predecessor byte-for-byte.",
+ "removed": [],
  "added": [
   "X13Y4_RMUX12.X13Y4_IMUX09,ROUTE,X13Y4_RMUX12,X13Y4_IMUX09,0.336,13,4,0",
   "X13Y4_RMUX18.X13Y4_IMUX09,ROUTE,X13Y4_RMUX18,X13Y4_IMUX09,0.336,13,4,0",
