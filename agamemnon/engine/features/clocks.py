@@ -93,6 +93,7 @@ def refuse_silicon_negative_clock_reach(clocked_tiles, options):
 @dataclass
 class ClockState:
     sets: list = field(default_factory=list)
+    clears: list = field(default_factory=list)
     clocked_tiles: set = field(default_factory=set)
     registered: bool = False
     bram_x9_hse_input: bool = False
@@ -220,7 +221,7 @@ class ClockFeature:
 
     def prepare(self, clocked_tiles, registered_sets, bram_cells,
                 selector_cells, chipdb_root, options, validated_clock,
-                slice_lines=None):
+                slice_lines=None, async_clear_tiles=()):
         # Placement is useful only as a cross-check.  The routed validator is
         # the authority for the one admitted owner, source, tree, and selector
         # footprint; emission must never derive a clock plan from placement
@@ -234,6 +235,9 @@ class ClockFeature:
                 (sorted(clocked_tiles), sorted(placed_clocked_tiles))
             )
         refuse_silicon_negative_clock_reach(clocked_tiles, options)
+        async_clear_tiles = set(async_clear_tiles)
+        if not async_clear_tiles <= clocked_tiles:
+            raise SystemExit("clocks: async-clear tile has no validated register clock")
         spine = [
             tuple(bit) for bit in json.loads(
                 (chipdb_root / "clk0_spine.json").read_text(encoding="utf-8")
@@ -300,7 +304,14 @@ class ClockFeature:
                         % (seam_selection, x, y, seam_selection)
                     )
                 state.sets.append(seam)
-            state.sets.append(tuple(asyncmux3[key]))
+            # This field supplies the idle async level on ordinary tiles, but
+            # inverts a selected external clear when set. Active-high async
+            # consumers require it clear; keeping the ordinary clock default
+            # makes them run during reset and stop on release.
+            if (x, y) in async_clear_tiles:
+                state.clears.append(tuple(asyncmux3[key]))
+            else:
+                state.sets.append(tuple(asyncmux3[key]))
             if (x, y) in line1_tiles:
                 seam = selector_cells.get((x, y, "CFG_SEAMMUX", _LINE1_SEAM_SELECTION))
                 if not seam:
@@ -330,6 +341,12 @@ class ClockFeature:
 
     def emit_bitstream(self, context: BitstreamContext) -> int:
         count = 0
+        for byte, mask in context.state.clears:
+            if byte < len(context.image):
+                context.image[byte] &= ~mask
+                if context.ownership is not None:
+                    context.ownership.touch(byte, mask, "clock")
+                count += 1
         for byte, mask in context.state.sets:
             if byte < len(context.image):
                 context.image[byte] |= mask
@@ -339,7 +356,7 @@ class ClockFeature:
         return count
 
     def writable_bits(self, state):
-        bits = set(state.sets)
+        bits = set(state.sets) | set(state.clears)
         if state.registered or state.bram_hse_input:
             bits.add(tuple(CONSTANTS["hse_input_bit"].value))
         return bits

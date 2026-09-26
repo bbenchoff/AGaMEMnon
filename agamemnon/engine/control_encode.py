@@ -87,16 +87,13 @@ def _source_columns(family):
     return FAMILY_SOURCE_COLUMNS.get(family, SOURCE_COLUMNS)
 
 
-#: Column 27 of async_clear's rows (CFG_TILEASYNCMUX index 3) is NOT part of
-#: this family's claim, even though it lives in the same nibble as column 29:
-#: it is `logictile_asyncmux3.json`'s bit, owned by the ``clocks`` feature
-#: (agamemnon/engine/features/clocks.py), which sets it unconditionally for
-#: every "clocked" LogicTile (any tile hosting an active register) as part of
-#: ordinary clock distribution -- unrelated to whether that tile also carries
-#: an async-clear consumer. Reproduced 2026-09-25 attempting to explicitly
-#: clear it here: BitOwnershipError, "feature ownership collision ... shared_control
-#: and clocks" -- proof this bit is genuinely someone else's, not an
-#: unmanaged leftover. Do not touch columns 27/28/30 from this module.
+#: Column 27 (CFG_TILEASYNCMUX index 3) is owned by the clocks emitter.
+#: Fixed-image silicon interventions establish that setting it inverts the
+#: selected external async clear. The clocks emitter keeps the ordinary idle
+#: default on tiles without an async route, and clears it for admitted
+#: active-high line-1 consumers. A software ownership collision alone says
+#: nothing about the physical meaning of this field. Columns 28/30 remain
+#: unclaimed.
 
 
 #: Which routing-graph ``CtrlMUX`` index drives a given line and position.

@@ -54,7 +54,7 @@ def main():
         # A clock IOB already uses the dedicated global network.  Buffering it
         # through LUTs would turn a clock into ordinary data routing; reset and
         # other high-fanout IOB controls are safe and need the tree.
-        if driver_type == "GENERIC_IOB" and any(port in ("CLK", "Clk0", "Clk1")
+        if driver_type == "GENERIC_IOB" and any(port in ("CLK", "C", "Clk0", "Clk1")
                                                 for _, port, _ in sinks):
             continue
         targets.append(bit)
@@ -69,7 +69,8 @@ def main():
         output = lut.get("connections", {}).get("Q", [])
         if lut["type"] != "LUT" or axis is None or len(inputs) != 4 or len(output) != 1:
             continue
-        paired = [(ff_name, ff) for ff_name, ff in cells.items() if ff["type"] == "DFF"
+        paired = [(ff_name, ff) for ff_name, ff in cells.items()
+                  if ff["type"] in ("DFF", "DFFE", "$_DFF_PP0_")
                   and ff.get("connections", {}).get("D") == output]
         if len(paired) != 1 or paired[0][1].get("connections", {}).get("Q") != [inputs[axis]]:
             continue
