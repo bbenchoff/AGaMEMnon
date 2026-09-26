@@ -2881,6 +2881,22 @@ def _cmd_build_once(a):
         env.pop("AGRV2K_SHARED_CONTROL_ENABLE", None)
     if native_enable:
         _native_mapping_defaults(env)
+    # Async-clear reset admission (N4.2): witnessed means default-on (memory
+    # ag32-witnessed-means-default-on-2026-09-24), independent of clock
+    # enable -- a build can carry one graph without the other, e.g.
+    # --no-native-clock-enable must not also silently drop async-clear's
+    # graph (a real bug hit and fixed 2026-09-25: shared_control_graph.py's
+    # add_architecture() used to gate its ENTIRE body, async included, on
+    # AGRV2K_SHARED_CONTROL_GRAPH alone). Kill switch: --no-async-clear-reset
+    # or AGRV2K_SHARED_CONTROL_ASYNC_CLEAR=0.
+    async_clear_flag = (a.uarch and not getattr(a, "no_async_clear_reset", False)
+                        and os.environ.get("AGRV2K_SHARED_CONTROL_ASYNC_CLEAR") != "0"
+                        and not a.qualified_checkpoint
+                        and not getattr(a, "qualified_bram_write", None))
+    if async_clear_flag:
+        env["AGRV2K_SHARED_CONTROL_ASYNC_CLEAR"] = "1"
+    else:
+        env.pop("AGRV2K_SHARED_CONTROL_ASYNC_CLEAR", None)
     control_description = "register data logic (--no-native-clock-enable)" if a.uarch else "register data logic"
     if native_enable:
         control_description = "native line 0 with isolated register tiles"
@@ -3484,6 +3500,8 @@ def _cmd_build_once(a):
         custom_devdb = os.environ.get("AGAMEMNON_DEVDB")
         if native_enable:
             default_devdb += "_native_enable"
+        if async_clear_flag:
+            default_devdb += "_async_clear"
         if custom_devdb and "data_logic_enable" in getattr(a, "_fallback_stages", ()):
             # A caller-owned native graph is not a data-logic graph. Never
             # overwrite it or silently reuse it for the recursive build.
@@ -3612,6 +3630,9 @@ def _cmd_build_once(a):
                                    if item[0].startswith("AGAMEMNON_")
                                    and item[0] not in ignored_cache_env]
         emit_context.append("AGRV2K_SHARED_CONTROL_GRAPH=%d" % int(native_enable))
+        # Independent of clock enable's own marker above -- see async_clear_flag's
+        # comment: the two graphs can be present or absent in any combination.
+        emit_context.append("AGRV2K_SHARED_CONTROL_ASYNC_CLEAR=%d" % int(async_clear_flag))
         # Runtime-only path tables are consumed directly by the C++ packer and
         # do not appear in dev_*.csv. Their content must still invalidate the
         # cached device database; otherwise a newly qualified path can leave a
@@ -5056,6 +5077,12 @@ def main(argv=None):
                    help="[--uarch] map clock enables onto the tile's native enable line (the default); kept for scripts")
     b.add_argument("--no-native-clock-enable", action="store_true",
                    help="[--uarch] lower clock enables into register data logic instead of the tile's enable line")
+    b.add_argument("--async-clear-reset", action="store_true",
+                   help="[--uarch] map $_DFF_PP0_ async-clear registers onto the tile's async-clear "
+                        "line (the default); kept for scripts")
+    b.add_argument("--no-async-clear-reset", action="store_true",
+                   help="[--uarch] kill switch: refuse async-clear registers again (the pre-N4.2 "
+                        "behaviour), instead of admitting them onto the tile's async-clear line")
     b.add_argument("--qualified-checkpoint", metavar="PROFILE",
                    help="[--uarch] fail-closed exact BEL/route replay from a registered "
                         "qualification profile; source, checkpoint, clocks and output hashes "

@@ -397,6 +397,21 @@ static bool shared_control_enable_admitted()
     return admitted;
 }
 
+// AGRV2K_SHARED_CONTROL_ASYNC_CLEAR admits a second physical shared control:
+// a positive-edge register with an active-high asynchronous clear to zero.
+// Evidence: two silicon-PASS vendor images (clk_rst_high/clk_rst_low) whose
+// decoded config asserts the identical CFG_TILEASYNCMUX index-1 bit for
+// their sole async source (CtrlMUX instance 0 driving LogicTile line 1); see
+// agamemnon/engine/control_encode.py's FAMILY_SOURCE_COLUMNS docstring and
+// agamemnon/engine/features/shared_control_graph.py. Kill switch: leave it
+// unset (or pass --no-async-clear-reset at the CLI, which does not set it)
+// to fall back to the pre-N4.2 refusal every $_DFF_PP0_ hit before this.
+static bool async_clear_admitted()
+{
+    static const bool admitted = getenv("AGRV2K_SHARED_CONTROL_ASYNC_CLEAR") != nullptr;
+    return admitted;
+}
+
 // The second native line is experimental and must remain opt-in.  Keep the
 // exact value check here so accidental environment inheritance cannot widen
 // ordinary builds.
@@ -442,6 +457,16 @@ static const IdString clock_enable_net_attr(Context *ctx)
     return ctx->id("AGRV2K_CLOCK_ENABLE_NET");
 }
 
+// Same idea as clock_enable_net_attr, for the async-clear net: a
+// GENERIC_SLICE has no ARST/R pin either -- the clear terminates on a tile
+// control line, not a per-slice pin -- so the net travels as a name from
+// lift_async_clear until pack_shared_async_clear creates the cell that owns
+// that line.
+static const IdString async_clear_net_attr(Context *ctx)
+{
+    return ctx->id("AGRV2K_ASYNC_CLEAR_NET");
+}
+
 static constexpr const char *SHARED_CONTROL_PORT_TOKENS[] = {
         "ARST", "R", "ASET", "SET", "CE", "EN", "SRST", "SCLR",
         "SLOAD", "ALOAD",
@@ -462,10 +487,20 @@ struct SharedControlRequirement
     std::string error;
 
     // "active" means a physical shared control that this flow REFUSES.  An
-    // admitted clock enable is deliberately not active, so the five refusal
-    // sites keep rejecting exactly what they rejected before.
-    bool active() const { return mode == SharedControlMode::ASYNC_CLEAR_POS_ZERO; }
+    // admitted clock enable is deliberately, UNCONDITIONALLY not active, so
+    // the refusal sites keep rejecting exactly what they rejected before.
+    // Async clear is admitted only while async_clear_admitted() -- unlike
+    // clock enable, ingress (reject_unsupported_shared_control_ingress) is
+    // not the only enforcement point that matters here: shared_control.py's
+    // OWN admission check (mirrored from this one) is what makes bitgen
+    // refuse it too, so the kill switch has to work even if some future
+    // caller reaches this struct without going through nextpnr ingress.
+    bool active() const
+    {
+        return mode == SharedControlMode::ASYNC_CLEAR_POS_ZERO && !async_clear_admitted();
+    }
     bool clock_enable() const { return mode == SharedControlMode::CLOCK_ENABLE_POS; }
+    bool async_clear() const { return mode == SharedControlMode::ASYNC_CLEAR_POS_ZERO; }
     bool malformed() const { return !error.empty(); }
 };
 
@@ -579,17 +614,34 @@ static SharedControlRequirement shared_control_requirement(Context *ctx,
                "or a packed GENERIC_SLICE");
         return result;
     }
+
     if (generic_slice) {
+        // Post-pack. Same lifted shape as CLOCK_ENABLE_POS: R/ARST is gone --
+        // lift_async_clear moved it onto the tile control cell and left the
+        // net's NAME behind, because the slice has no ARST pin to hold it
+        // (the clear terminates on a tile control line, selected by the
+        // slice's own per-slice line selector, not a per-slice pip).
         auto ff_it = cell->params.find(ctx->id("FF_USED"));
-        if (ff_it == cell->params.end()) {
-            reject("ASYNC_CLEAR_POS_ZERO requires FF_USED=1 (parameter missing)");
-            return result;
-        }
-        if (int(ff_it->second.as_int64()) != 1) {
+        if (ff_it == cell->params.end() || int(ff_it->second.as_int64()) != 1) {
             reject("ASYNC_CLEAR_POS_ZERO requires FF_USED=1");
             return result;
         }
+        for (const char *port : SHARED_CONTROL_PORT_TOKENS)
+            if (cell->ports.count(ctx->id(port)) != 0) {
+                reject(std::string("unsupported or combined control port ") + port);
+                return result;
+            }
+        if (cell->attrs.count(async_clear_net_attr(ctx)) == 0) {
+            reject("ASYNC_CLEAR_POS_ZERO slice has no recorded async-clear net");
+            return result;
+        }
+        result.polarity = SharedControlPolarity::POSITIVE;
+        result.clear_value = 0;
+        return result;
     }
+
+    // raw_async_clear: the exact $_DFF_PP0_ frontend shape synth_pads.tcl
+    // emits, before packing has a chance to lift anything.
     for (const char *port : SHARED_CONTROL_PORT_TOKENS)
         if (std::string(port) != expected_port &&
             cell->ports.count(ctx->id(port)) != 0) {
@@ -1783,14 +1835,17 @@ static void make_relative_cluster(Context *ctx,
 // Helpers (create_generic_cell/lut_to_lc/dff_to_lc/nxio_to_iob/is_lut/is_ff/is_lc/net_only_drives) are
 // the generic arch's own (cells.h / design_utils.h) and link in since we compile into nextpnr-generic.
 
-// A register this flow can pack: the ordinary DFF, or -- behind the flag -- the
-// clock-enable DFFE.  Upstream's is_ff() only knows DFF and is not ours to
-// patch, so the widened predicate lives here.
+// A register this flow can pack: the ordinary DFF, the clock-enable DFFE
+// (behind AGRV2K_SHARED_CONTROL_ENABLE), or the async-clear $_DFF_PP0_
+// (behind AGRV2K_SHARED_CONTROL_ASYNC_CLEAR).  Upstream's is_ff() only knows
+// DFF and is not ours to patch, so the widened predicate lives here.
 static bool is_packable_ff(const BaseCtx *ctx, const CellInfo *cell)
 {
     if (is_ff(ctx, cell))
         return true;
-    return shared_control_enable_admitted() && cell->type == ctx->id("DFFE");
+    if (shared_control_enable_admitted() && cell->type == ctx->id("DFFE"))
+        return true;
+    return async_clear_admitted() && cell->type == ctx->id("$_DFF_PP0_");
 }
 
 // Move the enable off the register and onto the packed slice as a NAME.
@@ -1816,6 +1871,46 @@ static void lift_clock_enable(Context *ctx, CellInfo *dff, CellInfo *lc)
     if (dff->attrs.count(group_id))
         lc->attrs[group_id] = dff->attrs.at(group_id);
     dff->disconnectPort(ctx->id("EN"));
+}
+
+// Move the async-clear net off the register and onto the packed slice as a
+// NAME, mirroring lift_clock_enable exactly.
+//
+// It cannot stay a port: a GENERIC_SLICE has no ARST/R bel pin, because the
+// clear does not reach a slice as a routed pip at all.  It terminates on one
+// of the tile's two shared TileAsyncMUX lines (CtrlMUX -> TileAsyncMUX01 is
+// the one this flow has a board-witnessed codeword for), and the slice's own
+// per-slice line selector -- left at its cleared/default value, which
+// already selects that line -- is what a real register consumes.
+// pack_shared_async_clear later creates the cell that owns the tile line and
+// reconnects the net to it.
+static void lift_async_clear(Context *ctx, CellInfo *dff, CellInfo *lc)
+{
+    if (dff->type != ctx->id("$_DFF_PP0_"))
+        return;
+    if (!async_clear_admitted())
+        log_error("agrv2k: $_DFF_PP0_ '%s' reached packing without "
+                  "AGRV2K_SHARED_CONTROL_ASYNC_CLEAR\n", ctx->nameOf(dff));
+    NetInfo *clear = dff->getPort(ctx->id("R"));
+    if (clear == nullptr)
+        log_error("agrv2k: $_DFF_PP0_ '%s' has no async-clear net\n", ctx->nameOf(dff));
+    lc->attrs[async_clear_net_attr(ctx)] = clear->name.str(ctx);
+    lc->attrs[shared_control_mode_attr(ctx)] = std::string("ASYNC_CLEAR_POS_ZERO");
+    dff->disconnectPort(ctx->id("R"));
+
+    // $_DFF_PP0_ is a standard Yosys internal simulation cell whose clock pin
+    // is named "C", not "CLK" -- upstream dff_to_lc() (called just before
+    // this, for both the LUT-fused and standalone packing paths) only knows
+    // "CLK" and CellInfo::movePortTo() silently no-ops on a source port name
+    // that does not exist. Without this, the packed slice's CLK stays
+    // permanently disconnected: a design that builds and emits a bitstream
+    // with every registered bit silently undriven. Move it by hand.
+    NetInfo *clock = dff->getPort(ctx->id("C"));
+    if (clock == nullptr)
+        log_error("agrv2k: $_DFF_PP0_ '%s' has no clock net\n", ctx->nameOf(dff));
+    lc->disconnectPort(ctx->id("CLK"));
+    lc->connectPort(ctx->id("CLK"), clock);
+    dff->disconnectPort(ctx->id("C"));
 }
 
 // If a combinational LUT feeds only register D pins, replicating its function
@@ -1956,6 +2051,7 @@ static void pack_lut_lutffs(Context *ctx)
                     lut_to_lc(ctx, ci, packed.get(), false);
                     dff_to_lc(ctx, dff, packed.get(), false);
                     lift_clock_enable(ctx, dff, packed.get());
+                    lift_async_clear(ctx, dff, packed.get());
                     const bool registered_pad =
                             packed->attrs.count(ctx->id("agamemnon_registered_pad_input")) != 0;
                     const bool direct_d =
@@ -2021,6 +2117,7 @@ static void pack_nonlut_ffs(Context *ctx)
             packed_cells.insert(ci->name);
             dff_to_lc(ctx, ci, packed.get(), true);
             lift_clock_enable(ctx, ci, packed.get());
+            lift_async_clear(ctx, ci, packed.get());
             // The generic helper implements a physical LUT identity path:
             // INIT=0xAAAA, D on I[0], CLK/Q connected, and F unused.
             set_register_input_mode(ctx, packed.get(), RegisterInputMode::LUT_FEEDTHROUGH_I0);
@@ -2426,6 +2523,123 @@ static void pack_shared_control(Context *ctx)
         ctx->cells[cell->name] = std::move(cell);
     log_info("  %d tile control cell(s) for %d enable net(s)\n",
              controls, int(by_enable.size()));
+}
+
+// Async-clear counterpart to pack_shared_control, narrowed to the one
+// board-evidenced composition: line 1 only, CtrlMUX instance 0 ("ctrl_a")
+// only, no dual-line pairing -- see control_encode.py's
+// FAMILY_SOURCE_COLUMNS for why. Groups larger than 16 registers split
+// across multiple tiles the same way clock enable's do. One
+// AGRV2K_TILE_CONTROL cell per (async-clear net, tile), clustered onto
+// z=18 (ASYNC_CONTROL_Z_BASE in shared_control_graph.py, past clock
+// enable's z=16/17 so the two families can never collide) with its members
+// at z=0.. -- see shared_control_graph.py's _add_control_sinks for the
+// sink bel this binds to (X<x>Y<y>_ASYNCCLR1, wired to TileAsyncMUX01).
+static void pack_shared_async_clear(Context *ctx)
+{
+    if (!async_clear_admitted())
+        return;
+
+    // Deterministic order: cluster shapes must not depend on hash iteration.
+    std::map<std::string, std::vector<CellInfo *>> by_clear;
+    for (auto &entry : ctx->cells) {
+        CellInfo *cell = entry.second.get();
+        if (cell->type != ctx->id("GENERIC_SLICE"))
+            continue;
+        auto it = cell->attrs.find(async_clear_net_attr(ctx));
+        if (it == cell->attrs.end())
+            continue;
+        by_clear[it->second.as_string()].push_back(cell);
+    }
+    if (by_clear.empty())
+        return;
+
+    log_info("Packing shared async-clear controls..\n");
+    std::vector<std::unique_ptr<CellInfo>> new_cells;
+    int controls = 0;
+    for (auto &group : by_clear) {
+        std::vector<CellInfo *> members = group.second;
+        std::sort(members.begin(), members.end(),
+                  [](const CellInfo *a, const CellInfo *b) { return a->name < b->name; });
+
+        NetInfo *clear = nullptr;
+        auto net_it = ctx->nets.find(ctx->id(group.first));
+        if (net_it != ctx->nets.end())
+            clear = net_it->second.get();
+        if (clear == nullptr)
+            log_error("agrv2k: async-clear net '%s' named by %d slice(s) does not "
+                      "exist\n", group.first.c_str(), int(members.size()));
+
+        for (size_t base = 0; base < members.size(); base += 16) {
+            const size_t count = std::min<size_t>(16, members.size() - base);
+            // Built directly rather than through create_generic_cell (see
+            // pack_shared_control's own comment: that helper only knows
+            // GENERIC_SLICE/GENERIC_IOB). A tile control cell is one input
+            // and nothing else.
+            const std::string control_name =
+                    "$agrv2k_asyncclr$" + group.first + "$" + std::to_string(base / 16);
+            auto control = std::make_unique<CellInfo>(
+                    ctx, ctx->id(control_name), ctx->id("AGRV2K_TILE_CONTROL"));
+            control->addInput(ctx->id("I"));
+            control->connectPort(ctx->id("I"), clear);
+            control->attrs[shared_control_mode_attr(ctx)] = std::string("ASYNC_CLEAR_POS_ZERO");
+            control->attrs[async_clear_net_attr(ctx)] = group.first;
+
+            // As in pack_shared_control: if every member of the chunk is
+            // pinned, pin the control cell to the same tile's async-clear
+            // sink and add no cluster; otherwise cluster the whole chunk.
+            const IdString bel_attr = ctx->id("BEL");
+            int pinned = 0, tile_x = -1, tile_y = -1;
+            for (size_t index = 0; index < count; ++index) {
+                auto it = members.at(base + index)->attrs.find(bel_attr);
+                if (it == members.at(base + index)->attrs.end())
+                    continue;
+                BelId bel = ctx->getBelByNameStr(it->second.as_string());
+                if (bel == BelId())
+                    log_error("agrv2k: async-cleared slice '%s' names BEL '%s', "
+                              "which this device does not have\n",
+                              ctx->nameOf(members.at(base + index)),
+                              it->second.as_string().c_str());
+                const Loc loc = ctx->getBelLocation(bel);
+                if (pinned && (loc.x != tile_x || loc.y != tile_y))
+                    log_error("agrv2k: async-clear set '%s' is pinned across "
+                              "tiles X%dY%d and X%dY%d; one control set is one "
+                              "tile\n", group.first.c_str(), tile_x, tile_y,
+                              loc.x, loc.y);
+                tile_x = loc.x; tile_y = loc.y; ++pinned;
+            }
+            if (pinned && size_t(pinned) != count)
+                log_error("agrv2k: async-clear set '%s' has %d of %d slice(s) "
+                          "pinned; pin all of them or none\n",
+                          group.first.c_str(), pinned, int(count));
+
+            if (pinned) {
+                const std::string sink = "X" + std::to_string(tile_x) + "Y" +
+                                         std::to_string(tile_y) + "_ASYNCCLR1";
+                if (ctx->getBelByNameStr(sink) == BelId())
+                    log_error("agrv2k: pinned tile X%dY%d has no async-clear "
+                              "sink bel '%s'\n", tile_x, tile_y, sink.c_str());
+                control->attrs[bel_attr] = Property(sink);
+                log_info("  async clear '%s': %d pinned register(s) in X%dY%d, "
+                         "control pinned to %s\n", group.first.c_str(),
+                         int(count), tile_x, tile_y, sink.c_str());
+            } else {
+                std::vector<std::pair<CellInfo *, Loc>> shape;
+                shape.push_back({control.get(), Loc(0, 0, 18)});
+                for (size_t index = 0; index < count; ++index)
+                    shape.push_back({members.at(base + index), Loc(0, 0, int(index))});
+                make_relative_cluster(ctx, shape, true);
+                log_info("  async clear '%s': tile cluster of %d register(s)\n",
+                         group.first.c_str(), int(count));
+            }
+            new_cells.push_back(std::move(control));
+            ++controls;
+        }
+    }
+    for (auto &cell : new_cells)
+        ctx->cells[cell->name] = std::move(cell);
+    log_info("  %d tile control cell(s) for %d async-clear net(s)\n",
+             controls, int(by_clear.size()));
 }
 
 static std::vector<IdString> pack_constants(Context *ctx)
@@ -16224,6 +16438,7 @@ struct AgrvImpl : ViaductAPI
         // After both FF paths, so every lifted enable is visible at once and a
         // control set is clustered as a whole rather than in two halves.
         pack_shared_control(ctx);
+        pack_shared_async_clear(ctx);
         pack_inactive_constant_slice_clocks(ctx);
         prune_unused_generated_constants(ctx, generated_constants);
         validate_native_direct_d_pool(ctx, false);

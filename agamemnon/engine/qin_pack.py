@@ -16,6 +16,19 @@ import json
 import os
 import sys
 
+# Keep direct script entry points working in a clean checkout -- the same
+# guard pcf_bind_json.py already carries. Python puts only this engine
+# directory on sys.path for a direct `python3 qin_pack.py ...` invocation
+# (cli.py's "qin" build step runs it exactly that way), not the package's
+# repository root, so permute_pad_inputs_high's
+# `from agamemnon.engine import pcf_ports` raised ModuleNotFoundError even
+# with PYTHONPATH set at the shell: a pre-existing gap, reproduced on the
+# unmodified work/bram-sim-20260925 base (registered_input.v, and2.v), not
+# something this change introduced.
+_PACKAGE_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _PACKAGE_ROOT not in sys.path:
+    sys.path.insert(0, _PACKAGE_ROOT)
+
 
 def expand_uniform_bram_init(json_path):
     """Make a uniformly initialized narrow BRAM physical INIT deterministic.
@@ -351,7 +364,17 @@ def lower_local_qin_feedback(json_path):
                       flag("AGRV2K_SHARED_CONTROL_ENABLE"))
         by_d = {}
         for cell in cells.values():
-            if cell.get("type") == "DFF" and cell["connections"].get("D"):
+            ordinary = cell.get("type") == "DFF"
+            async_clear = (cell.get("type") == "$_DFF_PP0_" and
+                           os.environ.get("AGRV2K_SHARED_CONTROL_ASYNC_CLEAR") is not None)
+            if async_clear:
+                connections = cell.get("connections", {})
+                if set(connections) != {"C", "R", "D", "Q"} or any(
+                        not isinstance(connections[port], list) or
+                        len(connections[port]) != 1 or type(connections[port][0]) is not int
+                        for port in ("C", "R", "D", "Q")):
+                    raise SystemExit("async-clear local Qin requires scalar C/R/D/Q nets")
+            if (ordinary or async_clear) and cell["connections"].get("D"):
                 by_d.setdefault(cell["connections"]["D"][0], []).append(cell)
         if admit_dffe:
             # Do not impose Qin-specific shape rules on unrelated native
@@ -697,7 +720,8 @@ def permute_reads_to_inputD(json_path, pin=3):
             selfnet = dff_q_by_d.get(q[0]) if q else None
             # D/I[3] belongs to the characterized direct self-feedback branch.
             # Do not let a second cell-to-cell read displace it.
-            if selfnet is not None and selfnet in I:
+            if (c.get("attributes", {}).get("agamemnon_local_qin_feedback") == "1" or
+                    selfnet is not None and selfnet in I):
                 continue
             reads = [k for k, net in enumerate(I)
                      if isinstance(net, int) and net != selfnet and net in outnet]
@@ -779,6 +803,8 @@ def permute_pad_inputs_high(json_path):
             q = c.get("connections", {}).get("Q", [])
             selfnet = dff_q_by_d.get(q[0]) if q else None
             reserved = {I.index(selfnet)} if selfnet in I else set()
+            if c.get("attributes", {}).get("agamemnon_local_qin_feedback") == "1":
+                reserved.add(2)
             exact = [(net, exact_pin_by_pad_net[net]) for _old, net in original
                      if net in exact_pin_by_pad_net]
             # A generic all-pad LUT has no spare pin and historically needed no

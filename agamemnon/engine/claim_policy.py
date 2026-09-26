@@ -502,6 +502,21 @@ def evaluate_policy(options, features=FEATURES, include_constants=True):
             # ratio, never a silently-wrong image. Same surface-narrowing class as
             # AGAMEMNON_NO_FFBRIDGE/AGAMEMNON_NO_OMUX_PRESENT0 above.
             error = None
+        elif name == "AGRV2K_SHARED_CONTROL_ASYNC_CLEAR" and policy == "release-strict":
+            # The CLI sets this ITSELF (cli.py, 2026-09-25) for ordinary --uarch
+            # builds (witnessed-means-default-on). Same shape as
+            # AGAMEMNON_BRAM_NARROW_WRITE: it is the mechanism switch (adds the
+            # CtrlMUX->TileAsyncMUX01 pips + ASYNCCLR1 sink bels so the router CAN
+            # reach a tile's async-clear line), registered ``experimental``
+            # because it is not itself the safety gate. The actual admission is
+            # control_encode.py's FAMILY_SOURCE_COLUMNS['async_clear'], which
+            # claims exactly one board-evidenced (line, source) composition --
+            # CtrlMUX instance 0 driving LogicTile line 1 -- and fails closed
+            # (ControlEncodeError/SharedControlEmitError) on any other route the
+            # switch might expose. Evidence: two silicon-PASS vendor images
+            # (clk_rst_high/clk_rst_low, qualification/async_clear_reset_evidence.jsonl).
+            # Worst case is a refused build, never a silently-wrong image.
+            error = None
         else:
             error = _permission_error(policy_name, spec.maturity, claim, policy, explicit)
         if error:

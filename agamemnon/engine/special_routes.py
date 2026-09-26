@@ -455,6 +455,15 @@ GRAPH_PROFILE_OPTIONS = (
     "AGAMEMNON_BRAM_PORTB_EXIT",
     "AGAMEMNON_BRAM_SITE_READ_PATHS",
     "AGAMEMNON_NO_OMUX_PRESENT0",
+    # Adds the CtrlMUX->TileAsyncMUX01 pips + ASYNCCLR1 sink bels (N4.2,
+    # ASYNC_CLEAR_POS_ZERO). Independent of the shared_control_graph marker
+    # (clock enable): a build can carry this without native clock enable
+    # (--no-native-clock-enable) or vice versa -- see
+    # shared_control_graph.py's add_architecture(). The CLI sets it by
+    # default for ordinary --uarch builds (witnessed-means-default-on), so
+    # this option is present on essentially every ordinary build going
+    # forward, exactly like AGAMEMNON_BRAM_SITE_READ_PATHS's auto-enable.
+    "AGRV2K_SHARED_CONTROL_ASYNC_CLEAR",
 )
 GRAPH_PROFILES_NAME = "physical_graph_profiles.json"
 GRAPH_PROFILES_PATH = Path(__file__).resolve().parent / GRAPH_PROFILES_NAME
