@@ -52,13 +52,13 @@ EXPECTED_CATALOG_SHA256 = (
 # rows reproduces the prior strict/tiered CSV byte-for-byte; the physical pad
 # corridors and all other graph rows are unchanged. Keep both exact snapshots
 # for replay, without accepting arbitrary self-reported graph digests.
-EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 295059
+EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 295027
 EXPECTED_PHYSICAL_GRAPH_SHA256 = (
-    "6ee8ee86f9b36216ac460807c19456dfc3fa4e23adcac469dd95d36f6d75dce9"
+    "2273351e646066bd1793866823f213976914fa8891926cce8a5cdffca781d9ac"
 )
-EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 331820
+EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 331788
 EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
-    "241937db2a3013047f2621dfb33d875cf436263730550c750752cdf5567fb9e5"
+    "b394e9eaee3170bd5aa38dd4fb1920ae88b4100991ccdcff58a3917b769aae36"
 )
 # The native-control graph contributes the finite, reviewed shared-control
 # topology.  It is a separate graph profile: accepting it by changing the base
@@ -66,12 +66,12 @@ EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
 # graph authority.
 EXPECTED_SHARED_CONTROL_PHYSICAL_GRAPHS = {
     "release-strict": (
-        296132,
-        "7c2b65a31e997c0c944629879b5a9326fe9800893b083d3c79c928a6071ca7e2",
+        296100,
+        "5feeeedc062df69b806f96839da11ffc723bafa63e2aa1612b26ba187e88202c",
     ),
     "tiered": (
-        332893,
-        "d6322ef2ebc4e0c4acfafa85f99977c97b9176ea2b312147b794324db58f15cf",
+        332861,
+        "cb6a41754c742729c71a08c858e97e5d9642af185877cff06c12b846630bcec8",
     ),
 }
 # Withdrawing the column-16 RMUX03 -> RMUX14 translation removes exactly
