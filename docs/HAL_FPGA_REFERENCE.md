@@ -419,7 +419,15 @@ byte of an 18-bit row while the other is written) is achievable on silicon; the 
 work is to drive the `CFG_KMUX` pos-8 gnd tie from the `ByteEnA` pin constant (a scoped,
 board-qualified routing-emitter change), not to route the pin. Do **not** read this as
 native narrow-**width** packing writes (x9/x4/x2/x1, address-selected sub-word windows):
-those are a distinct mechanism. **Corrected 2026-09-25:** narrow writes store on silicon (vendor `alta_bram9k` instantiated directly per mode, 39/39 board PASS), and the open flow's DataIn replication is on by default for the modes whose open images passed the board (x4 dual-port, x1 single-port); x9, x2 and x1 dual-port are refused fail-closed until their open-flow delivery bug is found (vendor-identical mode config; candidate per-lane DataOut egress). `AGAMEMNON_NO_BRAM_NARROW_WRITE=1` restores the blanket refusal. The 2026-09-15 'x9 does not store' reading is withdrawn: its vendor reference was a mis-elaborated inferred design (see STATUS.md and `qualification/bram_narrow_write_evidence.jsonl`).
+those are a distinct mechanism. **Corrected 2026-09-26:** the old 39-mode
+heartbeat matrix does not establish completed memory reads. Current source-paired
+completed-read-round checks pass for x4 dual-port and x18 single-port in both
+flows, but selected x1 OUTREG0/1 open images fail while their vendor counterparts
+pass. One retained OUTREG0 alternative passes; both OUTREG1 alternatives fail.
+Compiler admission and DataIn replication do not qualify these implementations.
+The older malformed x9 reference does not prove a device limitation. See
+[current hardware results](../qualification/release05_current_hardware_results.json)
+and [status](STATUS.md).
 
 Separately, **39 configuration rows across `X13Y1` … `X13Y4`** are admitted only
 under the `experimental-strict` policy, and are **denied under the default

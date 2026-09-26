@@ -7,6 +7,12 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+- Reject empty observed-value sets and report matching nonempty sets as model
+  consistency, without claiming hardware correctness.
+- Bound optional SRST mapping searches after an admissible build completes; keep
+  the ordinary search when no admissible candidate exists and propagate unsafe,
+  timing and unknown failures.
+
 - bram: X13Y4_RMUX17->IMUX11 (AddressA[1]) and X13Y4_RMUX22->IMUX52 (AddressB[1]) are readmitted
   to the address final-hop whitelist. The 2026-09-25 widening that covered all 26 X13Y4 address
   terminals excluded both, reasoning from two failing open images (x1/x2 simple-dual-port) that
@@ -15,26 +21,11 @@ is authoritative for downloadable artifacts.
   broke placement for any other design using that address bit, including SERV's always-qualified
   x2 true-dual-port register file (`serv_blinky`, which builds and passes the board on `main`
   using exactly these two hops, but failed to build once they were pruned).
-- bram: `PORTA_OUTREG`/`PORTB_OUTREG`/`PORTA_WRITETHRU`/`PORTB_WRITETHRU` are on by default -- no
-  `AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG` needed. The vendor mode-bit measurement establishes the config-bit
-  encoding (`CFG_SELOUT_A/B[0]`=OUTREG, `CFG_SEL_WRITHU_A/B[0]`=WRITETHRU) with no cross-field interaction, and
-  every vendor mode image exercising a nonzero value passed on the board at the exact heartbeat. This is a
-  config-bit claim (`bram_emit.emit` is a pure function of the parameters; the BRAM's pin usage is unchanged by
-  either field), not an open-flow behavior claim, so it does not need its own open-board pass the way narrow
-  writes did. `PACKEDMODE`/`DLYTIME`/`RSEN_DLY` stay behind the experimental flag. `AGAMEMNON_NO_BRAM_OUTREG_WRITETHRU=1`
-  is the kill switch. Also: a constant-HIGH `WeA`/`WeB` at the proven x18 width, on a BRAM whose own read side is
-  real (an unconditional write with a live downstream self-check, the vendor read-during-write/write-through
-  shape), is now admitted by the agrv2k packer as a warning instead of the former hard refusal; the kill switch
-  restores the original refusal.
-- bram: narrow-width Port-A writes (x9/x4/x2/x1) are on by default for the modes board-proven in the open flow --
-  x4 dual-port (write A / read B, true dual port) and x1 single-port -- with the DataIn replication across every
-  address-selected write window, the packer keeping the replicated lanes, and the self-verifying window guard.
-  Narrow writes store on silicon: the vendor primitive instantiated directly per mode passes 39/39 on the board, so
-  the former 'x9 does not store' limitation is withdrawn (its vendor reference was a mis-elaborated inferred design).
-  x9, x2 (replicated) and x1 dual-port failed on the board with vendor-identical mode config and stay refused
-  fail-closed; the refusal names the mode and the proven set. `AGAMEMNON_NO_BRAM_NARROW_WRITE=1` is the kill switch
-  (blanket refusal, byte-identical to the previous default). x2 is exempt from replication, so the SERV register
-  file is unchanged. The former opt-in `AGAMEMNON_BRAM_NARROW_WRITE` is now set by the CLI itself for the packer.
+- BRAM output-register/write-through configuration fields and replicated narrow-write
+  shapes are accepted as described in [status](docs/STATUS.md). Historical heartbeat
+  passes do not prove completed reads. Fresh x1 open images still fail while paired
+  vendor images pass; x4 dual-port and x18 single-port pass their bounded new checks.
+  The accepted mode list is not a general silicon guarantee.
 - pll: `build --freq` admits any `HSE=8 MHz` `SYSCLK` by default whose computed dividers fall inside the
   recovered legal PFD/VCO/bit-width envelope, not only the previously enumerated 43-rate table. The vendor
   `.ve` flow accepts any ratio it can solve (no per-ratio vendor table either); three rates outside the old

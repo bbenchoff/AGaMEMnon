@@ -1,35 +1,11 @@
-"""A narrow Port-A BRAM WRITE is a silently-wrong image; the emitter refuses it.
+"""Narrow-write admission and DataIn replication constraints.
 
-A narrow PORTA_WIDTH packs several logical words into one 18-bit physical row
-(x9=2, x4=4, x2=9, x1=18 words/row). nextpnr's BRAM packer drives only the lowest
-`active_width` DataInA lanes, so a WRITE can only store the packed sub-word those
-lanes reach -- every other address silently keeps its old value, with no error and
-no unmapped pip. PROVEN for x9 against the vendor alta_bram9k model: odd addresses
-(upper 9 bits) never store (AG32-Docs tools/vendor_parity/bram_x9_write_multibit_
-20260913; iverilog even 4/4 OK, odd 4/4 read-0). The x9wr2 image (sha f531b54b)
-bitgens clean but is silently wrong.
-
-The disconnect is internal to nextpnr and is NOT visible in the routed netlist:
-the broken x9 image AND the working x2 SERV register file both present all 18
-DataInA lanes as connected nets (measured 2026-09-13). So the only netlist-visible
-signal is the width code, and the guard keys on it. The silicon-qualified writable
-widths are x18 (R9 single-bit + x18h 2-bit sim) and x2 (the shipped dual-port SERV
-register file, PORTA_WIDTH=01110, dynamic WeA, silicon-proven across
-serv_rv32i_smoke/blinky/heartbeat). Those are exempt; x9 is proven-broken and
-x4/x1 are unqualified/unverified -> refuse. Blast radius on the qualified set is
-zero: x2 is the ONLY writable width in any qualified routed netlist.
-
-2026-09-25 correction: narrow writes STORE on silicon. The vendor primitive
-instantiated directly per mode passed its board oracle for every narrow write width
-(AG32-Docs tools/rando_corpus/results/parity_20260925/, 39/39 modes), and the open
-x9/x4/x2/x1 images with the DataIn replication passed the same oracle. The
-replication path is therefore ON BY DEFAULT for the (width, port mode) combinations
-in BOARD_PROVEN_NARROW_WRITES -- x4 dual-port and x1 single-port passed; x9, x2 and
-x1 dual-port FAILED on the board and stay refused as open-flow bugs to find -- still
-self-verifying (every address-selected window must be populated in the routed
-netlist), and AGAMEMNON_NO_BRAM_NARROW_WRITE=1 restores the blanket refusal. An
-unreplicated narrow write (the packer's lowest-window-only DataIn) is refused
-exactly as before.
+These tests check compiler policy and address-window population, not silicon.
+The historical BOARD_PROVEN_NARROW_WRITES identifier names an admission list;
+the old activity-only board oracle did not require completed reads. Current
+source-paired x1 hardware failures and bounded x4/x18 passes are documented in
+qualification/release05_current_hardware_results.json. Keep those failures open
+while testing that malformed or unsupported writes are rejected consistently.
 """
 from agamemnon.engine.features.bram import (
     BOARD_PROVEN_NARROW_WRITES,

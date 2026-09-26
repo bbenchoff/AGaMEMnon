@@ -1,5 +1,14 @@
 # Supported feature matrix
 
+## Current release assessment — September 26
+
+The v0.5 release is pending. Fresh LFSR and x1 BRAM failures are release blockers;
+earlier passing activity counts do not override them. The bounded P2 containment
+record below concerns its own retained negatives, not these newly built images.
+The [current hardware summary](../qualification/release05_current_hardware_results.json)
+retains passing and failing alternatives and passing controls. Compiler acceptance,
+model agreement and decoded field equality are separate evidence from silicon.
+
 ## Routing graph made true by silicon witness — 2026-09-19
 
 Release-strict admission is the default (`--tiered` is an experiment flag). Since 2026-09-18 an
@@ -45,7 +54,7 @@ the board. Emit-verified ≠ silicon-proven: a built route can float until witne
 | Width | Read emit | Write emit | Silicon |
 |---|---|---|---|
 | x18 | **PROMOTED** (default; hready-gated corridor via board-proven `RMUX84→CtrlMUX02={31,32}`) | emits (default; `w18write` 272 pips, 0 unmapped) | read: **composed OPEN image silicon-witnessed** (`hbread10`, 2026-09-15, INIT-0 driven read delivers at X13Y4 over the RMUX84 corridor; independently audited PASS; scope = driven-0 delivery only, NOT driven-1/address-varied — see hbread6, partial); write: 5 of 18 DataInA lanes board-witnessed, rest emit-only |
-| x9 / x4 / x2 / x1 | emits (default; byte-distinct per-width configs) | **DEFAULT-ON per board-proven mode (2026-09-25):** x4 dual-port (write A / read B, and true dual port) and x1 single-port build and PASS with the default command (qin_pack DataIn replication across every address-selected window + packer keeps the real-driven lanes + self-verifying guard). x9 (single-port; x9-write/x4-read), x2 (with replication) and x1 dual-port FAILED on the board with vendor-identical mode config and stay **refused fail-closed** (the refusal names the mode and the proven set); they are open-flow delivery bugs, not chip limits. `AGAMEMNON_NO_BRAM_NARROW_WRITE=1` restores the blanket refusal. x2 is exempt from replication (SERV register file byte-identical). | **silicon: narrow writes STORE.** Vendor `alta_bram9k` instantiated directly per mode passes 39/39 on the board (every narrow width, SP and SDP; AG32-Docs `tools/rando_corpus/results/parity_20260925/`). Open: x4 dual-port and x1 single-port PASS; x9, x2, x1-dual-port FAIL (`results/narrow_20260925/`, `qualification/bram_narrow_write_evidence.jsonl`). The 2026-09-15 'x9 does not store' finding is withdrawn: its vendor reference was a mis-elaborated inferred design. |
+| x9 / x4 / x2 / x1 | emits configurations subject to mode and routing admission | DataIn replication is enabled for admitted x4 dual-port and x1 single-port shapes; other narrow writes remain guarded. Acceptance is not hardware qualification. | Current completed-read-round tests: x4 dual-port passes twice; selected x1 OUTREG0 and OUTREG1 images fail twice while both vendor counterparts pass. One retained x1 OUTREG0 alternative passes; both OUTREG1 alternatives fail. The historical 39-mode activity count is not functional qualification. See the September 26 correction above. |
 | x36 | emits (opt-in `AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG`) | experimental / untested | board-witness-pending |
 | ByteEn per-byte masking (on x18) | n/a | **SHIPPED + board-proven** (`CFG_KMUX` pos-8 gnd tie; `test_bram_byteen_emission`) | board-proven (obs 0xE4→0xFF) |
 
@@ -85,26 +94,28 @@ explicit setting; a design without the cell is byte-identical, and release-stric
 (the options are experimental maturity, which release-strict refuses by design). This changes which
 qualified paths ordinary builds take; it does not change any silicon claim, fence, or write refusal.
 
-**Narrow-width writes (corrected 2026-09-25; the 'accepted final limitation' below is withdrawn):** (1) **narrow writes store on silicon.** The vendor primitive instantiated directly per mode passed its self-checking board test for every narrow write width and every SDP pairing (39/39, AG32-Docs `tools/vendor_witness/gen_bram_modes.py`, `tools/rando_corpus/results/parity_20260925/`). The 2026-09-15 'x9 write does not store' conclusion rested on a vendor reference that `af_bram_elab.py` had elaborated as x9 without the output register the vendor yosys requested; its floating readback said nothing about the mode. (2) **Open flow, default command:** the DataIn replication path is on by default and admitted per (width, port mode) that passed the board: x4 dual-port (`bmd_sdp4_4_c00`, `bmd_tdp4_c10`) and x1 single-port (`bmd_sp1_c10_o0`) PASS with BRAM cell config byte-identical to the vendor image of the same mode. x9 single-port, x9-write/x4-read, x2 (replicated) and x1 dual-port FAIL on the board and are refused fail-closed until the delivery bug is found (candidate: per-lane DataOut BufMUX egress -- passing modes read lanes 3..6 or Port-A lane 0, failing modes lanes 0 (Port B), 1, 2, 7, 9..16). `AGAMEMNON_NO_BRAM_NARROW_WRITE=1` is the kill switch. x2 stays exempt from replication so the SERV register file image is unchanged. Record: `qualification/bram_narrow_write_evidence.jsonl` (2026-09-25-narrow-write-default-on-per-mode-board).
+**Narrow writes and output modes (corrected 2026-09-26):** the compiler currently
+admits replicated x4 dual-port and x1 single-port writes and retains the other
+narrow-write guards. The identifier `BOARD_PROVEN_NARROW_WRITES` is historical;
+its name is not evidence that every accepted implementation works. Historical
+39-mode heartbeat tests can pass without memory reads, so they cannot establish
+the claimed functional mode matrix. The older malformed vendor reference also
+cannot establish that x9 is unsupported by the device.
 
-**PORTx_OUTREG / PORTx_WRITETHRU (2026-09-25, default-on):** the vendor mode-bit measurement
-(`tools/vendor_parity/BRAM_MODE_BITS_20260925.md`) establishes the config-bit encoding is exactly
-`CFG_SELOUT_A/B[0]`=OUTREG and `CFG_SEL_WRITHU_A/B[0]`=WRITETHRU with no cross-field interaction, and
-every one of the 39 vendor mode images exercising a nonzero value (6 OUTREG images, `bmd_rdw18_wt0`
-WRITETHRU=0, `bmd_rdw18_wt1` WRITETHRU=1) PASSED on the vendor board at the exact heartbeat
-(`tools/rando_corpus/results/parity_20260925/`). Unlike narrow writes this is a config-bit claim, not
-an open-flow behavior claim (`bram_emit.emit` is a pure function of the parameters and the BRAM's pin
-usage is unchanged by either field), so `agamemnon/engine/bram_emit.py` `BOARD_PROVEN_CONFIG_FIELDS`
-admits all four by default with no `AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG` needed, still scoped to
-AGRV2KL48 BramTILE X13Y1..Y4; `AGAMEMNON_NO_BRAM_OUTREG_WRITETHRU=1` is the kill switch. PACKEDMODE,
-DLYTIME and RSEN_DLY are NOT promoted (no board evidence / no functional observable at 10 MHz) and stay
-behind the experimental flag. A constant-HIGH `WeA`/`WeB` at the proven x18 width, on a BRAM whose own
-read side is real (the `bmd_rdw18_wt0`/`wt1` read-during-write/write-through shape: an unconditional
-write with a live downstream self-check), is now admitted by the agrv2k packer
-(`pack_bram_localize_const`) as a warning instead of the former hard refusal; the same kill switch env
-var restores the original refusal. Record: `qualification/bram_outreg_writethru_evidence.jsonl`.
-Board results for the open-flow images of these modes are tracked in `AG32-Docs
-tools/vendor_parity/BRAM_MODES_OPEN_20260925.md`.
+Fresh identical-source comparisons use completed readback rounds. The selected
+x1 OUTREG0 and OUTREG1 images each fail twice while their vendor counterparts
+pass twice. x4 dual-port and x18 single-port pass twice in both flows. Retained
+x1 OUTREG0 mapping alternatives differ on hardware; both OUTREG1 alternatives
+fail. These vendor-supported x1 modes remain unresolved, not out of scope.
+
+`PORTA_OUTREG`, `PORTB_OUTREG`, `PORTA_WRITETHRU` and `PORTB_WRITETHRU` remain
+accepted configuration fields. Differential field decoding establishes the
+tested encodings, not memory transaction correctness or all shared-field
+interactions. `AGAMEMNON_NO_BRAM_OUTREG_WRITETHRU=1` restores the earlier guard;
+PACKEDMODE, DLYTIME and RSEN_DLY remain experimental. Constant-HIGH x18 write
+enable with a connected read side is admitted, but connection alone does not
+prove that reads complete or collisions behave correctly. See the
+[current hardware summary](../qualification/release05_current_hardware_results.json).
 
 Historical text (superseded): the silent-drop mechanism was fixed behind the former opt-in on 2026-09-15, and the x9 board sessions of that day (x9inf_c, x9inf_dp, x9w3) read back only the INIT through reads that were themselves unqualified narrow-lane egress; those results are now read as open-flow delivery failures, consistent with the 2026-09-25 lane pattern, not as a mode property. Not the guard;
 (2) **per-width/per-lane SILICON witnessing** of the composed open images
