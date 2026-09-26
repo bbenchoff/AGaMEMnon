@@ -124,6 +124,12 @@ def smoke(bundle, workspace, python=sys.executable):
     ])
 
     env = dict(os.environ)
+    # Keep compiler intermediates beside the smoke result so a failed installed
+    # build can be diagnosed with its actual synthesized and routed netlists.
+    build_temp = workspace / "build-temporary"
+    build_temp.mkdir()
+    for name in ("TMPDIR", "TMP", "TEMP"):
+        env[name] = str(build_temp)
     env["PIP_NO_INDEX"] = "1"
     env["AGAMEMNON_OSS"] = str(bundle / "tools" / "oss-cad-suite")
     env["AGAMEMNON_UARCH_NEXTPNR"] = str(
