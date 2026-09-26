@@ -15,6 +15,17 @@ is authoritative for downloadable artifacts.
   broke placement for any other design using that address bit, including SERV's always-qualified
   x2 true-dual-port register file (`serv_blinky`, which builds and passes the board on `main`
   using exactly these two hops, but failed to build once they were pruned).
+- bram: `PORTA_OUTREG`/`PORTB_OUTREG`/`PORTA_WRITETHRU`/`PORTB_WRITETHRU` are on by default -- no
+  `AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG` needed. The vendor mode-bit measurement establishes the config-bit
+  encoding (`CFG_SELOUT_A/B[0]`=OUTREG, `CFG_SEL_WRITHU_A/B[0]`=WRITETHRU) with no cross-field interaction, and
+  every vendor mode image exercising a nonzero value passed on the board at the exact heartbeat. This is a
+  config-bit claim (`bram_emit.emit` is a pure function of the parameters; the BRAM's pin usage is unchanged by
+  either field), not an open-flow behavior claim, so it does not need its own open-board pass the way narrow
+  writes did. `PACKEDMODE`/`DLYTIME`/`RSEN_DLY` stay behind the experimental flag. `AGAMEMNON_NO_BRAM_OUTREG_WRITETHRU=1`
+  is the kill switch. Also: a constant-HIGH `WeA`/`WeB` at the proven x18 width, on a BRAM whose own read side is
+  real (an unconditional write with a live downstream self-check, the vendor read-during-write/write-through
+  shape), is now admitted by the agrv2k packer as a warning instead of the former hard refusal; the kill switch
+  restores the original refusal.
 - bram: narrow-width Port-A writes (x9/x4/x2/x1) are on by default for the modes board-proven in the open flow --
   x4 dual-port (write A / read B, true dual port) and x1 single-port -- with the DataIn replication across every
   address-selected write window, the packer keeping the replicated lanes, and the self-verifying window guard.

@@ -4267,6 +4267,12 @@ static void pack_bram_localize_const(Context *ctx)
     // width-padding don't-care. Constant/dangling padded lanes still trim, so the SERV
     // 512x2 RF (whose upper lanes are constant 0) stays byte-identical. Opt-in.
     bool narrow_write_optin = std::getenv("AGAMEMNON_BRAM_NARROW_WRITE") != nullptr;
+    // Kill switch for the board-proven-x18-unconditional-write admission below
+    // (same registry option agamemnon/engine/registry.py wires for the Python
+    // OUTREG/WRITETHRU config-bit gate, and the same presence-semantics
+    // convention as AGAMEMNON_BRAM_NARROW_WRITE above): restores the original
+    // hard refusal for a constant-HIGH WeA/WeB unconditionally.
+    bool outreg_writethru_kill = std::getenv("AGAMEMNON_NO_BRAM_OUTREG_WRITETHRU") != nullptr;
     PackedNameAllocator names(ctx);
     int idx = 0;
     long n = 0, hard_n = 0, local_n = 0, routed_gnd_n = 0;
@@ -4332,6 +4338,28 @@ static void pack_bram_localize_const(Context *ctx)
                 break;
             }
         }
+        // 2026-09-25: an unconditional WeA/WeB is not always a silent-degradation
+        // hazard. The vendor self-checking read-during-write/write-through mode
+        // images (AG32-Docs tools/vendor_witness/designs_open/bmd_rdw18_wt0.v,
+        // bmd_rdw18_wt1.v: x18, WeA tied HIGH every cycle, genuinely single-port,
+        // no live Port-B read) PASS on the board at the exact heartbeat (39/39
+        // direct-mode images, tools/rando_corpus/results/parity_20260925/): the
+        // design's own read side (DataOutA feeding a real downstream comparator)
+        // is the observable that the write happened -- exactly the signal this
+        // guard exists to protect when it is ABSENT. A live read on either port
+        // downgrades the hard refusal to a warning, scoped to the proven x18
+        // width only (narrower widths keep the original hard refusal; a narrow
+        // write's own correctness is a separate, independently gated claim --
+        // see features/bram.py narrow_write_silently_wrong).
+        bool port_a_read_used = false;
+        for (auto &p : ci->ports) {
+            if (p.first.str(ctx).rfind("DataOutA[", 0) == 0 &&
+                    p.second.net != nullptr && !p.second.net->users.empty()) {
+                port_a_read_used = true;
+                break;
+            }
+        }
+        bool bram_read_side_is_real = port_a_read_used || port_b_read_used;
         for (IdString p : unused_data)
             ci->disconnectPort(p);
         if (!unused_data.empty())
@@ -4353,11 +4381,24 @@ static void pack_bram_localize_const(Context *ctx)
                      (data_b && data_b_bit < active_b));
             const bool is_write_enable =
                     pin_name.rfind("WeA", 0) == 0 || pin_name.rfind("WeB", 0) == 0;
+            // Board-proven admission (2026-09-25): an unconditional WeA/WeB at the
+            // proven x18 width, on a BRAM whose own read side is real, is routed as
+            // a real per-pin driven constant (below) instead of being swallowed by
+            // the ROM control blob's write-disabled default. Scoped to x18 because
+            // that is the exact width the board evidence covers; a narrower width's
+            // write correctness is a separate, independently evidence-gated claim
+            // (features/bram.py narrow_write_silently_wrong / BOARD_PROVEN_NARROW_WRITES).
+            const bool this_port_is_x18 =
+                    (pin_name.rfind("WeA", 0) == 0) ? (active_a == 18) : (active_b == 18);
+            const bool unconditional_write_admitted =
+                    is_write_enable && pr.second && bram_read_side_is_real && this_port_is_x18 &&
+                    !outreg_writethru_kill;
             const bool characterized_control =
-                    pin_name.rfind("ReA", 0) == 0 || pin_name.rfind("ReB", 0) == 0 ||
-                    is_write_enable ||
-                    pin_name.rfind("ByteEnA", 0) == 0 || pin_name.rfind("ByteEnB", 0) == 0 ||
-                    pin_name.rfind("ClkEn0", 0) == 0 || pin_name.rfind("ClkEn1", 0) == 0;
+                    (pin_name.rfind("ReA", 0) == 0 || pin_name.rfind("ReB", 0) == 0 ||
+                     is_write_enable ||
+                     pin_name.rfind("ByteEnA", 0) == 0 || pin_name.rfind("ByteEnB", 0) == 0 ||
+                     pin_name.rfind("ClkEn0", 0) == 0 || pin_name.rfind("ClkEn1", 0) == 0) &&
+                    !unconditional_write_admitted;
             // A live Port-B address bus is a simultaneously routed tree.  Do
             // not strand all of its zero-valued lanes on the single global
             // hard-constant source: the vendor witness uses independent
@@ -4372,20 +4413,35 @@ static void pack_bram_localize_const(Context *ctx)
             // branch below does for every other characterized control default -- removes the
             // ONLY signal downstream bitgen has that a write was ever intended: the emitted
             // image quietly comes out as the ROM control blob (write permanently off) no
-            // matter what the RTL asked for.  This exact shape (inferred BRAM write, constant
-            // tied write-enable, no live Port-B read) has never been silicon-qualified for the
-            // generic control-blob path -- refuse instead of guessing.  Route a dynamic
-            // write-enable, exercise Port-B read alongside it, or use a
-            // --qualified-bram-write profile for the individually qualified corridor.
+            // matter what the RTL asked for.  Refuse instead of guessing UNLESS the design's
+            // own read side is real at the proven x18 width (unconditional_write_admitted
+            // above): then it is exactly the board-proven bmd_rdw18_wt0/wt1 shape
+            // (AG32-Docs tools/vendor_witness/designs_open/, 39/39 direct-mode PASS,
+            // tools/rando_corpus/results/parity_20260925/) and a warning is enough.  Route a
+            // dynamic write-enable, exercise Port-B read alongside it, add a real read on
+            // this port, or use --qualified-bram-write for the individually qualified
+            // corridor.
             if (hardconst && is_write_enable && pr.second) {
-                log_error(
-                    "agrv2k: BRAM pin '%s' is tied to a constant 1 (an unconditional "
-                    "write-enable). The generic control-blob path has no silicon-qualified "
-                    "write-enabled default for this shape, so silently dropping it would fold "
-                    "the image to the read-only ROM control blob. Route a dynamic "
-                    "write-enable signal, pair the write with a live Port-B read, or use "
-                    "--qualified-bram-write.\n",
-                    pin_name.c_str());
+                if (unconditional_write_admitted) {
+                    log_warning(
+                        "agrv2k: BRAM pin '%s' is tied to a constant 1 (an unconditional "
+                        "write-enable), admitted because this x18 BRAM's own read side is "
+                        "real (DataOutA or DataOutB reaches a live consumer): routing it as "
+                        "a real per-pin driven constant instead of the ROM control-blob "
+                        "default. Board-proven shape: AG32-Docs tools/vendor_witness/"
+                        "designs_open/bmd_rdw18_wt0.v / bmd_rdw18_wt1.v (2026-09-25).\n",
+                        pin_name.c_str());
+                } else {
+                    log_error(
+                        "agrv2k: BRAM pin '%s' is tied to a constant 1 (an unconditional "
+                        "write-enable). The generic control-blob path has no silicon-qualified "
+                        "write-enabled default for this shape, so silently dropping it would fold "
+                        "the image to the read-only ROM control blob. Route a dynamic "
+                        "write-enable signal, pair the write with a live Port-B read, add a real "
+                        "read on this port at x18, or use "
+                        "--qualified-bram-write.\n",
+                        pin_name.c_str());
+                }
             }
             if (hardconst && !pr.second && (addr_a || addr_b || data_a || data_b) &&
                     !split_live_portb_address) {

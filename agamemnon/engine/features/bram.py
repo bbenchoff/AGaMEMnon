@@ -88,6 +88,64 @@ def narrow_write_board_proven(width, dual_port):
     """True iff an OPEN image at this PORTA_WIDTH and port mode passed the board oracle."""
     return (width, bool(dual_port)) in BOARD_PROVEN_NARROW_WRITES
 
+
+# 2026-09-25: generalized board-proven BRAM MODE evidence for the open flow,
+# covering width, port mode, OUTREG, WRITETHRU, PACKEDMODE and CLKMODE
+# together (item 4 of the BRAM-modes-default-on push) -- not just the Port-A
+# write-narrowness BOARD_PROVEN_NARROW_WRITES already covers above. Each
+# entry is (width_a, width_b, clkmode, outreg_a, outreg_b, writethru_a,
+# writethru_b, packedmode) for one board-witnessed PASSING open-flow image,
+# same RTL/default-command discipline as the vendor mode matrix
+# (AG32-Docs tools/vendor_witness/designs_open/bmd_*.v,
+# tools/rando_corpus/results/modes_20260925/).
+#
+# This is an EVIDENCE RECORD, not a new admission gate. OUTREG/WRITETHRU stay
+# default-on for every width/port combination on the strength of the vendor
+# config-bit encoding proof alone (BOARD_PROVEN_CONFIG_FIELDS in bram_emit.py)
+# even where this table below has no open-board row yet: that is a config-bit
+# claim (the emitted CFG_SELOUT_x/CFG_SEL_WRITHU_x bits, independent of
+# routing/placement/packing), not a per-mode open-flow-DELIVERY claim, so it
+# does not need one. Narrow Port-A writes and PACKEDMODE keep their own,
+# separate, already-mode-scoped gates (BOARD_PROVEN_NARROW_WRITES above,
+# AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG for PACKEDMODE) -- this table exists so
+# tests can pin the growing open-board-proven set and so it can be named
+# wherever a report or refusal wants the current proven list, without
+# widening (or narrowing) what those existing gates already admit.
+#
+# 2026-09-25 board session (tools/rando_corpus/results/modes_20260925/,
+# control PASS before and after): of 11 open images built by the default
+# command, 3 PASS at the exact heartbeat (recorded below), 8 RATE_FAIL
+# 0 edges. Two results need a flag for the record, not silent inclusion:
+# bmd_sp1_c10_o0 (x1 single-port, OUTREG=0) RATE_FAILed here even though it
+# is the cited PASS evidence for the x1-single-port row of
+# BOARD_PROVEN_NARROW_WRITES (2026-09-25 commit 7386886, from a worktree
+# before the intervening egress-table commits 3ddd22d/0278236) -- a possible
+# regression from those chipdb changes, or board flakiness; NOT retracted
+# here without its own re-verification, but not re-added to this table
+# either. bmd_byteen18_c10 RATE_FAILed reading the CONTROL's own rate
+# (2441-ish, not its 1220.7 expected), suggesting that image may not have
+# configured the fabric at all rather than a logic defect; also excluded
+# pending its own re-run. See AG32-Docs tools/vendor_parity/
+# BRAM_MODES_OPEN_20260925.md for the full per-mode table and verbatim
+# refusals/timeouts.
+BOARD_PROVEN_BRAM_MODES = frozenset((
+    # (width_a, width_b, clkmode, outreg_a, outreg_b, writethru_a, writethru_b, packedmode)
+    (0b01100, 0b01100, 0b00, 0, 0, 0, 0, 0),  # bmd_sdp4_4_c00: x4 write A / read B, PASS
+    (0b01100, 0b01100, 0b10, 0, 0, 0, 0, 0),  # bmd_tdp4_c10: x4 true dual port, PASS
+    (0b01111, 0b01111, 0b10, 1, 0, 0, 0, 0),  # bmd_sp1_c10_o1: x1 single port, OUTREG=1, PASS
+))
+
+
+def bram_mode_board_proven(width_a, width_b, clkmode, outreg_a, outreg_b,
+                           writethru_a, writethru_b, packedmode):
+    """True iff this exact (width, port, OUTREG, WRITETHRU, PACKEDMODE,
+    CLKMODE) combination has an open-flow board PASS on record
+    (BOARD_PROVEN_BRAM_MODES). Informational/test-pinning only -- see the
+    module note above; no caller currently gates emission on this."""
+    return (int(width_a), int(width_b), int(clkmode), int(bool(outreg_a)),
+            int(bool(outreg_b)), int(bool(writethru_a)), int(bool(writethru_b)),
+            int(bool(packedmode))) in BOARD_PROVEN_BRAM_MODES
+
 # Address-selected write windows per narrow PORTA_WIDTH code: (logical width W,
 # physical lane bases). The vendor alta_bram9k write mask selects a W-lane window
 # by block address, shift = blk[hi:lo]*W + blk[3]; the +blk[3] offset skips
@@ -835,7 +893,19 @@ class BramFeature:
                     and not options.enabled("AGAMEMNON_RESEARCH_UNSAFE")):
                 raise SystemExit(narrow_write_refusal(width, narrow_write_on, portb_read))
             experimental_enabled = options.enabled("AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG")
-            if experimental_enabled:
+            # PORTx_OUTREG / PORTx_WRITETHRU are on by default since 2026-09-25
+            # (see bram_emit.BOARD_PROVEN_CONFIG_FIELDS): the vendor mode-bit
+            # measurement plus board PASS on every vendor mode image exercising
+            # them makes this a config-bit claim, not an open-flow behavior
+            # claim, so it does not need AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG.
+            # AGAMEMNON_NO_BRAM_OUTREG_WRITETHRU restores the old fail-closed
+            # (experimental-flag-gated) behavior for these four fields only.
+            outreg_writethru_on = not options.enabled("AGAMEMNON_NO_BRAM_OUTREG_WRITETHRU")
+            board_proven_requested = any(
+                _param_int(parameters, name, 0)
+                for name in bram_emit.BOARD_PROVEN_CONFIG_FIELDS
+            )
+            if experimental_enabled or (board_proven_requested and outreg_writethru_on):
                 if options.raw("AGAMEMNON_DEVICE") != "AGRV2KL48":
                     raise ValueError(
                         "experimental BRAM config is scoped to AGRV2KL48/L48"
@@ -857,6 +927,7 @@ class BramFeature:
                 x, y, width, clock_mode, init_value, enables, width_b=width_b,
                 experimental=experimental,
                 allow_experimental=experimental_enabled,
+                allow_board_proven=outreg_writethru_on,
             ))
             # Per-byte write-enable (ByteEnA): honour a constant-0 (gnd) ByteEnA lane by emitting the
             # board-proven CFG_KMUX pos-8 gnd tie so that byte's writes are masked.  The intent is
@@ -879,7 +950,7 @@ class BramFeature:
                 state.sets.extend(ties)
                 state.clears.extend(ties)
             state.clears.extend(bram_emit.owned_surface(
-                x, y, experimental=experimental_enabled
+                x, y, experimental=experimental_enabled, board_proven=outreg_writethru_on
             ))
             state.cells.append((x, y, width, width_b, clock_mode))
 
