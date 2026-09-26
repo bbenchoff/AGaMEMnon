@@ -151,6 +151,7 @@ jobs:
           path: |
             ${{ runner.temp }}/sdk-build-temporary/
             ${{ runner.temp }}/SDK smoke ü path/bram-source-to-route.*
+            ${{ runner.temp }}/SDK smoke ü path/doctor.*
             ${{ runner.temp }}/SDK smoke ü path/projects/
             ${{ runner.temp }}/agamemnon-sdk-linux-x64.tar.gz.sha256
 
@@ -285,6 +286,7 @@ jobs:
           path: |
             ${{ runner.temp }}/sdk-build-temporary/
             ${{ runner.temp }}/SDK smoke ü path/bram-source-to-route.*
+            ${{ runner.temp }}/SDK smoke ü path/doctor.*
             ${{ runner.temp }}/SDK smoke ü path/projects/
             ${{ runner.temp }}/agamemnon-sdk-windows-x64.zip.sha256
 

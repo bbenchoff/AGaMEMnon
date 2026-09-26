@@ -92,16 +92,21 @@ def executable(root, relative):
     raise RuntimeError(f"bundle executable missing: {plain}[.exe]")
 
 
-def run(command, cwd=None, env=None, capture=False):
+def run(command, cwd=None, env=None, capture=False, record=None):
     print("+ " + " ".join(str(item) for item in command))
-    return subprocess.run(
+    result = subprocess.run(
         [str(item) for item in command],
         cwd=cwd,
         env=env,
-        check=True,
+        check=False,
         text=True,
-        capture_output=capture,
+        capture_output=capture or record is not None,
     )
+    if record is not None:
+        Path(str(record) + ".stdout").write_text(result.stdout, encoding="utf-8")
+        Path(str(record) + ".stderr").write_text(result.stderr, encoding="utf-8")
+    result.check_returncode()
+    return result
 
 
 def smoke(bundle, workspace, python=sys.executable, build_temp=None):
@@ -150,7 +155,7 @@ def smoke(bundle, workspace, python=sys.executable, build_temp=None):
 
     doctor = run(
         cli + ["doctor", "--no-hardware", "--json"],
-        cwd=workspace, env=env, capture=True,
+        cwd=workspace, env=env, capture=True, record=workspace / "doctor",
     )
     report = json.loads(doctor.stdout)
     missing = [

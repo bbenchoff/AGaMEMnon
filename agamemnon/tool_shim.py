@@ -5,8 +5,16 @@ from __future__ import annotations
 import hashlib
 import os
 from pathlib import Path
+import shlex
 import shutil
 import tempfile
+
+
+def split_tool_command(value):
+    """Accept a literal tool filename or an explicitly quoted command string."""
+    if Path(value).is_file():
+        return [value]
+    return shlex.split(value, posix=os.name != "nt")
 
 
 def _sha256(path):

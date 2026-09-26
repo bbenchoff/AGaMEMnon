@@ -22,12 +22,23 @@ from tools.bundle.build_bundle import (
     validate_release_inputs,
     validate_wheel,
 )
-from tools.bundle.smoke_archive import extract_archive, verify_sidecar
+from tools.bundle.smoke_archive import extract_archive, verify_sidecar, run as smoke_run
 from tools.bundle.verify_release_set import verify as verify_release_set
 from tools.bundle.fetch_tools import extract as extract_tool_archive
 from tools.bundle.openocd_audit import classify_dap_probe, validate_corresponding_source
-from agamemnon.tool_shim import stage_windows_directory, stage_windows_executable
+from agamemnon.tool_shim import stage_windows_directory, stage_windows_executable, split_tool_command
 from tools.openocd import release as openocd_release
+
+
+def test_failed_smoke_command_preserves_diagnostic_output(tmp_path):
+    record = tmp_path / "doctor"
+    with pytest.raises(subprocess.CalledProcessError) as error:
+        smoke_run([sys.executable, "-c",
+                   "import sys; print('not ready'); print('reason', file=sys.stderr); sys.exit(7)"],
+                  record=record)
+    assert error.value.returncode == 7
+    assert (tmp_path / "doctor.stdout").read_text() == "not ready\n"
+    assert (tmp_path / "doctor.stderr").read_text() == "reason\n"
 
 
 def test_package_workspace_uses_real_temp_parent_and_still_rejects_aliases(tmp_path, monkeypatch):
@@ -215,9 +226,19 @@ def test_windows_native_tool_data_stages_from_non_ascii_path(tmp_path, monkeypat
     assert (staged / "prims.v").read_bytes() == (source / "prims.v").read_bytes()
 
 
-def test_uarch_cli_preserves_a_literal_windows_tool_path_with_spaces():
-    source = (ROOT / "agamemnon" / "cli.py").read_text(encoding="utf-8")
-    assert 'os.name == "nt" and os.path.isfile(unpr)' in source
+def test_native_tool_command_preserves_literal_path_and_wrapper_arguments(tmp_path):
+    tool = tmp_path / "SDK ü path" / "nextpnr-generic"
+    tool.parent.mkdir()
+    tool.write_bytes(b"native executable fixture")
+    assert split_tool_command(str(tool)) == [str(tool)]
+    assert split_tool_command("wsl --exec nextpnr-generic") == [
+        "wsl", "--exec", "nextpnr-generic"]
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX command quoting")
+def test_native_tool_command_accepts_quoted_path_with_arguments():
+    assert split_tool_command("'/sdk path/nextpnr-generic' --debug") == [
+        "/sdk path/nextpnr-generic", "--debug"]
 
 
 def test_yosys_tcl_file_is_a_process_argument_not_an_embedded_path():
