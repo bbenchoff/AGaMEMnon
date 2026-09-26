@@ -109,10 +109,21 @@ def test_original_source_keeps_its_other_consumer(tmp_path):
     assert address_origin(packed, packed['cells']['ram']['connections']['AddressA'][5]) == ('mcu_haddr7', 2)
 
 
-def test_default_joint_allocator_negotiates_independent_generic_branches(tmp_path):
-    proc, transcript, packed = run(tmp_path, design((5, 9, 11), explicit=True))
+def test_opt_in_joint_allocator_negotiates_independent_generic_branches(tmp_path):
+    proc, transcript, packed = run(tmp_path, design((5, 9, 11), explicit=True),
+                                   AGRV2K_BRAM_GENERIC_LOCK='1', AGRV2K_TRACE_BRAM_CORRIDORS='1')
     assert proc.returncode == 0, transcript
-    assert 'evicted generic BRAM AddressA[5]' in transcript
+    assert_negotiated_address_paths(transcript)
+
+
+def assert_negotiated_address_paths(transcript):
+    # The expanded graph can negotiate by an expanded search without ripping
+    # AddressA[5]. Require negotiation and verified connected terminal paths.
+    assert ('evicted generic BRAM' in transcript or any(
+        'jointly pre-routed AddressA[9]' in line and '(expanded search)' in line
+        for line in transcript.splitlines())), transcript
+    for bit in (5, 9, 11):
+        assert f'BRAM trace verified AddressA[{bit}] ' in transcript
 
 
 def assert_shared_address_consumers_preserved(packed, memory='ram'):
@@ -128,9 +139,10 @@ def test_joint_allocator_preserves_consumers_when_rerouting_shared_branch(tmp_pa
     # Complete recorded-tree negotiation (4878c2e) supersedes the earlier
     # blanket shared-net refusal. Keep checking the actual source identities.
     proc, transcript, packed = run(tmp_path, design((5, 9, 11), explicit=True, shared=5),
+                                   AGRV2K_BRAM_GENERIC_LOCK='1',
                                    AGRV2K_TRACE_BRAM_CORRIDORS='1')
     assert proc.returncode == 0, transcript
-    assert 'evicted generic BRAM AddressA[5] to free AddressA[9]' in transcript
+    assert_negotiated_address_paths(transcript)
     assert_shared_address_consumers_preserved(packed)
     for bit in (5, 9, 11):
         assert f'BRAM trace verified AddressA[{bit}] ' in transcript
@@ -138,12 +150,14 @@ def test_joint_allocator_preserves_consumers_when_rerouting_shared_branch(tmp_pa
 
 def test_shared_branch_contention_still_refuses_without_joint_negotiation(tmp_path):
     proc, transcript, packed = run(tmp_path, design((5, 9, 11), explicit=True, shared=5),
+                                   AGRV2K_BRAM_GENERIC_LOCK='1',
                                    AGRV2K_NO_BRAM_JOINT='1')
     assert proc.returncode > 0 and 'no simultaneous strict-graph' in transcript
     assert packed is None
 
 
 def test_bridge_bisection_switch_preserves_old_refusal(tmp_path):
-    proc, transcript, packed = run(tmp_path, design((5,)), AGRV2K_NO_BRAM_AUTOBRIDGE='1')
+    proc, transcript, packed = run(tmp_path, design((5,)), AGRV2K_NO_BRAM_AUTOBRIDGE='1',
+                                   AGRV2K_BRAM_GENERIC_LOCK='1')
     assert proc.returncode > 0 and 'no simultaneous strict-graph' in transcript
     assert packed is None
