@@ -75,12 +75,12 @@ def test_uarch_loader_runs_before_the_dev_pips_csv_pip_loop():
         "load_congestion_marginal_wire_pairs() must run before dev_pips.csv is parsed")
 
 
-def test_penalty_env_var_is_large_but_finite_by_default():
+def test_penalty_preserves_ordinary_costs_by_default():
     src = _uarch_source()
     fn_idx = src.index("static double congestion_marginal_penalty_ns()")
     fn_src = src[fn_idx:fn_idx + 700]
     assert "AGRV2K_CONGESTION_PENALTY_NS" in fn_src
-    assert "return 25.0;" in fn_src, "default penalty must be a concrete finite value"
+    assert "return 0.0;" in fn_src, "default routing must preserve the qualified ordinary costs"
     # An explicit escape hatch to fall back to the ordinary witnessed delay (0 == off), and a
     # fail-closed guard against a negative value (which would make the pip artificially CHEAP).
     assert "if (v < 0.0)" in fn_src

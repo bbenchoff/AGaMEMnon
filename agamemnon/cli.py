@@ -2365,8 +2365,9 @@ def _tile_compaction_fallback_allowed(automatic, records):
         return False
     summary = _attempt_ladder.summarize_ladder(records)
     return bool(summary and not summary.succeeded and summary.signature_counts and
-                all(record.outcome == _attempt_ladder.NOT_ROUTED for record in records) and
-                all(sig.kind in {"PLACEMENT", "ARC_FAILURE"}
+                all(record.outcome in {_attempt_ladder.NOT_ROUTED,
+                                       _attempt_ladder.ROUTED_UNSAFE} for record in records) and
+                all(sig.kind in {"PLACEMENT", "ARC_FAILURE", "ROUTE_SAFETY"}
                     for sig, _ in summary.signature_counts))
 
 
@@ -3935,6 +3936,26 @@ def _cmd_build_once(a):
                     outcome = _attempt_ladder.TIMING_FAILED
                 else:
                     outcome = _attempt_ladder.NOT_ROUTED
+                # A completed route is only a candidate. Known unsafe feeder
+                # choices can change with placement, so reject this candidate
+                # before recording success and continue the bounded ladder.
+                # Keep the independent pre-emission check for every backend.
+                post_snapshot = None
+                if outcome == _attempt_ladder.SUCCESS:
+                    try:
+                        post_snapshot = special_routes.load_validated_routed_json(
+                            routed_json, "post-nextpnr", chipdb_root=data,
+                            environ=env, devdb=uarch_devdb)
+                    except special_routes.SpecialRouteError as exc:
+                        print("error: typed special-route post-nextpnr validation failed: %s" % exc)
+                        sys.exit(1)
+                    try:
+                        validate_document_congestion_marginal(post_snapshot.document, data)
+                    except CongestionMarginalError as exc:
+                        outcome = _attempt_ladder.ROUTED_UNSAFE
+                        diagnostic = "[build] rejecting unsafe route candidate: %s" % exc
+                        print(diagnostic)
+                        rlog += "\n" + diagnostic + "\n"
                 record = _attempt_ladder.AttemptRecord(attempt_no, cap, seed, fo, outcome, rlog)
                 attempt_records.append(record)
                 _attempt_ladder.write_attempt_log(attempts_dir, record)
@@ -4030,13 +4051,6 @@ def _cmd_build_once(a):
                     sys.exit(1)
                 if outcome == _attempt_ladder.SUCCESS:
                     try:
-                        post_snapshot = special_routes.load_validated_routed_json(
-                            routed_json, "post-nextpnr", chipdb_root=data,
-                            environ=env, devdb=uarch_devdb)
-                    except special_routes.SpecialRouteError as exc:
-                        print("error: typed special-route post-nextpnr validation failed: %s" % exc)
-                        sys.exit(1)
-                    try:
                         _validate_carry_document(
                             post_snapshot.document, "post-nextpnr")
                     except CarryValidationError as exc:
@@ -4063,11 +4077,11 @@ def _cmd_build_once(a):
                     if no_fmax_available and require_timing_path:
                         break
                 if not ladder_futile and seed_index + 1 < len(placement_seeds):
-                    print("[build]   did not route; retrying deterministic seed")
+                    print("[build]   no safe route met the target; retrying deterministic seed")
             if log is not None or ladder_futile or (no_fmax_available and require_timing_path):
                 break
             if attempt + 1 < len(attempts):
-                print("[build]   did not route; escalating")
+                print("[build]   no safe route met the target; escalating")
         os.remove(pristine)
         if log is None:
             if (getattr(a, "_control_sharing_candidate", False) and

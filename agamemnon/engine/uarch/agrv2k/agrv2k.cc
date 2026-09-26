@@ -15331,17 +15331,15 @@ struct AgrvImpl : ViaductAPI
     // AGRV2K_CONGESTION_PENALTY_NS overrides the router-avoidance delay charged to every pip in
     // congestion_marginal_edges.csv; 0 disables the penalty entirely (the pip keeps its ordinary
     // witnessed delay, and only the post-route agamemnon.engine.features.placement_congestion
-    // refusal remains). Unset defaults to a large-but-FINITE penalty, chosen relative to the
-    // witnessed RMUX/IMUX family means (~0.3-0.4 ns; AG32-Docs memory
-    // ag32-timing-model-state-and-calibration-2026-09-16): big enough that router2's timing-driven
-    // cost strongly prefers any other legal feeder into the same terminal, small enough that a
-    // design with genuinely no alternative can still route through it (and hit the post-route
-    // refusal as the honest last resort, rather than nextpnr failing to route at all).
+    // refusal remains). Preserve ordinary costs by default: a global 25 ns penalty changes
+    // otherwise working routes and regressed the SERV hardware example. The build driver
+    // rejects unsafe candidates and retries placement before accepting a routed image.
+    // Positive penalties remain available for controlled routing experiments.
     static double congestion_marginal_penalty_ns()
     {
         const char *e = std::getenv("AGRV2K_CONGESTION_PENALTY_NS");
         if (e == nullptr || *e == '\0')
-            return 25.0;
+            return 0.0;
         double v = to_double(e, -1.0);
         if (v < 0.0)
             log_error("agrv2k: AGRV2K_CONGESTION_PENALTY_NS must be >= 0\n");

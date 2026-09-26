@@ -41,6 +41,7 @@ from . import router2_diagnostics as _router2_diag
 # Outcome tags recorded per attempt. ABORTED and NONRETRYABLE are fatal for the whole build (the
 # caller exits immediately after recording them) but are still logged to disk for post-mortem.
 SUCCESS = "ROUTED"
+ROUTED_UNSAFE = "ROUTED_UNSAFE"
 TIMING_FAILED = "ROUTED_TIMING_FAILED"
 NOT_ROUTED = "NOT_ROUTED"
 ABORTED = "ABORTED"
@@ -114,6 +115,9 @@ def _signature_for(record: AttemptRecord) -> Optional[Signature]:
     """The terminal failure signature for one non-successful attempt, or ``None`` if it routed."""
     if record.outcome == SUCCESS:
         return None
+    if record.outcome == ROUTED_UNSAFE:
+        return Signature("ROUTE_SAFETY", "CONGESTION_MARGINAL",
+                         "routed through a known unsafe congestion-marginal pip")
     if record.outcome == ABORTED:
         return Signature("ABORTED", "ABORTED", "nextpnr aborted (assertion/exception)")
     if record.outcome == NONRETRYABLE:
