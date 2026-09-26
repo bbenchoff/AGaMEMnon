@@ -56,13 +56,13 @@ EXPECTED_CATALOG_SHA256 = (
 # silicon-witnessed slices of omux3z_presentation_evidence.csv); nothing else changes, and
 # AGAMEMNON_NO_OMUX_PRESENT0 reproduces the predecessor byte-for-byte
 # (PRE_OMUX_PRESENTATION_PHYSICAL_GRAPHS below).
-EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 319684
+EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 319652
 EXPECTED_PHYSICAL_GRAPH_SHA256 = (
-    "4d8aef4018a09e7d969efcb32e7af86b8a31ba08f5212a42b7c73862623938d5"
+    "3e2e0e69b1ec157311bf3c223bfa9d9969bfb34c37828cc605c1055fc3fa9ecd"
 )
-EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 332293
+EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 330884
 EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
-    "0497133f0f0f2319bc83bcff5b17b1883763ca4db82906537f3cfccf9fa08057"
+    "3bc835a4b4d67d8abf4b561e1dd7db94428b251ba2ad3b6e684f2d06ea33b511"
 )
 # The native-control graph contributes the finite, reviewed shared-control
 # topology.  It is a separate graph profile: accepting it by changing the base
@@ -70,14 +70,22 @@ EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
 # graph authority.
 EXPECTED_SHARED_CONTROL_PHYSICAL_GRAPHS = {
     "release-strict": (
-        320757,
-        "799d5c64d1ed3542fdbcfad6ea3b0a942399753ffba23cb56c6cef6e3754a95f",
+        320725,
+        "021a7f6ab6c7c8ea3168cb97548110f0937a231d7cf39953ea1f6cec440ba119",
     ),
     "tiered": (
-        333366,
-        "d9d8308cc30c1b900c40db751125f40cb1df764d719ef4f8b12e8927073b881a",
+        331957,
+        "2ed6ee85a0433226c3cef9f4918243a95c13b33fb2089316f2e56442ca7acb43",
     ),
 }
+# Exact predecessors before coordinate-specific selector identity checks.
+PRE_SELECTOR_IDENTITY_PHYSICAL_GRAPHS = {'0': {'release-strict': (319684,
+                          '4d8aef4018a09e7d969efcb32e7af86b8a31ba08f5212a42b7c73862623938d5'),
+       'tiered': (332293, '0497133f0f0f2319bc83bcff5b17b1883763ca4db82906537f3cfccf9fa08057')},
+ '1': {'release-strict': (320757,
+                          '799d5c64d1ed3542fdbcfad6ea3b0a942399753ffba23cb56c6cef6e3754a95f'),
+       'tiered': (333366, 'd9d8308cc30c1b900c40db751125f40cb1df764d719ef4f8b12e8927073b881a')}}
+
 # Exact graph predecessors before the two FIFO selector translations were withdrawn.
 PRE_FIFO_POLICY_PHYSICAL_GRAPHS = {'0': {'release-strict': (319691, 'f902447a69c30ce38a3f493bc8bd478d89dd24210b7f3e667097a2c48e35cd6b'), 'tiered': (332417, 'd487a746575ce9a45f94c03021185db5aedf85ccd37ace46300e5cc915ac65bf')}, '1': {'release-strict': (320764, '05b1ba72dd9df2a45996e8761e58046c89fb1c30b8261b7211729d8879665da1'), 'tiered': (333490, '809b00c1b9c8c083e6e3625d853bbcc833675b798fc8d9dfc590c5cc5a4d4602')}}
 
@@ -921,6 +929,9 @@ def _validated_devdb(devdb, chipdb_root=None):
             if (graph_pip_count, graph_pips_sha256) == historical:
                 expected_pip_count, expected_pips_sha256 = historical
             historical = PRE_SERV_ADDR_REGRESSION_20260925_PHYSICAL_GRAPHS[shared_control_graph][admission]
+            if (graph_pip_count, graph_pips_sha256) == historical:
+                expected_pip_count, expected_pips_sha256 = historical
+            historical = PRE_SELECTOR_IDENTITY_PHYSICAL_GRAPHS[shared_control_graph][admission]
             if (graph_pip_count, graph_pips_sha256) == historical:
                 expected_pip_count, expected_pips_sha256 = historical
             historical = PRE_FIFO_POLICY_PHYSICAL_GRAPHS[shared_control_graph][admission]
