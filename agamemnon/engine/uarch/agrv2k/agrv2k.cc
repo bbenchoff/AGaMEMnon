@@ -1528,7 +1528,9 @@ static RegisterInputRequirement register_input_requirement(Context *ctx, const C
     } else if (result.mode == RegisterInputMode::CARRY_SUM_TO_FF) {
         if (!carry_shape || tagged_pad || tagged_direct || tagged_qin)
             reject("requires only the dedicated carry resource shape");
-        else if (!port_has_net(ctx, cell, "I[3]"))
+        else if (!port_has_net(ctx, cell, "I[3]") &&
+                 !(cell->attrs.count(ctx->id("AGRV2K_CARRY_D_DEFAULT_HIGH")) &&
+                   cell->attrs.at(ctx->id("AGRV2K_CARRY_D_DEFAULT_HIGH")).as_string() == "IMUX_UNSELECTED_HIGH_V1"))
             reject("requires the carry I[3] sum selector");
     } else if (result.mode == RegisterInputMode::LUT_COMPUTE_TO_FF) {
         if (special_shapes != 0)
@@ -2554,6 +2556,15 @@ static void pack_io(Context *ctx)
 // D=I[3] must be 1, so tie it to a shared VCC slice; I[2] is unused (pinC comes from the Cin hardware).
 static void pack_carries(Context *ctx)
 {
+    // Experimental worktree only: no default or release qualification yet.
+    const char *d_option = std::getenv("AGRV2K_CARRY_D_DEFAULT_HIGH");
+    const bool d_default_high = d_option && std::string(d_option) == "1";
+    if (d_option && std::string(d_option) != "0" && !d_default_high)
+        log_error("agrv2k: AGRV2K_CARRY_D_DEFAULT_HIGH must be 0 or 1\n");
+    const char *a_option = std::getenv("AGRV2K_CARRY_A_Q_FEEDBACK");
+    const bool a_feedback = a_option && std::string(a_option) == "1";
+    if (a_option && std::string(a_option) != "0" && !a_feedback)
+        log_error("agrv2k: AGRV2K_CARRY_A_Q_FEEDBACK must be 0 or 1\n");
     IdString fa_type = ctx->id("AG32_FA");
     IdString cin_port = ctx->id("CIN");
     IdString cout_port = ctx->id("COUT");
@@ -2974,7 +2985,10 @@ static void pack_carries(Context *ctx)
             ci->disconnectPort(ctx->id("CIN"));
         }
         ci->movePortTo(ctx->id("COUT"), lc.get(), ctx->id("COUT"));
-        lc->connectPort(ctx->id("I[3]"), vcc_net); // D=1 (selects the sum half; inherent, must be routed)
+        if (d_default_high)
+            lc->attrs[ctx->id("AGRV2K_CARRY_D_DEFAULT_HIGH")] = Property("IMUX_UNSELECTED_HIGH_V1");
+        else
+            lc->connectPort(ctx->id("I[3]"), vcc_net);
 
         // fuse the DFF the SUM drives (reset-free counter: SUM -> DFF.D directly), else comb F=SUM
         NetInfo *sum = ci->ports.at(ctx->id("SUM")).net;
@@ -2987,7 +3001,12 @@ static void pack_carries(Context *ctx)
             ctx->nets.erase(sum->name); // internal LUT->FF net; F stays unconnected
             packed_cells.insert(dff->name);
             ++n_ffused;
+            if (a_feedback && lc->getPort(ctx->id("Q")) != nullptr &&
+                lc->getPort(ctx->id("Q")) == lc->getPort(ctx->id("I[0]")))
+                lc->attrs[ctx->id("AGRV2K_CARRY_A_Q_FEEDBACK")] = Property("LOCAL_PRESENTATION_V1");
         } else {
+            if (d_default_high)
+                log_error("agrv2k: experimental carry D default requires registered arithmetic members\n");
             lc->params[ctx->id("FF_USED")] = 0;
             set_register_input_mode(ctx, lc.get(), RegisterInputMode::NONE);
             ci->movePortTo(ctx->id("SUM"), lc.get(), ctx->id("F"));
@@ -3004,6 +3023,8 @@ static void pack_carries(Context *ctx)
     for (CarryChain &chain : chains) {
         if (!chain.export_cout)
             continue;
+        if (d_default_high)
+            log_error("agrv2k: experimental carry D default does not admit fabric carry export\n");
         CellInfo *tail = packed_fa.at(chain.fa.back());
         const std::string export_base = tail->name.str(ctx) + "_EXPORT";
         std::string export_name = export_base;
@@ -3045,14 +3066,20 @@ static void pack_carries(Context *ctx)
         ctx->cells[seed.cell->name] = std::move(seed.cell);
         ctx->nets[seed.net->name] = std::move(seed.net);
     }
-    ctx->cells[vcc_cell->name] = std::move(vcc_cell);
-    ctx->nets[vcc_net_uptr->name] = std::move(vcc_net_uptr);
+    if (!d_default_high) {
+        ctx->cells[vcc_cell->name] = std::move(vcc_cell);
+        ctx->nets[vcc_net_uptr->name] = std::move(vcc_net_uptr);
+    }
     for (auto pc : packed_cells)
         ctx->cells.erase(pc);
     for (auto &nc : new_cells)
         ctx->cells[nc->name] = std::move(nc);
-    log_info("  fused %ld AG32_FA carry slices (%ld registered) + %ld seed(s) + shared VCC\n",
-             n_fa, n_ffused, long(seeds.size()));
+    if (d_default_high)
+        log_info("  fused %ld AG32_FA carry slices (%ld registered) + %ld seed(s), experimental D default\n",
+                 n_fa, n_ffused, long(seeds.size()));
+    else
+        log_info("  fused %ld AG32_FA carry slices (%ld registered) + %ld seed(s) + shared VCC\n",
+                 n_fa, n_ffused, long(seeds.size()));
 
     // ---- constructive placement: each logical chain is now an independent
     // relative cluster. This preserves its exact qualified internal geometry
@@ -9246,6 +9273,7 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
 
 struct AgrvImpl : ViaductAPI
 {
+    pool<WireId> carry_d_default_high_wires;
     std::string chipdb;
     ViaductHelpers h;
     dict<IdString, WireId> wire_by_name;
@@ -16620,6 +16648,20 @@ struct AgrvImpl : ViaductAPI
 
     void preRoute() override
     {
+        carry_d_default_high_wires.clear();
+        for (auto &entry : ctx->cells) {
+            CellInfo *cell = entry.second.get();
+            if (!cell->attrs.count(ctx->id("AGRV2K_CARRY_D_DEFAULT_HIGH"))) continue;
+            if (cell->attrs.at(ctx->id("AGRV2K_CARRY_D_DEFAULT_HIGH")).as_string() != "IMUX_UNSELECTED_HIGH_V1" ||
+                !cell->ports.count(ctx->id("CIN")) || !cell->ports.count(ctx->id("COUT")) ||
+                int_or_default(cell->params, ctx->id("FF_USED"), 0) != 1 ||
+                port_has_net(ctx, cell, "I[3]") || cell->bel == BelId())
+                log_error("agrv2k: malformed experimental carry D default on %s\n", ctx->nameOf(cell));
+            WireId wire = ctx->getBelPinWire(cell->bel, ctx->id("I[3]"));
+            if (wire == WireId() || ctx->getBoundWireNet(wire) != nullptr)
+                log_error("agrv2k: experimental carry D selector is missing or already driven\n");
+            carry_d_default_high_wires.insert(wire);
+        }
         reserve_required_routes(true);
         audit_mcu_endpoint_routes("pre-route import", false);
         refresh_mcu_endpoint_owner("pre-route", true, true);
@@ -16771,6 +16813,9 @@ struct AgrvImpl : ViaductAPI
     // the fix a dense hardware-carry cell needs, since it can't use the Qin internal path (pinC=Cin).
     bool checkPipAvail(PipId pip) const override
     {
+        if (carry_d_default_high_wires.count(ctx->getPipSrcWire(pip)) ||
+            carry_d_default_high_wires.count(ctx->getPipDstWire(pip)))
+            return false;
         if (std::getenv("AGRV2K_NO_FBBRIDGE") == nullptr)
             return true;
         std::string s = ctx->getWireName(ctx->getPipSrcWire(pip)).str(ctx);

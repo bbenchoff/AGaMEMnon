@@ -149,6 +149,11 @@ def requirement_for_cell(cell_name, cell, live_bits):
     q = _port_bit(cell, "Q", live_bits)
     f = _port_bit(cell, "F", live_bits)
     inputs = [_port_bit(cell, "I[%d]" % index, live_bits) for index in range(4)]
+    d_default = attrs.get("AGRV2K_CARRY_D_DEFAULT_HIGH")
+    if d_default is not None and (
+            d_default != "IMUX_UNSELECTED_HIGH_V1" or not carry_shape or
+            "CIN" not in connections or ff_used != 1 or inputs[3] is not None):
+        _reject(cell_name, mode, "malformed experimental carry D default")
 
     if mode == "NONE":
         if ff_used != 0:
@@ -214,7 +219,7 @@ def requirement_for_cell(cell_name, cell, live_bits):
     elif mode == "CARRY_SUM_TO_FF":
         if not carry_shape or tagged_pad or tagged_direct or tagged_qin:
             _reject(cell_name, mode, "requires only the dedicated carry resource shape")
-        if inputs[3] is None:
+        if inputs[3] is None and d_default is None:
             _reject(cell_name, mode, "requires the carry I[3] sum selector")
     elif mode == "LUT_COMPUTE_TO_FF":
         if tagged_pad or tagged_direct or tagged_qin or carry_shape:

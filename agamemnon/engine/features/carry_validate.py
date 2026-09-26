@@ -471,6 +471,8 @@ def validate_routed_carry(module):
         _reject("top module cells is not a mapping")
 
     raw_carry = {}
+    default_high_cells = set()
+    default_high_wires = set()
     occupied = {}
     live_bits = _live_integer_bits(module)
     for name, cell in cells.items():
@@ -479,6 +481,14 @@ def validate_routed_carry(module):
         connections = cell.get("connections") or {}
         has_cin = "CIN" in connections
         has_cout = "COUT" in connections
+        d_default = (cell.get("attributes") or {}).get("AGRV2K_CARRY_D_DEFAULT_HIGH")
+        a_feedback = (cell.get("attributes") or {}).get("AGRV2K_CARRY_A_Q_FEEDBACK")
+        if a_feedback is not None and (
+                a_feedback != "LOCAL_PRESENTATION_V1" or not has_cin or not has_cout):
+            _reject("cell %r has malformed experimental carry A feedback" % name)
+        if d_default is not None and (
+                d_default != "IMUX_UNSELECTED_HIGH_V1" or not has_cin or not has_cout):
+            _reject("cell %r has malformed experimental carry D default" % name)
         if not (has_cin or has_cout):
             continue
         if cell.get("type") != "GENERIC_SLICE":
@@ -529,6 +539,11 @@ def validate_routed_carry(module):
                 _reject("carry member %r requires exactly four serialized I pins" % name)
             if (not isinstance(inputs[3], int) or isinstance(inputs[3], bool)):
                 _reject("carry member %r lacks its ordinary I[3] D source" % name)
+            if d_default is not None:
+                if inputs[3] in live_bits or ff_used != 1:
+                    _reject("experimental carry D default requires an undriven registered member")
+                default_high_cells.add(name)
+                default_high_wires.add("X%dY%d_IMUX%02d" % (site.x, site.y, 4 * site.z + 3))
             if ff_used:
                 _integer_bit(connections.get("Q"), "registered carry cell %r Q" % name)
                 _integer_bit(connections.get("CLK"), "registered carry cell %r CLK" % name)
@@ -643,22 +658,26 @@ def validate_routed_carry(module):
         item.cell["connections"]["I"][3]
         for item in raw_carry.values() if item.cin is not None
     }
-    if len(d_bits) != 1:
-        _reject("carry members do not share exactly one ordinary I[3] D source")
-    d_bit = next(iter(d_bits))
-    d_drivers = drivers.get(d_bit, [])
-    if len(d_drivers) != 1 or d_drivers[0][0] != "cell":
-        _reject("carry I[3] D source lacks one ordinary cell driver")
-    _kind, d_name, d_port = d_drivers[0]
-    d_cell = cells.get(d_name, {})
-    d_connections = d_cell.get("connections") or {}
-    if (d_name in raw_carry or d_cell.get("type") != "GENERIC_SLICE" or
-            d_port != "F" or "CIN" in d_connections or "COUT" in d_connections):
-        _reject("carry I[3] D source is not one ordinary GENERIC_SLICE.F")
-    if (_parameter(d_cell, "K") != 4 or _parameter(d_cell, "FF_USED") != 0 or
-            _parameter(d_cell, "INIT") != 0xFFFF or
-            _bits(d_connections.get("F")) != (d_bit,)):
-        _reject("carry I[3] D source is not the exact ordinary VCC shape")
+    if default_high_cells:
+        if default_high_cells != {item.name for item in raw_carry.values() if item.cin is not None}:
+            _reject("mixed ordinary and experimental carry D sources")
+    else:
+        if len(d_bits) != 1:
+            _reject("carry members do not share exactly one ordinary I[3] D source")
+        d_bit = next(iter(d_bits))
+        d_drivers = drivers.get(d_bit, [])
+        if len(d_drivers) != 1 or d_drivers[0][0] != "cell":
+            _reject("carry I[3] D source lacks one ordinary cell driver")
+        _kind, d_name, d_port = d_drivers[0]
+        d_cell = cells.get(d_name, {})
+        d_connections = d_cell.get("connections") or {}
+        if (d_name in raw_carry or d_cell.get("type") != "GENERIC_SLICE" or
+                d_port != "F" or "CIN" in d_connections or "COUT" in d_connections):
+            _reject("carry I[3] D source is not one ordinary GENERIC_SLICE.F")
+        if (_parameter(d_cell, "K") != 4 or _parameter(d_cell, "FF_USED") != 0 or
+                _parameter(d_cell, "INIT") != 0xFFFF or
+                _bits(d_connections.get("F")) != (d_bit,)):
+            _reject("carry I[3] D source is not the exact ordinary VCC shape")
 
     for seed in seeds:
         seed_cell = raw_carry[seed]
@@ -671,6 +690,12 @@ def validate_routed_carry(module):
 
     profile = _validate_physical_profiles(chains)
     routes, aliases = _routes_by_bit(module)
+    for route in routes.values():
+        if route is None:
+            continue
+        if (route.roots & default_high_wires or
+                any(src in default_high_wires or dst in default_high_wires for src, dst in route.edges)):
+            _reject("a route drives an experimental unselected-high carry D selector")
     expected_carry = {}
     expected_qfb, slice_qfb_owners = _slice_qfb_claims(module, routes)
     protected = set()
@@ -698,6 +723,18 @@ def validate_routed_carry(module):
             inputs = connections.get("I") or []
             own_indices = ([index for index, bit in enumerate(inputs)
                             if q_bits and bit == q_bits[0]] if len(q_bits) == 1 else [])
+            a_feedback = (item.cell.get("attributes") or {}).get("AGRV2K_CARRY_A_Q_FEEDBACK")
+            if a_feedback is not None:
+                if own_indices != [0] or not item.ff_used:
+                    _reject("experimental carry A feedback requires registered own Q on I[0] only")
+                q_root, bridge, _ = _qfb_resources(item.site)
+                sink = "X%dY%d_IMUX%02d" % (item.site.x, item.site.y, 4 * item.site.z)
+                route = routes.get(q_bits[0])
+                if (route is None or q_root not in route.roots or bridge not in route.edges or
+                        (bridge[1], sink) not in route.edges):
+                    _reject("experimental carry A feedback lacks its exact local presentation path")
+                q_feedback_names.add(item.name)
+                continue
             if own_indices and own_indices != [1]:
                 _reject("carry cell %r uses own Q outside the typed B/I[1] feedback" %
                         item.name)

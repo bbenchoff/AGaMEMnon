@@ -654,6 +654,13 @@ def _validated_devdb(devdb, chipdb_root=None):
             historical = PRE_WITHDRAWAL_PHYSICAL_GRAPHS[shared_control_graph][admission]
             if (graph_pip_count, graph_pips_sha256) == historical:
                 expected_pip_count, expected_pips_sha256 = historical
+            # Private diagnostic worktree only: the 32 exact A-feedback paths
+            # exercised by the downward counter-rate probes, on a strict graph.
+            diagnostic_a_graph = (255558, "4341df99ceb4018436e4071425bd32e5e605c50ef60fc0e2c363b545b831372e")
+            if (shared_control_graph == "0" and admission == "release-strict" and
+                    metadata.get("carry_input_diagnostic") == "EXACT_X20_DOWNWARD33_V1" and
+                    (graph_pip_count, graph_pips_sha256) == diagnostic_a_graph):
+                expected_pip_count, expected_pips_sha256 = diagnostic_a_graph
             if admission == "tiered":
                 historical = PRE_RMUX14_WITHDRAWAL_TIERED_GRAPHS[shared_control_graph]
                 if (graph_pip_count, graph_pips_sha256) == historical:
