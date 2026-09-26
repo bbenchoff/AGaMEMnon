@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "5eda85e178cb9e16cdbeaee39fbed0580921c834cbebb55836c553315097f952",
+  "fingerprint_sha256": "b2cd34d3246da7b0efc5a403efff3de5a07e8ebdaf9e006f79f4c6ba96a5d7cf",
   "file_count": 278,
   "pinned_date": "2026-09-26",
-  "reason": "Correct X13Y4 AddressA[8] exact selector from ground-only 5,7,10,11 to isolated 5,10. Two-bit silicon repair passes twice with all controls; integration repack reproduces it. Included retained corpus rebuilt byte-identical before the manifest-only hash refresh. Research exclusions checked separately; no image qualification hashes changed."
+  "reason": "Requalify two zero-INIT TMUX9 checkpoint output hashes after the general registered-output repair. Both paired hardware matrices and independent raw-log audit pass (32 captures, six controls); all50 included retained images rebuild identically. Clock topology and source/route restrictions are unchanged; initialized checkpoints remain fenced. Research repacks checked separately."
 }

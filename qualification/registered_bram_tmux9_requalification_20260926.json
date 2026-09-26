@@ -1,0 +1,948 @@
+{
+  "evidence_repository": "https://github.com/bbenchoff/AG32-Docs",
+  "evidence_commit": "1bca9942957803384a8784040c4ffd02e15aff21",
+  "initialized_checkpoint_fences_unchanged": true,
+  "ordinary_bram_qualification": false,
+  "fresh_source_builds": "PENDING",
+  "source": {
+    "silicon_status": "PAIRED_RESEARCH_PASS_BOUNDED",
+    "scope": "Four retained source-profile repacks, fixed-address one-lane write/hold; not fresh source or general RAM qualification.",
+    "flash_writes": 0,
+    "final_reset": "PASS",
+    "receipt_path": "docs/release05_evidence/tmux9_source_terminal2.json",
+    "receipt_sha256": "01fc348fc0d966dfe0db56bc5c523c5fb9424a1de268bab5ebbb0fbef0e83865",
+    "terminal_sha256": "4156b76fea4efffee52b02858075870f3e38688a33bee4759e3dcc06908f2253",
+    "controls": [
+      {
+        "label": "before_1",
+        "status": "PASS"
+      },
+      {
+        "label": "before_2",
+        "status": "PASS"
+      },
+      {
+        "label": "after_pairs",
+        "status": "PASS"
+      }
+    ],
+    "profiles": {
+      "bram-tmux9-i0-d1-we0": {
+        "raw_sha256": "75ca0aa67ea646fed6737bfda55eb48973b23463df46d325788cbd1ad3dd8a06",
+        "compressed_sha256": "909b1becb0a28a70f9a86d98ba15c2affe0260b482a0119d545dbb51bf02c407",
+        "reference_raw_sha256": "a351f8b1e297501343ee8f645801b1a46f5e897744031e2d6e44f181abeecda3",
+        "changed_payload_bits": [
+          [
+            35575,
+            2
+          ],
+          [
+            66455,
+            1
+          ],
+          [
+            66456,
+            128
+          ]
+        ],
+        "captures": [
+          {
+            "label": "i0_d1_we0_reference",
+            "repetition": 1,
+            "status": "PASS",
+            "samples": 500,
+            "h0_matches": 500,
+            "expected_h0": 0,
+            "image_sha256": "a351f8b1e297501343ee8f645801b1a46f5e897744031e2d6e44f181abeecda3",
+            "h1_h2_live": true,
+            "bit_values": {
+              "0": [
+                0
+              ],
+              "1": [
+                0,
+                1
+              ],
+              "2": [
+                0,
+                1
+              ],
+              "3": [
+                0,
+                1
+              ]
+            },
+            "histogram": {
+              "0xfffffff4": 249,
+              "0xfffffff6": 125,
+              "0xfffffff8": 126
+            }
+          },
+          {
+            "label": "i0_d1_we0_candidate",
+            "repetition": 1,
+            "status": "PASS",
+            "samples": 500,
+            "h0_matches": 500,
+            "expected_h0": 0,
+            "image_sha256": "75ca0aa67ea646fed6737bfda55eb48973b23463df46d325788cbd1ad3dd8a06",
+            "h1_h2_live": true,
+            "bit_values": {
+              "0": [
+                0
+              ],
+              "1": [
+                0,
+                1
+              ],
+              "2": [
+                0,
+                1
+              ],
+              "3": [
+                0,
+                1
+              ]
+            },
+            "histogram": {
+              "0xfffffff0": 125,
+              "0xfffffff4": 249,
+              "0xfffffffa": 2,
+              "0xfffffffe": 124
+            }
+          },
+          {
+            "label": "i0_d1_we0_reference",
+            "repetition": 2,
+            "status": "PASS",
+            "samples": 500,
+            "h0_matches": 500,
+            "expected_h0": 0,
+            "image_sha256": "a351f8b1e297501343ee8f645801b1a46f5e897744031e2d6e44f181abeecda3",
+            "h1_h2_live": true,
+            "bit_values": {
+              "0": [
+                0
+              ],
+              "1": [
+                0,
+                1
+              ],
+              "2": [
+                0,
+                1
+              ],
+              "3": [
+                0,
+                1
+              ]
+            },
+            "histogram": {
+              "0xfffffff4": 249,
+              "0xfffffff6": 124,
+              "0xfffffff8": 125,
+              "0xfffffffa": 2
+            }
+          },
+          {
+            "label": "i0_d1_we0_candidate",
+            "repetition": 2,
+            "status": "PASS",
+            "samples": 500,
+            "h0_matches": 500,
+            "expected_h0": 0,
+            "image_sha256": "75ca0aa67ea646fed6737bfda55eb48973b23463df46d325788cbd1ad3dd8a06",
+            "h1_h2_live": true,
+            "bit_values": {
+              "0": [
+                0
+              ],
+              "1": [
+                0,
+                1
+              ],
+              "2": [
+                0,
+                1
+              ],
+              "3": [
+                0,
+                1
+              ]
+            },
+            "histogram": {
+              "0xfffffff0": 125,
+              "0xfffffff4": 249,
+              "0xfffffffa": 2,
+              "0xfffffffe": 124
+            }
+          }
+        ]
+      },
+      "bram-tmux9-i0-d1-we1": {
+        "raw_sha256": "34751dd74c729596ec3fbe5e4878887a085a8757df9e8c182bbb25b68bfcce07",
+        "compressed_sha256": "0fa0df66e74ffc4b7dda65a1d82e89904a9d1b85c94932930837c771fa99b9e6",
+        "reference_raw_sha256": "0abf85a61cde52ffbb58d9dccc64292c90fa6930e6290d8d52c18557df7df42c",
+        "changed_payload_bits": [
+          [
+            35575,
+            2
+          ],
+          [
+            66455,
+            1
+          ],
+          [
+            66456,
+            128
+          ]
+        ],
+        "captures": [
+          {
+            "label": "i0_d1_we1_reference",
+            "repetition": 1,
+            "status": "PASS",
+            "samples": 500,
+            "h0_matches": 500,
+            "expected_h0": 1,
+            "image_sha256": "0abf85a61cde52ffbb58d9dccc64292c90fa6930e6290d8d52c18557df7df42c",
+            "h1_h2_live": true,
+            "bit_values": {
+              "0": [
+                1
+              ],
+              "1": [
+                0,
+                1
+              ],
+              "2": [
+                0,
+                1
+              ],
+              "3": [
+                0,
+                1
+              ]
+            },
+            "histogram": {
+              "0xfffffff5": 250,
+              "0xfffffff7": 124,
+              "0xfffffff9": 126
+            }
+          },
+          {
+            "label": "i0_d1_we1_candidate",
+            "repetition": 1,
+            "status": "PASS",
+            "samples": 500,
+            "h0_matches": 500,
+            "expected_h0": 1,
+            "image_sha256": "34751dd74c729596ec3fbe5e4878887a085a8757df9e8c182bbb25b68bfcce07",
+            "h1_h2_live": true,
+            "bit_values": {
+              "0": [
+                1
+              ],
+              "1": [
+                0,
+                1
+              ],
+              "2": [
+                0,
+                1
+              ],
+              "3": [
+                0,
+                1
+              ]
+            },
+            "histogram": {
+              "0xfffffff1": 125,
+              "0xfffffff5": 247,
+              "0xfffffffb": 4,
+              "0xffffffff": 124
+            }
+          },
+          {
+            "label": "i0_d1_we1_reference",
+            "repetition": 2,
+            "status": "PASS",
+            "samples": 500,
+            "h0_matches": 500,
+            "expected_h0": 1,
+            "image_sha256": "0abf85a61cde52ffbb58d9dccc64292c90fa6930e6290d8d52c18557df7df42c",
+            "h1_h2_live": true,
+            "bit_values": {
+              "0": [
+                1
+              ],
+              "1": [
+                0,
+                1
+              ],
+              "2": [
+                0,
+                1
+              ],
+              "3": [
+                0,
+                1
+              ]
+            },
+            "histogram": {
+              "0xfffffff5": 250,
+              "0xfffffff7": 124,
+              "0xfffffff9": 126
+            }
+          },
+          {
+            "label": "i0_d1_we1_candidate",
+            "repetition": 2,
+            "status": "PASS",
+            "samples": 500,
+            "h0_matches": 500,
+            "expected_h0": 1,
+            "image_sha256": "34751dd74c729596ec3fbe5e4878887a085a8757df9e8c182bbb25b68bfcce07",
+            "h1_h2_live": true,
+            "bit_values": {
+              "0": [
+                1
+              ],
+              "1": [
+                0,
+                1
+              ],
+              "2": [
+                0,
+                1
+              ],
+              "3": [
+                0,
+                1
+              ]
+            },
+            "histogram": {
+              "0xfffffff1": 125,
+              "0xfffffff5": 21,
+              "0xfffffffb": 229,
+              "0xffffffff": 125
+            }
+          }
+        ]
+      },
+      "bram-tmux9-i1-d0-we0": {
+        "raw_sha256": "1f85e997cf8207d5a77b83d0c4f7f2cbc83721d3ddf18fe21553b8e9263f571a",
+        "compressed_sha256": "4d3311db49e06ae98f1ea47521d464c8174e8c6d5d6e8b919029d5efdeaf7e64",
+        "reference_raw_sha256": "9834bd6ae0d2136da63223549aa70a27e09ea71af4e021ca19988f0991c1bade",
+        "changed_payload_bits": [
+          [
+            35575,
+            2
+          ],
+          [
+            66455,
+            1
+          ],
+          [
+            66456,
+            128
+          ]
+        ],
+        "captures": [
+          {
+            "label": "i1_d0_we0_reference",
+            "repetition": 1,
+            "status": "PASS",
+            "samples": 500,
+            "h0_matches": 500,
+            "expected_h0": 1,
+            "image_sha256": "9834bd6ae0d2136da63223549aa70a27e09ea71af4e021ca19988f0991c1bade",
+            "h1_h2_live": true,
+            "bit_values": {
+              "0": [
+                1
+              ],
+              "1": [
+                0,
+                1
+              ],
+              "2": [
+                0,
+                1
+              ],
+              "3": [
+                0,
+                1
+              ]
+            },
+            "histogram": {
+              "0xfffffff5": 25,
+              "0xfffffff7": 124,
+              "0xfffffff9": 125,
+              "0xfffffffb": 226
+            }
+          },
+          {
+            "label": "i1_d0_we0_candidate",
+            "repetition": 1,
+            "status": "PASS",
+            "samples": 500,
+            "h0_matches": 500,
+            "expected_h0": 1,
+            "image_sha256": "1f85e997cf8207d5a77b83d0c4f7f2cbc83721d3ddf18fe21553b8e9263f571a",
+            "h1_h2_live": true,
+            "bit_values": {
+              "0": [
+                1
+              ],
+              "1": [
+                0,
+                1
+              ],
+              "2": [
+                0,
+                1
+              ],
+              "3": [
+                0,
+                1
+              ]
+            },
+            "histogram": {
+              "0xfffffff1": 126,
+              "0xfffffffb": 249,
+              "0xffffffff": 125
+            }
+          },
+          {
+            "label": "i1_d0_we0_reference",
+            "repetition": 2,
+            "status": "PASS",
+            "samples": 500,
+            "h0_matches": 500,
+            "expected_h0": 1,
+            "image_sha256": "9834bd6ae0d2136da63223549aa70a27e09ea71af4e021ca19988f0991c1bade",
+            "h1_h2_live": true,
+            "bit_values": {
+              "0": [
+                1
+              ],
+              "1": [
+                0,
+                1
+              ],
+              "2": [
+                0,
+                1
+              ],
+              "3": [
+                0,
+                1
+              ]
+            },
+            "histogram": {
+              "0xfffffff5": 218,
+              "0xfffffff7": 124,
+              "0xfffffff9": 125,
+              "0xfffffffb": 33
+            }
+          },
+          {
+            "label": "i1_d0_we0_candidate",
+            "repetition": 2,
+            "status": "PASS",
+            "samples": 500,
+            "h0_matches": 500,
+            "expected_h0": 1,
+            "image_sha256": "1f85e997cf8207d5a77b83d0c4f7f2cbc83721d3ddf18fe21553b8e9263f571a",
+            "h1_h2_live": true,
+            "bit_values": {
+              "0": [
+                1
+              ],
+              "1": [
+                0,
+                1
+              ],
+              "2": [
+                0,
+                1
+              ],
+              "3": [
+                0,
+                1
+              ]
+            },
+            "histogram": {
+              "0xfffffff1": 126,
+              "0xfffffffb": 249,
+              "0xffffffff": 125
+            }
+          }
+        ]
+      },
+      "bram-tmux9-i1-d0-we1": {
+        "raw_sha256": "27f229978879ed430dab306f72c62c1a291803fe033f2c7ea357259a4fc9640d",
+        "compressed_sha256": "0bc46bbda79f2cedc124075e66c1bc37e22d841bbbdfc616fd7430c6c52428ce",
+        "reference_raw_sha256": "cead049837433150e0d829ac9b6c24ecb8bc326087bfd59a7f294e6b16fc7d7e",
+        "changed_payload_bits": [
+          [
+            35575,
+            2
+          ],
+          [
+            66455,
+            1
+          ],
+          [
+            66456,
+            128
+          ]
+        ],
+        "captures": [
+          {
+            "label": "i1_d0_we1_reference",
+            "repetition": 1,
+            "status": "PASS",
+            "samples": 500,
+            "h0_matches": 500,
+            "expected_h0": 0,
+            "image_sha256": "cead049837433150e0d829ac9b6c24ecb8bc326087bfd59a7f294e6b16fc7d7e",
+            "h1_h2_live": true,
+            "bit_values": {
+              "0": [
+                0
+              ],
+              "1": [
+                0,
+                1
+              ],
+              "2": [
+                0,
+                1
+              ],
+              "3": [
+                0,
+                1
+              ]
+            },
+            "histogram": {
+              "0xfffffff6": 125,
+              "0xfffffff8": 127,
+              "0xfffffffa": 248
+            }
+          },
+          {
+            "label": "i1_d0_we1_candidate",
+            "repetition": 1,
+            "status": "PASS",
+            "samples": 500,
+            "h0_matches": 500,
+            "expected_h0": 0,
+            "image_sha256": "27f229978879ed430dab306f72c62c1a291803fe033f2c7ea357259a4fc9640d",
+            "h1_h2_live": true,
+            "bit_values": {
+              "0": [
+                0
+              ],
+              "1": [
+                0,
+                1
+              ],
+              "2": [
+                0,
+                1
+              ],
+              "3": [
+                0,
+                1
+              ]
+            },
+            "histogram": {
+              "0xfffffff0": 125,
+              "0xfffffff4": 249,
+              "0xfffffffa": 2,
+              "0xfffffffe": 124
+            }
+          },
+          {
+            "label": "i1_d0_we1_reference",
+            "repetition": 2,
+            "status": "PASS",
+            "samples": 500,
+            "h0_matches": 500,
+            "expected_h0": 0,
+            "image_sha256": "cead049837433150e0d829ac9b6c24ecb8bc326087bfd59a7f294e6b16fc7d7e",
+            "h1_h2_live": true,
+            "bit_values": {
+              "0": [
+                0
+              ],
+              "1": [
+                0,
+                1
+              ],
+              "2": [
+                0,
+                1
+              ],
+              "3": [
+                0,
+                1
+              ]
+            },
+            "histogram": {
+              "0xfffffff4": 247,
+              "0xfffffff6": 124,
+              "0xfffffff8": 126,
+              "0xfffffffa": 3
+            }
+          },
+          {
+            "label": "i1_d0_we1_candidate",
+            "repetition": 2,
+            "status": "PASS",
+            "samples": 500,
+            "h0_matches": 500,
+            "expected_h0": 0,
+            "image_sha256": "27f229978879ed430dab306f72c62c1a291803fe033f2c7ea357259a4fc9640d",
+            "h1_h2_live": true,
+            "bit_values": {
+              "0": [
+                0
+              ],
+              "1": [
+                0,
+                1
+              ],
+              "2": [
+                0,
+                1
+              ],
+              "3": [
+                0,
+                1
+              ]
+            },
+            "histogram": {
+              "0xfffffff0": 125,
+              "0xfffffff4": 243,
+              "0xfffffffa": 8,
+              "0xfffffffe": 124
+            }
+          }
+        ]
+      }
+    }
+  },
+  "checkpoint": {
+    "silicon_status": "PAIRED_RESEARCH_PASS_BOUNDED",
+    "scope": "Two zero-INIT retained checkpoint repacks with two initialized source-profile counterparts as polarity controls. Initialized checkpoints remain refused; no new qualification for them.",
+    "flash_writes": 0,
+    "final_reset": "PASS",
+    "receipt_path": "docs/release05_evidence/tmux9_checkpoint_terminal2.json",
+    "receipt_sha256": "99e1d4155ef687d54fabe6ddaf4bb778f23ff0c10838c02a62e288be39de6e90",
+    "terminal_sha256": "7c8820800ac75c47f642861e09f681f43af9195ca78d87d0d02dae77c830dcac",
+    "controls": [
+      {
+        "label": "before_1",
+        "status": "PASS"
+      },
+      {
+        "label": "before_2",
+        "status": "PASS"
+      },
+      {
+        "label": "after_pairs",
+        "status": "PASS"
+      }
+    ],
+    "profiles": {
+      "bram-tmux9-i0-d1-we0": {
+        "raw_sha256": "57e269cb2e4b2f3440ee1b0ebd2c43a68b098e97561aecb13aa35691727f6739",
+        "compressed_sha256": "089c679d976a06c142ead5d8d8dbf2ab999866db8c9337e551e69adb7894d8e5",
+        "reference_raw_sha256": "33282bc95813a9bf7c31e7a30a85a7705e89adec38edd356e2f06e8a9afcd759",
+        "changed_payload_bits": [
+          [
+            35575,
+            2
+          ]
+        ],
+        "captures": [
+          {
+            "label": "i0_d1_we0_reference",
+            "repetition": 1,
+            "status": "PASS",
+            "samples": 500,
+            "h0_matches": 500,
+            "expected_h0": 0,
+            "image_sha256": "33282bc95813a9bf7c31e7a30a85a7705e89adec38edd356e2f06e8a9afcd759",
+            "h1_h2_live": true,
+            "bit_values": {
+              "0": [
+                0
+              ],
+              "1": [
+                0,
+                1
+              ],
+              "2": [
+                0,
+                1
+              ],
+              "3": [
+                0,
+                1
+              ]
+            },
+            "histogram": {
+              "0xfffffff6": 126,
+              "0xfffffff8": 126,
+              "0xfffffffa": 248
+            }
+          },
+          {
+            "label": "i0_d1_we0_candidate",
+            "repetition": 1,
+            "status": "PASS",
+            "samples": 500,
+            "h0_matches": 500,
+            "expected_h0": 0,
+            "image_sha256": "57e269cb2e4b2f3440ee1b0ebd2c43a68b098e97561aecb13aa35691727f6739",
+            "h1_h2_live": true,
+            "bit_values": {
+              "0": [
+                0
+              ],
+              "1": [
+                0,
+                1
+              ],
+              "2": [
+                0,
+                1
+              ],
+              "3": [
+                0,
+                1
+              ]
+            },
+            "histogram": {
+              "0xfffffff0": 125,
+              "0xfffffff4": 249,
+              "0xfffffffa": 2,
+              "0xfffffffe": 124
+            }
+          },
+          {
+            "label": "i0_d1_we0_reference",
+            "repetition": 2,
+            "status": "PASS",
+            "samples": 500,
+            "h0_matches": 500,
+            "expected_h0": 0,
+            "image_sha256": "33282bc95813a9bf7c31e7a30a85a7705e89adec38edd356e2f06e8a9afcd759",
+            "h1_h2_live": true,
+            "bit_values": {
+              "0": [
+                0
+              ],
+              "1": [
+                0,
+                1
+              ],
+              "2": [
+                0,
+                1
+              ],
+              "3": [
+                0,
+                1
+              ]
+            },
+            "histogram": {
+              "0xfffffff6": 125,
+              "0xfffffff8": 127,
+              "0xfffffffa": 248
+            }
+          },
+          {
+            "label": "i0_d1_we0_candidate",
+            "repetition": 2,
+            "status": "PASS",
+            "samples": 500,
+            "h0_matches": 500,
+            "expected_h0": 0,
+            "image_sha256": "57e269cb2e4b2f3440ee1b0ebd2c43a68b098e97561aecb13aa35691727f6739",
+            "h1_h2_live": true,
+            "bit_values": {
+              "0": [
+                0
+              ],
+              "1": [
+                0,
+                1
+              ],
+              "2": [
+                0,
+                1
+              ],
+              "3": [
+                0,
+                1
+              ]
+            },
+            "histogram": {
+              "0xfffffff0": 127,
+              "0xfffffffa": 248,
+              "0xfffffffe": 125
+            }
+          }
+        ]
+      },
+      "bram-tmux9-i0-d1-we1": {
+        "raw_sha256": "f57841004dd7c97a93a95e04cbb547fcb9d86fcb60c5e0e38e7892ebead3aae3",
+        "compressed_sha256": "01295d5c1b25f49127414014ce9c139a95039231571b12280cf64cb367b01b1b",
+        "reference_raw_sha256": "3bd2c82a2a18e2c66721de5687c940e915bc7a933f5ea88dbca45394901782df",
+        "changed_payload_bits": [
+          [
+            35575,
+            2
+          ]
+        ],
+        "captures": [
+          {
+            "label": "i0_d1_we1_reference",
+            "repetition": 1,
+            "status": "PASS",
+            "samples": 500,
+            "h0_matches": 500,
+            "expected_h0": 1,
+            "image_sha256": "3bd2c82a2a18e2c66721de5687c940e915bc7a933f5ea88dbca45394901782df",
+            "h1_h2_live": true,
+            "bit_values": {
+              "0": [
+                1
+              ],
+              "1": [
+                0,
+                1
+              ],
+              "2": [
+                0,
+                1
+              ],
+              "3": [
+                0,
+                1
+              ]
+            },
+            "histogram": {
+              "0xfffffff7": 125,
+              "0xfffffff9": 126,
+              "0xfffffffb": 249
+            }
+          },
+          {
+            "label": "i0_d1_we1_candidate",
+            "repetition": 1,
+            "status": "PASS",
+            "samples": 500,
+            "h0_matches": 500,
+            "expected_h0": 1,
+            "image_sha256": "f57841004dd7c97a93a95e04cbb547fcb9d86fcb60c5e0e38e7892ebead3aae3",
+            "h1_h2_live": true,
+            "bit_values": {
+              "0": [
+                1
+              ],
+              "1": [
+                0,
+                1
+              ],
+              "2": [
+                0,
+                1
+              ],
+              "3": [
+                0,
+                1
+              ]
+            },
+            "histogram": {
+              "0xfffffff1": 126,
+              "0xfffffff5": 250,
+              "0xffffffff": 124
+            }
+          },
+          {
+            "label": "i0_d1_we1_reference",
+            "repetition": 2,
+            "status": "PASS",
+            "samples": 500,
+            "h0_matches": 500,
+            "expected_h0": 1,
+            "image_sha256": "3bd2c82a2a18e2c66721de5687c940e915bc7a933f5ea88dbca45394901782df",
+            "h1_h2_live": true,
+            "bit_values": {
+              "0": [
+                1
+              ],
+              "1": [
+                0,
+                1
+              ],
+              "2": [
+                0,
+                1
+              ],
+              "3": [
+                0,
+                1
+              ]
+            },
+            "histogram": {
+              "0xfffffff5": 219,
+              "0xfffffff7": 124,
+              "0xfffffff9": 125,
+              "0xfffffffb": 32
+            }
+          },
+          {
+            "label": "i0_d1_we1_candidate",
+            "repetition": 2,
+            "status": "PASS",
+            "samples": 500,
+            "h0_matches": 500,
+            "expected_h0": 1,
+            "image_sha256": "f57841004dd7c97a93a95e04cbb547fcb9d86fcb60c5e0e38e7892ebead3aae3",
+            "h1_h2_live": true,
+            "bit_values": {
+              "0": [
+                1
+              ],
+              "1": [
+                0,
+                1
+              ],
+              "2": [
+                0,
+                1
+              ],
+              "3": [
+                0,
+                1
+              ]
+            },
+            "histogram": {
+              "0xfffffff1": 125,
+              "0xfffffff5": 246,
+              "0xfffffffb": 5,
+              "0xffffffff": 124
+            }
+          }
+        ]
+      }
+    }
+  }
+}

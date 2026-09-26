@@ -322,7 +322,7 @@ def test_fresh_source_profile_is_hash_bound_but_not_path_bound(
 
 def test_current_source_image_pins_have_complete_paired_silicon_evidence():
     evidence = json.loads((ROOT / "qualification" /
-        "registered_bram_tmux9_source_selector_silicon.json").read_text())
+        "registered_bram_tmux9_requalification_20260926.json").read_text())["source"]
     assert evidence["silicon_status"] == "PAIRED_RESEARCH_PASS_BOUNDED"
     assert evidence["flash_writes"] == 0 and evidence["final_reset"] == "PASS"
     assert [(c["label"], c["status"]) for c in evidence["controls"]] == [
@@ -342,8 +342,34 @@ def test_current_source_image_pins_have_complete_paired_silicon_evidence():
             assert row["h1_h2_live"] is True
             assert row["image_sha256"] == witnessed[
                 "raw_sha256" if role == "candidate" else "reference_raw_sha256"]
-        assert witnessed["changed_payload_bits"] == (
-            [[72141, 128], [72256, 2]] if profile.endswith("we1") else [])
+        assert witnessed["changed_payload_bits"] == [[35575, 2], [66455, 1], [66456, 128]]
+
+
+def test_changed_checkpoint_pins_have_paired_silicon_evidence():
+    record = json.loads((ROOT / "qualification" /
+        "registered_bram_tmux9_requalification_20260926.json").read_text())
+    assert record["initialized_checkpoint_fences_unchanged"] is True
+    evidence = record["checkpoint"]
+    assert evidence["silicon_status"] == "PAIRED_RESEARCH_PASS_BOUNDED"
+    assert evidence["flash_writes"] == 0 and evidence["final_reset"] == "PASS"
+    assert [(c["label"], c["status"]) for c in evidence["controls"]] == [
+        ("before_1", "PASS"), ("before_2", "PASS"), ("after_pairs", "PASS")]
+    assert set(evidence["profiles"]) == set(PACKABLE_PROFILES)
+    for profile, witnessed in evidence["profiles"].items():
+        pinned = cli.QUALIFIED_ROUTE_PROFILES[profile]
+        assert witnessed["raw_sha256"] == pinned["bitstream_sha256"]
+        assert witnessed["compressed_sha256"] == pinned["compressed_sha256"]
+        assert witnessed["changed_payload_bits"] == [[35575, 2]]
+        captures = witnessed["captures"]
+        assert len(captures) == 4
+        assert {(row["label"].rsplit("_", 1)[1], row["repetition"]) for row in captures} == {
+            (role, rep) for role in ("reference", "candidate") for rep in (1, 2)}
+        for row in captures:
+            role = row["label"].rsplit("_", 1)[1]
+            assert row["status"] == "PASS" and row["samples"] == row["h0_matches"] == 500
+            assert row["h1_h2_live"] is True
+            assert row["image_sha256"] == witnessed[
+                "raw_sha256" if role == "candidate" else "reference_raw_sha256"]
 
 
 def test_ordinary_pack_cannot_use_scoped_codewords(tmp_path):
@@ -452,9 +478,20 @@ def test_checked_in_paired_semantic_diff_audit_is_exhaustive():
     assert all(pair["changed_bits"] ==
                pair["named_feature_bits"] + pair["relocated_lut_bits"]
                for pair in report["paired_semantic_diffs"])
+    # This immutable audit describes the original four images. The two still
+    # packable checkpoints were requalified after the same one-bit Q selection
+    # correction in each arm; the initialized historical checkpoints stay fenced.
+    requalified = json.loads((ROOT / "qualification" /
+        "registered_bram_tmux9_requalification_20260926.json").read_text())["checkpoint"]["profiles"]
     for profile, row in report["profiles"].items():
-        assert row["bitstream_sha256"] == \
-            cli.QUALIFIED_ROUTE_PROFILES[profile]["bitstream_sha256"]
+        if profile in requalified:
+            assert row["bitstream_sha256"] == requalified[profile]["reference_raw_sha256"]
+            assert requalified[profile]["changed_payload_bits"] == [[35575, 2]]
+            assert requalified[profile]["raw_sha256"] == \
+                cli.QUALIFIED_ROUTE_PROFILES[profile]["bitstream_sha256"]
+        else:
+            assert row["bitstream_sha256"] == \
+                cli.QUALIFIED_ROUTE_PROFILES[profile]["bitstream_sha256"]
         if profile.endswith("we1"):
             assert row["kmux03_field"] == {
                 "29": False, "30": True, "33": True, "34": False,

@@ -158,9 +158,9 @@ def main():
             fail("installed-wheel qualified BRAM checkpoint pack failed:\n" +
                  result.stdout + result.stderr)
         expected = {
-            bram_image: "3bd2c82a2a18e2c66721de5687c940e915bc7a933f5ea88dbca45394901782df",
+            bram_image: "f57841004dd7c97a93a95e04cbb547fcb9d86fcb60c5e0e38e7892ebead3aae3",
             Path(str(bram_image) + ".comp"):
-                "221cdf15ccd9ef4d2220181861e724136a69387bb3647c4db550c1891a421ce5",
+                "01295d5c1b25f49127414014ce9c139a95039231571b12280cf64cb367b01b1b",
         }
         for artifact, digest in expected.items():
             actual = hashlib.sha256(artifact.read_bytes()).hexdigest()

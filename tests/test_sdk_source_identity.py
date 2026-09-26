@@ -11,7 +11,7 @@ def test_archive_source_pins_match_cli_and_paired_silicon_evidence():
     smoke = runpy.run_path(str(root / "tools/bundle/smoke_archive.py"))
     profile = smoke["BRAM_SOURCE_PROFILE"]
     evidence = json.loads((root / "qualification" /
-        "registered_bram_tmux9_source_selector_silicon.json").read_text())
+        "registered_bram_tmux9_requalification_20260926.json").read_text())["source"]
     assert evidence["silicon_status"] == "PAIRED_RESEARCH_PASS_BOUNDED"
     witnessed = evidence["profiles"][profile]
     pinned = QUALIFIED_ROUTE_PROFILES[profile]

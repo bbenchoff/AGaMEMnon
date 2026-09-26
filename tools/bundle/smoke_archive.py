@@ -20,8 +20,8 @@ BRAM_SOURCE_PROFILE = "bram-tmux9-i0-d1-we1"
 # Independent archive-smoke pins, bound to the paired source-image evidence by
 # test_sdk_source_identity.py. Do not derive these from the installed candidate.
 BRAM_SOURCE_HASHES = {
-    "raw": "0abf85a61cde52ffbb58d9dccc64292c90fa6930e6290d8d52c18557df7df42c",
-    "compressed": "5f778f538c9903faeee28107dc122f98090deb9a31fddbb6229b0826bea6a0ad",
+    "raw": "34751dd74c729596ec3fbe5e4878887a085a8757df9e8c182bbb25b68bfcce07",
+    "compressed": "0fa0df66e74ffc4b7dda65a1d82e89904a9d1b85c94932930837c771fa99b9e6",
 }
 
 
