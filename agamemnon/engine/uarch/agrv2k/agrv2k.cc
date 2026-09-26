@@ -145,6 +145,24 @@ static double to_double(const std::string &s, double dflt = 0.0)
     return s.empty() ? dflt : std::strtod(s.c_str(), nullptr);
 }
 
+// Kill switch for the widened native short-same-tile carry corridor
+// (chipdb/carry_qualified_sites.csv). Default-on (witnessed means
+// default-on): a chain of 10-16 sites may root at any silicon-witnessed
+// tile, not only the fixed X20Y12-downward corridor.
+// AGAMEMNON_CARRY_WIDE_CORRIDOR=0 reproduces the exact previous behaviour
+// byte-for-byte (cap back to 9; every chain over 9 sites requires the
+// retained absolute X20 profiles).
+static bool carry_wide_corridor_enabled()
+{
+    const char *e = std::getenv("AGAMEMNON_CARRY_WIDE_CORRIDOR");
+    return e == nullptr || std::string(e) != "0";
+}
+
+static size_t carry_native_short_cap()
+{
+    return carry_wide_corridor_enabled() ? 16 : 9;
+}
+
 // ---- Opt-in silicon calibration of the timing model. ----
 // The devdb delay_ns column and the cell constants below are a vendor-STA fit. Ring-oscillator
 // measurements on silicon (AG32-Docs tools/vendor_parity/timing_ro_20260916, 2026-09-16) show the fit
@@ -2923,10 +2941,32 @@ static void pack_carries(Context *ctx)
         }
     }
 
+    // Admit only the already-qualified physical templates. Template selection
+    // also happens before mutation, so an unsupported topology cannot leave a
+    // half-packed design behind.
+    std::vector<CarrySite> sites;
+    auto append_tile = [&](int x, int y, int limit = 16) {
+        for (int z = 0; z < limit; ++z)
+            sites.push_back({x, y, z});
+    };
+    size_t total = chains.size(); // one seed per chain
+    for (const CarryChain &chain : chains)
+        total += chain.fa.size() + size_t(chain.export_cout);
+    const bool native_short_profile = total <= carry_native_short_cap();
+
     // Fixed-root prefixes reuse the same witnessed arithmetic sites and
     // local inputs as the full 32-bit corridor. Movable short chains retain
     // ordinary routed D/VCC; they can occupy sites outside that corridor.
-    bool d_default_high = reset_capture.empty() && chains.size() == 1 && fa_cells.size() >= 9 && fa_cells.size() <= 32 &&
+    // Mutually exclusive with native_short_profile: the D-default-high /
+    // CARRY_QFB_A local-input mechanism is silicon-witnessed only at the
+    // fixed X20 corridor (chipdb/carry_qualified_sites.csv never admits it;
+    // CARRY_QFB_A itself is 0/32 witnessed), so a chain that now qualifies
+    // for the widened any-witnessed-tile native profile must not also take
+    // this X20-only path -- it keeps the ordinary routed D/VCC + general
+    // SLICE_QFB (I[1]) own-Q path the native profile already used below 10
+    // sites, unchanged by widening the site list.
+    bool d_default_high = !native_short_profile && reset_capture.empty() && chains.size() == 1 &&
+            fa_cells.size() >= 9 && fa_cells.size() <= 32 &&
             !chains.front().export_cout && capture_dff.size() == fa_cells.size();
     if (d_default_high) {
         NetInfo *shared_clock = capture_dff.at(fa_cells.front())->getPort(ctx->id("CLK"));
@@ -2940,18 +2980,6 @@ static void pack_carries(Context *ctx)
         }
     }
 
-    // Admit only the already-qualified physical templates. Template selection
-    // also happens before mutation, so an unsupported topology cannot leave a
-    // half-packed design behind.
-    std::vector<CarrySite> sites;
-    auto append_tile = [&](int x, int y, int limit = 16) {
-        for (int z = 0; z < limit; ++z)
-            sites.push_back({x, y, z});
-    };
-    size_t total = chains.size(); // one seed per chain
-    for (const CarryChain &chain : chains)
-        total += chain.fa.size() + size_t(chain.export_cout);
-    const bool native_short_profile = total <= 9;
     if (!native_short_profile && chains.size() == 1 && total <= 25) {
         append_tile(20, 12);
         append_tile(20, 11, 9);
@@ -9619,6 +9647,12 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
 struct AgrvImpl : ViaductAPI
 {
     pool<WireId> carry_d_default_high_wires;
+    // Silicon-witnessed (x, y) LogicTile roots for the widened native
+    // short-same-tile carry profile (chipdb/carry_qualified_sites.csv):
+    // every intra-tile CARRYOUT->CARRYIN pip a 10-16 site chain at that
+    // tile needs is ring-witnessed. Loaded once in load_db(); empty (not an
+    // error) if the table is absent, e.g. an older devdb emission.
+    std::set<std::pair<int, int>> carry_qualified_wide_sites;
     std::string chipdb;
     ViaductHelpers h;
     dict<IdString, WireId> wire_by_name;
@@ -10546,12 +10580,28 @@ struct AgrvImpl : ViaductAPI
             }
         }
         if (!absolute_z) {
-            if (members.size() > 9 || relative_z.size() != members.size())
+            if (members.size() > carry_native_short_cap() || relative_z.size() != members.size())
                 return false;
             int position = 0;
             for (int z : relative_z)
                 if (z != position++)
                     return false;
+            // The original <=9 range is an existing, any-tile checkpoint and
+            // keeps its exact behaviour. Only the widened 10-16 range needs
+            // its root tile to be a silicon-witnessed site: every intra-tile
+            // CARRYOUT->CARRYIN pip the chain needs is ring-witnessed there
+            // (chipdb/carry_qualified_sites.csv, tools/pipwit ledger). The
+            // corner tile X20Y12 is one of 117 such sites, never the only
+            // legal one, so a design with several legal roots is free to
+            // spread away from it.
+            if (members.size() > 9 &&
+                !carry_qualified_wide_sites.count({root_loc.x, root_loc.y})) {
+                if (explain_invalid)
+                    log_info("agrv2k validity: wide native carry chain rooted at X%dY%d is "
+                             "not a silicon-witnessed site (chipdb/carry_qualified_sites.csv)\n",
+                             root_loc.x, root_loc.y);
+                return false;
+            }
         }
         for (CellInfo *member : members) {
             NetInfo *cin = member->getPort(ctx->id("CIN"));
@@ -15048,8 +15098,36 @@ struct AgrvImpl : ViaductAPI
         log_info("agrv2k: loaded %ld conducting inter-tile RMUX->RMUX edges (master_conduction.csv)\n", n);
     }
 
+    // Board-confirmed (tools/pipwit ledger, AG32-Docs, 2026-09-25) sites
+    // whose complete 16-slice intra-tile CARRY pip set is ring-witnessed.
+    // Optional and fail-open: an absent table just means the widened
+    // profile has no qualified sites (every chain over 9 sites falls back
+    // to the retained absolute X20 profiles), not a build error.
+    void load_carry_qualified_sites()
+    {
+        std::ifstream probe(path("carry_qualified_sites.csv"));
+        if (!probe) {
+            log_info("agrv2k: no carry_qualified_sites.csv in chipdb dir -- wide native carry "
+                      "corridor has no qualified sites (only the retained X20 corridor remains)\n");
+            return;
+        }
+        probe.close();
+        Csv c(path("carry_qualified_sites.csv"));
+        static const std::vector<std::string> header = {"x", "y", "evidence"};
+        if (!c.next() || c.fields != header)
+            log_error("agrv2k: malformed carry_qualified_sites.csv schema\n");
+        while (c.next()) {
+            if (c.at(0).empty())
+                continue;
+            carry_qualified_wide_sites.emplace(to_int(c.at(0)), to_int(c.at(1)));
+        }
+        log_info("agrv2k: loaded %ld silicon-witnessed wide-native-carry site(s) "
+                 "(carry_qualified_sites.csv)\n", long(carry_qualified_wide_sites.size()));
+    }
+
     void load_db()
     {
+        load_carry_qualified_sites();
         int lutk = 4;
         {
             Csv c(path("dev_meta.csv"));

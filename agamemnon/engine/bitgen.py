@@ -197,7 +197,7 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT, document=None,
         chipdb_root, options, tuple(supplemental_fields)
     )
 
-    carry_state = CARRY_FEATURE.prepare(module, slice_config, cell_map)
+    carry_state = CARRY_FEATURE.prepare(module, slice_config, cell_map, chipdb_root=chipdb_root)
     core_logic_state = CORE_LOGIC_FEATURE.prepare(
         module, cell_map, options, CONSTANTS,
         chipdb_root=chipdb_root, node_pinout=node_pinout,
