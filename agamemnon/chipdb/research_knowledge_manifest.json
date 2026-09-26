@@ -132,10 +132,10 @@
       "sha256": "3870c9830c0cc2c6abf800e9e77e19bf09772f05e1cc824ac659630fddf26634"
     },
     {
-      "bytes": 339,
+      "bytes": 349,
       "data_rows": 2,
       "path": "agamemnon/chipdb/bram_address_gnd_terminal_pip_cfg.csv",
-      "sha256": "cb98ead7b9ec95f88fbc1a916fb8e53395f41bcdc924fde11f7538361aaf0266"
+      "sha256": "df251fa922d54bc6c380785e52551d7f592e5e48e480fb3655c8763db3ee324c"
     },
     {
       "bytes": 5170,

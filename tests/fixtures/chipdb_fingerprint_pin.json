@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "6d130ec88354ec34428fdc9eed16867542e003a05e2181d708032db78befdb6c",
+  "fingerprint_sha256": "5eda85e178cb9e16cdbeaee39fbed0580921c834cbebb55836c553315097f952",
   "file_count": 278,
-  "pinned_date": "2026-09-25",
-  "reason": "Combined release candidate: witnessed carry-site inventory and async profile integration; all retained qualified artifacts rebuilt byte-identically before repinning."
+  "pinned_date": "2026-09-26",
+  "reason": "Correct X13Y4 AddressA[8] exact selector from ground-only 5,7,10,11 to isolated 5,10. Two-bit silicon repair passes twice with all controls; integration repack reproduces it. Included retained corpus rebuilt byte-identical before the manifest-only hash refresh. Research exclusions checked separately; no image qualification hashes changed."
 }
