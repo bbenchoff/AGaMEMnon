@@ -3156,7 +3156,7 @@ def _cmd_build_once(a):
     else:
         run("synth", ["yosys", "-q", "-c", synth_tcl, *sources],
             child_env=synth_env)
-        if (getattr(a, "_native_srst_candidate", False) and
+        if (native_enable and getattr(a, "_native_srst_candidate", False) and
                 os.environ.get("AGRV2K_SHARED_CONTROL_SRST_RECOVERY") == "1"):
             try:
                 with open(synth_json + ".srst-recovery.json", encoding="utf-8") as stream:
@@ -3205,9 +3205,8 @@ def _cmd_build_once(a):
         if _mem_leftover_names:
             print("AGAMEMNON WARNING: %d memory cell(s) did NOT map to the ALTA_BRAM9K block RAM "
                   "and were lowered to individual flip-flops + LUT address decoding by memory_map: "
-                  "%s -- this can silently balloon LUT/FF usage (a common cause: an "
-                  "asynchronous/combinational read port, or a pure read-only ROM with no write port, "
-                  "neither of which the block-RAM library's clocked read/write ports can express)."
+                  "%s -- small memories may prefer logic; incompatible block-RAM shapes also "
+                  "use this path. This consumes one flip-flop per stored bit plus decoding logic."
                   % (len(_mem_leftover_names), ", ".join(_mem_leftover_names)))
             _mem_lowering_strict = (getattr(a, "strict_memory_lowering", False)
                                      or env.get("AGAMEMNON_STRICT_MEMORY_LOWERING"))
@@ -3219,6 +3218,19 @@ def _cmd_build_once(a):
                       "acknowledge and continue, or fix the source (add `(* ram_style = \"block\" *)` "
                       "or restructure the read to be clocked).")
                 sys.exit(1)
+            if native_enable and not qualified_profile and not qualified_bram_source:
+                # memory_map creates one write-enable group per addressed word.
+                # Dedicated tile enables spread these groups over many tiles;
+                # ordinary data muxes keep the RAM local and preserve all write
+                # and read-enable semantics. Decide before any placement, rather
+                # than exhausting the native-control route ladder first.
+                print("[build] logic memory: using register data-logic enables")
+                a.no_native_clock_enable = True
+                a._native_enable_snapshot = None
+                a._native_enable_excluded_group_ids = ()
+                a._fallback_stages = (*getattr(a, "_fallback_stages", ()),
+                                      "logic_memory_data_enable")
+                return _cmd_build_once(a)
     # Physical BEL names are exposed by the C++ uarch database.  Generic
     # nextpnr consumes the PCF through arch.py and does not have those BELs.
     if a.pcf and a.uarch:

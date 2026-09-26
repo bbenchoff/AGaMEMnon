@@ -42,13 +42,13 @@ yosys deminout
 yosys synth -run coarse
 # map inferred memories to the AGRV2K block RAM (ALTA_BRAM9K) before the generic FF fallback; leftover
 # small/odd memories still fall through to memory_map -> FFs.
-# A 9-Kibit hard block is always cheaper than lowering a matching RAM into
-# slices on this device.  Give soft RAM a deliberately high cost so narrow,
-# deep memories (notably SERV's 512x2 register file) cannot be misclassified
-# as a distributed-memory win and expanded into thousands of LUT/FF cells.
+# Small writable memories prefer flip-flops and LUT decoding. The 0.2 per-bit
+# cost makes a 32x8 RAM cheaper than a cost-64 block, while deep memories such
+# as SERV's 512x2 register file still prefer hard RAM. Explicit ram_style and
+# BEL constraints retain their hard-block request. ROM cost is unchanged.
 source $SCRIPT_DIR/memory_bel.tcl
 agamemnon_preserve_memory_bels $SCRIPT_DIR
-yosys memory_libmap -logic-cost-ram 100000 -lib $SCRIPT_DIR/ag32_brams.txt
+yosys memory_libmap -logic-cost-ram 0.2 -lib $SCRIPT_DIR/ag32_brams.txt
 yosys techmap -map $SCRIPT_DIR/ag32_brams_map.v
 # SILENT-DEGRADATION GUARD: memory_map (next) irreversibly lowers any memory that
 # memory_libmap declined to place on the hard ALTA_BRAM9K block into one flip-flop
