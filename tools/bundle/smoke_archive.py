@@ -16,6 +16,15 @@ import tempfile
 import zipfile
 
 
+BRAM_SOURCE_PROFILE = "bram-tmux9-i0-d1-we1"
+# Independent archive-smoke pins, bound to the paired source-image evidence by
+# test_sdk_source_identity.py. Do not derive these from the installed candidate.
+BRAM_SOURCE_HASHES = {
+    "raw": "0abf85a61cde52ffbb58d9dccc64292c90fa6930e6290d8d52c18557df7df42c",
+    "compressed": "5f778f538c9903faeee28107dc122f98090deb9a31fddbb6229b0826bea6a0ad",
+}
+
+
 def sha256(path):
     digest = hashlib.sha256()
     with Path(path).open("rb") as source:
@@ -173,7 +182,7 @@ def smoke(bundle, workspace, python=sys.executable, build_temp=None):
          "import agamemnon,pathlib; print(pathlib.Path(agamemnon.__file__).parent)"],
         cwd=workspace, env=env, capture=True,
     ).stdout.strip())
-    bram_profile = "bram-tmux9-i0-d1-we1"
+    bram_profile = BRAM_SOURCE_PROFILE
     bram_source = installed_root / "sdk" / "qualified_bram_tmux9" / \
         "bram_tmux9_i0_d1_we1.v"
     bram_image = workspace / "bram-source-to-route.bin"
@@ -185,10 +194,7 @@ def smoke(bundle, workspace, python=sys.executable, build_temp=None):
         "raw": sha256(bram_image),
         "compressed": sha256(Path(str(bram_image) + ".comp")),
     }
-    expected_bram_hashes = {
-        "raw": "41e5e304e2300a949d3be969149af5b6c195e25a3b1bf4e9e03ddd093756edd0",
-        "compressed": "42cf31c08d8f2a397ad5ef420a4d7e4a0bc9aa9d68320861a0eade054e681cfc",
-    }
+    expected_bram_hashes = BRAM_SOURCE_HASHES
     if bram_hashes != expected_bram_hashes:
         raise RuntimeError(
             f"qualified BRAM source build hashes are {bram_hashes}, "
