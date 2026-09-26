@@ -7,6 +7,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 Q = ROOT / "qualification"
@@ -58,13 +60,30 @@ def test_composer_is_hash_pinned_and_honours_explicit_output(tmp_path):
     assert sha(ROUTED) == "aa7ff307b6d59035928bf79306a3e55a69434e9458672a36ed51a7abe162c5fe"
 
 
-def test_composer_uses_packaged_strict_snapshot_on_clean_checkout(
-        tmp_path, monkeypatch):
+@pytest.mark.parametrize('cached_graph', [False, True])
+def test_composer_uses_packaged_strict_snapshot_regardless_of_ignored_cache(
+        tmp_path, monkeypatch, cached_graph):
     spec = importlib.util.spec_from_file_location("public16_clean_composer", COMPOSER)
     composer = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(composer)
-    monkeypatch.setattr(composer, "DEVDB", tmp_path / "absent-generated-devdb")
+    database = tmp_path / 'generated-devdb'
+    if cached_graph:
+        database.mkdir()
+        # An unrelated cache is deliberately incapable of reproducing the
+        # artifact. It must not displace the reviewed snapshot by existing.
+        (database / 'dev_pips.csv').write_text('src,dst,name\nwrong,graph,wrong.graph\n')
+        (database / 'dev_belpins.csv').write_text('bel,pin,wire\nwrong,I,graph\n')
+    monkeypatch.setattr(composer, "DEVDB", database)
     assert composer.text_sha256(composer.compose()) == composer.OUTPUT_SHA256
+
+
+def test_explicit_comparison_database_is_not_silently_replaced(tmp_path):
+    spec = importlib.util.spec_from_file_location("public16_explicit_composer", COMPOSER)
+    composer = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(composer)
+    (tmp_path / 'dev_pips.csv').write_text('src,dst,name\nsource,target,source.target\n')
+    assert composer.strict_devdb_rows('dev_pips.csv', devdb=tmp_path) == (
+        dict(src='source', dst='target', name='source.target'),)
 
 
 def test_checker_proves_reviewed_composition_boundary():

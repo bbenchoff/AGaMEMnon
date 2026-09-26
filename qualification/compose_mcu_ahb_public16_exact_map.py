@@ -10,7 +10,6 @@ consume a wire owned by another net.
 from __future__ import annotations
 
 import argparse
-import csv
 import hashlib
 import json
 from collections import defaultdict, deque
@@ -21,6 +20,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 BASE = ROOT / "qualification/mcu_ahb_register_bank16_public_scratch4_routed.json"
 PUBLIC = ROOT / "qualification/mcu_ahb_register_bank_complete_byte_waited_routed.json"
+# Conventional path for explicitly requested graph comparisons, never a default.
 DEVDB = ROOT / "agamemnon/engine/uarch/agrv2k/devdb_strict"
 OUT = HERE / "mcu_ahb_public16_exact_map_routed.json"
 BASE_SHA256 = "97f164a72b22ea2f076f889ee771b577f482384469266dc489e0b2f243590610"
@@ -63,20 +63,16 @@ COUNTER_BELS = {
 }
 
 
-def strict_devdb_rows(name):
-    """Read a live strict table or the packaged hash-checked snapshot.
+def strict_devdb_rows(name, *, devdb=None):
+    """Read the packaged hash-checked snapshot unless explicitly overridden.
 
-    A clean source checkout does not contain the ignored generated devdb. The
-    packaged snapshot is already the fail-closed graph source used by the
-    installed status-overlay compositor; every composed output remains pinned
-    independently below.
+    These composers reproduce retained, reviewed images. An ignored generated
+    cache can belong to a different graph profile or source revision, so its
+    presence must not change the default composition. Experiments may pass a
+    database explicitly; every composed output remains independently pinned.
     """
-    path = DEVDB / name
-    if path.is_file():
-        with path.open(newline="", encoding="utf-8") as source:
-            return tuple(csv.DictReader(source))
     from agamemnon.engine import status_overlay
-    return status_overlay._devdb_rows(None, name)
+    return status_overlay._devdb_rows(devdb, name)
 
 
 def canonical_lf(data):
