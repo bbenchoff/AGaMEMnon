@@ -6,8 +6,9 @@ Predecessor evidence does not replace testing the final packaged candidate.
 | Requirement | Evidence available | Remaining gate |
 |---|---|---|
 | Four exact BRAM source profiles | Four fresh builds at `1ee501b` reproduce raw and compressed image identities from the paired hardware matrix; 2,500 build artifacts verified. | Preserve these identities through the final installed SDK builds. Scope is fixed-address, single-observed-lane write/hold. |
+| Fresh completed-read BRAM checks | Register-fanout repair is on public main at `8b7b96f`. Four fresh builds at `8fe0699` are reproduced byte-for-byte by encoder `4e122cc`. OUTREG1, SDP4 and x18 pass twice; x1 OUTREG0 fails twice. All eight vendor controls, 17 references and 33 recoveries pass. | Resolve OUTREG0 and qualify additional modes, sites and ordinary inferred memories. The isolated predecessor main still fences OUTREG1; hardware capability admission belongs to the pending integration. |
 | General FIFO correction | Three placement seeds and the ordinary memory retry correction have passing trials. A later direct-reset comparison still fails once in 64 releases; sampled alternatives pass their 64 trials. | Explain the retained failure and qualify the resulting general correction. Sampled-reset passes alone do not close it. |
-| Integrated software suite | Frozen `eb49aff` passes 4,208 tests plus six subtests, with 54 skips and no failures. Its native CI passes 727 checks with no failures or skips. | Complete the full gate on `2daf606`, validate the verifier/merge delta, and review remaining platform and opt-in coverage. |
+| Integrated software suite | The full local `2daf606` gate completed with 4,220 passes, 54 skips and one native placer segfault; four targeted reruns did not reproduce it. Register-fanout integration passes 180 focused checks; its earlier encoder also passes all 60 retained-pack checks. | Resolve the native crash and complete the final integrated gate and remaining platform coverage. Focused passing checks do not supersede the full-gate failure. |
 | Installed distribution | At `eb49aff`, installed-wheel checks pass on Linux, Windows and macOS; Windows/Linux nonpublishing SDK diagnostics pass offline installation, MCU/FPGA builds and the exact BRAM source smoke. | Regenerate final artifacts from the final source, verify the embedded wheel and checksums, then complete the publication workflow. Earlier diagnostic archives are not final release assets. |
 | Default designs and hardware | All 18 default builds pass on `eb49aff`. Hardware passes 17 and fails the LFSR, with all 19 references passing. Later stronger LFSR and completed-read-round BRAM checks expose additional implementation-specific failures. | Resolve failures rather than treating the 17 passing activity oracles as complete qualification. Revalidate the final implementation and checker contracts. |
 | Vendor comparison | All 18 sources/constraints are paired; 17 vendor builds pass and one fails. Of the 17 built vendor images, 13 pass the controlled observation and four fail. Stronger paired LFSR/BRAM comparisons have working vendor controls and failing open implementations. | Keep the original failures visible; do not treat the adapted vendor flow as universally correct or dismiss modes with fresh valid vendor passes. Expand the bounded comparison toward the capability matrix. |
@@ -18,8 +19,9 @@ The frozen software evidence is bound to
 and [SDK diagnostics](https://github.com/bbenchoff/AGaMEMnon/actions/runs/36242172823).
 The [current hardware summary](../qualification/release05_current_hardware_results.json)
 records source-paired BRAM/LFSR results, retained alternatives and clock-only
-interventions. The two independent fixes are already on public main at `29c45f3`;
-their focused software gates do not publish or qualify the larger feature stack.
+interventions and the register-fanout repair. Independently validated fixes are
+on public main through `8b7b96f`; their focused software gates do not publish or
+qualify the larger feature stack.
 
 ## Versioned packaging preparation
 

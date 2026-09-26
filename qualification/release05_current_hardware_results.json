@@ -8,7 +8,8 @@
     "BRAM activity follows completed readback rounds and a sticky error check; passing is limited to the named sources, images and observation windows.",
     "Clock-only 3 MHz vendor-derived images are edited diagnostics, not fresh vendor builds.",
     "Historical 39-mode activity-only passes do not establish completion of memory reads; deliberate missing-read mutations passed that older oracle.",
-    "No physical root cause, arbitrary RTL qualification, general BRAM mode qualification or passing default release flow follows from this summary."
+    "A missing registered-output selection is isolated by a one-bit hardware repair and byte-identical compiler reproduction. This does not close remaining OUTREG0, FIFO or LFSR failures or qualify arbitrary RTL.",
+    "Four fresh BRAM builds use8fe0699; encoder4e122cc reproduces all four images. OUTREG1, SDP4 and x18 pass twice; x1 OUTREG0 fails twice with all controls/recovery passing."
   ],
   "batches": [
     {
@@ -487,6 +488,149 @@
           }
         }
       ]
+    },
+    {
+      "id": "bram_q_selector_terminal1",
+      "workbench_receipt_sha256": "13982ee63ce0549f18324ada57742ada9c9a9021dccf000d3211c9532f1b09d6",
+      "qualification": "ONE_BIT_REGISTER_OUTPUT_REPAIR",
+      "loads": 13,
+      "reference_passes": 7,
+      "all_recovery_pass": true,
+      "variants": [
+        {
+          "variant": "vendor",
+          "image_sha256": "8927b715a7f2ecfb4f76f038a493fbe72e8bef2b0307696f2dfebdc10ef4ecea",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        },
+        {
+          "variant": "baseline",
+          "image_sha256": "bad1f43b508d208b4b73e37019882038a1598fd90523ae875dad3888ba9ebbe9",
+          "trials": 2,
+          "verdict_counts": {
+            "RATE_FAIL": 2
+          },
+          "observations": {
+            "LOW": 2
+          }
+        },
+        {
+          "variant": "q_selector",
+          "image_sha256": "c571f4de6a34c168aaef66d2539714f9258db086f1fde7374809a6b0dea7a89f",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "bram_fanout_board_terminal1",
+      "workbench_receipt_sha256": "9d2ac9055ebf446bc22a9e0d451276a00a54dfbc947b589a5e2d0d9b2b778c61",
+      "qualification": "FOUR_FRESH_SOURCE_PAIRED_BRAM_MODES",
+      "loads": 33,
+      "reference_passes": 17,
+      "all_recovery_pass": true,
+      "variants": [
+        {
+          "variant": "bmd_sp1_c10_o0-vendor",
+          "image_sha256": "4bce66ab880274109e37f29970b84462bbbc9d268b553302fdb1932548e507ac",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        },
+        {
+          "variant": "bmd_sp1_c10_o0-open",
+          "image_sha256": "934cb79c37b964d77a9d37ecbe091b7c39b01209d4eba66782dd8b3f8b205e06",
+          "trials": 2,
+          "verdict_counts": {
+            "RATE_FAIL": 2
+          },
+          "observations": {
+            "LOW": 2
+          }
+        },
+        {
+          "variant": "bmd_sp1_c10_o1-vendor",
+          "image_sha256": "8927b715a7f2ecfb4f76f038a493fbe72e8bef2b0307696f2dfebdc10ef4ecea",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        },
+        {
+          "variant": "bmd_sp1_c10_o1-open",
+          "image_sha256": "c571f4de6a34c168aaef66d2539714f9258db086f1fde7374809a6b0dea7a89f",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        },
+        {
+          "variant": "bmd_sdp4_4_c00-vendor",
+          "image_sha256": "7e8cf15e01ae3b717a7ed58df9eae195845196be8f9234370f2b6333dd37f36e",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        },
+        {
+          "variant": "bmd_sdp4_4_c00-open",
+          "image_sha256": "3914d16c59c114d5753dff6b0459ccd3c3556ee1768e4f357112680a08dee374",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        },
+        {
+          "variant": "bmd_sp18_c10_o0-vendor",
+          "image_sha256": "9789b0dff52f7da36cf6cdfdc7474805cfda299b3d102cd5d5db0e7c9697e730",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        },
+        {
+          "variant": "bmd_sp18_c10_o0-open",
+          "image_sha256": "dfa77ed2fedbb8a2c45f117a9fc9bae3ca22353e8433be19d3472efb79bd615d",
+          "trials": 2,
+          "verdict_counts": {
+            "PASS": 2
+          },
+          "observations": {
+            "EXPECTED_RATE": 2
+          }
+        }
+      ]
     }
-  ]
+  ],
+  "current_candidate_encoder": "4e122cc1bf3ec108eaba5bacc5376f404dc1ceec",
+  "fresh_bram_build_candidate": "8fe0699a4784182b26765f35e1b0f4ba38a238ad"
 }
