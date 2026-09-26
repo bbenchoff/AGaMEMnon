@@ -17,7 +17,8 @@ Predecessor evidence does not replace testing the final packaged candidate.
 
 The publication-preparation branch aligns project, runtime and bundle versions at
 0.5.0. Relevant SDK, image-plan, release-notes and bundle checks pass: 88 tests,
-with two Windows checks skipped because their host facilities are unavailable.
+with two host-specific skips in that Windows run: MSYS `cygpath` is not on PATH,
+and the POSIX quoting test does not apply there. The latter passes separately in WSL.
 Two initially failing bundle fixtures still declared 0.4.0; they were updated to
 the new release version, while deliberate wrong-version wheels remain rejected.
 
