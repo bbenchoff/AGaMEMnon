@@ -20,9 +20,13 @@ SERV_ENVIRONMENT = {
 
 
 def withdrawn_pips(pips, clean_edges):
+    # The index depends on selector evidence, not on each routed connection.
+    # Keep it local so another call with changed evidence cannot reuse it.
+    identity_conflicts = routing_selectors.rmux_identity_conflicts(clean_edges)
     return frozenset(pip for pip in pips
                      if routing_selectors.nonportable_translation(
-                         clean_edges, *pip.split(".", 1)))
+                         clean_edges, *pip.split(".", 1),
+                         identity_conflicts=identity_conflicts))
 
 
 def authenticate(pips, clean_edges, routed_path, module, options):

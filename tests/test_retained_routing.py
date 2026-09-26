@@ -83,3 +83,27 @@ def test_exact_observation_remains_admitted_without_replay():
     pip = 'X13Y1_RMUX27.X13Y4_RMUX20'
     clean = {(13, 4, 'RMUX', 20, 'RMUX', 13, 1, 27): (2, 9)}
     assert rr.authenticate([pip], clean, None, None, EngineOptions({})) == (frozenset(), None)
+
+
+def test_batch_identity_check_indexes_once_without_reusing_changed_evidence(monkeypatch):
+    contested = 'X16Y5_RMUX19.X16Y4_RMUX95'
+    exact = (16, 4, 'RMUX', 95, 'RMUX', 16, 5, 19)
+    clean = {
+        (15, 2, 'RMUX', 95, 'RMUX', 15, 3, 19): (6, 9),
+        (16, 4, 'RMUX', 95, 'RMUX', 16, 8, 67): (6, 9),
+    }
+    derive = rr.routing_selectors.rmux_identity_conflicts
+    calls = []
+
+    def counted(table, relative=None):
+        calls.append(1)
+        return derive(table, relative)
+
+    monkeypatch.setattr(rr.routing_selectors, 'rmux_identity_conflicts', counted)
+    assert rr.withdrawn_pips([contested] * 64, clean) == frozenset({contested})
+    assert len(calls) == 1  # Evidence indexing must not scale with routed pip count.
+    with pytest.raises(ValueError, match='exact retained checkpoint'):
+        rr.authenticate([contested], clean, None, None, EngineOptions({}))
+    clean[exact] = (6, 9)  # An explicit observation changes the next call's policy.
+    assert rr.authenticate([contested], clean, None, None, EngineOptions({})) == (frozenset(), None)
+    assert len(calls) == 3
