@@ -45,6 +45,22 @@ def test_registered_bram_hint_still_requires_its_exact_selector(selection):
     assert mismatches[0]['expected'] == 1 and mismatches[0]['actual'] == 0
 
 
+@pytest.mark.parametrize('hint', range(3))
+@pytest.mark.parametrize('registered', (False, True))
+def test_bram_hint_with_fanout_checks_each_output_independently(hint, registered):
+    design = fixture(hint, 0xaaaa, registered=registered)
+    design['netnames']['output']['attributes']['ROUTING'] = ';'.join(
+        f'X4Y5_OMUX{i};;1' for i in range(3))
+    bits = {(4, 5, f'CFG_OMUX0[{i}]'): (0, 1 << i) for i in range(3)}
+    correct = 7 if registered else 0
+    assert compare_omux_selections(design, bytes([correct]), bits) == (3, [], 0)
+    for index in range(3):
+        count, errors, unowned = compare_omux_selections(
+            design, bytes([correct ^ (1 << index)]), bits)
+        assert (count, unowned) == (3, 0) and len(errors) == 1
+        assert errors[0]['feature'] == (4, 5, f'CFG_OMUX0[{index}]')
+
+
 @pytest.mark.parametrize('mutation', ('missing_marker', 'wrong_selector', 'inactive_q'))
 def test_combinational_fix_does_not_relax_invalid_owner_or_mode_checks(mutation):
     design = fixture(2, 0xaaaa, registered=mutation == 'inactive_q')
