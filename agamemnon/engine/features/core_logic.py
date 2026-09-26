@@ -414,9 +414,14 @@ class CoreLogicFeature:
                     # routing emission assumes core logic already selected.
                     if routed_output_sources is None:
                         routed_output_sources = omux_output_sources(module)
-                    selections = sorted(set(selections) | {
+                    selections = sorted((set(selections) | {
                         i for i in range(3)
                         if routed_output_sources.get((x, y, 3 * z + i)) is True
+                    }) - {
+                        # The BRAM input itself may be driven by F while this
+                        # slice also exposes Q to an independent consumer.
+                        i for i in range(3)
+                        if routed_output_sources.get((x, y, 3 * z + i)) is False
                     })
                 for selection in selections:
                     state.register_sets.append(
