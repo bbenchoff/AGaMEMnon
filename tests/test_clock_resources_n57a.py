@@ -10,6 +10,7 @@ from agamemnon import cli
 from agamemnon.engine import clock_resources
 from agamemnon.engine.features.clock_validate import (
     ClockValidationError,
+    annotate_clock_intent,
     validate_clock_intent,
     validate_routed_clock,
 )
@@ -151,6 +152,35 @@ def test_complete_typed_metadata_is_bound_to_route_derived_identity():
         validate_routed_clock(
             absent, CHIPDB, _options(), routed_sha256="0" * 64
         )
+
+
+@pytest.mark.parametrize("cell_type", ["DFF", "DFFE"])
+def test_unpacked_clock_intent_survives_packing_and_rejects_route_mutation(cell_type):
+    module = _hse_module()
+    module["attributes"] = {"user_note": "preserved"}
+    module["netnames"]["renaming_has_no_authority"]["attributes"] = {}
+    module["cells"]["arbitrary_ff_name"]["type"] = cell_type
+    module["cells"]["arbitrary_ff_name"]["attributes"] = {}
+    result = annotate_clock_intent(module, CHIPDB, _options())
+    assert result.owner_bit == 7
+    packed = _hse_module()
+    packed["attributes"] = module["attributes"]
+    assert packed["attributes"]["user_note"] == "preserved"
+    assert validate_routed_clock(packed, CHIPDB, _options()).owner_bit == 7
+    packed["netnames"]["renaming_has_no_authority"]["attributes"]["ROUTING"] = ""
+    with pytest.raises(ClockValidationError):
+        validate_routed_clock(packed, CHIPDB, _options())
+
+
+def test_intent_annotation_rejects_contradictory_metadata_and_foreign_source():
+    module = _hse_module()
+    module["attributes"]["AGAMEMNON_CLOCK_SOURCE_PROFILE"] = "MCU_BUS_DEFAULT_V1"
+    with pytest.raises(ClockValidationError, match="metadata mismatch"):
+        annotate_clock_intent(module, CHIPDB, _options())
+    module = _hse_module(source_bel="X1Y1_IPAD0")
+    module.pop("attributes")
+    with pytest.raises(ClockValidationError, match="typed source driver"):
+        annotate_clock_intent(module, CHIPDB, _options())
 
 
 def test_pre_nextpnr_intent_allows_unplaced_but_rejects_explicit_wrong_bels():

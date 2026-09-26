@@ -574,18 +574,22 @@ class PhysicalIoFeature:
                     )
                     ctx.addBelInput(bel=bel, name="I", wire=wire)
                     pad_count += 1
-            if inputs:
-                (clock_x, clock_y), clock_resource = inputs[0]
-                ctx.addBel(
-                    name="CLKIN", type="GENERIC_IOB", loc=Loc(1, 4, 220),
-                    gb=False, hidden=False,
-                )
-                ctx.addBelOutput(
-                    bel="CLKIN", name="O",
-                    wire=wire_name(clock_x, clock_y, clock_resource),
-                )
             print("AGRV2K arch: added %d ring-pad OUTPUT bels "
                   "(IOMUX pad wires) + CLKIN" % pad_count)
+
+        # The typed HSE/PLL source exists independently of package outputs.
+        # Without a PCF, ordinary clock inputs must still use this canonical
+        # source rather than an untyped generic IO alias on the same wire.
+        if inputs:
+            (clock_x, clock_y), clock_resource = inputs[0]
+            ctx.addBel(
+                name="CLKIN", type="GENERIC_IOB", loc=Loc(1, 4, 220),
+                gb=False, hidden=False,
+            )
+            ctx.addBelOutput(
+                bel="CLKIN", name="O",
+                wire=wire_name(clock_x, clock_y, clock_resource),
+            )
 
         shared["io_input_connections"] = input_connections
         shared["io_output_connections"] = output_connections
