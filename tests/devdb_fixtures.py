@@ -18,6 +18,7 @@ STRICT_ENV = (
 )
 PROFILES = {
     "strict": (),
+    "strict_control": ("AGRV2K_SHARED_CONTROL_GRAPH=1",),
     "tiered": ("AGAMEMNON_ROUTING_ADMISSION=tiered",),
     "strict_pcf": (
         "AGAMEMNON_PHYSICAL_IO=1", "AGAMEMNON_PADFEED_TOP=1",
