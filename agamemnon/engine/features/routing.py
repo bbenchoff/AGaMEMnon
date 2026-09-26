@@ -852,6 +852,7 @@ class RoutingFeature:
             "conduction_retired_by_conviction.csv",
             "pad_output_approaches_L48.csv",
             "corpus_conduction.csv", "vendor_recovered_edges.csv",
+            "vendor_route_pips.csv",
             "ff_feedback_map.csv",
             "wire_timing_worst.json", "wire_timing_exact_safe.json",
             "wire_timing_exact_safe_manifest.json", "wire_timing_measured.json",
@@ -1288,7 +1289,8 @@ class RoutingFeature:
                     "harvest_conduction.csv",      # silicon-swept (harvest_sweep) all pips of CONDUCTING designs
                     "ring_witness_conduction.csv", # ring-oscillator campaign (pipwit, 2026-09): every pip of a ring that oscillated with clean controls
                     "corpus_conduction.csv",       # vendor-route-mined per-position conducting edges (mine_corpus.py A2)
-                    "vendor_recovered_edges.csv"): # vendor-routed hops of silicon-PASSING images (see edge_files below)
+                    "vendor_recovered_edges.csv",  # vendor-routed hops of silicon-PASSING images (see edge_files below)
+                    "vendor_route_pips.csv"):      # vendor-graph-omissions classes D/E/A promotion (2026-09-25, see edge_files below)
             _cp = os.path.join(DATA, _cf)
             if os.path.exists(_cp):
                 _n0 = len(CONDUCT)
@@ -1507,8 +1509,29 @@ class RoutingFeature:
             # same node, and has an exact row in sel_edge_pairs.agdb (26 of them added with this
             # table, all agreeing with the existing unanimous relative key).  A passing image is
             # per-position conduction evidence, so these rows are also loaded into CONDUCT above.
+            #
+            # vendor_route_pips.csv (2026-09-25) promotes 41,114 more vendor-routed hops absent from
+            # every table above, from the vendor-graph-omissions classification (261,685 candidates,
+            # see AG32-Docs tools/pipwit/scratch/VENDOR_GRAPH_OMISSIONS_CLASSIFIED_20260925.md): class
+            # D (41,078, codeword already resolvable via an existing exact or unanimous relative
+            # sel_edge_pairs.agdb key -- no new clean_edge row) and class A (36, the recovered
+            # codeword agrees byte-for-byte with rrg_edges_full.csv's own cfg field; topology already
+            # in rrg_edges_full.csv but never admitted into the pip graph). Class E (54,612 candidates,
+            # a clean codeword with no collision against the full clean_edge/relative_edge tables) was
+            # NOT promoted: cross-checking against existing table entries at the same key found that
+            # ~98% of the ones with any table entry to compare disagree by an exact per-destination
+            # "slot" offset (di%6*10 for RMUX destinations, di%4*12 for IMUX -- see AG32-Docs memory
+            # ag32-clean-edge-slot-offset-mismatch-2026-09-25), a systematic convention mismatch
+            # between this decode and (most of) sel_edge_pairs.agdb that is not yet resolved. The full
+            # class-E set (decoded + table codeword where present) is preserved in AG32-Docs
+            # tools/pipwit/scratch/classE_slot_offset_20260925.csv for a single-pip silicon follow-up.
+            # BRAM-tile (x=13) destinations and BufMUX/InputMUX-sourced rows are excluded from this
+            # first promotion (cross-tile-type relative-key risk / hard-boundary corridor semantics;
+            # see the classification report). A passing image is per-position conduction evidence, so
+            # these rows are also loaded into CONDUCT above.
             edge_files = ("rrg_edges_full.csv", "rrg_omux_imux_full.csv",
-                          "corpus_conduction.csv", "vendor_recovered_edges.csv")
+                          "corpus_conduction.csv", "vendor_recovered_edges.csv",
+                          "vendor_route_pips.csv")
         if os.environ.get("AGAMEMNON_PHYSICAL_IO") and DEV.name == "AGRV2KL48":
             edge_files = tuple(edge_files) + ("physical_iob_edges_L48.csv",)
         # XBAR-FULL (AGAMEMNON_XBAR_FULL=1): add the COMPLETED intra-tile RMUX->IMUX input crossbar (union+

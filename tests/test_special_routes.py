@@ -932,15 +932,16 @@ def test_current_physical_touching_pip_role_matrix_is_exhaustive(
     # 2026-09-20 ring-oscillator promotion (tools/pipwit): board-witnessed pips on physical-I/O catalog wires entered the strict graph: 826 -> 823 touching (incoming/outgoing/internal (279, 557, 10) -> (279, 554, 10)).
     # 2026-09-21 ring-oscillator promotion (tools/pipwit): board-witnessed pips on physical-I/O catalog wires entered the strict graph: 823 -> 822 touching (incoming/outgoing/internal (279, 554, 10) -> (279, 553, 10)).
     # 2026-09-24 default OMUXPRES pips: three of the 2,061 touch catalog wires, all at X14Y11 (slices 4, 5, 6: OMUX14->OMUX12, OMUX17->OMUX15, OMUX20->OMUX18): 822 -> 825 touching (incoming/outgoing/internal (279, 553, 10) -> (281, 554, 10)).
-    assert len(touching) == 825
+    # 2026-09-25 vendor-route pips: 41,114 vendor-proven hops (class D+A) entered the strict graph: 825 -> 872 touching (incoming/outgoing/internal (281, 554, 10) -> (281, 601, 10)).
+    assert len(touching) == 872
     assert hashlib.sha256(canonical).hexdigest() == (
-        "e71cce3db3880b966fee7ce3b365f840569d0023c9f2bb5e45d7b8dc72d69386"
+        "90e5bfb8f5d5196ac3ac70859d753d073ad6de1fcf6f1f980bd0cd4ce6d59460"
     )
     incoming = [edge for edge in touching if edge[1] in catalog.wires]
     outgoing = [edge for edge in touching if edge[0] in catalog.wires]
     internal = [edge for edge in touching
                 if edge[0] in catalog.wires and edge[1] in catalog.wires]
-    assert (len(incoming), len(outgoing), len(internal)) == (281, 554, 10)
+    assert (len(incoming), len(outgoing), len(internal)) == (281, 601, 10)
 
     # The census above binds the exact current physical graph.  Avoid 7,656
     # redundant catalog reads while still exercising the public validator for
@@ -1294,6 +1295,11 @@ def _pre_campaign_graph_bytes(admission, shared):
     # vendor-routed hops recovered from passing images (2026-09-24) postdate the campaign baseline;
     # their exact sel_edge_pairs.agdb rows only restate unanimous relative keys, so they change no pip
     (data / "vendor_recovered_edges.csv").unlink(missing_ok=True)
+    # vendor-route-pips promotion (2026-09-25) likewise postdates the campaign baseline; it is classes
+    # D and A only (no new sel_edge_pairs.agdb rows -- class E was withdrawn, see
+    # ag32-clean-edge-slot-offset-mismatch-2026-09-25), so removing this one topology file reproduces
+    # the pre-promotion graph
+    (data / "vendor_route_pips.csv").unlink(missing_ok=True)
     # positive-evidence rows that a campaign conviction retired come back for the pre-campaign graph
     retired = data / "conduction_retired_by_conviction.csv"
     if retired.exists():
@@ -1367,11 +1373,56 @@ def _without_omux_presentation(raw):
                     if line.split(b",", 2)[1:2] != [b"OMUXPRES"])
 
 
+_OMUXPRES_BASELINE_CACHE = {}
+
+
+def _omuxpres_baseline_bytes(admission, shared):
+    """Source-fresh dev_pips.csv with vendor_route_pips.csv hidden.
+
+    PRE_OMUX_PRESENTATION_PHYSICAL_GRAPHS (2026-09-24) is the exact predecessor identity
+    right where OMUXPRES landed -- every OLDER promotion (the ring-witness campaign, the
+    103 vendor_recovered_edges.csv hops) is already baked into it. vendor_route_pips.csv
+    (2026-09-25) is the first thing to land AFTER OMUXPRES, so it must be hidden here the
+    same way _pre_campaign_graph_bytes hides it for the deeper pre-campaign rung -- reading
+    the live PHYSICAL_DEVDB directly (as this used to) bakes in that later growth and no
+    longer reproduces this historical rung.
+    """
+    key = (admission, shared)
+    if key in _OMUXPRES_BASELINE_CACHE:
+        return _OMUXPRES_BASELINE_CACHE[key]
+    import tempfile
+    root = Path(__file__).parents[1]
+    work = Path(tempfile.mkdtemp(prefix="pre-omuxpres-chipdb-"))
+    data = work / "chipdb"
+    shutil.copytree(CHIPDB, data)
+    (data / "vendor_route_pips.csv").unlink(missing_ok=True)
+    devdb = work / ("devdb_" + admission + "_sc" + shared)
+    command = [
+        sys.executable,
+        str(root / "agamemnon" / "engine" / "emit_uarch_db.py"),
+        "--arch", str(root / "agamemnon" / "engine" / "arch.py"),
+        "--data", str(data),
+        "--out", str(devdb),
+    ]
+    environ = list(sr.SOURCE_FRESH_PHYSICAL_ENV)
+    if shared == "1":
+        environ.append(sr.SHARED_CONTROL_GRAPH_ENV + "=1")
+    if admission != "release-strict":
+        environ.append("AGAMEMNON_ROUTING_ADMISSION=" + admission)
+    for item in environ:
+        command.extend(("--env", item))
+    emitted = subprocess.run(command, cwd=root, text=True, capture_output=True, timeout=300)
+    assert emitted.returncode == 0, emitted.stdout + emitted.stderr
+    raw = (devdb / "dev_pips.csv").read_bytes()
+    _OMUXPRES_BASELINE_CACHE[key] = raw
+    return raw
+
+
 def _check_omux_presentation_predecessor(devdb, tmp_path, admission, shared):
     previous = tmp_path / ("pre-omuxpres-" + admission + "-" + shared)
     shutil.copytree(devdb, previous)
     path = previous / "dev_pips.csv"
-    current = path.read_bytes()
+    current = _omuxpres_baseline_bytes(admission, shared)
     raw = _without_omux_presentation(current)
     assert len(current.splitlines()) - len(raw.splitlines()) == 2061
     count, digest = sr.PRE_OMUX_PRESENTATION_PHYSICAL_GRAPHS[shared][admission]
@@ -2942,9 +2993,10 @@ def test_portb_exit_graph_is_a_pure_reservation_subset_of_the_base_graph(tmp_pat
     # 2026-09-19 ring-oscillator promotion (tools/pipwit): board-witnessed RMUX rows inside the BRAM exit-corridor tiles entered the strict graph: 222 -> 223 withheld rows.
     # 2026-09-19 ring-oscillator promotion (tools/pipwit): board-witnessed RMUX rows inside the BRAM exit-corridor tiles entered the strict graph: 223 -> 225 withheld rows.
     # 2026-09-20 ring-oscillator promotion (tools/pipwit): board-witnessed RMUX rows inside the BRAM exit-corridor tiles entered the strict graph: 225 -> 203 withheld rows.
+    # 2026-09-25 vendor-route pips: 41,114 vendor-proven hops (class D+A) entered the strict graph: 203 -> 261 withheld rows.
     assert len(removed) == (
         sr.EXPECTED_PHYSICAL_GRAPH_PIP_COUNT - profile["graph_pip_count"]
-    ) == 203
+    ) == 261
     tiles = {base[name][1].split("_")[0] for name in removed}
     assert all("_RMUX" in base[name][1] for name in removed)
     assert tiles == {

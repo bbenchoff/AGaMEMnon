@@ -43,6 +43,15 @@ def test_shipped_runtime_databases_have_expected_schema(tmp_path):
     # 2026-09-18: one independently controlled native RMUX31->RMUX25 coordinate.
     # 2026-09-24: 26 exact rows for vendor-routed hops recovered from silicon-passing images
     # (chipdb/vendor_recovered_edges.csv); each agrees with its existing unanimous relative key.
+    # 2026-09-25: vendor-route-pips promotion (chipdb/vendor_route_pips.csv) adds NO new clean_edge
+    # rows -- it is classes D (codeword already resolvable via an existing exact/relative key) and
+    # A-agreeing (codeword already in rrg_edges_full.csv) only. Class E (54,612 candidates) was
+    # withdrawn from this promotion: ~92,000 of a table cross-check's 103,484 sampled comparisons
+    # against existing clean_edge/relative_edge entries disagree by an exact per-destination-slot
+    # offset, a systematic convention mismatch (see AG32-Docs memory
+    # ag32-clean-edge-slot-offset-mismatch-2026-09-25) that is not yet resolved; the full class-E
+    # set is preserved in AG32-Docs tools/pipwit/scratch/classE_slot_offset_20260925.csv for a
+    # single-pip silicon follow-up rather than promoted on unresolved evidence.
     assert len(exact["clean_edge"]) == 665139
     assert len(train["train_lut"]) == 14237
     assert tuple(len(tables[name]) for name in ("geom_rmux", "absolute", "group_context")) == (

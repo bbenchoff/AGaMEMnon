@@ -633,6 +633,7 @@ def test_routing_feature_owns_resolution_and_physical_writes():
         "conduction_retired_by_conviction.csv",
         "pad_output_approaches_L48.csv",
         "corpus_conduction.csv", "vendor_recovered_edges.csv",
+        "vendor_route_pips.csv",
         "ff_feedback_map.csv",
         "wire_timing_worst.json", "wire_timing_exact_safe.json",
         "wire_timing_exact_safe_manifest.json", "wire_timing_measured.json",

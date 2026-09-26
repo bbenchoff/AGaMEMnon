@@ -1471,7 +1471,8 @@ def test_silicon_dead_edges_have_absolute_precedence():
     positive = set()
     for name in ("master_conduction.csv", "ff2_conduction.csv",
                  "harvest_conduction.csv", "ring_witness_conduction.csv",
-                 "corpus_conduction.csv", "vendor_recovered_edges.csv"):
+                 "corpus_conduction.csv", "vendor_recovered_edges.csv",
+                 "vendor_route_pips.csv"):
         with (data / name).open(newline="") as f:
             positive.update((row["src_res"], row["src_x"], row["src_y"],
                              row["dst_res"], row["dst_x"], row["dst_y"])

@@ -1593,6 +1593,12 @@
       "sha256": "180a849fb53cc7cd8f7808332450c6b95a57ffce96d481a0b652a7226b1a9bff"
     },
     {
+      "bytes": 1343658,
+      "data_rows": 41114,
+      "path": "agamemnon/chipdb/vendor_route_pips.csv",
+      "sha256": "68ee313d3a27d845d3a93e0909e69605904dc7a9dc80094c3f59555049a01888"
+    },
+    {
       "bytes": 46899,
       "path": "agamemnon/chipdb/wire_timing_exact_safe.json",
       "sha256": "ac1a354e1f4031898db1fac05b8b56ca420d3c7d0ee8a37f8d5ff23cfaabd916"
