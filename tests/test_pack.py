@@ -50,10 +50,10 @@ def test_pack_byte_exact(routed, tmp_path):
         if routed in LEGACY_UNTYPED_CLOCK:
             assert "typed clock direct-pack validation failed" in diagnostic
         else:
-            # This legacy partial route references an OMUX with no placed
-            # slice owner. Ownership validation now refuses before the later
-            # unmapped-PIP gate; neither path may emit an image.
-            assert "OMUX output ownership missing for X14Y4_OMUX6" in diagnostic
+            # This partial route also depends on a withdrawn selector. That
+            # exact-checkpoint gate now refuses before OMUX ownership checks.
+            assert ("withdrawn selector translation requires an exact retained checkpoint: "
+                    "X14Y12_RMUX49.X14Y12_RMUX07") in diagnostic
         assert not os.path.exists(out)
         env["AGAMEMNON_ALLOW_UNMAPPED"] = "1"
         archival = subprocess.run(
