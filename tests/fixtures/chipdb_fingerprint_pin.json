@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "26619a5328605d53e8167dafd14329fcbc078757feed8c9a37104e9ebc73c510",
+  "fingerprint_sha256": "93e8fe32d56ecdfac8c85c04e8e0ec83a141f1733323a4edfd7b00a2b86f30b3",
   "file_count": 275,
   "pinned_date": "2026-09-25",
-  "reason": "2026-09-25: ledger promotion via tools/pipwit/graph_pipeline.py (run 20260924_2335, base c4cb3b5bd): ring_witness_conduction.csv 301221 witnessed rows (+46202), dead_edges_silicon.csv 3280 edges (+449); 13 witnessed pips without an exact codeword withheld; graph identities changed."
+  "reason": "2026-09-25: ledger promotion via tools/pipwit/graph_pipeline.py (run 20260924_2335, base c4cb3b5bd): ring_witness_conduction.csv 296683 witnessed rows (-4538), dead_edges_silicon.csv 4325 edges (+1045); 11 witnessed pips without an exact codeword withheld; graph identities changed."
 }

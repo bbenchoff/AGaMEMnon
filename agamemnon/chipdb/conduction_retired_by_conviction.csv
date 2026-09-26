@@ -1,5 +1,6 @@
 table,src_res,src_x,src_y,dst_res,dst_x,dst_y,source,row_index
 master_conduction.csv,RMUX85,14,8,RMUX49,14,12,vendor_recon,2675
+master_conduction.csv,RMUX08,2,4,RMUX33,1,4,silicon,2715
 harvest_conduction.csv,RMUX85,14,8,RMUX49,14,12,silicon_harvest,65
 corpus_conduction.csv,OMUX02,17,1,RMUX21,17,1,corpus_route,18769
 corpus_conduction.csv,OMUX08,17,12,RMUX09,17,12,corpus_route,24416
@@ -17,6 +18,7 @@ corpus_conduction.csv,RMUX01,16,1,RMUX07,18,1,corpus_route,61616
 corpus_conduction.csv,RMUX02,8,1,RMUX09,8,4,corpus_route,62350
 corpus_conduction.csv,RMUX02,14,4,RMUX03,14,8,corpus_route,62514
 corpus_conduction.csv,RMUX02,14,7,RMUX03,14,11,corpus_route,62542
+corpus_conduction.csv,RMUX08,2,4,RMUX33,1,4,corpus_route,73733
 corpus_conduction.csv,RMUX13,15,12,RMUX49,14,12,vendor-ahbrwide32,83594
 corpus_conduction.csv,RMUX14,20,5,RMUX57,20,1,corpus_route,86830
 corpus_conduction.csv,RMUX15,17,12,RMUX69,20,12,corpus_route,88989
@@ -46,12 +48,15 @@ corpus_conduction.csv,RMUX56,8,1,RMUX27,5,1,corpus_route,169056
 corpus_conduction.csv,RMUX56,9,1,RMUX27,5,1,corpus_route,169143
 corpus_conduction.csv,RMUX59,1,1,IMUX33,1,1,corpus_route,173879
 corpus_conduction.csv,RMUX59,2,1,IMUX31,2,1,corpus_route,173974
+corpus_conduction.csv,RMUX61,16,12,RMUX55,20,12,corpus_route,178916
+corpus_conduction.csv,RMUX63,14,4,RMUX69,12,4,corpus_route,181875
 corpus_conduction.csv,RMUX65,3,1,IMUX31,3,1,corpus_route,184299
 corpus_conduction.csv,RMUX74,14,12,RMUX09,17,12,corpus_route,203233
 corpus_conduction.csv,RMUX74,15,12,RMUX09,17,12,corpus_route,203383
 corpus_conduction.csv,RMUX85,14,8,RMUX49,14,12,corpus_route,223594
 corpus_conduction.csv,RMUX85,14,9,RMUX49,14,12,oracle_bram_dual_logic_q,223610
 corpus_conduction.csv,RMUX85,14,11,RMUX49,14,12,vendor_portb_logic_oracle,223633
+corpus_conduction.csv,RMUX85,20,8,RMUX55,20,12,corpus_route,225113
 corpus_conduction.csv,RMUX86,8,1,RMUX57,7,1,corpus_route,225404
 corpus_conduction.csv,RMUX86,10,1,RMUX57,7,1,corpus_route,225554
 corpus_conduction.csv,RMUX86,12,1,RMUX57,10,1,corpus_route,225715

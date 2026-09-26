@@ -56,13 +56,13 @@ EXPECTED_CATALOG_SHA256 = (
 # silicon-witnessed slices of omux3z_presentation_evidence.csv); nothing else changes, and
 # AGAMEMNON_NO_OMUX_PRESENT0 reproduces the predecessor byte-for-byte
 # (PRE_OMUX_PRESENTATION_PHYSICAL_GRAPHS below).
-EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 324330
+EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 323360
 EXPECTED_PHYSICAL_GRAPH_SHA256 = (
-    "10a2a4dc475d14fdd8975f67c47084b9dde8b039d419943667ba36c24d75769f"
+    "4bb798c69d6569a82d5355313f2f165b969e7115d5dc5f5d261953daffd9374b"
 )
-EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 331880
+EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 330808
 EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
-    "5842935980bed552215c216922c2967a1f337182f60fef5d7173e2e9aabb66c4"
+    "bd203af5c287ac0bc9a4f890394ea74c9db1d84ff92fe5507837ffab6d4aa067"
 )
 # The native-control graph contributes the finite, reviewed shared-control
 # topology.  It is a separate graph profile: accepting it by changing the base
@@ -70,12 +70,12 @@ EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
 # graph authority.
 EXPECTED_SHARED_CONTROL_PHYSICAL_GRAPHS = {
     "release-strict": (
-        325403,
-        "ae61361a9bb82284ef62544018c5790b21eb153c5ff65de97743ae990cef8005",
+        324433,
+        "9a99b8baa3e65f1b2670c25ddda0005baa136f283419c60c2fdba5e299d6a522",
     ),
     "tiered": (
-        332953,
-        "bff34e0637ac48a9e24521e5941e6325c47d50a2c54a424d4e1ecdc2627476f7",
+        331881,
+        "3005708632f43819fcb7e670823767447a5430cb88140b248c19998867a62f26",
     ),
 }
 # Exact predecessors before the default OMUXPRES pips (2026-09-24; they include the 103

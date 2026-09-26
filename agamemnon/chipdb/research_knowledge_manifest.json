@@ -379,22 +379,22 @@
       "sha256": "ba19518ab48ac1f39c73b65b7e5fc862934dd27fa755cf1ea28d7f014f857192"
     },
     {
-      "bytes": 4831,
-      "data_rows": 72,
+      "bytes": 5152,
+      "data_rows": 77,
       "path": "agamemnon/chipdb/conduction_retired_by_conviction.csv",
-      "sha256": "ec7438cbd180829047bb04da6045f211699a8f0f7fb1ce9a077a284378fcee6f"
+      "sha256": "0193ff1b9fc4e5effd1505529acc5c3bec9e8a616570be6664af7773904b1bbb"
     },
     {
-      "bytes": 9767358,
-      "data_rows": 257944,
+      "bytes": 9767209,
+      "data_rows": 257940,
       "path": "agamemnon/chipdb/corpus_conduction.csv",
-      "sha256": "051a39c696721a318a6dc4913ce3b4468189b6ff522fb248c64d28a41d417bfb"
+      "sha256": "c51aa4d59ac360674ea1177803adf25c9ee5683c6358ccc026fb7a5cda1e6c51"
     },
     {
-      "bytes": 87857,
-      "data_rows": 3280,
+      "bytes": 116117,
+      "data_rows": 4325,
       "path": "agamemnon/chipdb/dead_edges_silicon.csv",
-      "sha256": "9f2e8598f972956921d98a224f6d2ab1977375eb708daa8cbc9a5c884887ac5b"
+      "sha256": "8ce87dd2e59576644a98a06b300cd151cce39eba0c2b90873d6a143d7e92f6a4"
     },
     {
       "bytes": 380,
@@ -472,10 +472,10 @@
       "sha256": "390b0a933b143aab08b9c5716acf176d66a37a507996131793a5bf2ec5aa4a22"
     },
     {
-      "bytes": 88427,
-      "data_rows": 2767,
+      "bytes": 88397,
+      "data_rows": 2766,
       "path": "agamemnon/chipdb/master_conduction.csv",
-      "sha256": "b1c490cd5dc88e4196da296040fc27c650269c685a596a25707b4167bb5a6926"
+      "sha256": "6b230830ce2048a1b23e279b6c4c5948ca3d58637ab42980af9bbcc5952d365a"
     },
     {
       "bytes": 7684,
@@ -1453,10 +1453,10 @@
       "sha256": "1115d38a900f328b8e1f1a89f767296b26db8f54f5aea5299148d974944c05b7"
     },
     {
-      "bytes": 11087297,
-      "data_rows": 301221,
+      "bytes": 10921477,
+      "data_rows": 296683,
       "path": "agamemnon/chipdb/ring_witness_conduction.csv",
-      "sha256": "06d319922ea2c638c7eb90c2529c77be8d69c92f6f1ccd2c47d48bd8a3891f34"
+      "sha256": "223e0c155783d3841bf6857ac8f43e6b751589cbad3ccd0d8c7d64827fa39f7d"
     },
     {
       "bytes": 1607,
