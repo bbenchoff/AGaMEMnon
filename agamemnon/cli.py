@@ -2561,6 +2561,36 @@ def _control_sharing_budget_outcome(records, max_route_attempts):
             else "classified_placement_routing_exhaustion")
 
 
+class _NativeSRSTComparisonExhausted(_ControlSharingCandidateExhausted):
+    """A bounded alternative mapping stopped with an admissible baseline retained."""
+
+
+class _NativeSRSTComparisonBudget:
+    """Share an optional mapping's route allowance across recursive fallbacks.
+
+    Ordinary synthesis and legality checks still run. Only P&R is bounded, using
+    the same conservative outcome classifier as optional control sharing.
+    """
+
+    def __init__(self, args):
+        self.max_route_attempts, self.attempt_timeout_seconds = _control_sharing_attempt_budget(args)
+        self.records = []
+
+    def observe(self, record):
+        self.records.append(record)
+        if record.outcome == _attempt_ladder.SUCCESS or len(self.records) < self.max_route_attempts:
+            return
+        outcome = _control_sharing_budget_outcome(self.records, self.max_route_attempts)
+        if outcome is None:
+            print("error: optional native SRST mapping budget reached with an "
+                  "unclassified, unsafe, aborted, or timing-failed result")
+            sys.exit(1)
+        raise _NativeSRSTComparisonExhausted(
+            outcome, attempts_run=len(self.records),
+            max_route_attempts=self.max_route_attempts,
+            attempt_timeout_seconds=self.attempt_timeout_seconds)
+
+
 def _routed_slice_count(document):
     return sum(cell.get("type") == "GENERIC_SLICE"
                for module in document.get("modules", {}).values()
@@ -3904,6 +3934,11 @@ def _cmd_build_once(a):
                 record = _attempt_ladder.AttemptRecord(attempt_no, cap, seed, fo, outcome, rlog)
                 attempt_records.append(record)
                 _attempt_ladder.write_attempt_log(attempts_dir, record)
+                comparison_budget = getattr(a, "_native_srst_comparison_budget", None)
+                if comparison_budget is not None:
+                    # Account before any recursive synthesis/mapping fallback.
+                    # copy.copy(a) intentionally preserves this shared object.
+                    comparison_budget.observe(record)
                 if (outcome != _attempt_ladder.ABORTED and run.returncode and
                         re.search(r"^ERROR: agrv2k: CARRY_GRAPH_INFEASIBLE:", rlog, re.MULTILINE)):
                     if getattr(a, "_control_sharing_candidate", False):
@@ -4731,6 +4766,14 @@ def cmd_build(a):
         candidate._native_enable_snapshot = None
         candidate._native_enable_excluded_group_ids = ()
         candidate._fallback_stages = ()
+        # Once an admissible mapping completed, searching a cheaper alternative
+        # is optional. A slow alternative must not indefinitely withhold the
+        # completed image. With no admissible baseline, keep the normal search.
+        comparison_budget = (_NativeSRSTComparisonBudget(a) if any(
+            item.get("native_enable_qin_safe", True) for item in candidates) else None)
+        candidate._native_srst_comparison_budget = comparison_budget
+        if comparison_budget is not None:
+            candidate.attempt_timeout = comparison_budget.attempt_timeout_seconds
         candidate.output = os.path.join(root_tmp, label + ".bin")
         candidate.write_routed = os.path.join(root_tmp, label + ".routed.json")
         prior = os.environ.get("AGRV2K_SHARED_CONTROL_SRST_RECOVERY")
@@ -4752,8 +4795,16 @@ def cmd_build(a):
         if prior_trace:
             os.environ["AGAMEMNON_ATTEMPT_TRACE_DIR"] = os.path.join(
                 prior_trace, "native_srst_" + label)
+        comparison_exhaustion = None
         try:
             result = _cmd_build_once(candidate)
+        except _NativeSRSTComparisonExhausted as exc:
+            if comparison_budget is None:
+                raise
+            comparison_exhaustion = exc.report()
+            print("[build] optional native SRST mapping %s: %s; retaining completed candidates" %
+                  (label, exc.outcome))
+            result = None
         except _NativeSRSTCandidateExhausted:
             result = None
         finally:
@@ -4806,8 +4857,14 @@ def cmd_build(a):
                              "native_enable_qin_safe": qin_safe,
                              "mapping_options": mapping_options})
         else:
-            outcomes.append({"mapping": label, "outcome": "eligible_exhaustion",
+            outcomes.append({"mapping": label,
+                             **(comparison_exhaustion or {"outcome": "eligible_exhaustion"}),
                              "mapping_options": mapping_options})
+        if comparison_budget is not None:
+            outcomes[-1]["route_attempt_budget"] = {
+                "max_route_attempts": comparison_budget.max_route_attempts,
+                "attempt_timeout_seconds": comparison_budget.attempt_timeout_seconds,
+                "attempts_run": len(comparison_budget.records)}
     if candidates:
         # Correctness before area: a candidate that leaves an enabled register's own-Q loop on general
         # routing reads 0 Hz on silicon (2026-09-19, template_ce_en: legacy 153 slices selected, 15/15
