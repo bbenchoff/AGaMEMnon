@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "e230c6d890afbf35c69bcb9e645eb69e0505caf97be5d90d0a31a48fa6625a0a",
+  "fingerprint_sha256": "ab5fb75424574014a28c0a65c55192b757232bab012a04ed04b84bdde89edf03",
   "file_count": 276,
-  "pinned_date": "2026-09-25",
-  "reason": "2026-09-25 serv_blinky integration fix: retag the two readmitted X13Y4 address feeders silicon_ring_20260925 so the pre-campaign predecessor replay excludes them (bram_wl.csv rows unchanged in effect, tag only)"
+  "pinned_date": "2026-09-26",
+  "reason": "Correct X13Y4 AddressA[8] exact selector from ground-only 5,7,10,11 to isolated 5,10. Two-bit silicon repair passes twice with all controls; integration repack reproduces it. Included retained corpus rebuilt byte-identical before the manifest-only hash refresh. Research exclusions checked separately; no image qualification hashes changed."
 }
