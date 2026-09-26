@@ -9,9 +9,26 @@ The bit-map (``MAP`` below) was recovered and proven byte-exact on a 53-point ve
 (AG32-Docs ``tools/pll_sweep_20260812``): every preamble bit that varies with (SYSCLK,HSE) is an
 exact single-field-bit function of the ported divider values, and all 53 vendor preambles
 reconstruct with zero residual. There is no per-ratio byte table; the emitter is one closed-form
-equation. Emission is still fail-closed to evidence-backed configurations (``SUPPORTED_RATIOS``):
-the seven byte-exact profiles plus every HSE=8 rate qualified on silicon by the two-window MTIME
+equation. Emission is fail-closed to evidence-backed configurations (``SUPPORTED_RATIOS``): the
+seven byte-exact profiles plus every HSE=8 rate qualified on silicon by the two-window MTIME
 frequency sweep (``qualification/pll_freq_evidence.jsonl``).
+
+2026-09-25 general ratio model (AG32-Docs ``tools/vendor_parity/PLL_RATIO_MODEL_20260925.md``):
+the vendor flow accepts *any* ``.ve`` SYSCLK/HSE it can solve -- there is no per-ratio vendor table
+either, just this same divider search plus the legal ranges the recovered bit map can represent.
+Three ratios outside the old enumerated ``SUPPORTED_RATIOS`` table (20/8, 40/8, 62/8) were built
+through the vendor flow and PASSED on the board at their predicted rate
+(``tools/vendor_witness/CLOCK_MODE_MATRIX_20260925.md``), extending the pre-existing 43-point HSE=8
+silicon sweep with three more independent points spanning the same divider mechanism. That is
+strong evidence the *mechanism* generalizes, not just the specific points already enumerated, so
+for the ``HSE=8`` reference (the only reference broadly silicon-swept -- 46 points now, 4-248 MHz)
+emission is admitted by a **validity model** instead of a per-point table: any ``SYSCLK`` whose
+computed dividers fall inside the legal PFD/VCO/bit-width ranges below is admitted, computed on
+demand by the same closed-form equation. ``SUPPORTED_RATIOS`` is retained unmodified as the
+byte-exact regression set (every entry must still reproduce its exact bytes) and as the sole
+admission path for every other HSE. Kill switch: ``AGAMEMNON_NO_PLL_RATIO_MODEL`` reverts HSE=8 to
+the old enumerated-only behavior (a build that only ever narrows -- never widens -- what a
+release-strict build already emits).
 """
 import os, sys, collections
 HERE = os.path.dirname(os.path.abspath(__file__)); TOOLS = os.path.dirname(HERE)
@@ -106,16 +123,6 @@ class UnsupportedPLLConfiguration(ValueError):
     """The requested PLL configuration is not completely covered by the recovered bit map."""
 
 
-def require_supported_ratio(sysclk, hse):
-    ratio = (sysclk, hse)
-    if ratio not in SUPPORTED_RATIOS:
-        supported = ", ".join("%d/%d" % pair for pair in SUPPORTED_RATIOS)
-        raise UnsupportedPLLConfiguration(
-            "unsupported PLL ratio SYSCLK/HSE=%s/%s MHz; supported byte-exact ratios: %s"
-            % (sysclk, hse, supported)
-        )
-    return ratio
-
 def analyze():
     base = decode(os.path.join(TOOLS, "oracle_pll_repro", "blink.bin"))
     for d, sysclk, hse in ORACLES:
@@ -151,6 +158,113 @@ MAP = {
     "CLKIN_LOW":    [(149, 4), (149, 3)],  # DIVL bits 0..1
     "CLKIN_TRIM":   [(150, 4)],
 }
+
+
+# --------------------------------------------------------------------------------------------
+# General validity model (2026-09-25). Every legal bound here is derived, not guessed:
+#
+#  * PFD_MIN/PFD_MAX, VCO_MIN/VCO_MAX/VCO_LOW: the vendor ``check_pll``/``get_pll_vco`` search
+#    bounds (ported verbatim above) -- ``check_pll`` already raises when no VCO satisfies them,
+#    for any (sysclk, hse).
+#  * POST_DIV: ``check_pll`` reports ``post_div=1`` whenever the chosen VCO is below VCO_MIN
+#    (600); the recovered bit map has no bit for POST_DIV, and every profile/sweep point (53/53)
+#    that has ever been decoded landed in the VCO<600 (post_div=1) regime. A ratio whose only
+#    solvable VCO is >=600 would need POST_DIV=0, which is not in the recovered map, so it is
+#    refused by name rather than silently emitting a config for the wrong regime.
+#  * Divider bit widths: MAP gives each field's mapped bit count directly. ``get_pll_div`` puts a
+#    divider ``d`` at ``divh=(d>>1)-1, divl=(d-divh)-2`` (both floor(d/2)-1, so within 1 of each
+#    other); solving each for the field's max representable value gives the closed form
+#    ``max_div = 2**(bits+1)`` -- verified against a brute-force search over d in `divider_legal_range`.
+#    ``d==1`` is BYP=1 (``get_pll_div`` returns ``divh=divl=255``, which cannot fit any mapped
+#    field), and BYP has no mapped bit either, so ``d==1`` is refused by name for the same reason.
+def divider_legal_range(bits):
+    """Inclusive (min, max) divider value representable by a `bits`-wide HIGH/LOW pair.
+
+    min=2 excludes BYP (d==1, unmapped). max=2**(bits+1): for even d=2n, divh=divl=n-1 (trim=0),
+    so the largest representable even divider is d=2*(2**bits); the odd neighbor d+1 needs one
+    more LOW bit and is NOT representable, so the closed max is exactly 2**(bits+1).
+    """
+    return 2, 2 ** (bits + 1)
+
+
+CLKIN_DIV_RANGE = divider_legal_range(len(MAP["CLKIN_HIGH"]))      # (2, 8)
+CLKFB_DIV_RANGE = divider_legal_range(len(MAP["CLKFB_HIGH"]))      # (2, 256)
+CLKOUT0_DIV_RANGE = divider_legal_range(len(MAP["CLKOUT0_HIGH"]))  # (2, 128)
+
+# The only reference broadly silicon-swept (46 independent HSE=8 points, 4-248 MHz, incl. the
+# 2026-09-25 20/40/62 vendor board PASSes): the general validity-model admission path applies only
+# here. Every other HSE stays enumerated-only (``SUPPORTED_RATIOS``) -- see PLL_RATIO_MODEL_20260925.md.
+GENERAL_RATIO_HSE_MHZ = 8
+
+# Kill switch: presence (any non-empty value, including "0") disables the general validity-model
+# admission path for HSE=8 and reverts to the old enumerated-only ``SUPPORTED_RATIOS`` gate, same
+# boolean convention as every other registered AGAMEMNON_ option (registry.py). This can only ever
+# NARROW what a release-strict build emits (it removes ratios, never adds one outside the byte-exact
+# table), so it is safe under every claim-policy mode -- see registry.py/claim_policy.py.
+NO_GENERAL_RATIO_ENV = "AGAMEMNON_NO_PLL_RATIO_MODEL"
+
+
+def general_ratio_model_enabled():
+    # The literal name is repeated (not read via the NO_GENERAL_RATIO_ENV constant) so the
+    # registry-consumption scanner (tests/test_engine_registry.py) can see this option is read.
+    assert NO_GENERAL_RATIO_ENV == "AGAMEMNON_NO_PLL_RATIO_MODEL"
+    return not os.environ.get("AGAMEMNON_NO_PLL_RATIO_MODEL")
+
+
+def evaluate_general_ratio(sysclk, hse):
+    """Validity-model admission: is (sysclk, hse) inside the recovered legal envelope?
+
+    Returns ``check_pll``'s result dict on success. Raises ``UnsupportedPLLConfiguration`` naming
+    the exact limit hit otherwise -- never silently narrows or widens past what the bit map and
+    the ported vendor search can actually represent.
+    """
+    try:
+        c = check_pll(sysclk, hse)
+    except RuntimeError as exc:
+        raise UnsupportedPLLConfiguration(
+            "no legal PLL solution for SYSCLK/HSE=%s/%s MHz within the recovered search range "
+            "(PFD %d-%d MHz, VCO %d-%d MHz)" % (sysclk, hse, PFD_MIN, PFD_MAX, VCO_LOW, VCO_MAX)
+        ) from exc
+    if c["vco"] >= VCO_MIN:
+        raise UnsupportedPLLConfiguration(
+            "SYSCLK/HSE=%s/%s MHz needs VCO=%d MHz >= %d MHz (POST_DIV=0); that regime has no "
+            "recovered config bit (every mapped ratio uses POST_DIV=1, VCO<%d MHz)"
+            % (sysclk, hse, c["vco"], VCO_MIN, VCO_MIN)
+        )
+    for label, div, (lo, hi) in (
+        ("CLKIN_DIV", c["clkin_div"], CLKIN_DIV_RANGE),
+        ("CLKFB_DIV", c["clkfb_div"], CLKFB_DIV_RANGE),
+        ("CLKOUT0_DIV", c["clkout_div"][0], CLKOUT0_DIV_RANGE),
+    ):
+        if div == 1:
+            raise UnsupportedPLLConfiguration(
+                "SYSCLK/HSE=%s/%s MHz needs %s=1 (BYP=1); bypass has no recovered config bit"
+                % (sysclk, hse, label)
+            )
+        if not (lo <= div <= hi):
+            raise UnsupportedPLLConfiguration(
+                "SYSCLK/HSE=%s/%s MHz needs %s=%d, outside the recovered legal range [%d,%d]"
+                % (sysclk, hse, label, div, lo, hi)
+            )
+    return c
+
+
+def require_supported_ratio(sysclk, hse):
+    ratio = (sysclk, hse)
+    if ratio in SUPPORTED_RATIOS:
+        return ratio
+    if hse == GENERAL_RATIO_HSE_MHZ and general_ratio_model_enabled():
+        evaluate_general_ratio(sysclk, hse)  # raises, naming the exact limit, if inadmissible
+        return ratio
+    supported = ", ".join("%d/%d" % pair for pair in SUPPORTED_RATIOS)
+    note = ""
+    if hse == GENERAL_RATIO_HSE_MHZ and not general_ratio_model_enabled():
+        note = " (general HSE=8 ratio model disabled by %s)" % NO_GENERAL_RATIO_ENV
+    raise UnsupportedPLLConfiguration(
+        "unsupported PLL ratio SYSCLK/HSE=%s/%s MHz%s; supported byte-exact ratios: %s"
+        % (sysclk, hse, note, supported)
+    )
+# --------------------------------------------------------------------------------------------
 
 
 def divider_fields(sysclk, hse):

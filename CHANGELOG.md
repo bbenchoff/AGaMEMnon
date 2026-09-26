@@ -24,6 +24,20 @@ is authoritative for downloadable artifacts.
   fail-closed; the refusal names the mode and the proven set. `AGAMEMNON_NO_BRAM_NARROW_WRITE=1` is the kill switch
   (blanket refusal, byte-identical to the previous default). x2 is exempt from replication, so the SERV register
   file is unchanged. The former opt-in `AGAMEMNON_BRAM_NARROW_WRITE` is now set by the CLI itself for the packer.
+- pll: `build --freq` admits any `HSE=8 MHz` `SYSCLK` by default whose computed dividers fall inside the
+  recovered legal PFD/VCO/bit-width envelope, not only the previously enumerated 43-rate table. The vendor
+  `.ve` flow accepts any ratio it can solve (no per-ratio vendor table either); three rates outside the old
+  table -- 20, 40, 62 MHz -- were built through that mechanism and board-PASSed 2026-09-25
+  (AG32-Docs `tools/vendor_witness/CLOCK_MODE_MATRIX_20260925.md`), and all three reproduce the closed-form
+  divider bytes bit-for-bit, extending the pre-existing 43-point silicon sweep to 46 independent points --
+  evidence the mechanism generalizes, not just the enumerated points. `--freq 62` (previously refused:
+  `unsupported PLL ratio SYSCLK/HSE=62/8 MHz`) now builds; two more previously-refused rates (33, 77 MHz)
+  were also silicon-proven through the open flow this session. Derivation, legal ranges, and verification:
+  `AG32-Docs tools/vendor_parity/PLL_RATIO_MODEL_20260925.md`. Every other `HSE` reference stays admitted
+  only through the enumerated table (byte-exactness alone is not sufficient evidence for those). Kill
+  switch `AGAMEMNON_NO_PLL_RATIO_MODEL` reverts `HSE=8` to the old enumerated-only table exactly; it can
+  only narrow, never widen, what a release-strict build emits. The byte-exact 53-point vendor sweep and the
+  45-entry `SUPPORTED_RATIOS` table remain unmodified regression checks (`tests/test_pll_emit.py`).
 - cli: a native clock-enable build never selects a mapping that would leave an enabled register's own-Q
   feedback on general routing. `build --uarch` routes two candidate mappings and used to keep the smaller
   one; the smaller one sets `AGRV2K_NATIVE_ENABLE_LOCAL_QIN=0`, so `qin_pack.lower_local_qin_feedback` does
