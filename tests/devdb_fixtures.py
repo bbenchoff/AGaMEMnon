@@ -23,6 +23,11 @@ PROFILES = {
         "AGAMEMNON_PHYSICAL_IO=1", "AGAMEMNON_PADFEED_TOP=1",
         "AGAMEMNON_HARDEN_PADFEED=1", "AGAMEMNON_LEFT_PAD_OUT=1",
     ),
+    "strict_pcf_bram_site": (
+        "AGAMEMNON_PHYSICAL_IO=1", "AGAMEMNON_PADFEED_TOP=1",
+        "AGAMEMNON_HARDEN_PADFEED=1", "AGAMEMNON_LEFT_PAD_OUT=1",
+        "AGAMEMNON_BRAM_SITE_READ_PATHS=1",
+    ),
 }
 RUNTIME_ASSETS = (
     "carry_qualified_sites.csv",
@@ -35,6 +40,7 @@ RUNTIME_ASSETS = (
     "mcu_slave_ahb_haddr29_sram_base_paths.csv", "mcu_region_witness.csv",
     "soft_ripple_region_witness.csv", "pad_oe_L48_left_corridors.csv",
     "pad_input_L48_left_corridors.csv", "bram_tmux9_source_paths.csv",
+    "bram_site_read_paths.csv",
 )
 
 
