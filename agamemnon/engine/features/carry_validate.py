@@ -7,9 +7,18 @@ triples.  Cell names and packer-generated marker strings have no authority.
 
 N5.6A deliberately admits only two native physical families:
 
-* short chains whose complete seeded footprint uses at most nine sites, with
-  each chain occupying consecutive slices in one tile; and
-* the retained 25-site profile and the exact X20Y12 downward 33-site corridor.
+* short chains whose complete seeded footprint uses at most sixteen sites
+  (nine with the AGAMEMNON_CARRY_WIDE_CORRIDOR=0 kill switch, the exact
+  previous checkpoint), with each chain occupying consecutive slices in one
+  tile.  Above nine sites the chain's own tile must be one of the
+  silicon-witnessed sites in chipdb/carry_qualified_sites.csv (2026-09-25,
+  tools/pipwit ledger: every intra-tile CARRYOUT->CARRYIN pip the chain needs
+  is ring-witnessed there) -- the corner tile X20Y12 is one of 117 such sites,
+  never the only one, so the placer can spread carry chains across the
+  fabric instead of funnelling every wide chain into one congested corner;
+  and
+* the retained 25-site profile and the exact X20Y12 downward 33-site corridor,
+  for chains that do not fit in one tile.
 
 Two exact three-site seam checkpoints remain readable as legacy emission
 compatibility.  They are not native-placement profiles and do not generalize
@@ -371,7 +380,7 @@ def _relative_sites(sites):
                  for site in sites)
 
 
-def _validate_physical_profiles(chains):
+def _validate_physical_profiles(chains, wide_sites=frozenset(), wide_cap=9):
     # These two absolute footprints are existing release-strict checkpoints.
     # Keeping them readable preserves byte-identical emission without making
     # either seam available to the N5.6A native short-chain placer.
@@ -393,7 +402,7 @@ def _validate_physical_profiles(chains):
             return retained_seams[exact_sites]
 
     total = sum(len(chain) for chain in chains)
-    if total <= 9:
+    if total <= wide_cap:
         for chain in chains:
             sites = [cell.site for cell in chain]
             root = sites[0]
@@ -402,9 +411,20 @@ def _validate_physical_profiles(chains):
             expected = list(range(root.z, root.z + len(sites)))
             if root.z + len(sites) > 16 or [site.z for site in sites] != expected:
                 _reject("short carry chain is not consecutive in increasing slice order")
+            # The original <=9 range is an existing, unrestricted-location
+            # checkpoint; it keeps its exact behaviour regardless of the kill
+            # switch. Only the widened 10-16 range requires the chain's own
+            # tile to be a silicon-witnessed site (carry_qualified_sites.csv):
+            # every intra-tile CARRYOUT->CARRYIN pip it needs is ring-witnessed.
+            if len(sites) > 9 and (root.x, root.y) not in wide_sites:
+                _reject(
+                    "wide native carry chain of %d sites at X%dY%d is not a "
+                    "silicon-witnessed site (chipdb/carry_qualified_sites.csv)"
+                    % (len(sites), root.x, root.y)
+                )
         return "short-same-tile"
     if len(chains) != 1:
-        _reject("more than nine seeded sites requires one retained legacy chain")
+        _reject("more than %d seeded sites requires one retained legacy chain" % wide_cap)
     count = len(chains[0])
     if count <= 25:
         profile = "legacy-25"
@@ -475,12 +495,19 @@ def _slice_qfb_claims(module, routes):
     return claims, owners
 
 
-def validate_routed_carry(module):
+def validate_routed_carry(module, wide_sites=frozenset(), wide_cap=9):
     """Reconstruct and validate all packed carry resources in ``module``.
 
     The function is intentionally independent of the uarch graph/cache.  It
     proves the serialized artifact that bitgen actually consumes.  An empty
     non-carry design returns an empty result without requiring carry tables.
+
+    ``wide_sites`` is the set of (x, y) LogicTile coordinates silicon-witnessed
+    for the widened short-same-tile profile (carry_qualified_sites.csv);
+    ``wide_cap`` is the maximum sites a short-same-tile chain may use before
+    it must use the retained absolute X20 profiles instead (9 reproduces the
+    exact previous behaviour; every caller other than CarryFeature.prepare
+    leaves both at their defaults, i.e. the pre-widening checkpoint).
     """
 
     if not isinstance(module, dict):
@@ -712,7 +739,12 @@ def validate_routed_carry(module):
         if len(input_drivers) != 1 or input_drivers[0] == ("cell", seed, "COUT"):
             _reject("dynamic carry seed %r lacks one external I[0] driver" % seed)
 
-    profile = _validate_physical_profiles(chains)
+    # Retained fixed-corridor local-input images remain their original
+    # physical profile even when their size also fits the widened movable
+    # range. Their explicit local-input tags are validated below; they do
+    # not acquire permission to move merely because the native cap grew.
+    profile = _validate_physical_profiles(
+        chains, wide_sites, 9 if default_high_cells else wide_cap)
     if default_high_cells:
         if (len(chains) != 1 or not 10 <= len(chains[0]) <= 33 or
                 chains[0][0].site != CarrySite(20, 12, 0) or

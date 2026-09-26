@@ -6,10 +6,23 @@ import csv
 import os
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from .carry_validate import CarryValidationError, validate_routed_carry
 from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, WritableRegion
 from .register_input import _init_depends_on
+
+
+def carry_wide_corridor_enabled():
+    """Kill switch for the widened native short-same-tile carry corridor.
+
+    Default-on (witnessed means default-on): a chain of 10-16 sites may root
+    at any silicon-witnessed tile from carry_qualified_sites.csv, not only
+    the fixed X20Y12-downward corridor. AGAMEMNON_CARRY_WIDE_CORRIDOR=0
+    reproduces the exact previous behaviour byte-for-byte (cap back to 9,
+    every chain over 9 sites requires the retained absolute X20 profiles).
+    """
+    return os.environ.get("AGAMEMNON_CARRY_WIDE_CORRIDOR", "1") != "0"
 
 
 @dataclass
@@ -29,7 +42,11 @@ class CarryFeature:
         # 113 vendor-observed inter-tile seams and the two invariants they obey.
         # It exists so the two hard-coded seam pips below can be checked
         # against the corpus rather than against memory.
-        chipdb_files=("slice_cfg.csv", "carry_seam_corpus.csv"),
+        # carry_qualified_sites.csv IS consumed (by validate_routed_carry): the
+        # tiles where a single-tile short-same-tile chain of 10-16 sites is
+        # silicon-witnessed end to end (every intra-tile CARRYOUT->CARRYIN pip
+        # ring-witnessed), read by the C++ uarch placer and reproved here.
+        chipdb_files=("slice_cfg.csv", "carry_seam_corpus.csv", "carry_qualified_sites.csv"),
         writable_regions=(WritableRegion(
             kind="selector_table",
             source="slice_cfg.csv",
@@ -123,6 +140,24 @@ class CarryFeature:
         print("loaded %d LE-internal slice-config bits (slice_cfg.csv)" % len(fields))
         return fields
 
+    def load_qualified_sites(self, chipdb_root):
+        """Load the silicon-witnessed wide-corridor site table.
+
+        Fail-open: an absent table (an older devdb, or the kill switch's
+        exact-reproduction path never needing it) just means the wide
+        native-carry range has no qualified sites, not a build error.
+        """
+        path = Path(chipdb_root) / "carry_qualified_sites.csv"
+        if not path.exists():
+            return frozenset()
+        sites = set()
+        with path.open(newline="", encoding="utf-8") as stream:
+            for row in csv.DictReader(stream):
+                sites.add((int(row["x"]), int(row["y"])))
+        print("loaded %d silicon-witnessed wide-native-carry site(s) "
+              "(carry_qualified_sites.csv)" % len(sites))
+        return frozenset(sites)
+
     @staticmethod
     def _require(fields, x, y, z, feature):
         """Return the slice-config cell for *feature*, or fail closed."""
@@ -136,12 +171,19 @@ class CarryFeature:
             )
         return bit
 
-    def prepare(self, module, fields, cell_map=None):
+    def prepare(self, module, fields, cell_map=None, chipdb_root=None):
         # Placement cannot authorize image bytes.  Reconstruct the serialized
         # connectivity, BELs, and ROUTING surface independently before any
         # selector state is created or the image can be mutated.
+        wide_sites = (
+            self.load_qualified_sites(chipdb_root) if chipdb_root is not None
+            else frozenset()
+        )
         try:
-            validate_routed_carry(module)
+            validate_routed_carry(
+                module, wide_sites=wide_sites,
+                wide_cap=16 if carry_wide_corridor_enabled() and wide_sites else 9,
+            )
         except CarryValidationError as exc:
             raise SystemExit(str(exc)) from exc
         state = CarryState(fields=fields)

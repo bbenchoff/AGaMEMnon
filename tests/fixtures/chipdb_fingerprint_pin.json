@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "4822dd6ff2822a35842168706ea53e0b19a524ba70779f90b3311e960e711b1b",
-  "file_count": 277,
+  "fingerprint_sha256": "6d130ec88354ec34428fdc9eed16867542e003a05e2181d708032db78befdb6c",
+  "file_count": 278,
   "pinned_date": "2026-09-25",
-  "reason": "2026-09-25 integration round 2: work/pll-ratios + work/place + work/router-penalty + work/bram-modes merged (congestion_marginal_edges.csv, pll/bram evidence jsonl added; no dev_pips row changes, regen --check confirmed 0 drift)"
+  "reason": "Combined release candidate: witnessed carry-site inventory and async profile integration; all retained qualified artifacts rebuilt byte-identically before repinning."
 }

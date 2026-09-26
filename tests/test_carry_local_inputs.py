@@ -187,6 +187,11 @@ def test_local_inputs_accept_each_fixed_corridor_prefix(width, axis, field_maps)
     result = validate_routed_carry(module)
     assert len(result.chains[0].q_feedback_cells) == width
     assert len(CARRY_FEATURE.prepare(module, *field_maps).default_high_fields) == 12*width
+    # Enabling movable chains must preserve retained fixed local-input
+    # profiles, including sizes now overlapping the 10-16-site range.
+    assert len(CARRY_FEATURE.prepare(
+        module, *field_maps, chipdb_root=ROOT / "agamemnon" / "chipdb"
+    ).default_high_fields) == 12*width
 
 
 def test_local_inputs_reject_different_clocks(default_high):

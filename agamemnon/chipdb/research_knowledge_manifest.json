@@ -346,6 +346,12 @@
       "sha256": "fddbf0abf620cc4cd4d07908b8a3d9c8241c75a8b8bf41f7b742b3b3be2fa969"
     },
     {
+      "bytes": 1864,
+      "data_rows": 117,
+      "path": "agamemnon/chipdb/carry_qualified_sites.csv",
+      "sha256": "458b917cb18df120e66b25658d93caf0d9a50a0bce53ef33f40b5e48ea6a4013"
+    },
+    {
       "bytes": 6339,
       "data_rows": 123,
       "path": "agamemnon/chipdb/carry_seam_corpus.csv",
