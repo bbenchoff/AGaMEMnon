@@ -1,0 +1,17 @@
+diff --git a/common/route/router2.cc b/common/route/router2.cc
+--- a/common/route/router2.cc
++++ b/common/route/router2.cc
+@@ -192,6 +192,13 @@ struct Router2
+                 nets.at(i).cx += usr_loc.x;
+                 nets.at(i).cy += usr_loc.y;
+             }
++            // A net with no routing arcs still has the sentinel bounds.
++            // Normalize it before subtraction and margin expansion: both
++            // operations otherwise overflow, even though no wire is routed.
++            if (nets.at(i).bb.x0 > nets.at(i).bb.x1) {
++                nets.at(i).bb.x0 = nets.at(i).bb.x1 = 0;
++                nets.at(i).bb.y0 = nets.at(i).bb.y1 = 0;
++            }
+             nets.at(i).hpwl = std::max(
+                     std::abs(nets.at(i).bb.y1 - nets.at(i).bb.y0) + std::abs(nets.at(i).bb.x1 - nets.at(i).bb.x0), 1);
+             nets.at(i).cx /= int(ni->users.entries() + 1);

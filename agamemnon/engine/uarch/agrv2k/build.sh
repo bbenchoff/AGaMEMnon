@@ -123,6 +123,7 @@ apply_nextpnr_patch "$HERE/nextpnr-viaduct-timing.patch" "Viaduct timing/constan
 apply_nextpnr_patch "$HERE/nextpnr-viaduct-clusters.patch" "Viaduct cluster placement hook patch"
 apply_nextpnr_patch "$HERE/nextpnr-router2-reservations.patch" "router2 reservation patch"
 apply_nextpnr_patch "$HERE/nextpnr-router2-constant-ripup.patch" "router2 constant rip-up patch"
+apply_nextpnr_patch "$HERE/nextpnr-router2-empty-net-bounds.patch" "router2 empty-net bounds patch"
 apply_nextpnr_patch "$HERE/nextpnr-json-direction-failclosed.patch" \
     "fail-closed JSON port-direction diagnostic patch"
 
