@@ -201,6 +201,18 @@ NONPORTABLE_RELATIVE_KEYS = frozenset({
     # translation, not an assertion that the physical edge cannot exist.
     # Preserve coordinate-specific observations and other RMUX92 directions.
     ("RMUX", 81, "RMUX", 92, 0, -1),
+    # A row-2/10 observation of RMUX39 -> RMUX58 does not establish the
+    # same one-row hop in the interior. At X15Y6 the inferred pair 6/9
+    # instead has exact evidence for RMUX87 at Y10. Driving that source
+    # restores static and changing data while preserving the target bits.
+    ("RMUX", 58, "RMUX", 39, 0, -1),
+    # RMUX68 -> RMUX85 one column left is observed at destination X19.
+    # At X14 the inferred pair 1/8 has exact evidence for RMUX20 at X18.
+    # Retaining all cells and bypassing this branch after the RMUX58 repair
+    # restores the complete FIFO checker in three controlled hardware runs.
+    # Neither observation qualifies translation to other coordinates;
+    # preserve every exact edge and the distinct four-tile connections.
+    ("RMUX", 85, "RMUX", 68, -1, 0),
 })
 
 _WIRE = re.compile(r"X(-?\d+)Y(-?\d+)_([A-Za-z]+)(\d+)")

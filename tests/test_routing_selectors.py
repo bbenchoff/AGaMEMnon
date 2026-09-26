@@ -1,4 +1,38 @@
 from agamemnon.engine.routing_selectors import relative_edges, nonportable_translation
+import pytest
+
+
+@pytest.mark.parametrize("destination,source,offset,support,alternative", [
+    (58, 39, (0, -1), [(5, 2), (14, 10), (20, 10)],
+     (15, 6, "RMUX", 58, "RMUX", 15, 10, 87)),
+    (85, 68, (-1, 0), [(19, 1), (19, 6), (19, 11)],
+     (14, 6, "RMUX", 85, "RMUX", 18, 6, 20)),
+])
+def test_fifo_boundary_observations_preserve_exact_edges_without_translation(
+        destination, source, offset, support, alternative):
+    ox, oy = offset
+    pair = (6, 9) if destination == 58 else (1, 8)
+    clean = {(x, y, "RMUX", destination, "RMUX", x-ox, y-oy, source): pair
+             for x, y in support}
+    clean[alternative] = pair
+    original = dict(clean)
+    relative, rejected = relative_edges(clean)
+    key = ("RMUX", destination, "RMUX", source, ox, oy)
+    assert key in rejected and key not in relative
+    assert clean == original
+    for x, y in support:
+        assert not nonportable_translation(
+            clean, f"X{x-ox}Y{y-oy}_RMUX{source:02d}",
+            f"X{x}Y{y}_RMUX{destination:02d}")
+    # Test multiple unseen interior positions, not only the failing design.
+    for x, y in ((14, 6), (16, 7), (18, 8)):
+        assert nonportable_translation(
+            clean, f"X{x-ox}Y{y-oy}_RMUX{source:02d}",
+            f"X{x}Y{y}_RMUX{destination:02d}")
+    dx, dy, df, di, sf, sx, sy, si = alternative
+    assert relative[(df, di, sf, si, dx-sx, dy-sy)] == pair
+    assert not nonportable_translation(clean, f"X{sx}Y{sy}_{sf}{si:02d}",
+                                       f"X{dx}Y{dy}_{df}{di:02d}")
 
 
 def test_row_one_rmux27_boundary_observations_do_not_translate_to_interior():
