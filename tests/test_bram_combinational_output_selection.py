@@ -58,5 +58,5 @@ def test_bram_fanout_does_not_select_an_inactive_register(hint):
 
 
 def test_bram_register_fanout_does_not_claim_independent_lut_output():
-    assert set(prepare(0, True, routed_outputs=(0, 2), f_outputs=(1,)).register_sets) == {
+    assert set(prepare(0, True, init=0x5555, routed_outputs=(0, 2), f_outputs=(1,)).register_sets) == {
         (200, 1), (200, 4)}
