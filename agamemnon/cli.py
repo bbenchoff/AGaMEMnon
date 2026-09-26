@@ -141,14 +141,17 @@ DEFAULT_FABRIC_FREQUENCY_MHZ = int(ENGINE_OPTIONS["AGAMEMNON_SYSCLK"].default)
 QUALIFICATION = os.path.abspath(os.path.join(HERE, os.pardir, "qualification"))
 
 
-def _validate_carry_document(document, phase):
+def _validate_carry_document(document, phase, chipdb_root=None):
     modules = document.get("modules") if isinstance(document, dict) else None
     module = modules.get("top") if isinstance(modules, dict) else None
     if not isinstance(module, dict):
         raise CarryValidationError(
             "carry route: %s requires exact modules['top']" % phase
         )
-    return validate_routed_carry(module)
+    from .engine.features.carry import FEATURE, carry_wide_corridor_enabled
+    sites = FEATURE.load_qualified_sites(chipdb_root) if chipdb_root else frozenset()
+    cap = 16 if sites and carry_wide_corridor_enabled() else 9
+    return validate_routed_carry(module, wide_sites=sites, wide_cap=cap)
 
 
 def _validate_clock_document(document, phase, chipdb_root, options,
@@ -3580,6 +3583,7 @@ def _cmd_build_once(a):
         # database on every hard-carry -> LUT-carry resynthesis.
         ignored_cache_env.add("AGAMEMNON_HW_CARRY")
         runtime_assets = (
+            "carry_qualified_sites.csv",
             "master_conduction.csv", "mcu_ahb32_corridors.csv",
             "mcu_ahb32_pip_cfg.csv",
             "mcu_ahb32_addr_corridors.csv", "mcu_logic_consumer_footprints.csv",
@@ -4004,7 +4008,7 @@ def _cmd_build_once(a):
                         sys.exit(1)
                     try:
                         _validate_carry_document(
-                            post_snapshot.document, "post-nextpnr")
+                            post_snapshot.document, "post-nextpnr", data)
                     except CarryValidationError as exc:
                         print("error: typed carry post-nextpnr validation failed: %s" % exc)
                         sys.exit(1)
@@ -4238,7 +4242,7 @@ def _cmd_build_once(a):
             print("error: typed special-route post-nextpnr validation failed: %s" % exc)
             sys.exit(1)
         try:
-            _validate_carry_document(post_snapshot.document, "post-nextpnr")
+            _validate_carry_document(post_snapshot.document, "post-nextpnr", data)
         except CarryValidationError as exc:
             print("error: typed carry post-nextpnr validation failed: %s" % exc)
             sys.exit(1)
@@ -4288,7 +4292,7 @@ def _cmd_build_once(a):
         print("error: typed special-route pre-emission validation failed: %s" % exc)
         sys.exit(1)
     try:
-        _validate_carry_document(final_snapshot.document, "pre-emission")
+        _validate_carry_document(final_snapshot.document, "pre-emission", data)
     except CarryValidationError as exc:
         print("error: typed carry pre-emission validation failed: %s" % exc)
         sys.exit(1)

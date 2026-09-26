@@ -285,7 +285,8 @@ def test_carry_feature_owns_slice_selectors_and_emission():
     # slice_cfg.csv is the emitting table; carry_seam_corpus.csv is declared so
     # the chipdb has an owner for it, but it is reference data only (the
     # vendor-observed seam geometry) and must NOT gain a writable region.
-    assert descriptor.chipdb_files == ("slice_cfg.csv", "carry_seam_corpus.csv")
+    assert descriptor.chipdb_files == (
+        "slice_cfg.csv", "carry_seam_corpus.csv", "carry_qualified_sites.csv")
     assert descriptor.writable_regions == (WritableRegion(
         kind="selector_table",
         source="slice_cfg.csv",

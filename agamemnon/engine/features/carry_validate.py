@@ -739,7 +739,12 @@ def validate_routed_carry(module, wide_sites=frozenset(), wide_cap=9):
         if len(input_drivers) != 1 or input_drivers[0] == ("cell", seed, "COUT"):
             _reject("dynamic carry seed %r lacks one external I[0] driver" % seed)
 
-    profile = _validate_physical_profiles(chains, wide_sites, wide_cap)
+    # Retained fixed-corridor local-input images remain their original
+    # physical profile even when their size also fits the widened movable
+    # range. Their explicit local-input tags are validated below; they do
+    # not acquire permission to move merely because the native cap grew.
+    profile = _validate_physical_profiles(
+        chains, wide_sites, 9 if default_high_cells else wide_cap)
     if default_high_cells:
         if (len(chains) != 1 or not 10 <= len(chains[0]) <= 33 or
                 chains[0][0].site != CarrySite(20, 12, 0) or

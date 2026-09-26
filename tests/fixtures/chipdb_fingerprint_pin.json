@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "e230c6d890afbf35c69bcb9e645eb69e0505caf97be5d90d0a31a48fa6625a0a",
-  "file_count": 276,
+  "fingerprint_sha256": "2fe4f6392a4c6e8b263096feab597f7e251a8f73f6ecaed5692e6fdb60f343ac",
+  "file_count": 277,
   "pinned_date": "2026-09-25",
-  "reason": "2026-09-25 serv_blinky integration fix: retag the two readmitted X13Y4 address feeders silicon_ring_20260925 so the pre-campaign predecessor replay excludes them (bram_wl.csv rows unchanged in effect, tag only)"
+  "reason": "Qualify widened carry site inventory; table consumed by placer and independent emitter validation."
 }

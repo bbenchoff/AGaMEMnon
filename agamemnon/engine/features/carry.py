@@ -6,6 +6,7 @@ import csv
 import os
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from .carry_validate import CarryValidationError, validate_routed_carry
 from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, WritableRegion
@@ -146,7 +147,7 @@ class CarryFeature:
         exact-reproduction path never needing it) just means the wide
         native-carry range has no qualified sites, not a build error.
         """
-        path = chipdb_root / "carry_qualified_sites.csv"
+        path = Path(chipdb_root) / "carry_qualified_sites.csv"
         if not path.exists():
             return frozenset()
         sites = set()
@@ -181,7 +182,7 @@ class CarryFeature:
         try:
             validate_routed_carry(
                 module, wide_sites=wide_sites,
-                wide_cap=16 if carry_wide_corridor_enabled() else 9,
+                wide_cap=16 if carry_wide_corridor_enabled() and wide_sites else 9,
             )
         except CarryValidationError as exc:
             raise SystemExit(str(exc)) from exc

@@ -14,6 +14,7 @@ exceeds 9 sites.
 from __future__ import annotations
 
 import csv
+import json
 from pathlib import Path
 
 import pytest
@@ -65,6 +66,9 @@ def test_wide_chain_validates_at_a_witnessed_non_corner_tile():
     result = validate_routed_carry(module, wide_sites=sites, wide_cap=16)
     assert result.chains[0].profile == "short-same-tile"
     assert len(result.chains[0].sites) == 13
+    from agamemnon import cli
+    assert cli._validate_carry_document(
+        {"modules": {"top": module}}, "post-nextpnr", str(SITES_CSV.parent)).chains == result.chains
 
 
 def test_wide_chain_at_an_unwitnessed_tile_is_refused():
@@ -110,3 +114,27 @@ def test_carry_feature_prepare_defaults_to_wide_corridor_on(monkeypatch):
     assert carry_wide_corridor_enabled() is True
     monkeypatch.setenv("AGAMEMNON_CARRY_WIDE_CORRIDOR", "0")
     assert carry_wide_corridor_enabled() is False
+
+
+@pytest.mark.parametrize("length", [9, 12, 15])
+def test_compiled_wide_chain_metadata_survives_end_pack(tmp_path, length):
+    from test_uarch_carry_drc import CarryJson, _run
+    design = CarryJson()
+    design.chain(length)
+    result, log, output = _run(tmp_path, design)
+    assert result.returncode == 0, log
+    cells = json.loads(output.read_text())["modules"]["top"]["cells"]
+    members = [c for c in cells.values() if "AGRV2K_CARRY_PROFILE" in c.get("attributes", {})]
+    assert len(members) == length + 1
+    assert {c["attributes"]["AGRV2K_CARRY_PROFILE"] for c in members} == {"SHORT_LOCAL"}
+
+
+def test_compiled_wide_chain_can_place_outside_old_corridor(tmp_path):
+    from test_uarch_carry_drc import CarryJson, _run, _slice_location
+    design = CarryJson()
+    names = design.chain(12, first_bel="X19Y11_SLICE1")
+    result, log, output = _run(tmp_path, design, place=True)
+    assert result.returncode == 0, log
+    cells = json.loads(output.read_text())["modules"]["top"]["cells"]
+    members = [cells["$CARRY_SEED"]] + [cells[name + "_CARRY"] for name in names]
+    assert [_slice_location(c) for c in members] == [(19, 11, z) for z in range(13)]

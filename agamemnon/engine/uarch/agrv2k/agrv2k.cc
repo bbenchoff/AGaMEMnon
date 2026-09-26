@@ -14513,7 +14513,8 @@ struct AgrvImpl : ViaductAPI
         result.length = int(cell->attrs.at(keys[4]).as_int64());
         result.role = cell->attrs.at(keys[5]).as_string();
         const bool profile_valid =
-                (result.profile == "SHORT_LOCAL" && result.length >= 2 && result.length <= 9) ||
+                (result.profile == "SHORT_LOCAL" && result.length >= 2 &&
+                 size_t(result.length) <= carry_native_short_cap()) ||
                 (result.profile == "LEGACY_25" && result.length >= 10 && result.length <= 25) ||
                 (result.profile == "X20_DOWNWARD_33" && result.length >= 26 && result.length <= 33);
         const std::string expected_role = result.position == 0 ? "SEED" :
@@ -14578,7 +14579,7 @@ struct AgrvImpl : ViaductAPI
         if (root == nullptr)
             return false;
         short_local = !root->constr_abs_z;
-        return short_local ? member_count >= 2 && member_count <= 9
+        return short_local ? member_count >= 2 && size_t(member_count) <= carry_native_short_cap()
                            : (member_count == 25 || member_count == 33);
     }
 
@@ -14831,6 +14832,10 @@ struct AgrvImpl : ViaductAPI
                 if (short_local && root->bel != BelId() && current->bel != BelId()) {
                     const Loc root_loc = ctx->getBelLocation(root->bel);
                     const Loc current_loc = ctx->getBelLocation(current->bel);
+                    if (ordered.size() > 9 &&
+                        !carry_qualified_wide_sites.count({root_loc.x, root_loc.y}))
+                        log_error("agrv2k: %s wide carry closure rejects unwitnessed tile X%dY%d\n",
+                                  phase, root_loc.x, root_loc.y);
                     if (current_loc.x != root_loc.x || current_loc.y != root_loc.y ||
                         current_loc.z != root_loc.z + int(index))
                         log_error("agrv2k: %s short carry closure rejects nonconsecutive member '%s'\n",
