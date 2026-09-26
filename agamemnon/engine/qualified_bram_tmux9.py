@@ -132,9 +132,35 @@ def routes_match(module: dict, profile: str) -> bool:
     )
 
 
+DATA_SOURCE_ROUTES = {
+    "bram-tmux9-i0-d1-we1": (
+        "X14Y4_OMUX41;;1;"
+        "X13Y4_IMUX29;X13Y4_RMUX05.X13Y4_IMUX29;5;"
+        "X13Y4_RMUX05;X15Y4_RMUX03.X13Y4_RMUX05;5;"
+        "X15Y4_RMUX03;X14Y4_RMUX74.X15Y4_RMUX03;5;"
+        "X14Y4_RMUX74;X14Y4_OMUX41.X14Y4_RMUX74;5"
+    ),
+    "bram-tmux9-i1-d0-we1": (
+        "X13Y4_IMUX29;X13Y4_RMUX53.X13Y4_IMUX29;5;"
+        "X13Y4_RMUX53;X15Y4_RMUX63.X13Y4_RMUX53;5;"
+        "X15Y4_RMUX63;X14Y4_RMUX15.X15Y4_RMUX63;5;"
+        "X14Y4_RMUX15;X14Y4_OMUX02.X14Y4_RMUX15;5;"
+        "X14Y4_OMUX02;;5"
+    ),
+}
+
+
+def source_signal_routes(profile: str) -> dict[str, str]:
+    """All fixed source-profile signal trees, including live write data."""
+    routes = expected_routes(profile)
+    if is_high(profile):
+        routes["din1"] = DATA_SOURCE_ROUTES[profile]
+    return routes
+
+
 def required_routes(profile: str) -> dict[str, str]:
     """Return every reserved tree, including the explicitly placed zero source."""
-    return {**expected_routes(profile), "$PACKER_GND_NET": GROUND_ROUTES[profile]}
+    return {**source_signal_routes(profile), "$PACKER_GND_NET": GROUND_ROUTES[profile]}
 
 
 def required_path_edges() -> list[tuple[str, str]]:
@@ -242,7 +268,7 @@ def prepare_route_reservations(path, profile: str) -> None:
     if "top" not in modules:
         raise ValueError("qualified TMUX09 reservations require a top module")
     nets = modules["top"].get("netnames", {})
-    routes = expected_routes(profile)
+    routes = source_signal_routes(profile)
     missing = sorted(set(routes) - set(nets))
     if missing:
         raise ValueError("qualified TMUX09 reservations lost nets: " + ", ".join(missing))
@@ -278,13 +304,13 @@ def canonicalize_routed_file(path, profile: str, *, include_constants: bool = Fa
         raise ValueError("qualified TMUX09 source build requires one top module")
     module = modules["top"]
     netnames = module.get("netnames", {})
-    missing = sorted(set(expected_routes(profile)) - set(netnames))
+    replacement = source_signal_routes(profile) if include_constants else expected_routes(profile)
+    missing = sorted(set(replacement) - set(netnames))
     if missing:
         raise ValueError(
             "qualified TMUX09 source build lost routed net(s): %s" %
             ", ".join(missing)
         )
-    replacement = expected_routes(profile)
     if include_constants:
         # Fresh builds declare this source and tree before native packing.
         # Verify them again before atomic canonicalization; historical

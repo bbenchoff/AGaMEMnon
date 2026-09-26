@@ -28,7 +28,7 @@ def test_source_profile_graph_covers_every_reserved_tree(tmp_path):
         pips = {row['name'] for row in csv.DictReader(stream)}
     missing = {}
     for profile in sorted(bram.PROFILES):
-        routes = {**bram.expected_routes(profile), '$PACKER_GND_NET': bram.GROUND_ROUTES[profile]}
+        routes = bram.required_routes(profile)
         for net, route in routes.items():
             fields = route.split(';')
             absent = sorted({fields[i] for i in range(1, len(fields), 3)

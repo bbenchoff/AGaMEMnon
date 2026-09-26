@@ -170,7 +170,7 @@ def test_fresh_source_declares_ground_truth_placement_and_tree(tmp_path, profile
               "cells": {"consumer": {"connections": {"I": ["0", "1", "x", 10]},
                                        "parameters": {"INIT": "0010"}}},
               "netnames": {name: {"bits": [index + 20], "attributes": {}}
-                           for index, name in enumerate(source_route.expected_routes(profile))}}
+                           for index, name in enumerate(source_route.source_signal_routes(profile))}}
     module["netnames"]["zero_alias"] = {"bits": ["0"]}
     module["cells"]["src_d1"] = {"type": "GENERIC_SLICE",
         "parameters": {"INIT": "1" * 16 if "-i0-d1-" in profile else "0" * 16,
@@ -210,7 +210,7 @@ def test_source_constant_tree_is_checked_and_replaced_atomically(tmp_path, profi
                   "NEXTPNR_BEL": "X14Y4_SLICE5" if profile.endswith("we1") else "X14Y4_SLICE0"}}
     module = {"cells": {"ground": driver}, "netnames": {
         name: {"bits": [index], "attributes": {"ROUTING": route}}
-        for index, (name, route) in enumerate(source_route.expected_routes(profile).items())}}
+        for index, (name, route) in enumerate(source_route.source_signal_routes(profile).items())}}
     module["netnames"]["$PACKER_GND_NET"] = {"bits": [50], "attributes": {"ROUTING": ""}}
     document = {"modules": {"top": module}}
     if mutation == "nonconstant":
@@ -233,6 +233,8 @@ def test_source_constant_tree_is_checked_and_replaced_atomically(tmp_path, profi
         assert actual["netnames"]["$PACKER_GND_NET"]["attributes"]["ROUTING"] == source_route.GROUND_ROUTES[profile]
         assert actual["cells"] == module["cells"]
         assert source_route.routes_match(actual, profile)
+        if profile.endswith("we1"):
+            assert actual["netnames"]["din1"]["attributes"]["ROUTING"] == source_route.DATA_SOURCE_ROUTES[profile]
 
 
 def test_scoped_architecture_path_table_matches_canonical_source_trees():
