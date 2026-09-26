@@ -3,6 +3,7 @@
 
 import os
 import hashlib
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -50,6 +51,16 @@ def main():
 
     with zipfile.ZipFile(wheel) as archive:
         names = set(archive.namelist())
+        # Check the normalized runtime inventory independently of setuptools'
+        # allow-list: a missing declaration must not silently shrink the graph.
+        inventory = json.loads(archive.read(
+            "agamemnon/chipdb/research_knowledge_manifest.json"))
+        for dataset in inventory["datasets"]:
+            name = dataset["path"]
+            if name not in names:
+                fail(f"wheel is missing inventoried runtime data: {name}")
+            if hashlib.sha256(archive.read(name)).hexdigest() != dataset["sha256"]:
+                fail(f"wheel runtime data differs from inventory: {name}")
 
     required = declared_package_data(repository)
     missing = sorted(required - names)
