@@ -2609,6 +2609,16 @@ def _routed_native_population(document):
                for cell in module.get("cells", {}).values())
 
 
+def _json_uses_async_clear(path):
+    """Select the async routing surface from typed synthesized cells."""
+    with open(path, encoding="utf-8") as stream:
+        document = json.load(stream)
+    cells = document["modules"]["top"].get("cells", {}).values()
+    return any(cell.get("type") == "$_DFF_PP0_" or
+               cell.get("attributes", {}).get("AGRV2K_SHARED_CONTROL_MODE") ==
+               "ASYNC_CLEAR_POS_ZERO" for cell in cells)
+
+
 def _native_clock_enable_requested(a):
     """Native clock enable is the default for ordinary uarch builds.
 
@@ -3177,6 +3187,16 @@ def _cmd_build_once(a):
     if _presented_top and _presented_top != "top":
         print("[build] top module %r presented as modules['top']" % _presented_top)
         top = "top"
+    # Admit async-reset RTL by default without changing ordinary designs' graph.
+    # Even unused control sinks change router choices; preserve the established
+    # graph when no synthesized cell needs them. Explicit graph experiments
+    # retain their requested surface.
+    if (async_clear_flag and
+            "AGRV2K_SHARED_CONTROL_ASYNC_CLEAR" not in os.environ and
+            not getattr(a, "async_clear_reset", False) and
+            not _json_uses_async_clear(synth_json)):
+        async_clear_flag = False
+        env.pop("AGRV2K_SHARED_CONTROL_ASYNC_CLEAR", None)
     # SILENT-DEGRADATION GUARD: synth_pads.tcl writes a stable JSON sidecar
     # (<synth_json>.leftover_mem.json) naming every memory cell that
     # memory_libmap declined to map onto the hard ALTA_BRAM9K block RAM (see
