@@ -236,7 +236,7 @@ def _shared_input_design(*, occupant_bels=(), congestion=False):
 
 
 def _run(tmp_path, name, design, *extra, condplace=True, pinpack=True,
-         env_overrides=None):
+         env_overrides=None, database=None):
     source = tmp_path / (name + ".json")
     output = tmp_path / (name + "_out.json")
     source.write_text(json.dumps(design, indent=2) + "\n", encoding="utf-8")
@@ -263,7 +263,7 @@ def _run(tmp_path, name, design, *extra, condplace=True, pinpack=True,
         else:
             env[key] = str(value)
     result = subprocess.run(
-        [_tool(), "--uarch", "agrv2k", "-o", "chipdb=" + str(DEVDB),
+        [_tool(), "--uarch", "agrv2k", "-o", "chipdb=" + str(database or DEVDB),
          "--json", str(source), "--write", str(output), *extra],
         cwd=ROOT, env=env, text=True, capture_output=True, timeout=120,
     )
@@ -320,10 +320,11 @@ def _output_reaches(bel, endpoint="X19Y13_OPAD0"):
     return source in reaching
 
 
-def _input_reaches(bel, endpoint="X19Y13_IO22", pin="I[0]", endpoint_pin="O"):
+def _input_reaches(bel, endpoint="X19Y13_IO22", pin="I[0]", endpoint_pin="O", database=None):
+    database = database or DEVDB
     source = None
     target = None
-    with (DEVDB / "dev_belpins.csv").open(newline="", encoding="utf-8") as stream:
+    with (database / "dev_belpins.csv").open(newline="", encoding="utf-8") as stream:
         for row in csv.DictReader(stream):
             if row["bel"] == endpoint and row["pin"] == endpoint_pin:
                 source = row["wire"]
@@ -331,7 +332,7 @@ def _input_reaches(bel, endpoint="X19Y13_IO22", pin="I[0]", endpoint_pin="O"):
                 target = row["wire"]
     assert source and target
     downhill = defaultdict(list)
-    with (DEVDB / "dev_pips.csv").open(newline="", encoding="utf-8") as stream:
+    with (database / "dev_pips.csv").open(newline="", encoding="utf-8") as stream:
         for row in csv.DictReader(stream):
             downhill[row["src"]].append(row["dst"])
     reachable = {source}
@@ -1428,13 +1429,7 @@ def test_heap_places_a_consumer_of_qualified_hsize1_logic_entry(tmp_path, seed):
 
 
 def _local_pin_pair(tile="X14Y12"):
-    """A same-tile (driver, consumer) slice pair and two consumer input pins, one the driver's
-    F output reaches in the admitted graph and one it does not.
-
-    Derived from the current strict devdb rather than pinned: the ring campaign witnesses local
-    crossbar pips continuously (X14Y12_OMUX13->IMUX08 was witnessed on 2026-09-18 21:56 and turned the
-    formerly pinned SLICE4->SLICE2.I[0] example reachable), so a fixed pair would only track history.
-    """
+    """Find two reachable pins so one can be disconnected in an isolated test graph."""
     belpins = {}
     with (DEVDB / "dev_belpins.csv").open(newline="", encoding="utf-8") as stream:
         for row in csv.DictReader(stream):
@@ -1460,20 +1455,50 @@ def _local_pin_pair(tile="X14Y12"):
             if consumer == driver:
                 continue
             pins = {k: belpins.get((consumer, "I[%d]" % k)) in reachable for k in range(4)}
-            if any(pins.values()) and not all(pins.values()):
-                good = next(k for k in range(4) if pins[k])
-                bad = next(k for k in range(4) if not pins[k])
-                return driver, consumer, good, bad
-    pytest.skip("no same-tile slice pair in %s with one reachable and one unreachable input pin" % tile)
+            connected = [k for k in range(4) if pins[k]]
+            if len(connected) >= 2:
+                return driver, consumer, connected[0], connected[1]
+    raise AssertionError("no same-tile slice pair in %s with two reachable input pins" % tile)
+
+
+@pytest.fixture(scope="module")
+def isolated_local_pin_graph(tmp_path_factory, _generated_test_databases):
+    # As the real graph expands, it need not contain an unreachable local pin.
+    # Remove only one terminal's ingress in a private fixture, then prove both
+    # positive and negative reachability independently of the native checker.
+    _tool()
+    pair = _local_pin_pair()
+    source_bel, sink_bel, good_pin, bad_pin = pair
+    with (DEVDB / "dev_belpins.csv").open(newline="", encoding="utf-8") as stream:
+        target = next(row['wire'] for row in csv.DictReader(stream)
+                      if row['bel'] == sink_bel and row['pin'] == 'I[%d]' % bad_pin)
+    database = tmp_path_factory.mktemp('local-pin-graph') / 'devdb'
+    shutil.copytree(DEVDB, database)
+    removed = 0
+    with (DEVDB / 'dev_pips.csv').open(newline='', encoding='utf-8') as source, \
+            (database / 'dev_pips.csv').open('w', newline='', encoding='utf-8') as output:
+        reader = csv.DictReader(source)
+        writer = csv.DictWriter(output, fieldnames=reader.fieldnames)
+        writer.writeheader()
+        for row in reader:
+            if row['dst'] == target:
+                removed += 1
+            else:
+                writer.writerow(row)
+    assert removed > 0
+    for pin, expected in ((good_pin, True), (bad_pin, False)):
+        assert _input_reaches(sink_bel, endpoint=source_bel, endpoint_pin='F',
+                              pin='I[%d]' % pin, database=database) == expected
+    return database, pair
 
 
 @pytest.mark.parametrize("reachable", [False, True], ids=["unreachable-pin", "reachable-pin"])
 @pytest.mark.parametrize("legacy_opt_in", [None, "1"], ids=["default", "legacy-opt-in"])
-def test_local_slice_output_topology_uses_actual_pins(tmp_path, reachable, legacy_opt_in):
-    source_bel, sink_bel, good_pin, bad_pin = _local_pin_pair()
+def test_local_slice_output_topology_uses_actual_pins(tmp_path, reachable, legacy_opt_in, isolated_local_pin_graph):
+    database, (source_bel, sink_bel, good_pin, bad_pin) = isolated_local_pin_graph
     input_pin = good_pin if reachable else bad_pin
     assert _input_reaches(sink_bel, endpoint=source_bel, endpoint_pin="F",
-                          pin="I[%d]" % input_pin) == reachable
+                          pin="I[%d]" % input_pin, database=database) == reachable
     driver = _slice(bel=source_bel)
     driver["connections"]["I"] = ["x"] * 4
     driver["parameters"]["INIT"] = format(0, "016b")
@@ -1493,6 +1518,7 @@ def test_local_slice_output_topology_uses_actual_pins(tmp_path, reachable, legac
         "--no-pack", "--no-route", "--placer", "heap",
         condplace=False, pinpack=False,
         env_overrides={"AGRV2K_LOCAL_OUTPUT_REACH": legacy_opt_in},
+        database=database,
     )
     if reachable:
         assert result.returncode == 0, log

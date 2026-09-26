@@ -8,8 +8,11 @@ import re
 import subprocess
 
 import pytest
+from devdb_fixtures import devdb_path
 
 from test_native_bram_unassigned_output import _design
+
+PINPACK_DATABASES = {name: devdb_path(name) for name in ('strict', 'strict_pcf')}
 
 
 def _database():
@@ -17,9 +20,9 @@ def _database():
         Path(__file__).resolve().parents[1] / 'agamemnon/engine/uarch/agrv2k/devdb_strict')))
 
 
-def _run(tmp_path, width=15, port='A', count=5, source_kind='literal', bel=None, family='Address', dynamic_addresses=0, lanes=None, trace=False, exact_paths=False):
+def _run(tmp_path, width=15, port='A', count=5, source_kind='literal', bel=None, family='Address', dynamic_addresses=0, lanes=None, trace=False, exact_paths=False, database=None):
     binary = os.environ.get('AGAMEMNON_UARCH_NEXTPNR')
-    devdb = _database()
+    devdb = database if database is not None else _database()
     if not binary or not Path(binary).is_file() or not (devdb / 'dev_pips.csv').is_file():
         pytest.skip('set the isolated native executable and strict devdb')
     design = _design('X13Y4_BRAM')
@@ -140,22 +143,28 @@ def test_constant_identity_is_semantic_and_respects_requested_bel(tmp_path, bel)
 
 
 @pytest.mark.parametrize('source_kind', ['dynamic', 'registered', 'unknown'])
-def test_nonconstant_or_unproven_source_keeps_dynamic_constraints(tmp_path, source_kind):
-    proc, transcript, output = _run(tmp_path, source_kind=source_kind)
-    if source_kind == 'registered':
-        # The expanded graph admits a shared Q source. A zero-valued LUT INIT
-        # must not make its register output a combinational constant.
-        assert proc.returncode == 0, transcript
-        module = json.loads(output.read_text())['modules']['top']
-        driver = module['cells']['arbitrary_source_name']
-        assert int(driver['parameters']['FF_USED'], 2) == 1
-        assert driver['connections'].get('F', []) == []
-        assert module['cells']['ram']['connections']['AddressA'] == driver['connections']['Q'] * 5
-        assert 'AGRV2K_OMUX_SEL' in driver['attributes']
-        return
+@pytest.mark.parametrize('profile', ['strict', 'strict_pcf'])
+def test_nonconstant_or_unproven_source_keeps_dynamic_constraints(tmp_path, source_kind, profile):
+    # AddressA[3] and [4] require distinct dynamic source slots. Neither a
+    # registered zero INIT nor a graph profile with an empty candidate set
+    # permits dropping one of those required terminals from the intersection.
+    proc, transcript, output = _run(tmp_path, source_kind=source_kind,
+                                    database=PINPACK_DATABASES[profile])
     assert proc.returncode > 0, transcript
     assert 'shared BRAM driver' in transcript and 'no BEL reaching all' in transcript
     assert not output.exists()
+
+
+def test_single_registered_zero_init_remains_a_dynamic_source(tmp_path):
+    proc, transcript, output = _run(tmp_path, source_kind='registered', lanes=[3],
+                                    database=PINPACK_DATABASES['strict'])
+    assert proc.returncode == 0, transcript
+    module = json.loads(output.read_text())['modules']['top']
+    driver = module['cells']['arbitrary_source_name']
+    assert int(driver['parameters']['FF_USED'], 2) == 1
+    assert driver['connections'].get('F', []) == []
+    assert module['cells']['ram']['connections']['AddressA'] == driver['connections']['Q']
+    assert 'AGRV2K_OMUX_SEL' in driver['attributes']
 
 
 @pytest.mark.parametrize('dynamic_addresses', [3, 4])

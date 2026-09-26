@@ -4928,13 +4928,18 @@ static void pack_bram_pin_drivers(Context *ctx)
             if (item.candidates.empty()) {
                 log_warning("agrv2k: no gated-graph slice output reaches dynamic BRAM pin %s (driver '%s')\n",
                             p.first.c_str(ctx), drv->name.c_str(ctx));
-            } else {
+            }
+            {
                 // One packed slice output can legitimately feed more than one
                 // BRAM terminal (SERV shares a low address source between the
                 // A and B ports).  Treat that as one placement variable whose
                 // candidate set is the intersection for every driven pin;
                 // binding the same cell independently twice silently moves it
                 // away from the first terminal.
+                // An empty terminal constraint must also participate. Dropping
+                // it let another terminal bind this shared driver while the
+                // omitted user had no legal source placement at all. Keep the
+                // ordinary unassigned fallback for a single-terminal driver.
                 auto prior = std::find_if(items.begin(), items.end(),
                                           [&](const PinItem &x) { return x.drv == drv; });
                 if (prior == items.end()) {
