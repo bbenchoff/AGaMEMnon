@@ -1308,7 +1308,8 @@ def _pre_campaign_graph_bytes(admission, shared):
     kept = [line for line in whitelist.read_text(encoding="utf-8").splitlines(keepends=True)
             if not line.rstrip().endswith(("vendor_passing_image", "open_passing_image",
                                             "silicon_ring_20260925"))]
-    whitelist.write_text("".join(kept), encoding="utf-8", newline="")
+    with whitelist.open("w", encoding="utf-8", newline="") as stream:
+        stream.write("".join(kept))
     # positive-evidence rows that a campaign conviction retired come back for the pre-campaign graph
     retired = data / "conduction_retired_by_conviction.csv"
     if retired.exists():
