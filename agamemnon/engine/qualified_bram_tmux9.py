@@ -132,6 +132,28 @@ def routes_match(module: dict, profile: str) -> bool:
     )
 
 
+def required_routes(profile: str) -> dict[str, str]:
+    """Return every reserved tree, including the explicitly placed zero source."""
+    return {**expected_routes(profile), "$PACKER_GND_NET": GROUND_ROUTES[profile]}
+
+
+def required_path_edges() -> list[tuple[str, str]]:
+    """Exact graph closure for the four hash-bound source profiles only."""
+    edges = set()
+    for profile in sorted(PROFILES):
+        for route in required_routes(profile).values():
+            fields = route.split(";")
+            for offset in range(0, len(fields), 3):
+                destination, pip = fields[offset:offset + 2]
+                if not pip:
+                    continue
+                source, pip_destination = pip.split(".")
+                if destination != pip_destination:
+                    raise ValueError("qualified TMUX09 route destination disagrees with pip")
+                edges.add((source, destination))
+    return sorted(edges)
+
+
 def _prepare_ground_source(module: dict, profile: str) -> None:
     """Represent the qualified constant's source before native pin placement.
 
@@ -225,10 +247,9 @@ def canonicalize_routed_file(path, profile: str, *, include_constants: bool = Fa
         )
     replacement = expected_routes(profile)
     if include_constants:
-        # These nets are created by native constant packing, so they cannot
-        # be attached to the synthesized netlist's pre-pack reservations.
-        # Restore the qualified source tree atomically with the signal trees.
-        # Historical checkpoint canonicalization keeps its existing behavior.
+        # Fresh builds declare this source and tree before native packing.
+        # Verify them again before atomic canonicalization; historical
+        # checkpoint canonicalization keeps its existing behavior.
         name = "$PACKER_GND_NET"
         bits = netnames.get(name, {}).get("bits", [])
         drivers = [cell for cell in module.get("cells", {}).values()

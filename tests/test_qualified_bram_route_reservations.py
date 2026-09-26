@@ -12,7 +12,8 @@ def test_source_reservations_match_final_qualified_trees(tmp_path, profile):
     nets['unrelated'] = {'bits': [100], 'attributes': {}}
     source = tmp_path / 'source.json'
     blackbox = {'attributes': {'blackbox': 1}, 'ports': {}}
-    source.write_text(json.dumps({'modules': {'top': {'netnames': nets}, 'MCU_DIN': blackbox}}))
+    source.write_text(json.dumps({'modules': {'top': {'netnames': nets,
+        'cells': {'consumer': {'connections': {'I': ['0']}}}}, 'MCU_DIN': blackbox}}))
     bram.prepare_route_reservations(source, profile)
     result = json.loads(source.read_text())['modules']['top']['netnames']
     assert json.loads(source.read_text())['modules']['MCU_DIN'] == blackbox
@@ -21,6 +22,7 @@ def test_source_reservations_match_final_qualified_trees(tmp_path, profile):
         assert result[name]['attributes']['keep'] == 1
         assert result[name]['bits'] == nets[name]['bits']
     assert result['unrelated'] == nets['unrelated']
+    assert result['$PACKER_GND_NET']['attributes']['AGAMEMNON_REQUIRED_ROUTE'] == bram.GROUND_ROUTES[profile]
 
 
 def test_missing_required_net_leaves_source_unchanged(tmp_path):
