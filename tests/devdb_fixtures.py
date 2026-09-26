@@ -32,6 +32,7 @@ PROFILES = {
 }
 RUNTIME_ASSETS = (
     "carry_qualified_sites.csv",
+    "congestion_marginal_edges.csv",
     "clock_reach_silicon_negative.csv", "master_conduction.csv",
     "mcu_ahb32_corridors.csv", "mcu_ahb32_pip_cfg.csv",
     "mcu_ahb32_addr_corridors.csv", "mcu_logic_consumer_footprints.csv",

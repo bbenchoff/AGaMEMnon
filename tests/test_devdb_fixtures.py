@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from devdb_fixtures import DatabaseFixtures
+from devdb_fixtures import DatabaseFixtures, ROOT
 
 
 @pytest.fixture
@@ -40,18 +40,26 @@ def test_owned_profiles_are_isolated_reused_and_environment_clean(databases, mon
 
     monkeypatch.setattr("devdb_fixtures.subprocess.run", generate)
     try:
-        paths = {p: databases.path(p) for p in ("strict", "strict_pcf", "tiered")}
-        assert len(set(paths.values())) == 3
+        paths = {p: databases.path(p) for p in ("strict", "strict_pcf", "tiered", "strict_control")}
+        assert len(set(paths.values())) == 4
         assert databases.path("strict") == paths["strict"]
         assert other.path("strict") != paths["strict"]
         databases.prepare()
         databases.prepare()
-        assert len(calls) == 3
+        assert len(calls) == 4
         physical = next(c for c in calls if c[c.index("--out") + 1] == str(paths["strict_pcf"]))
         assert "AGAMEMNON_PHYSICAL_IO=1" in physical
         assert "AGAMEMNON_LEFT_PAD_OUT=1" in physical
         tiered = next(c for c in calls if c[c.index("--out") + 1] == str(paths["tiered"]))
         assert "AGAMEMNON_ROUTING_ADMISSION=tiered" in tiered
+        control = next(c for c in calls if c[c.index("--out") + 1] == str(paths["strict_control"]))
+        assert "AGRV2K_SHARED_CONTROL_GRAPH=1" in control
+        # The production CLI supplies this runtime table. Omitting it here
+        # silently disables native congestion avoidance even with the right
+        # executable and graph, weakening the compiled gate.
+        expected = (ROOT / 'agamemnon/chipdb/congestion_marginal_edges.csv').read_bytes()
+        for database in paths.values():
+            assert (database / 'congestion_marginal_edges.csv').read_bytes() == expected
     finally:
         other.close()
 
