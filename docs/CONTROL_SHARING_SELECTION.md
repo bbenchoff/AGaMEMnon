@@ -9,6 +9,20 @@ occupied_tiles)`, retaining legacy on an exact tie.  Sharing is only measured
 after this isolated selection, so it never changes synthesis, carry fallback,
 or the recovered-versus-legacy decision used for the comparison.
 
+After an admissible isolated mapping completes, the remaining native-SRST
+mapping comparison also has a budget of three place-and-route invocations,
+each limited to 60 seconds or a smaller user `--attempt-timeout`. Recursive
+fallbacks share that allowance. Without a completed admissible mapping, the
+normal search remains unchanged. This is a route budget, not a whole-build
+deadline: synthesis and validation still run normally.
+
+The native-SRST selection report records the alternative's allowance and
+outcome. Classified placement/routing exhaustion or explicit route deadlines
+may leave the completed mapping selected; unknown, unsafe, aborted, and timing
+failures are not converted into budget exhaustion. A completed alternative
+still participates in the existing resource comparison. The selected image,
+routed netlist and associated sidecars are copied together.
+
 When the selected routed JSON contains an opportunity, the CLI may make up to
 two independent A/B candidates from that same immutable baseline:
 
