@@ -845,6 +845,18 @@ class RoutingFeature:
             "selector_alias_repair.csv", "codeword_board_witness.csv",
             "rrg_edges_full.csv", "rrg_omux_imux_full.csv",
             "rrg_rmux_imux_full.csv", "dead_edges_silicon.csv",
+            # congestion_marginal_edges.csv: declared here for chipdb-file ownership only, per
+            # the "every chipdb CSV has exactly one feature owner" hygiene invariant -- it is NOT
+            # loaded into this module's EDGE_BLACKLIST or any device-graph emission. Ring/corpus
+            # positive evidence exists for its three rows, so unlike dead_edges_silicon.csv they
+            # must not be pulled out of the physical graph; that would retroactively change every
+            # pinned historical graph identity in special_routes.py for a claim narrower than
+            # non-conduction. It is read post-route instead, by
+            # agamemnon/engine/features/placement_congestion.py, wired into cli.py's build at the
+            # shared pre-emission checkpoint: a routed design that used one of the three pips is
+            # refused instead of shipped. See tests/test_congestion_marginal_edges.py and
+            # qualification/x20y12_congestion_marginal_evidence.jsonl.
+            "congestion_marginal_edges.csv",
             "afexe_absent_edges.csv", "afexe_column_dead.csv",
             "exit_feeder_whitelist.csv", "master_conduction.csv",
             "ff2_conduction.csv", "harvest_conduction.csv",
