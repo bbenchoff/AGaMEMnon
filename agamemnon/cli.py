@@ -1960,7 +1960,8 @@ def _uarch_placement_seeds(generic_place, route_seeds, requested_seed=None):
     return ["1", "2", "3", "4"] if generic_place else list(route_seeds)
 
 
-def _uarch_attempts(requested_cap, maxfo, split_first=False, heap_first=False):
+def _uarch_attempts(requested_cap, maxfo, split_first=False, heap_first=False,
+                    memory_lowered=False):
     """Return the deterministic placement/fanout escalation order.
 
     The requested density must remain a real candidate after fanout splitting;
@@ -1982,10 +1983,14 @@ def _uarch_attempts(requested_cap, maxfo, split_first=False, heap_first=False):
     attempts.extend((cap, fo) for fo in fos for cap in split_caps)
     if heap_first:
         attempts = [(0, 0)] + [attempt for attempt in attempts if attempt != (0, 0)]
-    if split_first:
+    if split_first or memory_lowered:
         # Every qualified true-dual-port SERV route needs the cap-5/maxfo-16
         # netlist. Try the caller's requested cap at maxfo 16 first, while
         # retaining the complete unsplit/split fallback matrix afterward.
+        # A memory lowered to registers has the same high-fanout address and
+        # control problem. Try the existing identity-buffer tree first instead
+        # of waiting on a congested untouched HeAP placement. If no eligible
+        # net needs buffering, the caller skips this rung without routing it.
         preferred = (requested_cap, 16)
         attempts = [preferred] + [attempt for attempt in attempts if attempt != preferred]
     return attempts
@@ -3225,6 +3230,7 @@ def _cmd_build_once(a):
     # --allow-memory-lowering remains accepted (a no-op unless
     # --strict-memory-lowering is also set, in which case it suppresses that
     # failure) so nothing that already passes it breaks.
+    logic_memory_lowered = "logic_memory_data_enable" in getattr(a, "_fallback_stages", ())
     _mem_leftover_sidecar = synth_json + ".leftover_mem.json"
     if not _selective_snapshot and os.path.exists(_mem_leftover_sidecar):
         try:
@@ -3234,6 +3240,7 @@ def _cmd_build_once(a):
             print("error: could not read memory-lowering sidecar %s: %s" % (_mem_leftover_sidecar, exc))
             sys.exit(1)
         if _mem_leftover_names:
+            logic_memory_lowered = True
             print("AGAMEMNON WARNING: %d memory cell(s) did NOT map to the ALTA_BRAM9K block RAM "
                   "and were lowered to individual flip-flops + LUT address decoding by memory_map: "
                   "%s -- small memories may prefer logic; incompatible block-RAM shapes also "
@@ -3834,8 +3841,11 @@ def _cmd_build_once(a):
         shutil.copy(synth_json, pristine)
         heap_first = _uarch_prefers_heap(synth_json)
         attempts = _uarch_attempts(
-            a.cap, a.maxfo, split_first=live_portb, heap_first=heap_first)
-        if heap_first and not live_portb:
+            a.cap, a.maxfo, split_first=live_portb, heap_first=heap_first,
+            memory_lowered=logic_memory_lowered)
+        if logic_memory_lowered:
+            print("[build] logic memory: fanout-buffered placement first")
+        elif heap_first and not live_portb:
             print("[build] placer: placer_heap first for MCU-boundary/dense design")
         log = None
         routed_but_timing_failed = False
