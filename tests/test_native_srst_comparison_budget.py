@@ -129,7 +129,8 @@ def test_recursive_fallbacks_share_the_mapping_budget():
 
 @pytest.mark.parametrize('bad', [attempt('unclassified error'),
     attempt('Routing complete', ladder.TIMING_FAILED),
-    attempt('unsafe route', ladder.ROUTED_UNSAFE),
+    # An unrecognized safety outcome must fail closed on this release too.
+    attempt('unsafe route', 'ROUTED_UNSAFE'),
     attempt('abort', ladder.ABORTED), attempt('hardware refusal', ladder.NONRETRYABLE)])
 def test_budget_cannot_hide_an_unsafe_or_unknown_attempt(bad):
     budget = cli._NativeSRSTComparisonBudget(SimpleNamespace())
