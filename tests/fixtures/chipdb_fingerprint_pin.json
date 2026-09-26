@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "ff48f4c580f97575a811991c140f36f7a519b257e95d69346714a8dfae57b597",
-  "file_count": 269,
-  "pinned_date": "2026-09-18",
-  "reason": "Ring-oscillator campaign promotion (AG32-Docs tools/pipwit, 2026-09-18): ring_witness_conduction.csv adds every pip a ring oscillated through with clean controls on the L48 board (tier 1 via the conduction loader); dead_edges_silicon.csv gains the pips convicted by a failing ring whose every other pip was silicon-witnessed, or by two independently placed failing rings with disjoint unwitnessed scaffolding. Four graph identities, the PRE_RING_WITNESS_20260918 replay ladder, the physical-touching pip census, physical_graph_profiles.json and the research inventory regenerated."
+  "fingerprint_sha256": "26883b186011d3bbe0a681dc7406b875ad5b96aa28e3b42b94caf0d87c296ad7",
+  "file_count": 270,
+  "pinned_date": "2026-09-19",
+  "reason": "pad_output_approaches_L48.csv: 8 board-witnessed approaches into RMUX85@(18,9) (pipwit pad-approach vehicle 2026-09-19)"
 }

@@ -356,3 +356,50 @@ def test_cli_verify_observed_soundness(tmp_path):
     bad = _run_cli(["verify", ROUTED, "--observed", "0,1,7", "--cycles", "32"], cwd=str(tmp_path))
     assert bad.returncode != 0, bad.stdout
     assert "MISMATCH" in bad.stdout, bad.stdout
+
+
+_QUALIFIED_PAD_HEADER = ("pad_x,pad_y,z,pin,feeder_rmux,src_res,src_x,src_y,approach_res,approach_x,"
+                         "approach_y,vendor_out_slice,pico_gp,evidence\n")
+
+
+def _write_qualified_pads(path):
+    path.write_text(
+        _QUALIFIED_PAD_HEADER
+        + "18,13,0,PIN_18,28,RMUX69,18,9,RMUX15,14,9,,8,e\n"
+        + '18,13,3,PIN_17,16,RMUX85,18,9,RMUX68,15,9,"14,9,8",7,e\n'
+        + '17,13,3,PIN_19,16,RMUX85,17,9,RMUX68,15,9,"14,9,8",9,e\n'
+        + "19,13,0,PIN_16,8,RMUX55,19,9,RMUX61,15,9,,6,e\n"
+        + '19,13,3,PIN_13,8,RMUX55,19,9,RMUX61,15,9,"14,9,10",3,e\n',
+        encoding="utf-8",
+    )
+
+
+def test_shared_pad_corridor_is_refused_before_place_and_route(tmp_path):
+    """PIN_17 and PIN_19 (fsm_traffic) share RMUX68@(15,9): say so in one line, name free pads."""
+    _write_qualified_pads(tmp_path / "pad_output_qualified_L48.csv")
+    messages = cli._shared_pad_corridor_conflicts(
+        {"led": "PIN_17", "red": "PIN_19", "yellow": "PIN_18"}, tmp_path)
+    assert len(messages) == 1
+    assert "PIN_17 (led) and PIN_19 (red)" in messages[0]
+    assert "RMUX68@(15,9)" in messages[0]
+    assert "(PIN_13, PIN_16)" in messages[0]
+    assert cli._shared_pad_corridor_conflicts({"a": "PIN_17", "b": "PIN_18"}, tmp_path) == []
+    # PIN_13 and PIN_16 share both the approach and the pad-feed source: one message, not two.
+    assert len(cli._shared_pad_corridor_conflicts({"a": "PIN_13", "b": "PIN_16"}, tmp_path)) == 1
+    # A table without corridor columns (older fixtures) constrains nothing.
+    (tmp_path / "pad_output_qualified_L48.csv").write_text("pin,vendor_out_slice\nPIN_17,\nPIN_19,\n",
+                                                          encoding="utf-8")
+    assert cli._shared_pad_corridor_conflicts({"led": "PIN_17", "red": "PIN_19"}, tmp_path) == []
+
+
+def test_shared_pad_corridor_allows_one_net_on_two_pads(tmp_path):
+    import json as _json
+    _write_qualified_pads(tmp_path / "pad_output_qualified_L48.csv")
+    netlist = tmp_path / "fanout.json"
+    netlist.write_text(_json.dumps({"modules": {"top": {
+        "attributes": {"top": "1"}, "cells": {},
+        "ports": {"led": {"direction": "output", "bits": [5]},
+                  "red": {"direction": "output", "bits": [5]},
+                  "other": {"direction": "output", "bits": [6]}}}}}), encoding="utf-8")
+    assert cli._shared_pad_corridor_conflicts({"led": "PIN_17", "red": "PIN_19"}, tmp_path, str(netlist)) == []
+    assert len(cli._shared_pad_corridor_conflicts({"led": "PIN_17", "other": "PIN_19"}, tmp_path, str(netlist))) == 1
