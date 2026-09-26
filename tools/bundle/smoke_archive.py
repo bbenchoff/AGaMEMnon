@@ -104,7 +104,7 @@ def run(command, cwd=None, env=None, capture=False):
     )
 
 
-def smoke(bundle, workspace, python=sys.executable):
+def smoke(bundle, workspace, python=sys.executable, build_temp=None):
     manifest = json.loads((bundle / "manifest.json").read_text(encoding="utf-8"))
     version = (bundle / "BUNDLE_VERSION").read_text(encoding="ascii").strip()
     if version != manifest["bundle_version"]:
@@ -126,7 +126,7 @@ def smoke(bundle, workspace, python=sys.executable):
     env = dict(os.environ)
     # Keep compiler intermediates beside the smoke result so a failed installed
     # build can be diagnosed with its actual synthesized and routed netlists.
-    build_temp = workspace / "build-temporary"
+    build_temp = Path(build_temp).resolve() if build_temp else workspace / "build-temporary"
     build_temp.mkdir()
     for name in ("TMPDIR", "TMP", "TEMP"):
         env[name] = str(build_temp)
@@ -242,6 +242,10 @@ def main(argv=None):
         help="working directory to retain (default: temporary and removed)",
     )
     parser.add_argument("--python", default=sys.executable)
+    parser.add_argument(
+        "--build-temp",
+        help="retain compiler scratch in this new directory (use an ASCII path for pinned Windows Tcl)",
+    )
     args = parser.parse_args(argv)
     archive = Path(args.archive).resolve()
     digest = verify_sidecar(archive)
@@ -252,12 +256,12 @@ def main(argv=None):
             raise RuntimeError(f"--work directory is not empty: {workspace}")
         workspace.mkdir(parents=True, exist_ok=True)
         extract_archive(archive, workspace / "extract")
-        result = smoke(locate_bundle(workspace / "extract"), workspace, args.python)
+        result = smoke(locate_bundle(workspace / "extract"), workspace, args.python, args.build_temp)
     else:
         with tempfile.TemporaryDirectory(prefix="agamemnon-bundle-smoke-") as temp:
             workspace = Path(temp)
             extract_archive(archive, workspace / "extract")
-            result = smoke(locate_bundle(workspace / "extract"), workspace, args.python)
+            result = smoke(locate_bundle(workspace / "extract"), workspace, args.python, args.build_temp)
 
     result["archive_sha256"] = digest
     print(json.dumps(result, indent=2))
