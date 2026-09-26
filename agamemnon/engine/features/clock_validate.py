@@ -272,6 +272,11 @@ def _active_endpoints(module, require_complete):
     for name, cell in (module.get("cells") or {}).items():
         if not isinstance(cell, dict):
             _reject("cell %r is not an object" % name)
+        if not require_complete and cell.get("type") in ("DFF", "DFFE"):
+            # Before either packer fuses a register into GENERIC_SLICE, its
+            # clock still establishes the same single-owner source contract.
+            active_bits.add(_scalar_bit((cell.get("connections") or {}).get("CLK"),
+                                        "unpacked FF %r CLK" % name))
         if cell.get("type") == "GENERIC_SLICE":
             ff_used = _ff_used(cell, name)
             connections = cell.get("connections") or {}
@@ -665,6 +670,47 @@ def _validate(module_value, chipdb_root=None, options=None, routed_sha256=None,
 def validate_clock_intent(module, chipdb_root=None, options=None):
     """Validate typed source/endpoints and any fixed partial route before nextpnr."""
     return _validate(module, chipdb_root, options, require_complete=False)
+
+
+def annotate_clock_intent(module, chipdb_root=None, options=None):
+    """Serialize validated source intent before the Python architecture routes.
+
+    The native packer writes this metadata itself. The Python architecture has
+    no context-attribute setter, so its input JSON must carry the same contract.
+    This belongs to the input path and does not replace post-route validation,
+    which must reconstruct the owner, source and complete clock tree again.
+    """
+    module = _module(module)
+    result = validate_clock_intent(module, chipdb_root, options)
+    attrs = module.get("attributes") or {}
+    present = {key for key in attrs if str(key).startswith("AGAMEMNON_CLOCK_")}
+    if result.owner_bit is None:
+        if present:
+            _reject("clock intent metadata exists without an active owner")
+        return result
+    catalog = clock_resources.load_source_catalog(chipdb_root)
+    profile = catalog.by_id(result.source_profile)
+    if present:
+        # Reject partial or contradictory supplied metadata instead of silently
+        # replacing it with the values that would make the later check pass.
+        _validate_routed_metadata(module, result.owner_bit, profile, catalog,
+                                 None, chipdb_root, options)
+        return result
+    aliases = sorted(name for name, net in (module.get("netnames") or {}).items()
+                     if isinstance(net, dict) and net.get("bits") == [result.owner_bit])
+    if not aliases:
+        _reject("clock intent owner has no serializable net alias")
+    attrs.update({
+        "AGAMEMNON_CLOCK_SCHEMA": "1",
+        "AGAMEMNON_CLOCK_CLASS": clock_resources.CLASS,
+        "AGAMEMNON_CLOCK_SOURCE_CATALOG_SHA256": result.catalog_sha256,
+        "AGAMEMNON_CLOCK_TOPOLOGY_SHA256": result.topology_sha256,
+        "AGAMEMNON_CLOCK_SOURCE_CLASS": result.source_class,
+        "AGAMEMNON_CLOCK_SOURCE_PROFILE": result.source_profile,
+        "AGAMEMNON_CLOCK_OWNER_NET": aliases[0],
+    })
+    module["attributes"] = attrs
+    return result
 
 
 def validate_routed_clock(module, chipdb_root=None, options=None, *,

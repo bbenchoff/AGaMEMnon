@@ -136,23 +136,26 @@ if _pcf:
             % (", ".join("%s=%s" % (_m, _pcf[_m]) for _m in _pcf_missed),
                ", ".join(sorted(_pcf_seen_ports)) or "(none)"))
 
-if _pcf:
-    # The clock IOB is not a package pad and is never named in a PCF, so it used
-    # to be left to the placer -- which put it on an output-only pad bel and the
-    # router died with "bel 'X8Y0_OPAD3' has no pin 'O'". Whether that happened
-    # depended on how many other IOBs were in the design, so a one-output build
-    # failed where a two-output build of the same shape succeeded. Bind it.
-    for kv in ctx.cells:
-        _name, _cell = str(kv.first), kv.second
-        if str(_cell.type) != "GENERIC_IOB":
-            continue
-        _port = _name.split("$iopadmap$top.", 1)[-1]
-        if _port in _pcf or _cell.bel is not None:
-            continue
-        if "clk" not in _port.lower():
-            continue
+# Identify a clock from its consumers, including when no PCF is supplied or
+# the input has an ordinary user-chosen name. The typed clock validator still
+# rejects unsupported sources and conflicting explicit package constraints.
+_clock_nets = set()
+for _cell in cellobj.values():
+    if str(_cell.type) not in ("GENERIC_SLICE", "ALTA_BRAM9K"):
+        continue
+    for _pin in ("CLK", "Clk0", "Clk1"):
+        if _pin in _cell.ports and _cell.ports[_pin].net:
+            _clock_nets.add(str(_cell.ports[_pin].net.name))
+_clock_sources = [(_name, _cell) for _name, _cell in cellobj.items()
+                  if str(_cell.type) == "GENERIC_IOB" and "O" in _cell.ports
+                  and _cell.ports["O"].net
+                  and str(_cell.ports["O"].net.name) in _clock_nets]
+if len(_clock_sources) > 1:
+    raise SystemExit("multiple external clock inputs require unsupported independent clock sources")
+for _name, _cell in _clock_sources:
+    if _cell.bel is None:
         ctx.bindBel("CLKIN", _cell, strength)
-        print("PIN PCF clock %s -> CLKIN" % _port)
+        print("PIN clock %s -> CLKIN" % _name)
 
 # exit-driver = the FF that drives each MCU_DOUT's DOUT net. Bind by CELL NAME (h<k>) so AHB bit k =
 # hrdata[k] = the design's h<k> -- NOT iteration order (which scrambles the read-bit mapping).

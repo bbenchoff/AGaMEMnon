@@ -41,14 +41,15 @@ def _tool(name):
     return shutil.which(name)
 
 
-def test_build_verilog_to_bin(tmp_path):
+@pytest.mark.parametrize('clock_name', ['clk', 'sample_tick'])
+def test_build_verilog_to_bin(tmp_path, clock_name):
     yosys = _tool("yosys")
     npr = _tool("nextpnr-generic")
     if not yosys or not npr:
         pytest.skip("open-flow tools absent (need yosys + nextpnr-generic on PATH or $AGAMEMNON_OSS/bin)")
 
     vsrc = tmp_path / "tff.v"
-    vsrc.write_text(TFF_V)
+    vsrc.write_text(TFF_V.replace('clk', clock_name))
     outbin = tmp_path / "tff.bin"
 
     env = dict(os.environ)

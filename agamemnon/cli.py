@@ -128,6 +128,7 @@ from .engine.features.carry_validate import (                # noqa: E402
 )
 from .engine.features.clock_validate import (                # noqa: E402
     ClockValidationError,
+    annotate_clock_intent,
     validate_clock_intent,
     validate_routed_clock,
 )
@@ -4303,12 +4304,10 @@ def _cmd_build_once(a):
         try:
             with open(synth_json, encoding="utf-8") as stream:
                 pre_clock_document = json.load(stream)
-            _validate_clock_document(
-                pre_clock_document,
-                "pre-nextpnr",
-                data,
-                engine_options_from(env),
-            )
+            annotate_clock_intent(pre_clock_document, data, engine_options_from(env))
+            with open(synth_json, "w", encoding="utf-8") as stream:
+                json.dump(pre_clock_document, stream)
+                stream.write("\n")
         except (OSError, json.JSONDecodeError, ClockValidationError) as exc:
             print("error: typed clock pre-nextpnr validation failed: %s" % exc)
             sys.exit(1)
