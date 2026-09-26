@@ -13,6 +13,7 @@ from .native_endpoint import validate_module_native_endpoints
 from .mcu_endpoint import validate_module_mcu_endpoints
 from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, WritableRegion
 from .register_input import validate_module_register_inputs
+from .routing import omux_output_sources
 from .shared_control import validate_module_shared_controls
 from .route_through import (
     RouteThroughPolicyError,
@@ -316,6 +317,7 @@ class CoreLogicFeature:
                     "direct-D presentation" % ((cell_name,) + site)
                 )
         state = CoreLogicState(selector_cells=selector_cells)
+        routed_output_sources = None
         route_through_footprints, route_through_routed_nets = (
             _load_route_through_context(chipdb_root, options, module)
         )
@@ -400,12 +402,24 @@ class CoreLogicFeature:
                 int(str(bram_selection), 2) if bram_selection is not None else None
             )
             if int(cell["parameters"].get("FF_USED", "0"), 2):
+                alternate_output = (vendor_out_all or vendor_out == (x, y, z) or
+                                    (x, y, z) in state.left_vendor_slices or direct_d_site)
                 selections = (
                     (0, 1)
-                    if (vendor_out_all or vendor_out == (x, y, z) or
-                        (x, y, z) in state.left_vendor_slices or direct_d_site)
+                    if alternate_output
                     else ((bram_selection,) if bram_selection is not None else (2,))
                 )
+                if bram_selection is not None and not alternate_output:
+                    # Pin packing specifies one BRAM-facing output, not the
+                    # complete fanout of its register. Other routed Q outputs
+                    # still need their selectors, especially output 2 which
+                    # routing emission assumes core logic already selected.
+                    if routed_output_sources is None:
+                        routed_output_sources = omux_output_sources(module)
+                    selections = sorted(set(selections) | {
+                        i for i in range(3)
+                        if routed_output_sources.get((x, y, 3 * z + i)) is True
+                    })
                 for selection in selections:
                     state.register_sets.append(
                         self._require_omux(selector_cells, x, y, z, selection)
