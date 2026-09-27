@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "e7df041b229e3f35066b7d9209b0293201a32801c815f5648aa5fa5d0c9fbffd",
+  "fingerprint_sha256": "9252a328bc80caed02e9b49d19325f9827511610f71f33f69da0633282e83c6e",
   "file_count": 277,
   "pinned_date": "2026-09-26",
-  "reason": "Exclude two positioned unresolved selectors from every graph profile and direct packing. All32 predecessor graphs differ by exactly these two removals. The real Rule2 gate rebuilt all50 included qualified artifacts byte-identical with the final shared loader before this pin refresh; eight research exclusions remain a separate regression. No qualification image hash changed."
+  "reason": "Requalify only two zero-INIT TMUX9 checkpoint output hashes with paired hardware evidence after the registered-output repair. Source-profile admission is unchanged. The real Rule2 gate reproduced all50 included retained images before this pin update; exact packaged checkpoint regressions independently enforce the newly measured hashes."
 }
