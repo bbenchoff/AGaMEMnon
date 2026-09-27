@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "ab5fb75424574014a28c0a65c55192b757232bab012a04ed04b84bdde89edf03",
-  "file_count": 276,
+  "fingerprint_sha256": "e7df041b229e3f35066b7d9209b0293201a32801c815f5648aa5fa5d0c9fbffd",
+  "file_count": 277,
   "pinned_date": "2026-09-26",
-  "reason": "Correct X13Y4 AddressA[8] exact selector from ground-only 5,7,10,11 to isolated 5,10. Two-bit silicon repair passes twice with all controls; integration repack reproduces it. Included retained corpus rebuilt byte-identical before the manifest-only hash refresh. Research exclusions checked separately; no image qualification hashes changed."
+  "reason": "Exclude two positioned unresolved selectors from every graph profile and direct packing. All32 predecessor graphs differ by exactly these two removals. The real Rule2 gate rebuilt all50 included qualified artifacts byte-identical with the final shared loader before this pin refresh; eight research exclusions remain a separate regression. No qualification image hash changed."
 }

@@ -56,13 +56,13 @@ EXPECTED_CATALOG_SHA256 = (
 # silicon-witnessed slices of omux3z_presentation_evidence.csv); nothing else changes, and
 # AGAMEMNON_NO_OMUX_PRESENT0 reproduces the predecessor byte-for-byte
 # (PRE_OMUX_PRESENTATION_PHYSICAL_GRAPHS below).
-EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 319691
+EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 319689
 EXPECTED_PHYSICAL_GRAPH_SHA256 = (
-    "f902447a69c30ce38a3f493bc8bd478d89dd24210b7f3e667097a2c48e35cd6b"
+    "c239d2ccd72b4a6fc829c8831a01f9ed44c3ba0b1477c14469b3693dd07f6cb2"
 )
-EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 332417
+EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 332415
 EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
-    "d487a746575ce9a45f94c03021185db5aedf85ccd37ace46300e5cc915ac65bf"
+    "4b0cd803cf670d17e556a7af6270b0a551322df7072ec483543cdcfef68b290f"
 )
 # The native-control graph contributes the finite, reviewed shared-control
 # topology.  It is a separate graph profile: accepting it by changing the base
@@ -70,12 +70,12 @@ EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
 # graph authority.
 EXPECTED_SHARED_CONTROL_PHYSICAL_GRAPHS = {
     "release-strict": (
-        320764,
-        "05b1ba72dd9df2a45996e8761e58046c89fb1c30b8261b7211729d8879665da1",
+        320762,
+        "6438222a7cae90bff2507d40fab84e29db006676a73b24b8c44e1c40abccfacf",
     ),
     "tiered": (
-        333490,
-        "809b00c1b9c8c083e6e3625d853bbcc833675b798fc8d9dfc590c5cc5a4d4602",
+        333488,
+        "5bd0943443f0c9c8c0331257644a02af49085acfb8ccd5cfde3df3a4078fd976",
     ),
 }
 # Exact predecessors before the default OMUXPRES pips (2026-09-24; they include the 103
@@ -313,6 +313,19 @@ PRE_SERV_ADDR_REGRESSION_20260925_PHYSICAL_GRAPHS = {
     "1": {
         "release-strict": (320762, "b83a9de3784b6d9a40b5ba2aaa5c0a3db9db32ebb47ead65ca34a7ed2a27a23e"),
         "tiered": (333488, "ebbc08665876a5edce878df31e756d3f0a8b536b5cf9598ff04a3e72eef671f1"),
+    },
+}
+# Exact predecessors before two positioned selector exclusions. Each current
+# graph differs only by removing those two rows; historical graph snapshots
+# remain identifiable. Snapshot identity does not authorize unsupported packing.
+PRE_POSITIONED_SELECTORS_20260926_PHYSICAL_GRAPHS = {
+    "0": {
+        "release-strict": (319691, "f902447a69c30ce38a3f493bc8bd478d89dd24210b7f3e667097a2c48e35cd6b"),
+        "tiered": (332417, "d487a746575ce9a45f94c03021185db5aedf85ccd37ace46300e5cc915ac65bf"),
+    },
+    "1": {
+        "release-strict": (320764, "05b1ba72dd9df2a45996e8761e58046c89fb1c30b8261b7211729d8879665da1"),
+        "tiered": (333490, "809b00c1b9c8c083e6e3625d853bbcc833675b798fc8d9dfc590c5cc5a4d4602"),
     },
 }
 # Preserve exact historical graph snapshots after the retained58 byte gate.
@@ -906,6 +919,9 @@ def _validated_devdb(devdb, chipdb_root=None):
             if (graph_pip_count, graph_pips_sha256) == historical:
                 expected_pip_count, expected_pips_sha256 = historical
             historical = PRE_RMUX86_WITHDRAWAL_PHYSICAL_GRAPHS[shared_control_graph][admission]
+            if (graph_pip_count, graph_pips_sha256) == historical:
+                expected_pip_count, expected_pips_sha256 = historical
+            historical = PRE_POSITIONED_SELECTORS_20260926_PHYSICAL_GRAPHS[shared_control_graph][admission]
             if (graph_pip_count, graph_pips_sha256) == historical:
                 expected_pip_count, expected_pips_sha256 = historical
             historical = PRE_SERV_ADDR_REGRESSION_20260925_PHYSICAL_GRAPHS[shared_control_graph][admission]

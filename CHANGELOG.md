@@ -7,6 +7,11 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+- routing: exclude two positioned unresolved selectors from every graph profile
+  and refuse them during direct packing, before fallback or retained-route
+  exceptions. The restriction covers X11Y4_RMUX09->RMUX38 and
+  X15Y3_RMUX14->X15Y4_RMUX61. All other rows in32 graph profiles and all58 retained
+  qualified images are unchanged. This does not qualify new designs on hardware.
 - bram: X13Y4_RMUX17->IMUX11 (AddressA[1]) and X13Y4_RMUX22->IMUX52 (AddressB[1]) are readmitted
   to the address final-hop whitelist. The 2026-09-25 widening that covered all 26 X13Y4 address
   terminals excluded both, reasoning from two failing open images (x1/x2 simple-dual-port) that

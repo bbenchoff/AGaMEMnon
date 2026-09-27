@@ -102,6 +102,13 @@ Conflicting, predicted, legacy, or unresolved general-routing selectors fail
 release-strict bitgen. The release graph is filtered to the same accepted encoding
 set, so routing and bitgen enforce the boundary independently.
 
+Positioned exclusions in `unsupported_selector_edges.csv` take precedence over
+all selector sources. Both graph generation and direct packing enforce this
+table, including research and retained-route paths. The packer reports
+`unsupported positioned selector` for a checkpoint requiring such a connection;
+reroute it with the current graph. These unresolved encodings are tracked
+separately from electrical conduction failures.
+
 The opt-in `research-unsafe` policy may instead consume the normalized
 vendor-derived conflict atlas, corpus-majority/context rows, decoded templates,
 and trained predictions. It records the evidence-class counts and research
