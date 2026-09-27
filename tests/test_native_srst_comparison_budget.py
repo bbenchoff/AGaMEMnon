@@ -152,3 +152,25 @@ def test_alternative_safety_exit_is_not_replaced_by_baseline(tmp_path, monkeypat
         cli.cmd_build(args)
     assert not Path(args.output).exists()
     assert 'AGRV2K_SHARED_CONTROL_SRST_RECOVERY' not in os.environ
+
+
+def test_compaction_placement_failure_keeps_completed_mapping(tmp_path, monkeypatch):
+    args = setup_wrapper(tmp_path, monkeypatch)
+    rejected = attempt(
+        "Info: agrv2k validity: local output topology cannot conduct net 'data'\n"
+        "Warning: post-placement validity check failed for Bel 'X16Y11_SLICE2'\n"
+        "ERROR: agrv2k: compaction requires a legal initial placement (example_cell)\n"
+        "1 warning, 1 error\n")
+    def build(candidate):
+        if os.environ['AGRV2K_SHARED_CONTROL_SRST_RECOVERY'] == '1':
+            return emitted(candidate, 'recovered')
+        for _ in range(3):
+            candidate._native_srst_comparison_budget.observe(rejected)
+        pytest.fail('failed placement must stop at the optional search budget')
+    monkeypatch.setattr(cli, '_cmd_build_once', build)
+    result = cli.cmd_build(args)
+    assert result['mapping'] == 'recovered'
+    assert Path(args.output).read_bytes() == b'recovered'
+    report = json.loads(Path(args.output+'.native-srst-selection.json').read_text())
+    assert report['candidates'][1]['outcome'] == 'classified_placement_routing_exhaustion'
+    assert report['candidates'][1]['route_attempt_budget']['attempts_run'] == 3

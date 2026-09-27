@@ -264,6 +264,7 @@ def test_garbage_log_with_no_recognisable_marker_falls_back_to_other_and_never_r
     "Unable to find legal placement for all cells, design is probably at utilisation limit.",
     "Unable to find legal placement for cell 'enable' of type 'AGRV2K_TILE_CONTROL' after 10001 attempts",
     "agrv2k: clock-enable cluster 'enable' has no legal same-tile slot assignment",
+    "agrv2k: compaction requires a legal initial placement (example_cell)",
 ])
 def test_placement_failure_does_not_become_a_routing_diagnosis(failure):
     log = (
@@ -298,3 +299,12 @@ def test_unknown_failure_does_not_assert_a_graph_or_router_cause():
     sig = A._signature_for(_rec(1, 4, "4", 0, A.NOT_ROUTED, "process stopped"))
     assert sig.kind == "OTHER"
     assert "stage undetermined" in sig.detail
+
+
+@pytest.mark.parametrize('log', [
+    'Info: agrv2k: compaction requires a legal initial placement (example_cell)\n',
+    'ERROR: agrv2k: compaction requires a legal initial placement (example_cell)\nERROR: unknown failure\n',
+    'ERROR: agrv2k: compaction requires a legal initial placement (example_cell)\nInfo: Routing complete.\n',
+])
+def test_compaction_diagnostic_does_not_hide_other_or_ambiguous_failures(log):
+    assert A._signature_for(_rec(1, 0, '1', 0, A.NOT_ROUTED, log)).kind == 'OTHER'

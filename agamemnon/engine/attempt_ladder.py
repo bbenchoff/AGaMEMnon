@@ -127,6 +127,18 @@ def _signature_for(record: AttemptRecord) -> Optional[Signature]:
                           "net '%s' (%s -> %s)" % (failure.net, failure.src, failure.dst))
     if record.outcome == TIMING_FAILED:
         return Signature("TIMING", "TIMING", "routed, but the timing target was not met")
+    # The compactor refuses to run on an illegal initial placement. This is
+    # a pre-routing search failure, not an unknown implementation failure.
+    # Optional mapping comparisons may retain an already completed candidate
+    # after such failures, so require the exact terminal diagnostic and do not
+    # let it hide another error or a completed routing attempt.
+    errors = [line.strip() for line in record.log.splitlines()
+              if line.strip().startswith("ERROR:")]
+    compaction_failure = "ERROR: agrv2k: compaction requires a legal initial placement ("
+    if (record.outcome == NOT_ROUTED and errors and "Routing complete" not in record.log
+            and all(line.startswith(compaction_failure) and line.endswith(")") for line in errors)):
+        return Signature("PLACEMENT", "PLACEMENT",
+                         "placement failed before routing; inspect placement legality diagnostics")
     if any(message in record.log for message in (
             "Placing design failed.", "Unable to place cell",
             "Unable to find legal placement for cell",
