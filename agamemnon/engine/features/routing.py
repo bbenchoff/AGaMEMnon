@@ -37,6 +37,20 @@ MCU_ENTRY_FIRST_HOP_FILES = (
 )
 
 
+def unsupported_selector_edges(chipdb_root):
+    """Load positioned exclusions shared by graph construction and packing."""
+    path = os.path.join(str(chipdb_root), "unsupported_selector_edges.csv")
+    pattern = r"(\w+)@(-?\d+),(-?\d+)\s*->\s*(\w+)@(-?\d+),(-?\d+)"
+    edges = set()
+    with open(path, newline="", encoding="utf-8") as stream:
+        for row in csv.DictReader(stream):
+            match = re.fullmatch(pattern, row.get("edge", "").strip())
+            if not match or not row.get("reason", "").strip():
+                raise ValueError("malformed unsupported selector edge: %r" % row)
+            edges.add(match.groups())
+    return frozenset(edges)
+
+
 def mcu_entry_first_hops(chipdb_root):
     """Return each qualified hard MCU entry root's legal first-hop set.
 
@@ -392,6 +406,7 @@ class RoutingSelectorTables:
     # relative selectors from BramTILE observations only.
     relative_edge_bram: dict = field(default_factory=dict)
     tile_typed: bool = False
+    unsupported_edges: frozenset = field(default_factory=frozenset)
 
     def relative_for(self, dx, dy):
         return routing_selectors.relative_table_for(
@@ -460,6 +475,11 @@ class RoutingSelectorTables:
             lut=SB.train_lut("__none__", chipdb_root),
             conflicted_edge=conflicted_edge,
             ambiguous_boundary=ambiguous_boundary_sources(str(chipdb_root)),
+            unsupported_edges=frozenset(
+                parse_wire("X%sY%s_%s" % (sx, sy, sr)) +
+                parse_wire("X%sY%s_%s" % (dx, dy, dr))
+                for sr, sx, sy, dr, dx, dy in unsupported_selector_edges(chipdb_root)
+            ),
         )
 
     def _build_geom_rmux(self, dataset):
@@ -857,6 +877,7 @@ class RoutingFeature:
             # refused instead of shipped. See tests/test_congestion_marginal_edges.py and
             # qualification/x20y12_congestion_marginal_evidence.jsonl.
             "congestion_marginal_edges.csv",
+            "unsupported_selector_edges.csv",
             "afexe_absent_edges.csv", "afexe_column_dead.csv",
             "exit_feeder_whitelist.csv", "master_conduction.csv",
             "ff2_conduction.csv", "harvest_conduction.csv",
@@ -1038,6 +1059,13 @@ class RoutingFeature:
                 if not _match:
                     raise ValueError("malformed silicon-dead edge: %r" % _dead_row)
                 EDGE_BLACKLIST.add(_match.groups())
+        # Qualified positioned selector exclusions are active in every profile.
+        # These are encoding/topology restrictions, separate from electrical
+        # conduction failures. Independent route constructions and neighboring
+        # input controls establish the missing selectors; whole-design PASS
+        # occupancy is insufficient to override this evidence. The shared
+        # blacklist also prevents supplemental corridors from restoring them.
+        EDGE_BLACKLIST.update(unsupported_selector_edges(DATA))
         # Edges af.exe's own bitgen has no selector for at that coordinate: the edge does not EXIST there,
         # which is a different claim from dead_edges_silicon.csv's "it exists and the silicon will not pass a
         # signal through it".  Kept in its own table so the two kinds of evidence are never conflated, the way
@@ -2862,6 +2890,10 @@ class RoutingFeature:
             sx, sy, sf, si = source
             dx, dy, df, di = destination
             edge = source + destination
+            if edge in getattr(tables, "unsupported_edges", frozenset()):
+                # No resolver or retained-withdrawn exception can supply a
+                # qualified encoding for these positioned connections.
+                raise SystemExit("unsupported positioned selector: " + pip)
             if sf.startswith("CARRY") or df.startswith("CARRY"):
                 continue
             # Tile shared-control resources are owned by shared_control_graph,

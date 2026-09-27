@@ -56,28 +56,32 @@ EXPECTED_CATALOG_SHA256 = (
 # silicon-witnessed slices of omux3z_presentation_evidence.csv); nothing else changes, and
 # AGAMEMNON_NO_OMUX_PRESENT0 reproduces the predecessor byte-for-byte
 # (PRE_OMUX_PRESENTATION_PHYSICAL_GRAPHS below).
-EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 319652
+EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 319650
 EXPECTED_PHYSICAL_GRAPH_SHA256 = (
-    "3e2e0e69b1ec157311bf3c223bfa9d9969bfb34c37828cc605c1055fc3fa9ecd"
+    "e97cef61f713acc50a3f68f835aebf45fd93f7c225a728ba7c444bf02d06bcaa"
 )
-EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 330884
+EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 330882
 EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
-    "3bc835a4b4d67d8abf4b561e1dd7db94428b251ba2ad3b6e684f2d06ea33b511"
+    "25caf1abf985c9a6cb9bf1ff170642563a21b46aaad222451172a626744542d6"
 )
 # The native-control graph contributes the finite, reviewed shared-control
 # topology.  It is a separate graph profile: accepting it by changing the base
 # fingerprint would make a graph-generation switch invisible to the physical
 # graph authority.
-EXPECTED_SHARED_CONTROL_PHYSICAL_GRAPHS = {
-    "release-strict": (
-        320725,
-        "021a7f6ab6c7c8ea3168cb97548110f0937a231d7cf39953ea1f6cec440ba119",
-    ),
-    "tiered": (
-        331957,
-        "2ed6ee85a0433226c3cef9f4918243a95c13b33fb2089316f2e56442ca7acb43",
-    ),
-}
+EXPECTED_SHARED_CONTROL_PHYSICAL_GRAPHS = {'release-strict': (320723,
+                    '331ad45b45ae29aeaedab0b0f8f1decf1a07d33f2e23f77ba6b7bfe6e4d72f34'),
+ 'tiered': (331955,
+            '52ea9cab3415b851d3001a74597fc9038f32b06b792df66331dc8317bdfa31c7')}
+# Exact release-integration predecessors before the positioned exclusions.
+PRE_POSITIONED_RELEASE_20260926_PHYSICAL_GRAPHS = {'0': {'release-strict': (319652,
+                          '3e2e0e69b1ec157311bf3c223bfa9d9969bfb34c37828cc605c1055fc3fa9ecd'),
+       'tiered': (330884,
+                  '3bc835a4b4d67d8abf4b561e1dd7db94428b251ba2ad3b6e684f2d06ea33b511')},
+ '1': {'release-strict': (320725,
+                          '021a7f6ab6c7c8ea3168cb97548110f0937a231d7cf39953ea1f6cec440ba119'),
+       'tiered': (331957,
+                  '2ed6ee85a0433226c3cef9f4918243a95c13b33fb2089316f2e56442ca7acb43')}}
+
 # Exact predecessors before coordinate-specific selector identity checks.
 PRE_SELECTOR_IDENTITY_PHYSICAL_GRAPHS = {'0': {'release-strict': (319684,
                           '4d8aef4018a09e7d969efcb32e7af86b8a31ba08f5212a42b7c73862623938d5'),
@@ -324,6 +328,19 @@ PRE_SERV_ADDR_REGRESSION_20260925_PHYSICAL_GRAPHS = {
     "1": {
         "release-strict": (320762, "b83a9de3784b6d9a40b5ba2aaa5c0a3db9db32ebb47ead65ca34a7ed2a27a23e"),
         "tiered": (333488, "ebbc08665876a5edce878df31e756d3f0a8b536b5cf9598ff04a3e72eef671f1"),
+    },
+}
+# Exact predecessors before two positioned selector exclusions. Each current
+# graph differs only by removing those two rows; historical graph snapshots
+# remain identifiable. Snapshot identity does not authorize unsupported packing.
+PRE_POSITIONED_SELECTORS_20260926_PHYSICAL_GRAPHS = {
+    "0": {
+        "release-strict": (319691, "f902447a69c30ce38a3f493bc8bd478d89dd24210b7f3e667097a2c48e35cd6b"),
+        "tiered": (332417, "d487a746575ce9a45f94c03021185db5aedf85ccd37ace46300e5cc915ac65bf"),
+    },
+    "1": {
+        "release-strict": (320764, "05b1ba72dd9df2a45996e8761e58046c89fb1c30b8261b7211729d8879665da1"),
+        "tiered": (333490, "809b00c1b9c8c083e6e3625d853bbcc833675b798fc8d9dfc590c5cc5a4d4602"),
     },
 }
 # Preserve exact historical graph snapshots after the retained58 byte gate.
@@ -926,6 +943,12 @@ def _validated_devdb(devdb, chipdb_root=None):
             if (graph_pip_count, graph_pips_sha256) == historical:
                 expected_pip_count, expected_pips_sha256 = historical
             historical = PRE_RMUX86_WITHDRAWAL_PHYSICAL_GRAPHS[shared_control_graph][admission]
+            if (graph_pip_count, graph_pips_sha256) == historical:
+                expected_pip_count, expected_pips_sha256 = historical
+            historical = PRE_POSITIONED_RELEASE_20260926_PHYSICAL_GRAPHS[shared_control_graph][admission]
+            if (graph_pip_count, graph_pips_sha256) == historical:
+                expected_pip_count, expected_pips_sha256 = historical
+            historical = PRE_POSITIONED_SELECTORS_20260926_PHYSICAL_GRAPHS[shared_control_graph][admission]
             if (graph_pip_count, graph_pips_sha256) == historical:
                 expected_pip_count, expected_pips_sha256 = historical
             historical = PRE_SERV_ADDR_REGRESSION_20260925_PHYSICAL_GRAPHS[shared_control_graph][admission]

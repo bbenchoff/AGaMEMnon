@@ -33,7 +33,7 @@ AGaMEMnon uses a three-tier model, and reports what it did.
 
 | tier | criterion | behaviour |
 |---|---|---|
-| 1 — **witnessed** | conduction evidence at this exact position: a vendor route that used the hop, a silicon sweep row, or a reviewed admission row | admit, silently |
+| 1 — **witnessed** | recorded positive evidence at this exact position: route occupancy, a silicon sweep row, or a reviewed admission row; scope remains limited to that evidence | admit, silently |
 | 2 — **encoding-certain** | no conduction witness here, but the selector codeword is certain | admit, and **record it in the build's confidence manifest** |
 | 3 — **encoding-ambiguous** | the selector key conflicts across positions, or there is no clean-selector evidence at all | **refuse, always** |
 
@@ -46,6 +46,20 @@ simultaneous use is qualified. The former 14-edge negative catalogue was
 removed because all 14 edges conduct in isolated positive witnesses; the
 original congested composition still failed. Never cite “tier 1” as proof of a
 wide design.
+
+Historical route occupancy and a whole-design PASS do not by themselves prove
+that a particular input was exercised or that its failure was observable. Such
+records need explicit stimulus and observability review before supporting a
+conduction claim. The legacy tier name does not upgrade the underlying evidence.
+
+`chipdb/unsupported_selector_edges.csv` records positioned connections whose
+selector encoding remains unresolved despite positive route occupancy. These
+connections are excluded from every graph profile and rejected independently by
+the packer, before admission or fallback resolution. Research settings and retained
+graph identities cannot bypass this restriction. Currently this covers only
+`X11Y4_RMUX09 -> X11Y4_RMUX38` and `X15Y3_RMUX14 -> X15Y4_RMUX61`; it does not
+assert a family-wide topology rule or an electrical conduction failure. Imported
+checkpoints using these connections must be rerouted with the current graph.
 
 ### What makes a codeword "certain"
 

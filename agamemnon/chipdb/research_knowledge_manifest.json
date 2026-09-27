@@ -1605,6 +1605,12 @@
       "sha256": "822a61564f611a9a420a62eabd04f48a26c5214b07a8933006e0b7740a35a88c"
     },
     {
+      "bytes": 127,
+      "data_rows": 2,
+      "path": "agamemnon/chipdb/unsupported_selector_edges.csv",
+      "sha256": "430dde21e788266c2a6a46d0dd631477e8341c56d9160c0e617446aea56ef048"
+    },
+    {
       "bytes": 5318,
       "data_rows": 103,
       "path": "agamemnon/chipdb/vendor_recovered_edges.csv",

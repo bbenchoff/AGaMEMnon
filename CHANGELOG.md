@@ -13,6 +13,15 @@ is authoritative for downloadable artifacts.
   the ordinary search when no admissible candidate exists and propagate unsafe,
   timing and unknown failures.
 
+- routing: exclude two positioned unresolved selectors from every graph profile
+  and refuse them during direct packing, before fallback or retained-route
+  exceptions. The restriction covers X11Y4_RMUX09->RMUX38 and
+  X15Y3_RMUX14->X15Y4_RMUX61. All other rows in 64 graph profiles and all 58 retained
+  qualified images are unchanged. This does not qualify new designs on hardware.
+- build: recognize the compactor's illegal-initial-placement refusal as a
+  placement search failure. An optional native-reset mapping that reaches its
+  search limit can then retain an already completed admissible image. Unknown
+  errors, crashes, hardware refusals and timing failures still stop the build.
 - bram: X13Y4_RMUX17->IMUX11 (AddressA[1]) and X13Y4_RMUX22->IMUX52 (AddressB[1]) are readmitted
   to the address final-hop whitelist. The 2026-09-25 widening that covered all 26 X13Y4 address
   terminals excluded both, reasoning from two failing open images (x1/x2 simple-dual-port) that

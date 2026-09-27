@@ -629,6 +629,7 @@ def test_routing_feature_owns_resolution_and_physical_writes():
         # agamemnon/engine/features/placement_congestion.py, not loaded into this
         # module's device-graph emission (see the routing.py comment beside it)
         "congestion_marginal_edges.csv",
+        "unsupported_selector_edges.csv",
         # edges the vendor bitgen resolves no selector for at their own coordinate: a TOPOLOGY claim,
         # deliberately separate from dead_edges_silicon.csv's conduction claim
         "afexe_absent_edges.csv", "afexe_column_dead.csv",
