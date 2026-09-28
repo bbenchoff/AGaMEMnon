@@ -83,22 +83,27 @@ PRE_POSITIONED_RELEASE_20260926_PHYSICAL_GRAPHS = {'0': {'release-strict': (3196
                   '2ed6ee85a0433226c3cef9f4918243a95c13b33fb2089316f2e56442ca7acb43')}}
 
 # Exact predecessors before coordinate-specific selector identity checks.
-PRE_SELECTOR_IDENTITY_PHYSICAL_GRAPHS = {'0': {'release-strict': (319684,
-                          '4d8aef4018a09e7d969efcb32e7af86b8a31ba08f5212a42b7c73862623938d5'),
-       'tiered': (332293, '0497133f0f0f2319bc83bcff5b17b1883763ca4db82906537f3cfccf9fa08057')},
- '1': {'release-strict': (320757,
-                          '799d5c64d1ed3542fdbcfad6ea3b0a942399753ffba23cb56c6cef6e3754a95f'),
-       'tiered': (333366, 'd9d8308cc30c1b900c40db751125f40cb1df764d719ef4f8b12e8927073b881a')}}
+# 2026-09-28: each entry lowered by 2 rows to track the two positioned selectors
+# rejected in 75c3431 (X13Y4 unsupported-selector edges); the withdrawal fixtures
+# are unchanged, so the predecessor moves exactly with the current graph.
+PRE_SELECTOR_IDENTITY_PHYSICAL_GRAPHS = {'0': {'release-strict': (319682,
+                          'db420c03b8186b9a686e20327fbd2250619171ecc3a10617435dade0720893e4'),
+       'tiered': (332291, '33f677cfd3c25f166eed097f07d09d392a4ee9032872778db5be4121144749c9')},
+ '1': {'release-strict': (320755,
+                          'c9e98a422e9fa493aec66c57312db99cba105d418db398fcbe30faee9ed28daa'),
+       'tiered': (333364, '5a3e4d977adb7566fd38e41f63d60c54f581cf4cd42868a330e68b5f94c91a33')}}
 
 # Exact graph predecessors before the two FIFO selector translations were withdrawn.
-PRE_FIFO_POLICY_PHYSICAL_GRAPHS = {'0': {'release-strict': (319691, 'f902447a69c30ce38a3f493bc8bd478d89dd24210b7f3e667097a2c48e35cd6b'), 'tiered': (332417, 'd487a746575ce9a45f94c03021185db5aedf85ccd37ace46300e5cc915ac65bf')}, '1': {'release-strict': (320764, '05b1ba72dd9df2a45996e8761e58046c89fb1c30b8261b7211729d8879665da1'), 'tiered': (333490, '809b00c1b9c8c083e6e3625d853bbcc833675b798fc8d9dfc590c5cc5a4d4602')}}
+# 2026-09-28: each entry lowered by 2 rows for the two positioned selectors rejected
+# in 75c3431; withdrawal fixtures unchanged, so the predecessor tracks the current graph.
+PRE_FIFO_POLICY_PHYSICAL_GRAPHS = {'0': {'release-strict': (319689, '1344841942ed7fdbf914c26672752464bfa2da45ee37837c1e2a198249f98686'), 'tiered': (332415, 'f30e51a1bbd5b4310643be36de8d384d768510d6308ca86059e0036196ff00eb')}, '1': {'release-strict': (320762, 'c59fd41f299ec0b37b0ca6994fd4cf5e75666ee87ee3e4615a0521fdd87f5474'), 'tiered': (333488, '61781f7c1984ab5edde47ec70da69c232d139ed1a1c63dd94a4462ca160c2ce6')}}
 
 # Exact predecessors before the default OMUXPRES pips (2026-09-24; they include the 103
 # vendor-recovered hops, which merged first). Device databases and
 # retained checkpoints built on them keep replaying against these identities.
 PRE_OMUX_PRESENTATION_PHYSICAL_GRAPHS = {
     "0": {
-        "release-strict": (317579, "c556e527d114ab617708ae4ef649cfc0bf41d4d1451cf98ca2316b074fcd7453"),
+        "release-strict": (317577, "ee65ad74852147b07c35221f2392d97cf4f6aed722df3236807c6f12405c3aea"),
         "tiered": (330305, "b94685ab609828b643d779b6822befd1970d6312e2c9fb55babb214a9573dd33"),
     },
     "1": {
@@ -281,11 +286,11 @@ PRE_RMUX07_WITHDRAWAL_PHYSICAL_GRAPHS = {
 PRE_RMUX81_WITHDRAWAL_PHYSICAL_GRAPHS = {
     "0": {
         "release-strict": (255545, "c6fa6fc11a21b613f07ad65d85568f47111c1bd46c2892f6dee27412305e5b7a"),
-        "tiered": (333487, "7876e14518f263105449994cfa91f59e58b623edcf0e20858dd89d9fd45a59eb"),
+        "tiered": (333485, "8e077f97334119036f93e27474e4478e222168f4b770bb1bbc3f4aeb7a76fe1c"),
     },
     "1": {
         "release-strict": (256618, "b6b537160a99e01c87b9917c8b44158527e646608e3a6ed49cacdd0b97844b5e"),
-        "tiered": (334560, "a528fbd2168a6924c29a597be050657d5c7a98a87813ebb2bc83cb658b08a1e5"),
+        "tiered": (334558, "bf598401740f3f4cf5d0a5dae35b9dc5a27212949b96e7304a4d76e5d284546f"),
     },
 }
 # Exact predecessors before the ring witness 20260918 promotion: every pip a ring oscillator
@@ -295,11 +300,11 @@ PRE_RMUX81_WITHDRAWAL_PHYSICAL_GRAPHS = {
 PRE_RING_WITNESS_20260918_PHYSICAL_GRAPHS = {
     "0": {
         "release-strict": (255544, "29a01b86f355fab5d7a618c606b17602d8f2c3e8178c7a8b99fae2ff5ebb1063"),
-        "tiered": (333386, "1f39687f38708f86ff95e55e78172fe6e2adfaabb1b2b4b53b06b21901e7f944"),
+        "tiered": (333384, "cb809c39bbd80daa854dce442a63bc6043f129ba98a863bf77faefa81cb09c90"),
     },
     "1": {
         "release-strict": (256617, "81608073da3f37bb9c967de174fcebf50c6b181a14c8a29fc5d0cbd947629105"),
-        "tiered": (334459, "28b253b8a0eede4f5aadbc685ce5f177b36de6ee03e0c0dea0b2233803cf33e7"),
+        "tiered": (334457, "ed5b9a97cc333f24a8d89b2150e4a843d9e9d70c4ca74f7ac3eeae624b957c81"),
     },
 }
 # Exact predecessors before the BRAM parity-lane exits (2026-09-25): ten vendor-recovered
@@ -308,7 +313,7 @@ PRE_RING_WITNESS_20260918_PHYSICAL_GRAPHS = {
 # Retained checkpoints built on the previous graphs keep replaying against these identities.
 PRE_BRAM_PARITY_EXITS_20260925_PHYSICAL_GRAPHS = {
     "0": {
-        "release-strict": (319640, "b9e75738461616fc4bd8d918df7344e54c402f4f7f097fbd4fba3014f480b320"),
+        "release-strict": (319638, "a06cfd8ce047a55754ac10b8394fb62e3163af9562ba4a7ef50f29ee4073c5fa"),
         "tiered": (332366, "874c9ce593a22085ab23fb8d82bb3942c8d6e0c778aac490263c192ce45c527d"),
     },
     "1": {
