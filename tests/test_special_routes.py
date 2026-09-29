@@ -1292,6 +1292,16 @@ def _pre_campaign_graph_bytes(admission, shared):
     work = Path(tempfile.mkdtemp(prefix="pre-campaign-chipdb-"))
     data = work / "chipdb"
     shutil.copytree(CHIPDB, data)
+    # This replay predates the positioned exclusions of 2026-09-26. Undo
+    # exactly that layer before rebuilding older graphs, preserving their
+    # historical hashes. Never remove this guard from current emission.
+    excluded = data / "unsupported_selector_edges.csv"
+    with excluded.open(newline="", encoding="utf-8") as stream:
+        rows = list(csv.DictReader(stream))
+    assert len(rows) == 2 and {row["edge"] for row in rows} == {
+        "RMUX9@11,4->RMUX38@11,4", "RMUX14@15,3->RMUX61@15,4",
+    }
+    excluded.write_text("edge,reason\n", encoding="utf-8")
     (data / "ring_witness_conduction.csv").unlink()
     # pad-approach witnesses (padapproach.py, 2026-09-19) are campaign output too
     (data / "pad_output_approaches_L48.csv").unlink(missing_ok=True)
@@ -1414,6 +1424,41 @@ def _without_bram_parity_exits(raw):
                     if line.split(b",", 1)[0] not in names)
 
 
+def _restore_positioned_selector_rows(raw, admission, shared):
+    """Undo only the two positioned exclusions on an exactly recognized graph."""
+    current = (sr.EXPECTED_PHYSICAL_GRAPHS if shared == "0" else
+               sr.EXPECTED_SHARED_CONTROL_PHYSICAL_GRAPHS)[admission]
+    assert (len(raw.splitlines()) - 1, hashlib.sha256(raw).hexdigest()) == current
+    fixture = Path(__file__).parent / "fixtures" / "positioned_selector_withdrawal_20260926.json"
+    rows = json.loads(fixture.read_text(encoding="utf-8"))[shared + "/" + admission]
+    assert len(rows) == 2
+    lines = raw.splitlines(keepends=True)
+    for row in rows:
+        line = row["line"].encode("ascii") + b"\r\n"
+        assert line not in lines
+        lines.insert(row["index"], line)
+    restored = b"".join(lines)
+    assert (len(lines) - 1, hashlib.sha256(restored).hexdigest()) == (
+        sr.PRE_POSITIONED_RELEASE_20260926_PHYSICAL_GRAPHS[shared][admission])
+    return restored
+
+
+def test_positioned_selector_inverse_preserves_history_and_rejects_tampering():
+    raw = (PHYSICAL_DEVDB / "dev_pips.csv").read_bytes()
+    restored = _restore_positioned_selector_rows(raw, "release-strict", "0")
+    excluded = {b"X11Y4_RMUX09.X11Y4_RMUX38", b"X15Y3_RMUX14.X15Y4_RMUX61"}
+    assert b"".join(line for line in restored.splitlines(keepends=True)
+                    if line.split(b",", 1)[0] not in excluded) == raw
+    # Preserve the row count while changing the bytes: an identity check based
+    # only on the two-row delta must not accept this graph.
+    damaged = raw.replace(b",0.336,", b",0.337,", 1)
+    assert damaged != raw
+    with pytest.raises(AssertionError):
+        _restore_positioned_selector_rows(damaged, "release-strict", "0")
+    with pytest.raises(AssertionError):
+        _restore_positioned_selector_rows(restored, "release-strict", "0")
+
+
 def _restore_selector_identity_rows(raw):
     """Restore measured rows only when the entire current graph matches its pin."""
     actual = (len(raw.splitlines()) - 1, hashlib.sha256(raw).hexdigest())
@@ -1426,6 +1471,7 @@ def _restore_selector_identity_rows(raw):
                        sr.EXPECTED_SHARED_CONTROL_PHYSICAL_GRAPHS)[admission]
             if actual != current:
                 continue
+            raw = _restore_positioned_selector_rows(raw, admission, shared)
             fixture = Path(__file__).parent / "fixtures" / (
                 "selector_identity_withdrawal_" + admission + "_" + shared + ".json")
             rows = json.loads(fixture.read_text(encoding="utf-8"))
