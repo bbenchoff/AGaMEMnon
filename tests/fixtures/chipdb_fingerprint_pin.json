@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "7502c0a6bd3689ccb3b59260ee9fc4efdbc01b69cb5b767a7dd667479760b31e",
+  "fingerprint_sha256": "dd9cd16205a3160b8cda2c71367ff6e4d4514343b57bf9412393b9548749967e",
   "file_count": 279,
   "pinned_date": "2026-09-29",
-  "reason": "congestion_marginal_edges.csv gains 3,079 never-proven-shape rows (source unproven_shape_20260929) and 15 same-placement board-pair rows (board_pair_20260929); the six board_congestion rows are unchanged. The table is a post-route refusal plus retry penalty, not a graph edit: dev_pips.csv and all profile identities are unchanged. research_knowledge_manifest.json records the table's new size and hash (only that row changed). The Rule2 gate rebuilt every included retained qualified artifact byte-identical, and no shipped qualified routed fixture uses a refused pip. Board evidence (L48, SRAM): stronger LFSR 0/32 -> 61/64, slow RAM 0/32 -> 64/64, fast RAM 0/32 -> 64/64 reset trials."
+  "reason": "congestion_marginal_edges.csv gains 2,416 never-proven-shape rows (X13 BRAM/MCU-boundary terminals exempt) (source unproven_shape_20260929) and 15 same-placement board-pair rows (board_pair_20260929); the six board_congestion rows are unchanged. The table is a post-route refusal plus retry penalty, not a graph edit: dev_pips.csv and all profile identities are unchanged. research_knowledge_manifest.json records the table's new size and hash (only that row changed). The Rule2 gate rebuilt every included retained qualified artifact byte-identical, and no shipped qualified routed fixture uses a refused pip. Board evidence (L48, SRAM): stronger LFSR 0/32 -> 61/64, slow RAM 0/32 -> 64/64, fast RAM 0/32 -> 64/64 reset trials."
 }

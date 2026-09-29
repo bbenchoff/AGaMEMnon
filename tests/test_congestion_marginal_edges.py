@@ -235,7 +235,7 @@ def test_unproven_shape_and_board_pair_rows_are_present_and_labelled():
         classes.setdefault(row["source"], []).append(row)
     assert sorted(classes) == ["board_congestion_20260925", "board_pair_20260929",
                                "unproven_shape_20260929"]
-    assert len(classes["unproven_shape_20260929"]) == 3079
+    assert len(classes["unproven_shape_20260929"]) == 2416
     assert len(classes["board_pair_20260929"]) == 15
     assert len({row["edge"] for row in rows}) == len(rows), "no duplicate edges"
     sources = PC.congestion_marginal_pip_sources(DATA)
@@ -258,6 +258,17 @@ def test_no_shipped_qualified_routed_image_uses_a_refused_pip():
                 pips = PC._routed_pips(net.get("attributes", {}).get("ROUTING"))
                 used = refused.intersection(pips)
                 assert not used, (path, sorted(used))
+
+
+def test_x13_terminal_shapes_are_not_refused_by_shape():
+    # One-of-a-kind BRAM/MCU-boundary terminals cannot have their shape proven elsewhere;
+    # refusing them blocked a qualified x18 BRAM write/read build (2026-09-29).
+    for row in _rows("congestion_marginal_edges.csv"):
+        if row["source"] != "unproven_shape_20260929":
+            continue
+        match = EDGE_RE.fullmatch(row["edge"])
+        src, sx, sy, dst, dx, dy = match.groups()
+        assert not (dx == "13" and not dst.startswith("RMUX")), row["edge"]
 
 
 def test_refusal_message_names_the_evidence_class():

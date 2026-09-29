@@ -6,10 +6,10 @@
   "table": "agamemnon/chipdb/congestion_marginal_edges.csv",
   "classes": {
     "unproven_shape_20260929": {
-      "rows": 3079,
+      "rows": 2416,
       "definition": "Fabric ROUTE pip whose shape (source mux family and index, destination mux family and index, dx, dy) is used by no board-passing open image and no shipped silicon-qualified routed fixture, anywhere on the device.",
       "proven_evidence": "146,255 distinct pips from 2,141 board-passing open images with retained routed netlists plus 75 shipped qualified routed fixtures; 4,183 proven shapes. Placement-keystone experiments are not counted as proof.",
-      "policy": "Post-route refusal plus the existing retry penalty. The device graph and every profile identity are unchanged. A shape becomes admissible once a design-level silicon pass uses it."
+      "policy": "Post-route refusal plus the existing retry penalty. The device graph and every profile identity are unchanged. A shape becomes admissible once a design-level silicon pass uses it. Non-routing destinations in the one-of-a-kind X13 column (BRAM and MCU-boundary IMUX/BBMUX/KMUX/TMUX terminals, 663 pips) are exempt, because their shapes cannot be proven elsewhere and refusing them blocked a qualified x18 BRAM build; every never-proven pip in a failing image had a routing destination."
     },
     "board_pair_20260929": {
       "rows": 15,
