@@ -42,6 +42,29 @@ class CongestionMarginalError(RuntimeError):
     pass
 
 
+def congestion_marginal_pip_sources(chipdb_root):
+    """Refused pips as ``{routed-JSON PIP name: evidence source}``.
+
+    Three evidence classes share the table: ``board_congestion_*`` (board-confirmed X20Y12
+    congestion-marginal feeders), ``unproven_shape_*`` (pip shapes that no board-PASS open image
+    or qualified fixture has ever used) and ``board_pair_*`` (pips isolated by a same-placement
+    pass/fail board comparison).
+    """
+    path = Path(chipdb_root) / CSV_NAME
+    sources = {}
+    if not path.exists():
+        return sources
+    with path.open(newline="", encoding="utf-8") as stream:
+        for row in csv.DictReader(stream):
+            edge = (row.get("edge") or "").strip()
+            match = _EDGE_RE.fullmatch(edge)
+            if not match:
+                raise ValueError("malformed congestion-marginal edge in %s: %r" % (path, row))
+            src, sx, sy, dst, dx, dy = match.groups()
+            sources["X%sY%s_%s.X%sY%s_%s" % (sx, sy, src, dx, dy, dst)] = (row.get("source") or "").strip()
+    return sources
+
+
 def congestion_marginal_pip_names(chipdb_root):
     """Board-confirmed congestion-marginal pips as routed-JSON PIP names.
 
@@ -82,7 +105,7 @@ def validate_module_congestion_marginal(module, chipdb_root):
     absent data, matching the other typed post-route validators here) -- the point is to catch a
     KNOWN board-negative pip, not to invent new ones.
     """
-    banned = congestion_marginal_pip_names(chipdb_root)
+    banned = congestion_marginal_pip_sources(chipdb_root)
     if not banned:
         return
     netnames = module.get("netnames") if isinstance(module, dict) else None
@@ -103,16 +126,31 @@ def validate_module_congestion_marginal(module, chipdb_root):
     shown = hits[:8]
     detail = "; ".join("net %r uses %s" % (name, pip) for name, pip in shown)
     more = "" if len(hits) <= len(shown) else " (+%d more)" % (len(hits) - len(shown))
+    classes = {banned[pip].rsplit("_", 1)[0] for _, pip in hits}
+    reasons = []
+    if "board_congestion" in classes:
+        reasons.append(
+            "board-confirmed congestion-marginal pip(s) conduct in isolation (ring/corpus "
+            "witnessed) but failed on silicon as the forced sole route into a scarce corner-tile "
+            "IMUX terminal (2x-rate / 0-edges, twice-confirmed; see "
+            "qualification/x20y12_congestion_marginal_evidence.jsonl)")
+    if "unproven_shape" in classes:
+        reasons.append(
+            "never-proven pip shape(s): no board-passing open image or qualified fixture uses "
+            "this source/destination mux pair and offset anywhere on the device, and every "
+            "silicon-failing default image of the 2026-09-29 stronger holdouts used one "
+            "(see qualification/unproven_shape_refusal_20260929.json)")
+    if "board_pair" in classes:
+        reasons.append(
+            "pip(s) isolated by a same-placement pass/fail board comparison "
+            "(see qualification/unproven_shape_refusal_20260929.json)")
+    if not reasons:
+        reasons.append("pip(s) listed in agamemnon/chipdb/congestion_marginal_edges.csv")
     raise CongestionMarginalError(
-        "routed design uses %d board-confirmed congestion-marginal pip use(s): %s%s -- these "
-        "specific pip(s) conduct in isolation (ring/corpus witnessed) but failed on silicon as "
-        "the forced sole route into a scarce corner-tile IMUX terminal once this design's other "
-        "nets had claimed the tile's other legal feeders (2x-rate / 0-edges on real silicon, "
-        "twice-confirmed independently; see agamemnon/chipdb/congestion_marginal_edges.csv and "
-        "qualification/x20y12_congestion_marginal_evidence.jsonl). Refusing to emit a bitstream "
-        "that would read back wrong on real hardware. Retry with a different --seed/--cap so the "
+        "routed design uses %d refused pip use(s): %s%s -- %s. Refusing to emit a bitstream "
+        "that may read back wrong on real hardware. Retry with a different --seed/--cap so the "
         "placer/router is not forced through this pip, or investigate why no alternative route "
-        "was available." % (len(hits), detail, more)
+        "was available." % (len(hits), detail, more, "; ".join(reasons))
     )
 
 

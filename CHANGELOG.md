@@ -7,6 +7,21 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+- routing: refuse routes through pip shapes that no board-passing design has ever
+  used. A shape is the source and destination multiplexer plus the tile offset. The
+  3,079 affected fabric pips, about 1% of the graph, are listed in
+  `congestion_marginal_edges.csv` with source `unproven_shape_20260929`, beside 15
+  pips isolated by a same-placement board comparison. As with the existing X20Y12
+  rows, a build that lands on one is refused and retried with an avoidance cost. The
+  device graph is unchanged. On the L48 board the default stronger LFSR went from
+  0/32 to 61/64 passing reset trials, and both lowered-memory holdouts from 0/32 to
+  64/64. See [the evidence record](qualification/unproven_shape_refusal_20260929.json).
+- build: penalized retries after a route-safety refusal stop after 600 s each unless
+  `--attempt-timeout` is given. One such retry previously never finished.
+- build: an optional native-SRST alternative that is only refused as unsafe no
+  longer aborts a build whose first mapping already completed. The completed image
+  is kept and the refusal is recorded (`wide_counter` holdout).
+
 - Reject empty observed-value sets and report matching nonempty sets as model
   consistency, without claiming hardware correctness.
 - Bound optional SRST mapping searches after an admissible build completes; keep

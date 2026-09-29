@@ -1,0 +1,40 @@
+{
+  "schema": "agamemnon.refusal-evidence.v1",
+  "date": "2026-09-29",
+  "board": "AG32VF303CCT6 / L48, SRAM configuration through a single controlled board client",
+  "base_candidate": "f6319dff8735d6d3c7550580ad95420ebbdbd291",
+  "table": "agamemnon/chipdb/congestion_marginal_edges.csv",
+  "classes": {
+    "unproven_shape_20260929": {
+      "rows": 3079,
+      "definition": "Fabric ROUTE pip whose shape (source mux family and index, destination mux family and index, dx, dy) is used by no board-passing open image and no shipped silicon-qualified routed fixture, anywhere on the device.",
+      "proven_evidence": "146,255 distinct pips from 2,141 board-passing open images with retained routed netlists plus 75 shipped qualified routed fixtures; 4,183 proven shapes. Placement-keystone experiments are not counted as proof.",
+      "policy": "Post-route refusal plus the existing retry penalty. The device graph and every profile identity are unchanged. A shape becomes admissible once a design-level silicon pass uses it."
+    },
+    "board_pair_20260929": {
+      "rows": 15,
+      "definition": "Pips present in both failing fast-RAM images of one placement and absent from a 98%-same-placement passing image of the same source.",
+      "policy": "Post-route refusal plus retry penalty."
+    }
+  },
+  "observations": [
+    {"design": "stronger LFSR (lfsr16x6_kat)", "default_image_sha256_prefix": "a6674d23e6d5073e", "default_result": "LOW, 0/32 reset trials; 18-design regression RATE_FAIL",
+     "default_never_proven_shape_pips": ["X16Y5_RMUX02.X16Y9_RMUX18"],
+     "with_refusal_image_sha256_prefix": "fc018b32f4c843a7", "with_refusal_result": "30/32 and 31/32 reset trials over two loads",
+     "control": "source-matched vendor image 32/32 in the same batch and 31/32 in an earlier batch"},
+    {"design": "stronger slow RAM (inferred_ram_slow, lowered to LUT/FF)", "default_image_sha256_prefix": "b2abf142b9b4a117", "default_result": "0/32 reset trials",
+     "with_refusal_image_sha256_prefix": "efef33913472b01c", "with_refusal_result": "32/32 and 32/32 reset trials over two loads"},
+    {"design": "stronger fast RAM (inferred_ram, lowered to LUT/FF)", "default_image_sha256_prefix": "c0fce50ceabbe7db", "default_result": "0/32 reset trials; still LOW with fabric bytes unchanged at 3 MHz",
+     "shape_refusal_only_image_sha256_prefix": "039b88b4c7477aec", "shape_refusal_only_result": "0/32 and 0/32",
+     "with_refusal_and_pair_image_sha256_prefix": "e25e14114c38f19d", "with_refusal_and_pair_result": "32/32 and 32/32 reset trials over two loads",
+     "control": "corrected vendor fast RAM 31/32"},
+    {"design": "seed sweep (fast RAM seeds 2/3/4, slow RAM seeds 2/3)", "result": "fast RAM 2 PASS / 1 FAIL, slow RAM 1 PASS / 1 FAIL: failure is route-dependent, not structural"},
+    {"design": "18-design default regression on f6319df", "result": "17/18 PASS, LFSR RATE_FAIL, all 19 references PASS; every design without never-proven-shape pips passed"}
+  ],
+  "limitations": [
+    "Finite reset-trial repeatability on one board at 10 MHz; not a temperature, voltage or cross-board qualification.",
+    "The refusal targets an evidence class, not a proven physical mechanism. Many proven-shape pips are still unwitnessed at their exact coordinate, and the fast-RAM case needed 15 additional pair-isolated pips.",
+    "A design whose only legal route needs a refused pip fails to build rather than emitting an image; that is containment, not support.",
+    "Historical failed images were not used as negative evidence because their causes are mixed."
+  ]
+}

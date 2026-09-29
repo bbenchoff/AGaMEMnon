@@ -41,6 +41,7 @@ both terminals have a confirmed-good source alongside their confirmed-bad ones, 
 exact source+destination edge table (six rows now) rather than a per-destination ban.
 """
 import csv
+import json
 import pathlib
 import re
 import sys
@@ -95,7 +96,8 @@ def _net(routing):
 
 
 def test_congestion_marginal_edges_file_has_the_board_confirmed_pips():
-    rows = _rows("congestion_marginal_edges.csv")
+    rows = [row for row in _rows("congestion_marginal_edges.csv")
+            if row["source"].startswith("board_congestion_")]
     assert len(rows) == 6
     edges = set()
     for row in rows:
@@ -120,7 +122,9 @@ def test_congestion_marginal_edges_are_not_conflated_with_silicon_dead():
     ring = _edges("ring_witness_conduction.csv") if (DATA / "ring_witness_conduction.csv").exists() else set()
     corpus = _edges("corpus_conduction.csv") if (DATA / "corpus_conduction.csv").exists() else set()
     positive = ring | corpus
-    assert congestion & positive == congestion, (
+    board = {EDGE_RE.fullmatch(row["edge"]).groups() for row in _rows("congestion_marginal_edges.csv")
+             if row["source"].startswith("board_congestion_")}
+    assert board & positive == board, (
         "every congestion-marginal edge is expected to carry positive ring/corpus evidence -- "
         "that is what makes this a distinct claim from dead_edges_silicon.csv")
 
@@ -141,7 +145,12 @@ def test_congestion_marginal_edges_do_not_change_the_device_graph():
 
 
 def test_pip_names_convert_edge_csv_to_routed_json_spelling():
-    assert PC.congestion_marginal_pip_names(DATA) == EXPECTED_PIP_NAMES
+    names = PC.congestion_marginal_pip_names(DATA)
+    assert EXPECTED_PIP_NAMES <= names
+    sources = PC.congestion_marginal_pip_sources(DATA)
+    assert set(sources) == names
+    assert {pip for pip, source in sources.items()
+            if source.startswith("board_congestion_")} == EXPECTED_PIP_NAMES
 
 
 def test_clean_module_passes():
@@ -210,3 +219,64 @@ def test_cli_wires_the_check_into_the_shared_pre_emission_checkpoint():
     congestion_idx = src.index(
         '_validate_congestion_marginal_document(\n            final_snapshot.document, "pre-emission"')
     assert 0 < congestion_idx - mcu_idx < 400
+
+
+# 2026-09-29 refusal classes: never-proven pip shapes and a same-placement board pair.
+LFSR_SHAPE_PIP = "X16Y5_RMUX02.X16Y9_RMUX18"
+RAM_PAIR_PIPS = {"X16Y5_RMUX31.X19Y5_RMUX40", "X19Y3_RMUX02.X19Y5_RMUX13"}
+
+
+def test_unproven_shape_and_board_pair_rows_are_present_and_labelled():
+    rows = _rows("congestion_marginal_edges.csv")
+    classes = {}
+    for row in rows:
+        assert EDGE_RE.fullmatch(row["edge"]), row
+        assert row["evidence"] and row["note"], row
+        classes.setdefault(row["source"], []).append(row)
+    assert sorted(classes) == ["board_congestion_20260925", "board_pair_20260929",
+                               "unproven_shape_20260929"]
+    assert len(classes["unproven_shape_20260929"]) == 3079
+    assert len(classes["board_pair_20260929"]) == 15
+    assert len({row["edge"] for row in rows}) == len(rows), "no duplicate edges"
+    sources = PC.congestion_marginal_pip_sources(DATA)
+    assert sources[LFSR_SHAPE_PIP] == "unproven_shape_20260929"
+    assert all(sources[pip] == "board_pair_20260929" for pip in RAM_PAIR_PIPS)
+
+
+def test_no_shipped_qualified_routed_image_uses_a_refused_pip():
+    # Refusal must never reject a retained, silicon-qualified checkpoint: the never-proven
+    # shape list is derived with these fixtures counted as proven.
+    refused = PC.congestion_marginal_pip_names(DATA)
+    fixtures = [path for base in ("qualification", "agamemnon/sdk", "agamemnon/templates", "examples")
+                for path in (ROOT / base).rglob("*routed*.json")
+                if "placement_keystone" not in path.parts]
+    assert fixtures
+    for path in fixtures:
+        document = json.loads(path.read_text(encoding="utf-8"))
+        for module in document.get("modules", {}).values():
+            for net in module.get("netnames", {}).values():
+                pips = PC._routed_pips(net.get("attributes", {}).get("ROUTING"))
+                used = refused.intersection(pips)
+                assert not used, (path, sorted(used))
+
+
+def test_refusal_message_names_the_evidence_class():
+    for pip, needle in ((LFSR_SHAPE_PIP, "never-proven pip shape"),
+                        (sorted(RAM_PAIR_PIPS)[0], "same-placement pass/fail board comparison"),
+                        ("X20Y12_RMUX53.X20Y12_IMUX05", "board-confirmed congestion-marginal")):
+        module = {"netnames": {"n": _net("W0;%s;1;W1;;1" % pip)}}
+        try:
+            PC.validate_module_congestion_marginal(module, DATA)
+        except PC.CongestionMarginalError as exc:
+            assert needle in str(exc), (pip, str(exc))
+        else:
+            raise AssertionError("%s should have been refused" % pip)
+
+
+def test_penalized_retries_are_bounded_unless_the_user_set_a_limit():
+    src = (ROOT / "agamemnon" / "cli.py").read_text(encoding="utf-8")
+    assert "_PENALIZED_RETRY_ATTEMPT_SECONDS = 600" in src
+    block = src[src.index("if _apply_congestion_retry_penalty(env, attempt_records):"):]
+    block = block[:block.index("if not generic_place:")]
+    assert "if attempt_timeout is None:" in block
+    assert "attempt_timeout = _PENALIZED_RETRY_ATTEMPT_SECONDS" in block

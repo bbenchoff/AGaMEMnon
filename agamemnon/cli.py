@@ -2380,6 +2380,9 @@ def _tile_compaction_fallback_allowed(automatic, records):
                     for sig, _ in summary.signature_counts))
 
 
+_PENALIZED_RETRY_ATTEMPT_SECONDS = 600
+
+
 def _apply_congestion_retry_penalty(env, records):
     """Preserve ordinary costs until a completed candidate fails route safety."""
     key = "AGRV2K_CONGESTION_PENALTY_NS"
@@ -3943,6 +3946,15 @@ def _cmd_build_once(a):
                 if _apply_congestion_retry_penalty(env, attempt_records):
                     print("[build] rejected congestion-marginal route; "
                           "subsequent attempts use a 25 ns avoidance cost")
+                    if attempt_timeout is None:
+                        # A penalized retry can stall router2 indefinitely on a
+                        # placement whose only legal feeders are refused
+                        # (inferred_ram, 2026-09-29). Bound only these retries;
+                        # a timeout is a classified NOT_ROUTED attempt, so the
+                        # existing ladder continues. User limits still win.
+                        attempt_timeout = _PENALIZED_RETRY_ATTEMPT_SECONDS
+                        print("[build] penalized retries are limited to %d s each"
+                              % attempt_timeout)
                 if not generic_place:
                     env["AGRV2K_CONDPLACE_SEED"] = seed
                 attempt_npr = npr + (["--placer", "heap", "--seed", seed]
