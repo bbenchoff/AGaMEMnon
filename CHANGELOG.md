@@ -26,9 +26,11 @@ is authoritative for downloadable artifacts.
   under the completed-read board check, while the registered form passed 64/64 and
   the vendor image passed. The older activity check that admitted x1 single-port
   writes could pass without completed reads.
-- build: an optional native-SRST alternative that is only refused as unsafe no
-  longer aborts a build whose first mapping already completed. The completed image
-  is kept and the refusal is recorded (`wide_counter` holdout).
+- build: an optional native-SRST alternative that fails its bounded search no
+  longer aborts a build whose first mapping already completed. That covers unsafe
+  refusals, unroutable attempts, timeouts and unclassified failures. The completed
+  image is kept and the alternative's outcome is recorded (`wide_counter`, and
+  `lfsr16x7_kat` built with `--seed`).
 
 - Reject empty observed-value sets and report matching nonempty sets as model
   consistency, without claiming hardware correctness.

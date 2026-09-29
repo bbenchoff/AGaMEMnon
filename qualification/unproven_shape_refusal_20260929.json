@@ -18,15 +18,15 @@
     }
   },
   "observations": [
-    {"design": "stronger LFSR (lfsr16x6_kat)", "default_image_sha256_prefix": "a6674d23e6d5073e", "default_result": "LOW, 0/32 reset trials; 18-design regression RATE_FAIL",
+    {"design": "stronger LFSR (lfsr16x6_kat)", "default_image_sha256": "a6674d23e6d5073e54582a650959fe2aaf4bc3a71302fc1f6123e513e3d4db66", "default_result": "LOW, 0/32 reset trials; 18-design regression RATE_FAIL",
      "default_never_proven_shape_pips": ["X16Y5_RMUX02.X16Y9_RMUX18"],
-     "with_refusal_image_sha256_prefix": "fc018b32f4c843a7", "with_refusal_result": "30/32 and 31/32 reset trials over two loads",
+     "with_refusal_image_sha256": "fc018b32f4c843a76ef020bc8ab957e034aee521c1a760386ad42bd9b054ae90", "with_refusal_result": "30/32 and 31/32 reset trials over two loads",
      "control": "source-matched vendor image 32/32 in the same batch and 31/32 in an earlier batch"},
-    {"design": "stronger slow RAM (inferred_ram_slow, lowered to LUT/FF)", "default_image_sha256_prefix": "b2abf142b9b4a117", "default_result": "0/32 reset trials",
-     "with_refusal_image_sha256_prefix": "efef33913472b01c", "with_refusal_result": "32/32 and 32/32 reset trials over two loads"},
-    {"design": "stronger fast RAM (inferred_ram, lowered to LUT/FF)", "default_image_sha256_prefix": "c0fce50ceabbe7db", "default_result": "0/32 reset trials; still LOW with fabric bytes unchanged at 3 MHz",
-     "shape_refusal_only_image_sha256_prefix": "039b88b4c7477aec", "shape_refusal_only_result": "0/32 and 0/32",
-     "with_refusal_and_pair_image_sha256_prefix": "e25e14114c38f19d", "with_refusal_and_pair_result": "32/32 and 32/32 reset trials over two loads",
+    {"design": "stronger slow RAM (inferred_ram_slow, lowered to LUT/FF)", "default_image_sha256": "b2abf142b9b4a11779583c041cac4a15d5e1a1150abe8a918685a2df2281d5f3", "default_result": "0/32 reset trials",
+     "with_refusal_image_sha256": "efef33913472b01c51ccf2e4bfa004a13c7a5cf5997beedbb74d272cc2aa1365", "with_refusal_result": "32/32 and 32/32 reset trials over two loads"},
+    {"design": "stronger fast RAM (inferred_ram, lowered to LUT/FF)", "default_image_sha256": "c0fce50ceabbe7db91a84ca67488a8b14ec84e29caeccea06713ede5a57f16a9", "default_result": "0/32 reset trials; still LOW with fabric bytes unchanged at 3 MHz",
+     "shape_refusal_only_image_sha256": "039b88b4c7477aecc3c2e6249962f91ab4bb27ccba217c96f5adb5905566602d", "shape_refusal_only_result": "0/32 and 0/32",
+     "with_refusal_and_pair_image_sha256": "e25e14114c38f19d29953e31ebff1d93a68e1d3611c4cca766c6ebc0d9d2c4b2", "with_refusal_and_pair_result": "32/32 and 32/32 reset trials over two loads",
      "control": "corrected vendor fast RAM 31/32"},
     {"design": "seed sweep (fast RAM seeds 2/3/4, slow RAM seeds 2/3)", "result": "fast RAM 2 PASS / 1 FAIL, slow RAM 1 PASS / 1 FAIL: failure is route-dependent, not structural"},
     {"design": "18-design default regression on f6319df", "result": "17/18 PASS, LFSR RATE_FAIL, all 19 references PASS; every design without never-proven-shape pips passed"}

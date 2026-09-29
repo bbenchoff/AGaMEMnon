@@ -130,13 +130,15 @@ def test_recursive_fallbacks_share_the_mapping_budget():
 @pytest.mark.parametrize('bad', [attempt('unclassified error'),
     attempt('Routing complete', ladder.TIMING_FAILED),
     attempt('abort', ladder.ABORTED), attempt('hardware refusal', ladder.NONRETRYABLE)])
-def test_budget_cannot_hide_an_unsafe_or_unknown_attempt(bad):
+def test_budget_records_an_unclassified_alternative_instead_of_aborting(bad):
+    # The budget exists only after an admissible mapping completed; a failed
+    # optional alternative is discarded and named, never fatal (2026-09-29).
     budget = cli._NativeSRSTComparisonBudget(SimpleNamespace())
     budget.observe(bad)
     budget.observe(DEADLINE)
-    with pytest.raises(SystemExit) as error:
+    with pytest.raises(cli._NativeSRSTComparisonExhausted) as error:
         budget.observe(DEADLINE)
-    assert error.value.code == 1
+    assert error.value.report()["outcome"] == "optional_alternative_failed"
 
 
 def test_alternative_safety_exit_is_not_replaced_by_baseline(tmp_path, monkeypatch):
@@ -201,13 +203,13 @@ def test_refused_unsafe_alternative_keeps_completed_mapping(tmp_path, monkeypatc
 @pytest.mark.parametrize('bad', [attempt('unclassified error'),
     attempt('Routing complete', ladder.TIMING_FAILED),
     attempt('abort', ladder.ABORTED), attempt('hardware refusal', ladder.NONRETRYABLE)])
-def test_unsafe_refusal_cannot_hide_other_bad_attempts(bad):
+def test_unsafe_refusal_mixed_with_other_failures_is_recorded_as_failed(bad):
     budget = cli._NativeSRSTComparisonBudget(SimpleNamespace())
     budget.observe(UNSAFE)
     budget.observe(bad)
-    with pytest.raises(SystemExit) as error:
+    with pytest.raises(cli._NativeSRSTComparisonExhausted) as error:
         budget.observe(UNSAFE)
-    assert error.value.code == 1
+    assert error.value.report()["outcome"] == "optional_alternative_failed"
 
 
 def test_unsafe_refusal_without_baseline_is_not_budgeted():

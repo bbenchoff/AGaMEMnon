@@ -2638,9 +2638,16 @@ class _NativeSRSTComparisonBudget:
         if outcome is None:
             outcome = _native_srst_unsafe_refusal_outcome(self.records, self.max_route_attempts)
         if outcome is None:
-            print("error: optional native SRST mapping budget reached with an "
-                  "unclassified, unsafe, aborted, or timing-failed result")
-            sys.exit(1)
+            # This budget exists only after an admissible mapping completed and
+            # passed every pre-emission check. Discarding the optional
+            # alternative cannot change that image, so an unclassified,
+            # aborted or timing-failed alternative is recorded, not fatal.
+            # (lfsr16x7_kat --seed 2..4, 2026-09-29: unclassified NOT_ROUTED
+            # alternatives used to abort builds that had already completed.)
+            outcome = "optional_alternative_failed"
+            print("[build] optional native SRST mapping failed its bounded search (%s); "
+                  "keeping the completed mapping"
+                  % ", ".join(sorted({record.outcome for record in self.records})))
         raise _NativeSRSTComparisonExhausted(
             outcome, attempts_run=len(self.records),
             max_route_attempts=self.max_route_attempts,
