@@ -21,6 +21,11 @@ is authoritative for downloadable artifacts.
   iteration limit. It could oscillate on two or three overused wires indefinitely:
   `gray32_kat` ran 47,000 iterations on one attempt, and penalized retries
   stalled. Every corpus build finishes all of its attempts in under 180 s.
+- bram: a written x1 single-port BRAM needs `PORTA_OUTREG=1`. Without it the build
+  refuses. Fresh open images of the unregistered mode failed 64/64 reset trials
+  under the completed-read board check, while the registered form passed 64/64 and
+  the vendor image passed. The older activity check that admitted x1 single-port
+  writes could pass without completed reads.
 - build: an optional native-SRST alternative that is only refused as unsafe no
   longer aborts a build whose first mapping already completed. The completed image
   is kept and the refusal is recorded (`wide_counter` holdout).

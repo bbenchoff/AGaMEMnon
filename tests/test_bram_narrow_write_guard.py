@@ -15,6 +15,8 @@ from agamemnon.engine.features.bram import (
     narrow_write_board_proven,
     narrow_write_refusal,
     narrow_write_silently_wrong,
+    x1_single_port_write_without_outreg,
+    X1_UNREGISTERED_WRITE_REFUSAL,
 )
 from agamemnon.engine.features import bram as bram_feature
 
@@ -210,3 +212,15 @@ def test_board_proven_bram_modes_pins_the_generalized_evidence_set():
     assert not bram_mode_board_proven(X1, X1, 0b10, 0, 0, 0, 0, 0)
     # Not proven: the RATE_FAIL/anomalous 2026-09-25 results stay excluded.
     assert not bram_mode_board_proven(X18, X18, 0b10, 0, 0, 0, 0, 0)  # bmd_sp18_c10_o0
+
+
+def test_x1_single_port_write_requires_outreg():
+    # 2026-09-29 completed-read oracle: open x1 single-port without PORTA_OUTREG
+    # 0/64, with PORTA_OUTREG 64/64, vendor unregistered 32/32.
+    assert x1_single_port_write_without_outreg(X1, NET, False, 0)
+    assert not x1_single_port_write_without_outreg(X1, NET, False, 1)
+    assert not x1_single_port_write_without_outreg(X1, [], False, 0)   # read-only / ROM
+    assert not x1_single_port_write_without_outreg(X1, NET, True, 0)   # dual-port is gated separately
+    assert not x1_single_port_write_without_outreg(X4, NET, False, 0)
+    assert "PORTA_OUTREG" in X1_UNREGISTERED_WRITE_REFUSAL
+    assert "0/64" in X1_UNREGISTERED_WRITE_REFUSAL

@@ -209,6 +209,27 @@ def narrow_write_silently_wrong(width, wea_connection, datain_a_connection=None,
     return True
 
 
+def x1_single_port_write_without_outreg(width, wea_connection, dual_port, porta_outreg):
+    """True for a dynamically written x1 single-port BRAM without PORTA_OUTREG.
+
+    2026-09-29 completed-read-round board oracle: fresh open images of this mode
+    stayed LOW for 64/64 reset releases while the source-paired vendor image passed,
+    whereas the same RTL with PORTA_OUTREG=1 passed 64/64. The older activity-only
+    oracle that admitted x1 single-port writes could pass without completed reads.
+    """
+    write_enabled = any(isinstance(bit, int) for bit in (wea_connection or ()))
+    return bool(write_enabled and width == 0b01111 and not dual_port and not porta_outreg)
+
+
+X1_UNREGISTERED_WRITE_REFUSAL = (
+    "x1 single-port BRAM write without PORTA_OUTREG refused: fresh open images of this "
+    "mode fail the completed-read board oracle (0/64 reset releases, source-paired vendor "
+    "image passes), while the same RTL with PORTA_OUTREG=1 passes. Register the read "
+    "output (PORTA_OUTREG=1), use an x18 or x2 dual-port memory, or build with "
+    "--research-unsafe to emit it anyway; see qualification/bram_narrow_write_evidence.jsonl."
+)
+
+
 def _proven_text():
     return ", ".join("%s %s" % (WIDTH_NAMES[w], "dual-port" if d else "single-port")
                      for w, d in sorted(BOARD_PROVEN_NARROW_WRITES))  # wider width first: smaller code
@@ -896,6 +917,11 @@ class BramFeature:
                     narrow_write_optin=narrow_write_on, dual_port=portb_read)
                     and not options.enabled("AGAMEMNON_RESEARCH_UNSAFE")):
                 raise SystemExit(narrow_write_refusal(width, narrow_write_on, portb_read))
+            if (x1_single_port_write_without_outreg(
+                    width, cell.get("connections", {}).get("WeA"), portb_read,
+                    _param_int(parameters, "PORTA_OUTREG", 0))
+                    and not options.enabled("AGAMEMNON_RESEARCH_UNSAFE")):
+                raise SystemExit(X1_UNREGISTERED_WRITE_REFUSAL)
             experimental_enabled = options.enabled("AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG")
             # PORTx_OUTREG / PORTx_WRITETHRU are on by default since 2026-09-25
             # (see bram_emit.BOARD_PROVEN_CONFIG_FIELDS): the vendor mode-bit
