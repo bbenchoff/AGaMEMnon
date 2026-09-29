@@ -2380,9 +2380,6 @@ def _tile_compaction_fallback_allowed(automatic, records):
                     for sig, _ in summary.signature_counts))
 
 
-_PENALIZED_RETRY_ATTEMPT_SECONDS = 600
-
-
 def _apply_congestion_retry_penalty(env, records):
     """Preserve ordinary costs until a completed candidate fails route safety."""
     key = "AGRV2K_CONGESTION_PENALTY_NS"
@@ -2790,6 +2787,9 @@ def _bram_auto_features(synth_json):
     }
 
 
+_DEFAULT_ATTEMPT_SECONDS = 300
+
+
 def _cmd_build_once(a):
     """Single-command open build: Verilog -> yosys synth -> nextpnr place&route -> our bitgen -> .bin,
     entirely from the self-contained package (engine/ + chipdb/ + synth/). No vendor binary. yosys and
@@ -2799,6 +2799,13 @@ def _cmd_build_once(a):
     if attempt_timeout is not None and (not math.isfinite(attempt_timeout) or attempt_timeout <= 0):
         print("error: --attempt-timeout must be a finite positive number of seconds")
         sys.exit(2)
+    if attempt_timeout is None:
+        # router2 has no iteration limit and can oscillate on two or three
+        # overused wires indefinitely (gray32_kat: 47,000+ iterations on its
+        # first attempt, 2026-09-29). Every corpus build completes all of its
+        # attempts in under 180 s, so bound each attempt; a timeout is a
+        # classified NOT_ROUTED attempt and the retry ladder continues.
+        attempt_timeout = _DEFAULT_ATTEMPT_SECONDS
     try:
         requested_seed = _validate_placement_seed(getattr(a, "seed", None))
     except ValueError as exc:
@@ -3946,15 +3953,6 @@ def _cmd_build_once(a):
                 if _apply_congestion_retry_penalty(env, attempt_records):
                     print("[build] rejected congestion-marginal route; "
                           "subsequent attempts use a 25 ns avoidance cost")
-                    if attempt_timeout is None:
-                        # A penalized retry can stall router2 indefinitely on a
-                        # placement whose only legal feeders are refused
-                        # (inferred_ram, 2026-09-29). Bound only these retries;
-                        # a timeout is a classified NOT_ROUTED attempt, so the
-                        # existing ladder continues. User limits still win.
-                        attempt_timeout = _PENALIZED_RETRY_ATTEMPT_SECONDS
-                        print("[build] penalized retries are limited to %d s each"
-                              % attempt_timeout)
                 if not generic_place:
                     env["AGRV2K_CONDPLACE_SEED"] = seed
                 attempt_npr = npr + (["--placer", "heap", "--seed", seed]
@@ -5229,7 +5227,7 @@ def main(argv=None):
                         "default: the bounded seed sweep")
     b.add_argument("--attempt-timeout", type=float, metavar="SECONDS",
                    help="[--uarch] stop an incomplete place-and-route attempt after this time "
-                        "and continue the existing retry ladder (default: no time limit)")
+                        "and continue the existing retry ladder (default: 300 seconds)")
     b.add_argument("--compact-maxd", type=int, metavar="TILES",
                    help="[--uarch, experimental] restrict regional placement to this Manhattan "
                         "radius around its root; no default until corpus A/B validation")

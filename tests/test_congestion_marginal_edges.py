@@ -273,10 +273,10 @@ def test_refusal_message_names_the_evidence_class():
             raise AssertionError("%s should have been refused" % pip)
 
 
-def test_penalized_retries_are_bounded_unless_the_user_set_a_limit():
+def test_every_attempt_is_bounded_unless_the_user_set_a_limit():
     src = (ROOT / "agamemnon" / "cli.py").read_text(encoding="utf-8")
-    assert "_PENALIZED_RETRY_ATTEMPT_SECONDS = 600" in src
-    block = src[src.index("if _apply_congestion_retry_penalty(env, attempt_records):"):]
-    block = block[:block.index("if not generic_place:")]
-    assert "if attempt_timeout is None:" in block
-    assert "attempt_timeout = _PENALIZED_RETRY_ATTEMPT_SECONDS" in block
+    assert "_DEFAULT_ATTEMPT_SECONDS = 300" in src
+    body = src[src.index("def _cmd_build_once(a):"):]
+    body = body[:body.index("requested_seed = _validate_placement_seed")]
+    assert "if attempt_timeout is None:" in body
+    assert "attempt_timeout = _DEFAULT_ATTEMPT_SECONDS" in body
