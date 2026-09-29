@@ -2597,6 +2597,28 @@ class _NativeSRSTComparisonExhausted(_ControlSharingCandidateExhausted):
     """A bounded alternative mapping stopped with an admissible baseline retained."""
 
 
+def _native_srst_unsafe_refusal_outcome(records, max_route_attempts):
+    """Classify an optional mapping whose only completed routes were refused.
+
+    ROUTED_UNSAFE is assigned by the pre-emission congestion-marginal check,
+    so no image was written for those attempts. The retained baseline passed
+    the same check independently. Every other attempt must still classify as
+    an ordinary placement/route exhaustion or deadline; timing failures,
+    aborts, non-retryable and unknown results stay fatal.
+    """
+    if len(records) < max_route_attempts:
+        return None
+    unsafe = [record for record in records
+              if record.outcome == _attempt_ladder.ROUTED_UNSAFE]
+    if not unsafe:
+        return None
+    rest = [record for record in records
+            if record.outcome != _attempt_ladder.ROUTED_UNSAFE]
+    if rest and _control_sharing_budget_outcome(rest, len(rest)) is None:
+        return None
+    return "optional_unsafe_route_refused"
+
+
 class _NativeSRSTComparisonBudget:
     """Share an optional mapping's route allowance across recursive fallbacks.
 
@@ -2613,6 +2635,8 @@ class _NativeSRSTComparisonBudget:
         if record.outcome == _attempt_ladder.SUCCESS or len(self.records) < self.max_route_attempts:
             return
         outcome = _control_sharing_budget_outcome(self.records, self.max_route_attempts)
+        if outcome is None:
+            outcome = _native_srst_unsafe_refusal_outcome(self.records, self.max_route_attempts)
         if outcome is None:
             print("error: optional native SRST mapping budget reached with an "
                   "unclassified, unsafe, aborted, or timing-failed result")

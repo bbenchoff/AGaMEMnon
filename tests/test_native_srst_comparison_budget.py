@@ -129,8 +129,6 @@ def test_recursive_fallbacks_share_the_mapping_budget():
 
 @pytest.mark.parametrize('bad', [attempt('unclassified error'),
     attempt('Routing complete', ladder.TIMING_FAILED),
-    # An unrecognized safety outcome must fail closed on this release too.
-    attempt('unsafe route', 'ROUTED_UNSAFE'),
     attempt('abort', ladder.ABORTED), attempt('hardware refusal', ladder.NONRETRYABLE)])
 def test_budget_cannot_hide_an_unsafe_or_unknown_attempt(bad):
     budget = cli._NativeSRSTComparisonBudget(SimpleNamespace())
@@ -174,3 +172,43 @@ def test_compaction_placement_failure_keeps_completed_mapping(tmp_path, monkeypa
     report = json.loads(Path(args.output+'.native-srst-selection.json').read_text())
     assert report['candidates'][1]['outcome'] == 'classified_placement_routing_exhaustion'
     assert report['candidates'][1]['route_attempt_budget']['attempts_run'] == 3
+
+
+UNSAFE = attempt('Routing complete\n[build] rejecting unsafe route candidate: congestion-marginal',
+                 ladder.ROUTED_UNSAFE)
+
+
+@pytest.mark.parametrize('records', [[UNSAFE, UNSAFE, UNSAFE], [UNSAFE, DEADLINE, PLACEMENT]])
+def test_refused_unsafe_alternative_keeps_completed_mapping(tmp_path, monkeypatch, records):
+    """wide_counter 2026-09-29: the legacy mapping's reset route was refused
+    three times at X20Y12; the admissible recovered image must still ship."""
+    args = setup_wrapper(tmp_path, monkeypatch)
+    def build(candidate):
+        if os.environ['AGRV2K_SHARED_CONTROL_SRST_RECOVERY'] == '1':
+            return emitted(candidate, 'recovered')
+        for record in records:
+            candidate._native_srst_comparison_budget.observe(record)
+        pytest.fail('refused alternative must stop at the optional search budget')
+    monkeypatch.setattr(cli, '_cmd_build_once', build)
+    result = cli.cmd_build(args)
+    assert result['mapping'] == 'recovered'
+    assert Path(args.output).read_bytes() == b'recovered'
+    report = json.loads(Path(args.output+'.native-srst-selection.json').read_text())
+    assert report['candidates'][1]['outcome'] == 'optional_unsafe_route_refused'
+    assert report['candidates'][1]['route_attempt_budget']['attempts_run'] == 3
+
+
+@pytest.mark.parametrize('bad', [attempt('unclassified error'),
+    attempt('Routing complete', ladder.TIMING_FAILED),
+    attempt('abort', ladder.ABORTED), attempt('hardware refusal', ladder.NONRETRYABLE)])
+def test_unsafe_refusal_cannot_hide_other_bad_attempts(bad):
+    budget = cli._NativeSRSTComparisonBudget(SimpleNamespace())
+    budget.observe(UNSAFE)
+    budget.observe(bad)
+    with pytest.raises(SystemExit) as error:
+        budget.observe(UNSAFE)
+    assert error.value.code == 1
+
+
+def test_unsafe_refusal_without_baseline_is_not_budgeted():
+    assert cli._native_srst_unsafe_refusal_outcome([UNSAFE, UNSAFE], 3) is None
