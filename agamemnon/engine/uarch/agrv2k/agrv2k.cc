@@ -9993,6 +9993,21 @@ static double lut_pin_swap_bias_ns()
     return bias;
 }
 
+// Cost of carrying logical input `logical` on physical input `physical`.
+// Router timing arcs stay on the logical port, whose A-D delay differs from
+// the physical pin by up to 0.46 ns (SLICE_LUT_TO_F_NS / SLICE_SETUP_NS).  A
+// move onto a slower pin is charged that difference on its pseudo pip, so the
+// router sees the real cost and router STA stays an upper bound after the
+// rewrite; a move onto a faster pin is charged only the bias.
+static double lut_pin_swap_move_ns(int physical, int logical, double bias_ns)
+{
+    if (physical == logical)
+        return 0.0;
+    const double comb = SLICE_LUT_TO_F_NS[physical] - SLICE_LUT_TO_F_NS[logical];
+    const double setup = SLICE_SETUP_NS[physical] - SLICE_SETUP_NS[logical];
+    return bias_ns + std::max(0.0, std::max(comb, setup));
+}
+
 static uint64_t permute_lut_init(uint64_t init, const int perm[4])
 {
     uint64_t result = 0;
@@ -17899,7 +17914,7 @@ struct AgrvImpl : ViaductAPI
                     if (!(item.pool_mask & (1u << j)))
                         continue;
                     const std::string pip_name = ctx->getWireName(item.imux[j]).str(ctx) + "." + wire_name;
-                    const delay_t delay = ctx->getDelayFromNS(j == l ? 0.0 : bias_ns);
+                    const delay_t delay = ctx->getDelayFromNS(lut_pin_swap_move_ns(j, l, bias_ns));
                     PipId pip = ctx->addPip(IdStringList(ctx->id(pip_name)), ctx->id("LUTPERM"), item.imux[j],
                                             wire, delay, Loc(loc.x, loc.y, 0));
                     NPNR_ASSERT(pip.index == lut_swap_first_pip + int(lut_swap_pip_allowed.size()));

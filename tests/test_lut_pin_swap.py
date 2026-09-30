@@ -264,3 +264,14 @@ def test_unforced_swap_builds_and_preserves_every_function(tmp_path):
     _check_pins(on_cells, on_routes)
     for name in off_cells:
         assert _function(on_cells[name]) == _function(off_cells[name]), name
+
+
+def test_moves_are_charged_the_slower_physical_pin_delay():
+    source = _source()
+    cost = source.split("static double lut_pin_swap_move_ns(", 1)[1].split("\n}\n", 1)[0]
+    assert "if (physical == logical)\n        return 0.0;" in cost
+    assert "SLICE_LUT_TO_F_NS[physical] - SLICE_LUT_TO_F_NS[logical]" in cost
+    assert "SLICE_SETUP_NS[physical] - SLICE_SETUP_NS[logical]" in cost
+    assert "bias_ns + std::max(0.0, std::max(comb, setup))" in cost
+    setup = source.split("    void setup_lut_pin_swap()", 1)[1].split("\n    }\n\n", 1)[0]
+    assert "ctx->getDelayFromNS(lut_pin_swap_move_ns(j, l, bias_ns))" in setup
