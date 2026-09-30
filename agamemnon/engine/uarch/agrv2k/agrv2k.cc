@@ -10023,6 +10023,10 @@ static std::string lut_swap_cell_freeze_reason(Context *ctx, const CellInfo *cel
         return "not a GENERIC_SLICE";
     if (cell->bel == BelId())
         return "unplaced";
+    // af.exe: a hard-fixed (user-assigned) location never swaps.  A BEL
+    // constraint is consumed by the placer and survives as STRENGTH_USER.
+    if (cell->belStrength >= STRENGTH_USER)
+        return "user-fixed location";
     static const char *const fixed_attrs[] = {
             "BEL", "AGRV2K_IO_PINPACKED", "AGRV2K_PAD_INPUT_IDENTITY", "AGRV2K_ROUTE_THROUGH",
             "AGRV2K_MCU_PINPACKED", "AGRV2K_BRAM_PINPACKED", "AGRV2K_BRAM_OUTPUT_BRIDGE",
