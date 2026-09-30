@@ -7,17 +7,17 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
-- routing: refuse 22 routing pips that the vendor router does not have or encodes differently. One of them,
-  `RMUX57@16,3->RMUX34@16,4`, was isolated on the board as the single cause of three
-  silently wrong default images (`minmax32_kat`, `lfsr16x7_kat` and the stronger
-  fast-RAM holdout). Rerouting only the net that used it made each pass. Our table
-  held an inferred selector codeword for it that af.exe's bitgen never writes. The
-  other 19 are shipped routing pips the vendor bitgen likewise leaves unwritten and
-  that no board-passing design has used. Two more select a different source than
-  modelled. They are listed in `congestion_marginal_edges.csv` with sources
-  `afexe_absent_board_20260929`, `afexe_absent_20260929` and
-  `afexe_codeword_conflict_20260930`. See [the evidence record](qualification/afexe_absent_refusal_20260929.json).
-
+- routing: refuse 49 routing pips that the vendor router does not have or encodes
+  differently. Three were isolated on the board as the single cause of silently wrong
+  default images: `RMUX57@16,3->RMUX34@16,4` (`minmax32_kat`, `lfsr16x7_kat` and the
+  stronger fast-RAM holdout), `RMUX14@14,1->RMUX61@14,2` and `RMUX03@14,6->RMUX15@14,6`
+  (seed variants of the stronger RAM holdouts). Rerouting only the net that used each
+  made its image pass. af.exe's bitgen writes nothing for any of them. The other 40 are
+  every shipped routing pip the vendor bitgen likewise leaves unwritten, except five that
+  qualified designs use; six more select a different source than modelled. They are listed
+  in `congestion_marginal_edges.csv` with sources `afexe_absent_board_20260929`,
+  `afexe_absent_20260929` and `afexe_codeword_conflict_20260930`. See
+  [the evidence record](qualification/afexe_absent_refusal_20260929.json).
 - routing: refuse routes through pip shapes that no board-passing design has ever
   used. A shape is the source and destination multiplexer plus the tile offset. The
   2,416 affected fabric pips, under 1% of the graph, are listed in
