@@ -9947,6 +9947,159 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
              int(cells.size()), CAP, int(exitdrv.size()));
 }
 
+// ---- Router-chosen LUT input pins (af.exe rt_swap_lut_input_pin) ----------
+//
+// af.exe routes a swappable LUT sink to ANY eligible A-D input of its slice
+// as equal-cost targets, then rewrites the netlist pins and permutes the LUT
+// truth table to match the input the search reached (AG32-Docs
+// docs/AFEXE_CONTEXT_ROUTING_RE_20260929.md section 1).  Here the same
+// search space is offered to router2 through per-slice pseudo wires: every
+// swappable logical input I[l] gets a LUTPERM sink wire fed by zero-delay
+// pseudo pips from each eligible physical IMUX of that slice.  postRoute()
+// reads which IMUX each logical input actually used, restores the ordinary
+// bel-pin binding, rewires the cell ports and permutes INIT, so routed JSON
+// and every downstream consumer see an ordinary identity-mapped slice.
+//
+// OFF unless AGAMEMNON_LUT_PIN_SWAP=1.  Off, no wire, pip, bel pin or
+// availability decision differs from the historical flow.
+static bool lut_pin_swap_enabled()
+{
+    const char *value = std::getenv("AGAMEMNON_LUT_PIN_SWAP");
+    if (value == nullptr || std::string(value) == "0")
+        return false;
+    if (std::string(value) == "1")
+        return true;
+    log_error("agrv2k: AGAMEMNON_LUT_PIN_SWAP must be exactly 0 or 1 when set\n");
+    return false;
+}
+
+// perm[l] is the physical input that now carries logical input l.  Returns
+// the truth table indexed by the physical inputs.
+// Router cost of leaving a LUT input's original pin.  af.exe offers the four
+// inputs at exactly equal cost; router2 weights congestion by (1 - crit^2), so
+// two near-critical nets with exactly tied targets flip together between the
+// same two IMUX wires for dozens of iterations.  A small positive bias on the
+// non-identity pseudo pips breaks the tie toward the packed pin: a net moves
+// only when congestion (or a refused/penalised entry pip) makes that worth it.
+static double lut_pin_swap_bias_ns()
+{
+    const char *value = std::getenv("AGAMEMNON_LUT_PIN_SWAP_BIAS_NS");
+    if (value == nullptr)
+        return 0.05;
+    char *end = nullptr;
+    const double bias = std::strtod(value, &end);
+    if (end == value || *end != '\0' || !(bias >= 0.0) || bias > 10.0)
+        log_error("agrv2k: AGAMEMNON_LUT_PIN_SWAP_BIAS_NS must be a number in [0, 10]\n");
+    return bias;
+}
+
+static uint64_t permute_lut_init(uint64_t init, const int perm[4])
+{
+    uint64_t result = 0;
+    for (int physical_row = 0; physical_row < 16; ++physical_row) {
+        int logical_row = 0;
+        for (int logical = 0; logical < 4; ++logical)
+            if (physical_row & (1 << perm[logical]))
+                logical_row |= 1 << logical;
+        if ((init >> logical_row) & 1)
+            result |= uint64_t(1) << physical_row;
+    }
+    return result;
+}
+
+// Whole-cell freeze reasons.  An empty string means the cell may swap the
+// inputs that survive the per-pin rules.  af.exe's rules are: a LUT whose
+// output feeds its own input freezes A-D; carry/ripple mode or a connected
+// Cout freezes C and D; BypassEn/FeedbackMux freezes C; hard-fixed cells never
+// swap.  This flow's packer pins more than af.exe's, and every packer-owned
+// shape stays whole-cell frozen: carry cells (A/B too, since the dedicated
+// carry operands are not yet proven symmetric here), every register-input mode
+// other than NONE and LUT_COMPUTE_TO_FF (feedthrough on I[0], registered-pad
+// and direct-D on I[3], local Qin on I[2] i.e. FeedbackMux, carry sum), typed
+// native/MCU endpoints and every cell with a location or typed-route attribute.
+static std::string lut_swap_cell_freeze_reason(Context *ctx, const CellInfo *cell)
+{
+    if (cell->type != ctx->id("GENERIC_SLICE"))
+        return "not a GENERIC_SLICE";
+    if (cell->bel == BelId())
+        return "unplaced";
+    static const char *const fixed_attrs[] = {
+            "BEL", "AGRV2K_IO_PINPACKED", "AGRV2K_PAD_INPUT_IDENTITY", "AGRV2K_ROUTE_THROUGH",
+            "AGRV2K_MCU_PINPACKED", "AGRV2K_BRAM_PINPACKED", "AGRV2K_BRAM_OUTPUT_BRIDGE",
+            "AGRV2K_MCU_ENTRY_ROW", "AGRV2K_DENSE_MCU_ODD_OK", "AGRV2K_PIN25_VENDOR_STAGE",
+            "AGRV2K_PIN10_ENTRY_PROBE", "AGRV2K_IO_DATA_GND", "AGRV2K_OMUX_SEL",
+            "agamemnon_registered_pad_input", "agamemnon_local_qin_feedback",
+    };
+    for (const char *attr : fixed_attrs)
+        if (cell->attrs.count(ctx->id(attr)))
+            return std::string("fixed/typed attribute ") + attr;
+    static const char *const fixed_prefixes[] = {
+            "AGRV2K_CARRY_", "AGRV2K_NATIVE_DIRECT_D_", "AGAMEMNON_SPECIAL_ROUTE_",
+            "agamemnon_direct_d_", "agamemnon_pad_sync_", "AGRV2K_MCU_ENDPOINT_",
+    };
+    for (auto &attr : cell->attrs) {
+        const std::string name = attr.first.str(ctx);
+        for (const char *prefix : fixed_prefixes)
+            if (string_starts_with(name, prefix))
+                return "fixed/typed attribute " + name;
+    }
+    if (port_has_net(ctx, cell, "CIN") || port_has_net(ctx, cell, "COUT"))
+        return "carry mode";
+    const RegisterInputRequirement input = register_input_requirement(ctx, cell);
+    if (input.malformed())
+        return "malformed register input";
+    if (input.mode != RegisterInputMode::NONE && input.mode != RegisterInputMode::LUT_COMPUTE_TO_FF)
+        return std::string("register input mode ") + register_input_mode_name(input.mode);
+    const NativeEndpointRequirement endpoint = native_endpoint_requirement(ctx, cell);
+    if (endpoint.malformed() || endpoint.active())
+        return "typed native endpoint";
+    const McuEndpointRequirement mcu = mcu_endpoint_requirement(ctx, cell);
+    if (mcu.malformed() || mcu.active)
+        return "typed MCU endpoint consumer";
+    const NetInfo *f = cell->getPort(ctx->id("F"));
+    const NetInfo *q = cell->getPort(ctx->id("Q"));
+    for (int input_index = 0; input_index < 4; ++input_index) {
+        const NetInfo *net = cell->getPort(ctx->id("I[" + std::to_string(input_index) + "]"));
+        if (net != nullptr && (net == f || net == q))
+            return "LUT self-loop";
+    }
+    auto init = cell->params.find(ctx->id("INIT"));
+    if (init == cell->params.end())
+        return "no INIT";
+    const uint64_t init_value = uint64_t(init->second.as_int64()) & 0xffff;
+    for (int input_index = 0; input_index < 4; ++input_index)
+        if (cell->getPort(ctx->id("I[" + std::to_string(input_index) + "]")) == nullptr &&
+            init_depends_on(init_value, input_index))
+            return "INIT depends on an unconnected input";
+    return std::string();
+}
+
+// Per-pin freeze reason for a connected input of an otherwise swappable cell.
+static std::string lut_swap_pin_freeze_reason(Context *ctx, const CellInfo *cell, int input_index)
+{
+    const NetInfo *net = cell->getPort(ctx->id("I[" + std::to_string(input_index) + "]"));
+    if (net == nullptr)
+        return "unconnected";
+    for (int other = 0; other < 4; ++other)
+        if (other != input_index &&
+            cell->getPort(ctx->id("I[" + std::to_string(other) + "]")) == net)
+            return "net repeats on another input of the same LUT";
+    const CellInfo *driver = net->driver.cell;
+    if (driver == nullptr)
+        return "undriven net";
+    if (driver->type != ctx->id("GENERIC_SLICE"))
+        return "hard-block driver " + driver->type.str(ctx);
+    bool driver_has_input = false;
+    for (int driver_input = 0; driver_input < 4; ++driver_input)
+        driver_has_input |= driver->getPort(ctx->id("I[" + std::to_string(driver_input) + "]")) != nullptr;
+    if (!driver_has_input && !port_has_net(ctx, driver, "CIN") &&
+        int_or_default(driver->params, ctx->id("FF_USED"), 0) == 0)
+        return "constant net";
+    if (!net->wires.empty())
+        return "pre-routed net";
+    return std::string();
+}
+
 struct AgrvImpl : ViaductAPI
 {
     pool<WireId> carry_d_default_high_wires;
@@ -17621,6 +17774,245 @@ struct AgrvImpl : ViaductAPI
         log_info("agrv2k: reserved %zu required route tree(s) before ordinary routing\n", trees.size());
     }
 
+    // ---- Router-chosen LUT input pins (see lut_pin_swap_enabled()) ----------
+    struct LutSwapCell
+    {
+        CellInfo *cell = nullptr;
+        WireId imux[4];
+        WireId pseudo[4];
+        IdString pseudo_pin[4];
+        unsigned logical_mask = 0; // connected, swappable logical inputs
+        unsigned pool_mask = 0;    // physical inputs a swappable input may use
+    };
+    std::vector<LutSwapCell> lut_swap_cells;
+    std::vector<uint8_t> lut_swap_pip_allowed; // indexed by pip.index - lut_swap_first_pip
+    int lut_swap_first_pip = -1;
+    bool lut_swap_active = false;
+
+    bool is_lut_swap_pip(PipId pip) const
+    {
+        return lut_swap_active && pip.index >= lut_swap_first_pip &&
+               size_t(pip.index - lut_swap_first_pip) < lut_swap_pip_allowed.size();
+    }
+
+    bool lut_swap_pip_ok(PipId pip) const
+    {
+        return lut_swap_pip_allowed.at(size_t(pip.index - lut_swap_first_pip)) != 0;
+    }
+
+    // Called last in preRoute(), after every typed pre-route reservation, so a
+    // pre-bound sink keeps its exact IMUX and the placement is untouched.
+    void setup_lut_pin_swap()
+    {
+        lut_swap_cells.clear();
+        lut_swap_pip_allowed.clear();
+        lut_swap_first_pip = -1;
+        lut_swap_active = false;
+        if (!lut_pin_swap_enabled())
+            return;
+        std::set<std::string> derange;
+        if (const char *spec = std::getenv("AGAMEMNON_LUT_PIN_SWAP_TEST_DERANGE")) {
+            // Test hook: forbid the identity pseudo pip on the named cells ("*"
+            // = all) so the router must move every swappable input.  The CLI
+            // never sets it.
+            std::string token;
+            std::istringstream in(spec);
+            while (std::getline(in, token, ','))
+                if (!token.empty())
+                    derange.insert(token);
+        }
+        std::map<std::string, int> frozen_cells, frozen_pins;
+        std::vector<CellInfo *> cells;
+        for (auto &entry : ctx->cells)
+            if (entry.second->type == ctx->id("GENERIC_SLICE"))
+                cells.push_back(entry.second.get());
+        std::sort(cells.begin(), cells.end(),
+                  [&](const CellInfo *a, const CellInfo *b) { return a->name.str(ctx) < b->name.str(ctx); });
+        for (CellInfo *cell : cells) {
+            const std::string cell_reason = lut_swap_cell_freeze_reason(ctx, cell);
+            if (!cell_reason.empty()) {
+                ++frozen_cells[cell_reason];
+                if (ctx->debug)
+                    log_info("agrv2k: LUT pin swap: '%s' frozen: %s\n", ctx->nameOf(cell), cell_reason.c_str());
+                continue;
+            }
+            LutSwapCell item;
+            item.cell = cell;
+            for (int k = 0; k < 4; ++k)
+                item.imux[k] = ctx->getBelPinWire(cell->bel, ctx->id("I[" + std::to_string(k) + "]"));
+            for (int k = 0; k < 4; ++k) {
+                if (item.imux[k] == WireId())
+                    continue;
+                const NetInfo *net = cell->getPort(ctx->id("I[" + std::to_string(k) + "]"));
+                const bool imux_free = ctx->getBoundWireNet(item.imux[k]) == nullptr &&
+                                       !carry_d_default_high_wires.count(item.imux[k]);
+                if (net == nullptr) {
+                    if (imux_free)
+                        item.pool_mask |= 1u << k;
+                    continue;
+                }
+                std::string pin_reason = lut_swap_pin_freeze_reason(ctx, cell, k);
+                if (pin_reason.empty() && !imux_free)
+                    pin_reason = "pre-routed sink";
+                if (!pin_reason.empty()) {
+                    ++frozen_pins[pin_reason];
+                    continue;
+                }
+                item.logical_mask |= 1u << k;
+                item.pool_mask |= 1u << k;
+            }
+            if (item.logical_mask == 0 || __builtin_popcount(item.pool_mask) < 2) {
+                ++frozen_cells["no alternative physical input"];
+                continue;
+            }
+            lut_swap_cells.push_back(item);
+        }
+
+        // Add the pseudo graph only now: placement never saw it.
+        lut_swap_first_pip = int(ctx->pips.size());
+        const bool derange_all = derange.count("*") != 0;
+        const double bias_ns = lut_pin_swap_bias_ns();
+        for (LutSwapCell &item : lut_swap_cells) {
+            const Loc loc = ctx->getBelLocation(item.cell->bel);
+            const bool deranged = derange_all || derange.count(item.cell->name.str(ctx)) != 0;
+            for (int l = 0; l < 4; ++l) {
+                if (!(item.logical_mask & (1u << l)))
+                    continue;
+                const int index = loc.z * 4 + l;
+                const std::string wire_name = "X" + std::to_string(loc.x) + "Y" + std::to_string(loc.y) +
+                                              "_LUTPERM" + (index < 10 ? "0" : "") + std::to_string(index);
+                WireId wire = ctx->addWire(IdStringList(ctx->id(wire_name)), ctx->id("LUTPERM"), loc.x, loc.y);
+                if (timing_node_by_wire.size() <= size_t(wire.index))
+                    timing_node_by_wire.resize(size_t(wire.index) + 1, -1);
+                // Every IMUX of a tile shares one lookahead node, so the
+                // zero-delay pseudo sink keeps an exact lower bound.
+                if (size_t(item.imux[l].index) < timing_node_by_wire.size())
+                    timing_node_by_wire.at(wire.index) = timing_node_by_wire.at(item.imux[l].index);
+                item.pseudo[l] = wire;
+                item.pseudo_pin[l] = ctx->id("LUTPERM_I[" + std::to_string(l) + "]");
+                ctx->addBelInput(item.cell->bel, item.pseudo_pin[l], wire);
+                for (int j = 0; j < 4; ++j) {
+                    if (!(item.pool_mask & (1u << j)))
+                        continue;
+                    const std::string pip_name = ctx->getWireName(item.imux[j]).str(ctx) + "." + wire_name;
+                    const delay_t delay = ctx->getDelayFromNS(j == l ? 0.0 : bias_ns);
+                    PipId pip = ctx->addPip(IdStringList(ctx->id(pip_name)), ctx->id("LUTPERM"), item.imux[j],
+                                            wire, delay, Loc(loc.x, loc.y, 0));
+                    NPNR_ASSERT(pip.index == lut_swap_first_pip + int(lut_swap_pip_allowed.size()));
+                    pip_delay_by_index[pip.index] = delay;
+                    lut_swap_pip_allowed.push_back(deranged && j == l ? 0 : 1);
+                }
+                item.cell->bel_pins[ctx->id("I[" + std::to_string(l) + "]")] = {item.pseudo_pin[l]};
+            }
+        }
+        lut_swap_active = true;
+        log_info("agrv2k: LUT pin swap ON: %d swappable slice(s), %d pseudo pip(s), move bias %.3f ns\n",
+                 int(lut_swap_cells.size()), int(lut_swap_pip_allowed.size()), bias_ns);
+        for (auto &reason : frozen_cells)
+            log_info("agrv2k: LUT pin swap froze %d slice(s): %s\n", reason.second, reason.first.c_str());
+        for (auto &reason : frozen_pins)
+            log_info("agrv2k: LUT pin swap froze %d input pin(s): %s\n", reason.second, reason.first.c_str());
+    }
+
+    // Called first in postRoute(): translate the router's choice of physical
+    // IMUX into an ordinary identity-mapped cell (ports + INIT) and strip the
+    // pseudo wires from routing, so no consumer ever sees them.
+    void finish_lut_pin_swap()
+    {
+        if (!lut_swap_active)
+            return;
+        int swapped = 0, moved_inputs = 0;
+        for (LutSwapCell &item : lut_swap_cells) {
+            CellInfo *cell = item.cell;
+            IdString ports[4];
+            NetInfo *old_nets[4];
+            for (int k = 0; k < 4; ++k) {
+                ports[k] = ctx->id("I[" + std::to_string(k) + "]");
+                old_nets[k] = cell->getPort(ports[k]);
+            }
+            int perm[4] = {-1, -1, -1, -1};
+            unsigned used = 0;
+            for (int l = 0; l < 4; ++l) {
+                if (!(item.logical_mask & (1u << l)))
+                    continue;
+                NetInfo *net = ctx->getBoundWireNet(item.pseudo[l]);
+                if (net == nullptr || net != old_nets[l])
+                    log_error("agrv2k: LUT pin swap: '%s'.%s is not routed to its pseudo sink\n",
+                              ctx->nameOf(cell), ports[l].c_str(ctx));
+                PipId pip = net->wires.at(item.pseudo[l]).pip;
+                int physical = -1;
+                for (int j = 0; j < 4 && pip != PipId(); ++j)
+                    if ((item.pool_mask & (1u << j)) && ctx->getPipSrcWire(pip) == item.imux[j])
+                        physical = j;
+                if (physical < 0 || (used & (1u << physical)))
+                    log_error("agrv2k: LUT pin swap: '%s'.%s reached no unique eligible IMUX\n",
+                              ctx->nameOf(cell), ports[l].c_str(ctx));
+                if (ctx->getBoundWireNet(item.imux[physical]) != net)
+                    log_error("agrv2k: LUT pin swap: '%s' physical IMUX %s is not owned by net '%s'\n",
+                              ctx->nameOf(cell), ctx->nameOfWire(item.imux[physical]), ctx->nameOf(net));
+                perm[l] = physical;
+                used |= 1u << physical;
+            }
+            for (int k = 0; k < 4; ++k)
+                if (perm[k] < 0 && old_nets[k] != nullptr) { // a frozen connected input keeps its pin
+                    if (used & (1u << k))
+                        log_error("agrv2k: LUT pin swap: '%s' frozen input %s was taken\n", ctx->nameOf(cell),
+                                  ports[k].c_str(ctx));
+                    perm[k] = k;
+                    used |= 1u << k;
+                }
+            for (int k = 0; k < 4; ++k)
+                if (perm[k] < 0) { // an unconnected logical input takes a leftover physical pin
+                    int j = 0;
+                    while (used & (1u << j))
+                        ++j;
+                    perm[k] = j;
+                    used |= 1u << j;
+                }
+            for (int l = 0; l < 4; ++l)
+                if (item.logical_mask & (1u << l))
+                    ctx->unbindWire(item.pseudo[l]);
+            for (int k = 0; k < 4; ++k)
+                cell->bel_pins[ports[k]] = {ports[k]};
+            bool identity = true;
+            for (int k = 0; k < 4; ++k)
+                identity &= perm[k] == k;
+            if (identity)
+                continue;
+            auto init_it = cell->params.find(ctx->id("INIT"));
+            NPNR_ASSERT(init_it != cell->params.end());
+            const uint64_t old_init = uint64_t(init_it->second.as_int64()) & 0xffff;
+            const uint64_t new_init = permute_lut_init(old_init, perm);
+            for (int k = 0; k < 4; ++k)
+                if (old_nets[k] != nullptr)
+                    cell->disconnectPort(ports[k]);
+            for (int k = 0; k < 4; ++k)
+                if (old_nets[k] != nullptr) {
+                    cell->connectPort(ports[perm[k]], old_nets[k]);
+                    if (perm[k] != k)
+                        ++moved_inputs;
+                }
+            cell->params[ctx->id("INIT")] = Property(new_init, 16);
+            std::string perm_text;
+            for (int k = 0; k < 4; ++k)
+                perm_text += char('0' + perm[k]);
+            cell->attrs[ctx->id("AGRV2K_LUT_PIN_PERM")] = perm_text;
+            cell->attrs[ctx->id("AGRV2K_LUT_PRESWAP_INIT")] = Property(old_init, 16);
+            for (int k = 0; k < 4; ++k)
+                if (old_nets[k] != nullptr &&
+                    ctx->getBoundWireNet(ctx->getBelPinWire(cell->bel, ports[perm[k]])) != old_nets[k])
+                    log_error("agrv2k: LUT pin swap: '%s'.%s lost its route\n", ctx->nameOf(cell),
+                              ports[perm[k]].c_str(ctx));
+            ++swapped;
+            if (ctx->debug)
+                log_info("agrv2k: LUT pin swap: '%s' perm %s INIT %04x -> %04x\n", ctx->nameOf(cell),
+                         perm_text.c_str(), unsigned(old_init), unsigned(new_init));
+        }
+        lut_swap_active = false;
+        log_info("agrv2k: LUT pin swap rewrote %d slice(s), moved %d input(s) (of %d swappable slice(s))\n",
+                 swapped, moved_inputs, int(lut_swap_cells.size()));
+    }
+
     void preRoute() override
     {
         carry_d_default_high_wires.clear();
@@ -17779,6 +18171,7 @@ struct AgrvImpl : ViaductAPI
         if (typed_mcu_endpoints)
             log_info("agrv2k: pre-route DRC verified %d typed HWDATA25 consumer(s)\n",
                      typed_mcu_endpoints);
+        setup_lut_pin_swap();
     }
 
     // ---- routing gate (own-Q conduction side-quest). AGRV2K_NO_FBBRIDGE rejects the self-feedback bridge
@@ -17788,6 +18181,8 @@ struct AgrvImpl : ViaductAPI
     // the fix a dense hardware-carry cell needs, since it can't use the Qin internal path (pinC=Cin).
     bool checkPipAvail(PipId pip) const override
     {
+        if (is_lut_swap_pip(pip))
+            return lut_swap_pip_ok(pip);
         if (carry_d_default_high_wires.count(ctx->getPipSrcWire(pip)) ||
             carry_d_default_high_wires.count(ctx->getPipDstWire(pip)))
             return false;
@@ -17809,6 +18204,8 @@ struct AgrvImpl : ViaductAPI
         // never resurrects a PIP rejected by the existing hard graph policy.
         if (!checkPipAvail(pip))
             return false;
+        if (is_lut_swap_pip(pip))
+            return true;
         if (ctx->getPipType(pip) == ctx->id("LOCAL_QIN")) {
             if (net == nullptr || net->driver.cell == nullptr ||
                 net->driver.port != ctx->id("Q"))
@@ -18030,6 +18427,7 @@ struct AgrvImpl : ViaductAPI
 
     void postRoute() override
     {
+        finish_lut_pin_swap();
         audit_carry_routes("post-route", true);
         audit_special_routes("post-route", true);
         audit_global_clock_routes("post-route", true);
