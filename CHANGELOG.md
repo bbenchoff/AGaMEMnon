@@ -7,6 +7,15 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+- routing (opt-in, off by default): `AGAMEMNON_LUT_PIN_SWAP=1` lets router2 choose which
+  A-D input of its slice each LUT signal enters, like af.exe's default
+  `rt_swap_lut_input_pin`. After routing the cell's input ports are rewired and its INIT
+  permuted to match, so routed JSON and the image stay identity-mapped. Carry cells,
+  register-input modes other than plain compute, typed endpoints, user-fixed and
+  packer-pinned cells, self-loops, and inputs from hard blocks, constants, pre-routed
+  nets or a repeated net never move. With the switch unset, images are byte-identical
+  to the previous build.
+
 - routing: refuse 20 routing pips that the vendor router does not have or encodes
   differently. Five were isolated on the board as the single cause of a silently wrong
   default image: `RMUX57@16,3->RMUX34@16,4` (`minmax32_kat`, `lfsr16x7_kat` and the
