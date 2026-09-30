@@ -237,8 +237,10 @@ def test_unproven_shape_and_board_pair_rows_are_present_and_labelled():
         assert row["evidence"] and row["note"], row
         classes.setdefault(row["source"], []).append(row)
     assert sorted(classes) == ["afexe_absent_20260929", "afexe_absent_board_20260929",
+                               "afexe_codeword_conflict_20260930",
                                "board_congestion_20260925", "board_pair_20260929",
                                "unproven_shape_20260929"]
+    assert len(classes["afexe_codeword_conflict_20260930"]) == 2
     assert len(classes["afexe_absent_20260929"]) == 19
     assert [row["edge"] for row in classes["afexe_absent_board_20260929"]] == [AFEXE_BOARD_EDGE]
     assert len(classes["unproven_shape_20260929"]) == 2416
@@ -247,6 +249,16 @@ def test_unproven_shape_and_board_pair_rows_are_present_and_labelled():
     sources = PC.congestion_marginal_pip_sources(DATA)
     assert sources[LFSR_SHAPE_PIP] == "unproven_shape_20260929"
     assert all(sources[pip] == "board_pair_20260929" for pip in RAM_PAIR_PIPS)
+
+
+def test_refusal_edges_use_routed_pip_spelling():
+    # The loader builds routed-JSON pip names from the row text verbatim, and routed JSON spells
+    # mux indices with at least two digits (RMUX04). An unpadded row (RMUX4) would refuse nothing.
+    for row in _rows("congestion_marginal_edges.csv"):
+        src, sx, sy, dst, dx, dy = EDGE_RE.fullmatch(row["edge"]).groups()
+        for name in (src, dst):
+            digits = name.lstrip("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")
+            assert len(digits) >= 2, row["edge"]
 
 
 def test_no_shipped_qualified_routed_image_uses_a_refused_pip():

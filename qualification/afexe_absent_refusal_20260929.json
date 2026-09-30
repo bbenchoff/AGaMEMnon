@@ -4,7 +4,7 @@
   "board": "AG32VF303CCT6 / L48, SRAM configuration through a single controlled board client",
   "base_candidate": "4f98154f2f95ebe51376adcff07b46334742548e",
   "table": "agamemnon/chipdb/congestion_marginal_edges.csv",
-  "rows_sha256": "497e724d350dfec44c98c537dc1227ec16b9e857a008da6bf20d4f4b9ba28ad9",
+  "rows_sha256": "1fb5f67edff1673203d682a685042851ddaa273f404603dc8c1a67bf84f87dae",
   "classes": {
     "afexe_absent_board_20260929": {
       "rows": 1,
@@ -20,6 +20,11 @@
         "RMUX69@16,3->RMUX87@16,4"
       ],
       "policy": "Post-route refusal plus the existing retry penalty. Admit a pip only with a design-level silicon pass that depends on it; a ring oscillation through it is not sufficient."
+    },
+    "afexe_codeword_conflict_20260930": {
+      "rows": 2,
+      "definition": "RMUX08@2,4->RMUX33@1,4: af.exe writes nothing for the hop and our codeword [1,8] is af.exe's codeword for RMUX56@5,4->RMUX33@1,4. RMUX62@20,9->RMUX20@20,13: an IO-row hop without a pad-feed row whose emitted bytes differ from the bytes af.exe writes.",
+      "policy": "Post-route refusal plus the existing retry penalty."
     }
   },
   "method": "Same placement and LUT connections throughout. The failing and passing minmax32_kat routed checkpoints re-encode byte-identically to their board images. Hybrid routings (subsets of nets rerouted with every other net held) were encoded by this repository's bitgen, which validated each one, and loaded into SRAM between reference images.",
@@ -62,5 +67,6 @@
     "One load and one reset release per board observation.",
     "The 19 oracle rows are refused on vendor-topology evidence plus the absence of any passing use. Oracle-absent pips that passing designs or qualified fixtures use stay admitted, because the oracle has false positives at row-1 and row-4 destinations. A false-positive refusal costs one unused pip.",
     "Ring-oscillator witnesses do not certify a pip for design use: the board-proven pip has one."
-  ]
+  ],
+  "oracle_sweep_2026_09_30": "Of 1,596 shipped pips the 09-19 oracle marked 'different', none is emitted with a wrong codeword: 1,430 lacked a table row (the flow emits af.exe's codeword), 108 had a stale table cfg string the emitter does not use, 59 were base-route overlaps, and 8 BRAM X13Y4 inputs emit af.exe's bytes from bram_pip_cfg.csv. Of 136 shipped codeword-collision groups, only the two rows above are real conflicts. Oracle 'absent' verdicts in the IO rows (y=0, y=13) are artefacts of tile labelling; the six IO-row pips already refused stay refused because their emitted bytes differ from af.exe's."
 }

@@ -50,7 +50,8 @@ def congestion_marginal_pip_sources(chipdb_root):
     or qualified fixture has ever used), ``board_pair_*`` (pips isolated by a same-placement
     pass/fail board comparison), and ``afexe_absent_*`` / ``afexe_absent_board_*`` (routing pips
     that af.exe's own bitgen does not know at that position; the board variant was also bisected
-    to on silicon).
+    to on silicon), and ``afexe_codeword_conflict_*`` (hops whose selector the vendor bitgen gives
+    to another source or writes differently).
     """
     path = Path(chipdb_root) / CSV_NAME
     sources = {}
@@ -155,6 +156,11 @@ def validate_module_congestion_marginal(module, chipdb_root):
         reasons.append(
             "pip(s) unknown to the vendor router: af.exe's bitgen writes nothing for this hop at "
             "this position, so our selector codeword has no confirmed source "
+            "(see qualification/afexe_absent_refusal_20260929.json)")
+    if "afexe_codeword_conflict" in classes:
+        reasons.append(
+            "pip(s) whose emitted selector the vendor bitgen assigns to a different source or "
+            "writes differently, so the route would not connect as modelled "
             "(see qualification/afexe_absent_refusal_20260929.json)")
     if not reasons:
         reasons.append("pip(s) listed in agamemnon/chipdb/congestion_marginal_edges.csv")
