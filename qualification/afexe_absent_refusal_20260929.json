@@ -4,23 +4,16 @@
   "board": "AG32VF303CCT6 / L48, SRAM configuration through a single controlled board client",
   "base_candidate": "4f98154f2f95ebe51376adcff07b46334742548e",
   "table": "agamemnon/chipdb/congestion_marginal_edges.csv",
-  "rows_sha256": "10fafc40727d187e3e38b45a11f3a1c6f223b45cfc06d25e6f97ef8f336e41ec",
+  "rows_sha256": "84ebd5187911ad6ff22ea535c7cffab60eb88859e82b8f3e778173888e42d296",
   "classes": {
     "afexe_absent_board_20260929": {
-      "rows": 3,
-      "definition": "Pips isolated on the board by single-net bisection plus one-pip avoidance of a stable wrong default image, each unknown to the vendor bitgen: RMUX57@16,3->RMUX34@16,4 (minmax32_kat, lfsr16x7_kat, stronger fast-RAM holdout; codeword [2,9] belongs to RMUX09 four rows below, absent in row 4); RMUX14@14,1->RMUX61@14,2 (stronger fast-RAM holdout seed 3; the vendor bitgen aborts the tile, and [2,9] in row 2 selects no vendor source); RMUX03@14,6->RMUX15@14,6 (stronger slow-RAM holdout seed 3; absent in four vendor-bitgen contexts although 26 board-passing images used it).",
+      "rows": 5,
+      "definition": "Pips isolated on the board by single-net bisection plus one-pip avoidance of a stable wrong default image, each unknown to the vendor bitgen and each emitted from the relative (geometry-generalised) codeword table: RMUX57@16,3->RMUX34@16,4 (minmax32_kat, lfsr16x7_kat, stronger fast-RAM holdout); RMUX14@14,1->RMUX61@14,2 (stronger fast-RAM holdout seed 3; the vendor bitgen aborts the tile); RMUX03@14,6->RMUX15@14,6 (stronger slow-RAM holdout seed 3; used by 26 board-passing images); RMUX25@11,4->RMUX00@11,1 (lfsr16x6_kat seed 2, and the stronger fast-RAM holdout without clock enables); RMUX25@12,4->RMUX01@12,4 (lfsr16x6_kat seed 4).",
       "policy": "Post-route refusal plus the existing retry penalty. The device graph and profile identities are unchanged."
     },
     "afexe_absent_20260929": {
-      "rows": 40,
-      "definition": "Every other shipped fabric ROUTE pip with a routing-multiplexer destination in rows 1-12 whose vendor-bitgen probes include absent or burst and never same, unless a shipped silicon-qualified routed fixture uses it. Use by board-passing images does not exempt a pip: RMUX03@14,6->RMUX15@14,6 was used by 26 of them and still caused a stable wrong image.",
-      "excluded_as_design_level_proven": [
-        "RMUX09@12,1->RMUX45@12,4",
-        "RMUX09@12,2->RMUX45@12,4",
-        "RMUX20@9,4->RMUX81@8,4",
-        "RMUX21@16,7->RMUX87@16,4",
-        "RMUX69@16,3->RMUX87@16,4"
-      ],
+      "rows": 9,
+      "definition": "Every other shipped fabric ROUTE pip with a routing-multiplexer destination in rows 1-12 whose vendor-bitgen probes include absent or burst and never same, excluding hops that touch a node of the oracle's own base design (an absent there is blind) and hops a shipped silicon-qualified fixture uses. Use by board-passing images does not exempt a pip. A bulk probe of all 7,039 unconfirmed relative-table pips found 6,953 same and 15 interior absent or burst.",
       "policy": "Post-route refusal plus the existing retry penalty. Admit a pip only with a design-level silicon test that depends on it."
     },
     "afexe_codeword_conflict_20260930": {
@@ -67,8 +60,8 @@
   ],
   "limitations": [
     "One load and one reset release per board observation.",
-    "The 40 oracle rows are refused on vendor-topology evidence alone. Oracle-absent pips that a shipped silicon-qualified fixture uses stay admitted. A false-positive refusal costs one unused pip.",
+    "The 9 oracle rows are refused on vendor-topology evidence alone. A false-positive refusal costs one unused pip.",
     "Ring-oscillator witnesses do not certify a pip for design use: the board-proven pip has one."
   ],
-  "oracle_sweep_2026_09_30": "Of 1,596 shipped pips the 09-19 oracle marked 'different', none is emitted with a wrong codeword: 1,430 lacked a table row (the flow emits af.exe's codeword), 108 had a stale table cfg string the emitter does not use, 59 were base-route overlaps, and 8 BRAM X13Y4 inputs emit af.exe's bytes from bram_pip_cfg.csv. Of 136 shipped codeword-collision groups, only the two rows above are real conflicts. Oracle 'absent' verdicts in the IO rows (y=0, y=13) are artefacts of tile labelling; the six IO-row pips already refused stay refused because their emitted bytes differ from af.exe's."
+  "oracle_sweep": "2026-09-30 sweep (.tmp/test_protocol/oracle_sweep_20260930 in the workbench): of 1,596 shipped pips the 2026-09-19 oracle marked 'different', none is emitted with a wrong codeword; of 136 shipped codeword-collision groups one is real (RMUX08@2,4->RMUX33@1,4). The 34 earlier oracle-only absents into RMUX87@16,4, RMUX52@16,1, RMUX81@8,4, RMUX45@12,4, RMUX68@4,4 and RMUX15@1,4 are blind: those nodes belong to the oracle's own base design. Every board-bisected cause came from the relative codeword table."
 }

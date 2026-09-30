@@ -227,7 +227,8 @@ RAM_PAIR_PIPS = {"X16Y5_RMUX31.X19Y5_RMUX40", "X19Y3_RMUX02.X19Y5_RMUX13"}
 # Board-bisected cause of the minmax32_kat, lfsr16x7_kat and stronger fast-RAM wrong images.
 AFEXE_BOARD_EDGE = "RMUX57@16,3->RMUX34@16,4"
 # Each isolated by single-net bisection plus one-pip avoidance of a stable wrong image.
-AFEXE_BOARD_EDGES = [AFEXE_BOARD_EDGE, "RMUX14@14,1->RMUX61@14,2", "RMUX03@14,6->RMUX15@14,6"]
+AFEXE_BOARD_EDGES = [AFEXE_BOARD_EDGE, "RMUX14@14,1->RMUX61@14,2", "RMUX03@14,6->RMUX15@14,6",
+                     "RMUX25@11,4->RMUX00@11,1", "RMUX25@12,4->RMUX01@12,4"]
 AFEXE_BOARD_PIP = "X16Y3_RMUX57.X16Y4_RMUX34"
 
 
@@ -243,7 +244,7 @@ def test_unproven_shape_and_board_pair_rows_are_present_and_labelled():
                                "board_congestion_20260925", "board_pair_20260929",
                                "unproven_shape_20260929"]
     assert len(classes["afexe_codeword_conflict_20260930"]) == 6
-    assert len(classes["afexe_absent_20260929"]) == 40
+    assert len(classes["afexe_absent_20260929"]) == 9
     assert sorted(row["edge"] for row in classes["afexe_absent_board_20260929"]) == sorted(AFEXE_BOARD_EDGES)
     assert len(classes["unproven_shape_20260929"]) == 2416
     assert len(classes["board_pair_20260929"]) == 207

@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "c15c7a3beed90e738154928d4e77b037f2d6ed0d7af24ad6a22c21aad61ccbcd",
+  "fingerprint_sha256": "68105cd96667c3a5a332c42fa2c4bab3251cb6a88db1768bb1ceb3b7e36f47ff",
   "file_count": 279,
   "pinned_date": "2026-09-30",
-  "reason": "congestion_marginal_edges.csv gains 49 rows for routing pips the vendor bitgen does not know or encodes differently: 3 board-bisected single causes of wrong images (afexe_absent_board_20260929: RMUX57@16,3->RMUX34@16,4, RMUX14@14,1->RMUX61@14,2, RMUX03@14,6->RMUX15@14,6); 40 shipped rows-1..12 RMUX-destination pips the vendor bitgen leaves unwritten and no qualified fixture uses (afexe_absent_20260929); 6 hops whose selector the vendor gives to another source or writes differently (afexe_codeword_conflict_20260930). Edges use the routed two-digit index spelling. Earlier rows are unchanged. Post-route refusal plus retry penalty, not a graph edit: dev_pips.csv and all profile identities are unchanged. No shipped qualified routed fixture uses a refused pip. Evidence: qualification/afexe_absent_refusal_20260929.json."
+  "reason": "congestion_marginal_edges.csv gains 20 rows for routing pips the vendor bitgen does not know or encodes differently: 5 board-bisected single causes of wrong images, all from the relative codeword table (afexe_absent_board_20260929); 9 interior RMUX-destination pips the vendor bitgen leaves unwritten outside its own base-design nodes and no qualified fixture uses (afexe_absent_20260929); 6 hops whose selector the vendor gives to another source or writes differently (afexe_codeword_conflict_20260930). Edges use the routed two-digit index spelling. Earlier rows are unchanged. Post-route refusal plus retry penalty, not a graph edit: dev_pips.csv and all profile identities are unchanged. No shipped qualified routed fixture uses a refused pip. Evidence: qualification/afexe_absent_refusal_20260929.json."
 }

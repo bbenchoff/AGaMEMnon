@@ -397,10 +397,10 @@
       "sha256": "9486a8f503c8083aa011cda6bc26bea6c2c77ec5a1d4afeeae3ae6d032865397"
     },
     {
-      "bytes": 649475,
-      "data_rows": 2678,
+      "bytes": 642724,
+      "data_rows": 2649,
       "path": "agamemnon/chipdb/congestion_marginal_edges.csv",
-      "sha256": "5581eb0f5636180725fa49f7d851062936613dec9897a08719d2f0109119731e"
+      "sha256": "26d74e7b35db201b56c69a915650ae169803e74f998cf5f148919c6bd35cbd00"
     },
     {
       "bytes": 9754635,

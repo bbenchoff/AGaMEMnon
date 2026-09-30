@@ -7,15 +7,17 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
-- routing: refuse 49 routing pips that the vendor router does not have or encodes
-  differently. Three were isolated on the board as the single cause of silently wrong
-  default images: `RMUX57@16,3->RMUX34@16,4` (`minmax32_kat`, `lfsr16x7_kat` and the
+- routing: refuse 20 routing pips that the vendor router does not have or encodes
+  differently. Five were isolated on the board as the single cause of a silently wrong
+  default image: `RMUX57@16,3->RMUX34@16,4` (`minmax32_kat`, `lfsr16x7_kat` and the
   stronger fast-RAM holdout), `RMUX14@14,1->RMUX61@14,2` and `RMUX03@14,6->RMUX15@14,6`
-  (seed variants of the stronger RAM holdouts). Rerouting only the net that used each
-  made its image pass. af.exe's bitgen writes nothing for any of them. The other 40 are
-  every shipped routing pip the vendor bitgen likewise leaves unwritten, except five that
-  qualified designs use; six more select a different source than modelled. They are listed
-  in `congestion_marginal_edges.csv` with sources `afexe_absent_board_20260929`,
+  (seed variants of the stronger RAM holdouts), and `RMUX25@11,4->RMUX00@11,1` and
+  `RMUX25@12,4->RMUX01@12,4` (seed variants of `lfsr16x6_kat`). Rerouting only the net
+  that used each made its image pass. All five take their selector codeword from the
+  relative (geometry-generalised) table, and af.exe's bitgen writes nothing for them. A
+  vendor-bitgen probe of all 7,039 unconfirmed relative-table pips found 9 more; six more
+  select a different source or write different bytes than modelled. They are listed in
+  `congestion_marginal_edges.csv` with sources `afexe_absent_board_20260929`,
   `afexe_absent_20260929` and `afexe_codeword_conflict_20260930`. See
   [the evidence record](qualification/afexe_absent_refusal_20260929.json).
 - routing: refuse routes through pip shapes that no board-passing design has ever
