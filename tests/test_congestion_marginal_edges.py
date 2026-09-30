@@ -236,7 +236,7 @@ def test_unproven_shape_and_board_pair_rows_are_present_and_labelled():
     assert sorted(classes) == ["board_congestion_20260925", "board_pair_20260929",
                                "unproven_shape_20260929"]
     assert len(classes["unproven_shape_20260929"]) == 2416
-    assert len(classes["board_pair_20260929"]) == 15
+    assert len(classes["board_pair_20260929"]) == 207
     assert len({row["edge"] for row in rows}) == len(rows), "no duplicate edges"
     sources = PC.congestion_marginal_pip_sources(DATA)
     assert sources[LFSR_SHAPE_PIP] == "unproven_shape_20260929"

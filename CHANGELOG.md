@@ -10,8 +10,8 @@ is authoritative for downloadable artifacts.
 - routing: refuse routes through pip shapes that no board-passing design has ever
   used. A shape is the source and destination multiplexer plus the tile offset. The
   2,416 affected fabric pips, under 1% of the graph, are listed in
-  `congestion_marginal_edges.csv` with source `unproven_shape_20260929`, beside 15
-  pips isolated by a same-placement board comparison. As with the existing X20Y12
+  `congestion_marginal_edges.csv` with source `unproven_shape_20260929`, beside 207
+  pips isolated by pass/fail board comparisons of the same source. As with the existing X20Y12
   rows, a build that lands on one is refused and retried with an avoidance cost. The
   device graph is unchanged. On the L48 board the default stronger LFSR went from
   0/32 to 61/64 passing reset trials, and both lowered-memory holdouts from 0/32 to
