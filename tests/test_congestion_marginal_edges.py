@@ -239,7 +239,7 @@ def test_unproven_shape_and_board_pair_rows_are_present_and_labelled():
     assert sorted(classes) == ["afexe_absent_20260929", "afexe_absent_board_20260929",
                                "board_congestion_20260925", "board_pair_20260929",
                                "unproven_shape_20260929"]
-    assert len(classes["afexe_absent_20260929"]) == 53
+    assert len(classes["afexe_absent_20260929"]) == 19
     assert [row["edge"] for row in classes["afexe_absent_board_20260929"]] == [AFEXE_BOARD_EDGE]
     assert len(classes["unproven_shape_20260929"]) == 2416
     assert len(classes["board_pair_20260929"]) == 207

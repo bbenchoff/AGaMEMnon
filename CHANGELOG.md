@@ -7,13 +7,13 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
-- routing: refuse 54 routing pips that the vendor router does not have. One of them,
+- routing: refuse 20 routing pips that the vendor router does not have. One of them,
   `RMUX57@16,3->RMUX34@16,4`, was isolated on the board as the single cause of three
   silently wrong default images (`minmax32_kat`, `lfsr16x7_kat` and the stronger
   fast-RAM holdout). Rerouting only the net that used it made each pass. Our table
   held an inferred selector codeword for it that af.exe's bitgen never writes. The
-  other 53 are every shipped routing pip the vendor bitgen likewise leaves unwritten,
-  except three that qualified designs use. They are listed in
+  other 19 are shipped routing pips the vendor bitgen likewise leaves unwritten and
+  that no board-passing design has used. They are listed in
   `congestion_marginal_edges.csv` with sources `afexe_absent_board_20260929` and
   `afexe_absent_20260929`. See [the evidence record](qualification/afexe_absent_refusal_20260929.json).
 

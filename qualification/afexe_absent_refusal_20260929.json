@@ -4,7 +4,7 @@
   "board": "AG32VF303CCT6 / L48, SRAM configuration through a single controlled board client",
   "base_candidate": "4f98154f2f95ebe51376adcff07b46334742548e",
   "table": "agamemnon/chipdb/congestion_marginal_edges.csv",
-  "rows_sha256": "5e08b24594447ca10590bc1806d7f99b55dfa6885cb00574cebb2506dc39ea41",
+  "rows_sha256": "497e724d350dfec44c98c537dc1227ec16b9e857a008da6bf20d4f4b9ba28ad9",
   "classes": {
     "afexe_absent_board_20260929": {
       "rows": 1,
@@ -12,8 +12,8 @@
       "policy": "Post-route refusal plus the existing retry penalty. The device graph and profile identities are unchanged."
     },
     "afexe_absent_20260929": {
-      "rows": 53,
-      "definition": "Every other shipped fabric ROUTE pip with a routing-multiplexer destination for which every vendor-bitgen probe wrote nothing (or aborted the tile), excluding pips already refused and pips used by a shipped silicon-qualified routed fixture.",
+      "rows": 19,
+      "definition": "Every other shipped fabric ROUTE pip with a routing-multiplexer destination for which every vendor-bitgen probe wrote nothing (or aborted the tile), and which no board-passing open image and no shipped silicon-qualified routed fixture uses. 34 oracle-absent pips that passing designs use stay admitted.",
       "excluded_as_oracle_false_positives": [
         "RMUX20@9,4->RMUX81@8,4",
         "RMUX21@16,7->RMUX87@16,4",
@@ -60,7 +60,7 @@
   ],
   "limitations": [
     "One load and one reset release per board observation.",
-    "The 53 oracle rows are refused on vendor-topology evidence alone; three oracle-absent pips are known to work in qualified designs, so the class has false positives. A false positive costs one unused pip.",
+    "The 19 oracle rows are refused on vendor-topology evidence plus the absence of any passing use. Oracle-absent pips that passing designs or qualified fixtures use stay admitted, because the oracle has false positives at row-1 and row-4 destinations. A false-positive refusal costs one unused pip.",
     "Ring-oscillator witnesses do not certify a pip for design use: the board-proven pip has one."
   ]
 }

@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "2b0a9ef88e8279e4190c2b0a5087969ae38949c512c580307592896ea3fe0c5b",
+  "fingerprint_sha256": "ab185197ff71418e207643dcd86b761e6a776b3286a13253f1c9b2f06ab563f4",
   "file_count": 279,
   "pinned_date": "2026-09-29",
-  "reason": "congestion_marginal_edges.csv gains 54 rows for routing pips the vendor bitgen does not know: RMUX57@16,3->RMUX34@16,4 (afexe_absent_board_20260929), board-bisected as the single cause of the minmax32_kat, lfsr16x7_kat and stronger fast-RAM wrong images, and 53 other shipped RMUX-destination pips the vendor bitgen leaves unwritten (afexe_absent_20260929), excluding three used by qualified fixtures. Earlier rows are unchanged (6 board_congestion, 2,416 unproven_shape, 207 board_pair). The table is a post-route refusal plus retry penalty, not a graph edit: dev_pips.csv and all profile identities are unchanged. research_knowledge_manifest.json records the table's new size and hash. No shipped qualified routed fixture uses a refused pip. Evidence: qualification/afexe_absent_refusal_20260929.json."
+  "reason": "congestion_marginal_edges.csv gains 20 rows for routing pips the vendor bitgen does not know: RMUX57@16,3->RMUX34@16,4 (afexe_absent_board_20260929), board-bisected as the single cause of the minmax32_kat, lfsr16x7_kat and stronger fast-RAM wrong images, and 19 other shipped RMUX-destination pips the vendor bitgen leaves unwritten and no board-passing design or qualified fixture uses (afexe_absent_20260929). Earlier rows are unchanged (6 board_congestion, 2,416 unproven_shape, 207 board_pair). The table is a post-route refusal plus retry penalty, not a graph edit: dev_pips.csv and all profile identities are unchanged. research_knowledge_manifest.json records the table's new size and hash. No shipped qualified routed fixture uses a refused pip. Evidence: qualification/afexe_absent_refusal_20260929.json."
 }
