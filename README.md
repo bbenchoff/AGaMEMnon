@@ -90,8 +90,8 @@ You may have noticed that the vendor toolchain, `af.exe` is blind to conduction 
 
 ## Quick start
 
-Use the v0.4.0 SDK archives or its tagged source for a reproducible installation. See
-[release downloads](https://github.com/bbenchoff/AGaMEMnon/releases/tag/v0.4.0).
+Use the v0.5.0 SDK archives or its tagged source for a reproducible installation. See
+[release downloads](https://github.com/bbenchoff/AGaMEMnon/releases/tag/v0.5.0).
 
 Main maps clock enables onto the tile's native enable line for `build --uarch`, with isolated
 line-0 register groups; `--no-native-clock-enable` lowers them into register data logic instead.
@@ -99,12 +99,12 @@ An enabled register's own-Q feedback has to sit on the slice's dedicated Qin: a 
 on general routing read 0 Hz on all fifteen tiles of an enable-counter scaffold, and the same
 scaffold with the feedback on Qin runs at exactly the expected rate (see
 [scope, evidence and the data-logic fallback](docs/NATIVE_CLOCK_ENABLE_EXPERIMENT.md)).
-Build the bundled nextpnr overlay for the native capability; the v0.4.0 binaries are unchanged.
-See [release scope and upgrade notes](docs/RELEASE_0_4_0.md): this is a bounded
+Build the bundled nextpnr overlay for the native capability.
+See [release scope and upgrade notes](docs/RELEASE_0_5_0.md): this is a bounded
 L48 toolchain release, not complete vendor parity.
 
 ```sh
-git clone --branch v0.4.0 https://github.com/bbenchoff/AGaMEMnon
+git clone --branch v0.5.0 https://github.com/bbenchoff/AGaMEMnon
 cd AGaMEMnon
 python3 -m pip install -e ".[programming]"
 agamemnon doctor --no-hardware

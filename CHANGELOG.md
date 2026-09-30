@@ -7,6 +7,8 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-30
+
 - routing (opt-in, off by default): `AGAMEMNON_LUT_PIN_SWAP=1` lets router2 choose which
   A-D input of its slice each LUT signal enters, like af.exe's default
   `rt_swap_lut_input_pin`. After routing the cell's input ports are rewired and its INIT

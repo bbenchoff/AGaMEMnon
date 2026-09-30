@@ -1,13 +1,37 @@
 # Supported feature matrix
 
-## Current release assessment — September 26
+## Current release assessment — v0.5.0
 
-The v0.5 release is pending. Fresh LFSR and x1 BRAM failures are release blockers;
-earlier passing activity counts do not override them. The bounded P2 containment
-record below concerns its own retained negatives, not these newly built images.
-The [current hardware summary](../qualification/release05_current_hardware_results.json)
-retains passing and failing alternatives and passing controls. Compiler acceptance,
-model agreement and decoded field equality are separate evidence from silicon.
+v0.5.0 is a bounded L48 release. Its default flow was checked on hardware against the
+maintained corpus, the memory and LFSR holdouts, and every design that built a wrong
+image during release preparation; the numbers are in [the release notes](RELEASE_0_5_0.md)
+and [release validation](RELEASE_VALIDATION_0_5_0.md).
+
+What changed the result: five default images that read back wrong on silicon were each
+traced, by rerouting subsets of nets on the board, to one routing connection. Rerouting
+only the net that used it made each image pass. None was a timing problem (the first
+failed identically at 4, 10 and 40 MHz). All five take their selector codeword from the
+relative table, which generalises a codeword observed at one row or column to others, and
+the vendor's own bitgen does not have any of them. The flow now refuses those, nine more
+found by probing every unconfirmed relative-table entry with the vendor bitgen, and six
+connections that select a different source than modelled. See the
+[evidence record](../qualification/afexe_absent_refusal_20260929.json).
+
+Residual risk: designs that use an asynchronous input pin directly as a synchronous reset
+can start some registers a clock later than others; the stronger FIFO and LFSR holdouts
+miss about 3 in 64 reset releases this way and pass every release with a two-flop reset
+synchronizer. Build success is not silicon evidence; test a new design on hardware.
+
+Refusals that are containment rather than support:
+
+- Routes through never-proven pip shapes and the 20 vendor-unknown or mis-encoded
+  connections above. A dense design, or a forced `--seed`, can refuse to build.
+- x1 single-port BRAM writes without `PORTA_OUTREG`.
+- Each place-and-route attempt stops after 300 s; router2 has no iteration limit.
+
+Router-chosen LUT input pins (`AGAMEMNON_LUT_PIN_SWAP=1`) are opt-in: 38 of 38 designs
+passed on the board with it on (38 of 38 off), but it changes most images and has less board history
+than the default.
 
 ## Routing graph made true by silicon witness — 2026-09-19
 
