@@ -45,10 +45,12 @@ class CongestionMarginalError(RuntimeError):
 def congestion_marginal_pip_sources(chipdb_root):
     """Refused pips as ``{routed-JSON PIP name: evidence source}``.
 
-    Three evidence classes share the table: ``board_congestion_*`` (board-confirmed X20Y12
+    Several evidence classes share the table: ``board_congestion_*`` (board-confirmed X20Y12
     congestion-marginal feeders), ``unproven_shape_*`` (pip shapes that no board-PASS open image
-    or qualified fixture has ever used) and ``board_pair_*`` (pips isolated by a same-placement
-    pass/fail board comparison).
+    or qualified fixture has ever used), ``board_pair_*`` (pips isolated by a same-placement
+    pass/fail board comparison), and ``afexe_absent_*`` / ``afexe_absent_board_*`` (routing pips
+    that af.exe's own bitgen does not know at that position; the board variant was also bisected
+    to on silicon).
     """
     path = Path(chipdb_root) / CSV_NAME
     sources = {}
@@ -144,6 +146,16 @@ def validate_module_congestion_marginal(module, chipdb_root):
         reasons.append(
             "pip(s) isolated by a same-placement pass/fail board comparison "
             "(see qualification/unproven_shape_refusal_20260929.json)")
+    if "afexe_absent_board" in classes:
+        reasons.append(
+            "pip(s) unknown to the vendor router and board-proven wrong: af.exe's bitgen writes "
+            "nothing for this hop, and a board bisection isolated it as the single cause of "
+            "silently wrong images (see qualification/afexe_absent_refusal_20260929.json)")
+    if "afexe_absent" in classes:
+        reasons.append(
+            "pip(s) unknown to the vendor router: af.exe's bitgen writes nothing for this hop at "
+            "this position, so our selector codeword has no confirmed source "
+            "(see qualification/afexe_absent_refusal_20260929.json)")
     if not reasons:
         reasons.append("pip(s) listed in agamemnon/chipdb/congestion_marginal_edges.csv")
     raise CongestionMarginalError(

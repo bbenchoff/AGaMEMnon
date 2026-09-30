@@ -1,0 +1,66 @@
+{
+  "schema": "agamemnon.refusal-evidence.v1",
+  "date": "2026-09-29",
+  "board": "AG32VF303CCT6 / L48, SRAM configuration through a single controlled board client",
+  "base_candidate": "4f98154f2f95ebe51376adcff07b46334742548e",
+  "table": "agamemnon/chipdb/congestion_marginal_edges.csv",
+  "rows_sha256": "5e08b24594447ca10590bc1806d7f99b55dfa6885cb00574cebb2506dc39ea41",
+  "classes": {
+    "afexe_absent_board_20260929": {
+      "rows": 1,
+      "definition": "RMUX57@16,3->RMUX34@16,4, selector CFG_RMUX5 slot 4 codeword [2,9]. The vendor bitgen writes nothing for this hop at X16Y4, X9Y4 and X14Y11; at X14Y11 it writes [2,9] for RMUX09 four rows below, which does not exist in row 4. Our table held an enumerated row for it.",
+      "policy": "Post-route refusal plus the existing retry penalty. The device graph and profile identities are unchanged."
+    },
+    "afexe_absent_20260929": {
+      "rows": 53,
+      "definition": "Every other shipped fabric ROUTE pip with a routing-multiplexer destination for which every vendor-bitgen probe wrote nothing (or aborted the tile), excluding pips already refused and pips used by a shipped silicon-qualified routed fixture.",
+      "excluded_as_oracle_false_positives": [
+        "RMUX20@9,4->RMUX81@8,4",
+        "RMUX21@16,7->RMUX87@16,4",
+        "RMUX69@16,3->RMUX87@16,4"
+      ],
+      "policy": "Post-route refusal plus the existing retry penalty. Admit a pip only with a design-level silicon pass that depends on it; a ring oscillation through it is not sufficient."
+    }
+  },
+  "method": "Same placement and LUT connections throughout. The failing and passing minmax32_kat routed checkpoints re-encode byte-identically to their board images. Hybrid routings (subsets of nets rerouted with every other net held) were encoded by this repository's bitgen, which validated each one, and loaded into SRAM between reference images.",
+  "observations": [
+    {
+      "step": "clock sweep",
+      "result": "The failing routing fails at 4, 10 and 40 MHz; the passing routing passes at all three. Not setup timing."
+    },
+    {
+      "step": "bisection",
+      "result": "120-net tangle -> one eighth -> net state[4] -> pip RMUX57@16,3->RMUX34@16,4. Only removing that pip passes (2/2); changing its feed while keeping it fails."
+    },
+    {
+      "step": "context controls",
+      "result": "Vacating the neighbouring outputs of CFG_RMUX5, vacating RMUX57 at X16Y4 or X16Y8, or also driving RMUX57 at X16Y4 with the same net: all still fail. Driving RMUX57@16,3 through a dead-end stub without the pip passes 3/3."
+    },
+    {
+      "design": "minmax32_kat",
+      "failing_image_sha256": "0643152bd6a1ebe2fad83522141c2218417edaf273412685e406659ef0171466",
+      "pip_avoided_image_sha256": "6103ee6c3d67b56e745267a454ccffbf88cc8bb46569417747e4c2c6b6f1cad4",
+      "failing": "fail on every load",
+      "pip_avoided": "pass 2/2"
+    },
+    {
+      "design": "lfsr16x7_kat",
+      "failing_image_sha256": "a484fcf33df811edea8cce25de0e5cef2127d0fbd306a298822df241eb132f14",
+      "pip_avoided_image_sha256": "b67c480290eb560694191fa024d3c600cca6645a2233130037ac68c0ecf4ad5c",
+      "failing": "fail 2/2",
+      "pip_avoided": "pass 3/3"
+    },
+    {
+      "design": "stronger fast-RAM holdout (inferred_ram progress)",
+      "failing_image_sha256": "895edc37ec8025bd978df6d67280624e33a4d092a655021dc3e805473c3fa923",
+      "pip_avoided_image_sha256": "ad81d129fc7e1823f307806545ca095f48f50fdc8f95e41cd49717626910865a",
+      "failing": "fail 3/3",
+      "pip_avoided": "pass 4/4"
+    }
+  ],
+  "limitations": [
+    "One load and one reset release per board observation.",
+    "The 53 oracle rows are refused on vendor-topology evidence alone; three oracle-absent pips are known to work in qualified designs, so the class has false positives. A false positive costs one unused pip.",
+    "Ring-oscillator witnesses do not certify a pip for design use: the board-proven pip has one."
+  ]
+}

@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "72ff365dda4af5de2fd165e7ecbd0125bc1019bd1538f5b66b8e75a0cf797591",
+  "fingerprint_sha256": "2b0a9ef88e8279e4190c2b0a5087969ae38949c512c580307592896ea3fe0c5b",
   "file_count": 279,
   "pinned_date": "2026-09-29",
-  "reason": "congestion_marginal_edges.csv gains 2,416 never-proven-shape rows (X13 BRAM/MCU-boundary terminals exempt) (source unproven_shape_20260929) and 207 same-source pass/fail board-pair rows (inferred_ram 15, add2x16_kat 29, minmax32_kat 163) (board_pair_20260929); the six board_congestion rows are unchanged. The table is a post-route refusal plus retry penalty, not a graph edit: dev_pips.csv and all profile identities are unchanged. research_knowledge_manifest.json records the table's new size and hash (only that row changed). The Rule2 gate rebuilt every included retained qualified artifact byte-identical, and no shipped qualified routed fixture uses a refused pip. Board evidence (L48, SRAM): stronger LFSR 0/32 -> 61/64, slow RAM 0/32 -> 64/64, fast RAM 0/32 -> 64/64 reset trials."
+  "reason": "congestion_marginal_edges.csv gains 54 rows for routing pips the vendor bitgen does not know: RMUX57@16,3->RMUX34@16,4 (afexe_absent_board_20260929), board-bisected as the single cause of the minmax32_kat, lfsr16x7_kat and stronger fast-RAM wrong images, and 53 other shipped RMUX-destination pips the vendor bitgen leaves unwritten (afexe_absent_20260929), excluding three used by qualified fixtures. Earlier rows are unchanged (6 board_congestion, 2,416 unproven_shape, 207 board_pair). The table is a post-route refusal plus retry penalty, not a graph edit: dev_pips.csv and all profile identities are unchanged. research_knowledge_manifest.json records the table's new size and hash. No shipped qualified routed fixture uses a refused pip. Evidence: qualification/afexe_absent_refusal_20260929.json."
 }

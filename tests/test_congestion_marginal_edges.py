@@ -224,6 +224,9 @@ def test_cli_wires_the_check_into_the_shared_pre_emission_checkpoint():
 # 2026-09-29 refusal classes: never-proven pip shapes and a same-placement board pair.
 LFSR_SHAPE_PIP = "X16Y5_RMUX02.X16Y9_RMUX18"
 RAM_PAIR_PIPS = {"X16Y5_RMUX31.X19Y5_RMUX40", "X19Y3_RMUX02.X19Y5_RMUX13"}
+# Board-bisected cause of the minmax32_kat, lfsr16x7_kat and stronger fast-RAM wrong images.
+AFEXE_BOARD_EDGE = "RMUX57@16,3->RMUX34@16,4"
+AFEXE_BOARD_PIP = "X16Y3_RMUX57.X16Y4_RMUX34"
 
 
 def test_unproven_shape_and_board_pair_rows_are_present_and_labelled():
@@ -233,8 +236,11 @@ def test_unproven_shape_and_board_pair_rows_are_present_and_labelled():
         assert EDGE_RE.fullmatch(row["edge"]), row
         assert row["evidence"] and row["note"], row
         classes.setdefault(row["source"], []).append(row)
-    assert sorted(classes) == ["board_congestion_20260925", "board_pair_20260929",
+    assert sorted(classes) == ["afexe_absent_20260929", "afexe_absent_board_20260929",
+                               "board_congestion_20260925", "board_pair_20260929",
                                "unproven_shape_20260929"]
+    assert len(classes["afexe_absent_20260929"]) == 53
+    assert [row["edge"] for row in classes["afexe_absent_board_20260929"]] == [AFEXE_BOARD_EDGE]
     assert len(classes["unproven_shape_20260929"]) == 2416
     assert len(classes["board_pair_20260929"]) == 207
     assert len({row["edge"] for row in rows}) == len(rows), "no duplicate edges"
@@ -274,7 +280,8 @@ def test_x13_terminal_shapes_are_not_refused_by_shape():
 def test_refusal_message_names_the_evidence_class():
     for pip, needle in ((LFSR_SHAPE_PIP, "never-proven pip shape"),
                         (sorted(RAM_PAIR_PIPS)[0], "same-placement pass/fail board comparison"),
-                        ("X20Y12_RMUX53.X20Y12_IMUX05", "board-confirmed congestion-marginal")):
+                        ("X20Y12_RMUX53.X20Y12_IMUX05", "board-confirmed congestion-marginal"),
+                        (AFEXE_BOARD_PIP, "unknown to the vendor router and board-proven wrong")):
         module = {"netnames": {"n": _net("W0;%s;1;W1;;1" % pip)}}
         try:
             PC.validate_module_congestion_marginal(module, DATA)
