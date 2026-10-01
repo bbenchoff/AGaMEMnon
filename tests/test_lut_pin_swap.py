@@ -1,10 +1,11 @@
-"""Router-chosen LUT input pins (AGAMEMNON_LUT_PIN_SWAP, off by default).
+"""Router-chosen LUT input pins (AGAMEMNON_LUT_PIN_SWAP; on by default, "0" disables).
 
 Structural checks always run.  The compiled checks run the isolated agrv2k
 nextpnr on a small hand-built netlist and need AGAMEMNON_UARCH_NEXTPNR plus a
 matching generated devdb (AGAMEMNON_UARCH_DEVDB).
 """
 
+import hashlib
 import itertools
 import json
 import os
@@ -37,13 +38,13 @@ def _source():
     return UARCH.read_text(encoding="utf-8")
 
 
-def test_option_is_off_unless_exactly_one():
+def test_option_is_on_unless_exactly_zero():
     source = _source()
     body = source.split("static bool lut_pin_swap_enabled()", 1)[1].split("\n}\n", 1)[0]
     assert 'std::getenv("AGAMEMNON_LUT_PIN_SWAP")' in body
-    assert 'value == nullptr || std::string(value) == "0"' in body
-    assert 'std::string(value) == "1"' in body
-    assert "log_error" in body
+    assert 'if (value == nullptr || std::string(value) == "1")\n        return true;' in body
+    assert 'if (std::string(value) == "0")\n        return false;' in body
+    assert body.index('== "1"') < body.index('== "0"') < body.index("log_error")
 
 
 def test_hooks_run_after_every_pre_route_reservation_and_before_post_route_audits():
@@ -214,16 +215,62 @@ def _check_pins(cells, routes):
                 assert "X%dY%d_IMUX%02d" % (x, y, 4 * z + k) in routes[net], (name, k)
 
 
-def test_unset_and_zero_are_byte_identical_and_add_nothing(tmp_path):
+def test_unset_means_on_and_is_byte_identical_to_one(tmp_path):
     unset, unset_log = _route(tmp_path, "unset")
+    one, one_log = _route(tmp_path, "one", swap="1")
+    assert unset == one
+    assert "LUT pin swap ON:" in unset_log and "LUT pin swap rewrote" in unset_log
+    assert b"AGRV2K_LUT_PIN_PERM" in unset and b"LUTPERM" not in unset
+
+
+# Routed JSON of _netlist() from the v0.5.0 default flow (LUT pin swap off when
+# unset): nextpnr-release05-full11-20260930 (AGaMEMnon 333e688, released as
+# 6fb2b45) with AGAMEMNON_LUT_PIN_SWAP unset, on the strict devdb whose
+# fingerprint is below (tests/devdb_fixtures.py profile "strict" at 5ae3b00).
+# Recorded 2026-09-30 when the default flipped to on.  A graph change alters
+# the fingerprint; re-pin both from a build whose "0" path is unchanged.
+PREVIOUS_DEFAULT_DEVDB_FINGERPRINT = "017b455fbd4611fa1dac98425e3eb2f87461a0598cf2f4fe6d53327e365933ba"
+PREVIOUS_DEFAULT_ROUTED_SHA256 = "b452496aa6794a531cc9de828d1a8e0d636eaa881ac7d5213f31a39e09d669e6"
+
+
+def _devdb_fingerprint(devdb):
+    rows = sorted(
+        "%s %s\n" % (p.name, hashlib.sha256(p.read_bytes()).hexdigest())
+        for p in Path(devdb).iterdir() if p.is_file()
+    )
+    return hashlib.sha256("".join(rows).encode("utf-8")).hexdigest()
+
+
+def test_zero_adds_nothing_and_is_byte_identical_to_the_previous_default(tmp_path):
     zero, zero_log = _route(tmp_path, "zero", swap="0")
-    assert unset == zero
-    assert b"LUTPERM" not in unset and b"AGRV2K_LUT_PIN_PERM" not in unset
-    assert "LUT pin swap" not in unset_log and "LUT pin swap" not in zero_log
+    assert b"LUTPERM" not in zero and b"AGRV2K_LUT_PIN_PERM" not in zero
+    assert "LUT pin swap" not in zero_log
+    _, devdb = _runtime_inputs()
+    assert _devdb_fingerprint(devdb) == PREVIOUS_DEFAULT_DEVDB_FINGERPRINT, (
+        "devdb differs from the one the previous-default routed hash was recorded on; re-pin")
+    assert hashlib.sha256(zero).hexdigest() == PREVIOUS_DEFAULT_ROUTED_SHA256
+
+
+def test_unknown_value_is_an_error(tmp_path):
+    nextpnr, devdb = _runtime_inputs()
+    source = tmp_path / "design.json"
+    source.write_text(json.dumps(_netlist(), sort_keys=True), encoding="utf-8")
+    env = dict(os.environ, AGAMEMNON_LUT_PIN_SWAP="yes")
+    runtime = env.get("AGAMEMNON_UARCH_NEXTPNR_RUNTIME")
+    if runtime:
+        env["PATH"] = runtime + os.pathsep + env.get("PATH", "")
+    result = subprocess.run(
+        [str(nextpnr), "--uarch", "agrv2k", "-o", "chipdb=%s" % devdb, "--json", str(source),
+         "--write", str(tmp_path / "bad.json"), "--router", "router2", "--placer", "heap", "--seed", "1",
+         "--top", "top", "--ignore-loops"],
+        cwd=tmp_path, env=env, text=True, capture_output=True, timeout=600,
+    )
+    assert result.returncode != 0
+    assert "AGAMEMNON_LUT_PIN_SWAP must be exactly 0 (off) or 1 (on, the default)" in result.stdout + result.stderr
 
 
 def test_forced_swaps_permute_init_and_land_on_the_physical_input(tmp_path):
-    off_bytes, _ = _route(tmp_path, "off")
+    off_bytes, _ = _route(tmp_path, "off", swap="0")
     on_bytes, log = _route(tmp_path, "derange", swap="1", derange="*")
     assert b"LUTPERM" not in on_bytes
     off_cells, _ = _cells_and_routes(json.loads(off_bytes))
@@ -256,8 +303,8 @@ def test_forced_swaps_permute_init_and_land_on_the_physical_input(tmp_path):
 
 
 def test_unforced_swap_builds_and_preserves_every_function(tmp_path):
-    off_bytes, _ = _route(tmp_path, "off")
-    on_bytes, log = _route(tmp_path, "on", swap="1")
+    off_bytes, _ = _route(tmp_path, "off", swap="0")
+    on_bytes, log = _route(tmp_path, "on")
     assert "LUT pin swap ON:" in log and "LUT pin swap rewrote" in log
     off_cells, _ = _cells_and_routes(json.loads(off_bytes))
     on_cells, on_routes = _cells_and_routes(json.loads(on_bytes))

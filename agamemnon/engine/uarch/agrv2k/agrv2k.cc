@@ -9960,16 +9960,17 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
 // bel-pin binding, rewires the cell ports and permutes INIT, so routed JSON
 // and every downstream consumer see an ordinary identity-mapped slice.
 //
-// OFF unless AGAMEMNON_LUT_PIN_SWAP=1.  Off, no wire, pip, bel pin or
-// availability decision differs from the historical flow.
+// ON by default (unset or AGAMEMNON_LUT_PIN_SWAP=1); AGAMEMNON_LUT_PIN_SWAP=0
+// turns it off.  Off, no wire, pip, bel pin or availability decision differs
+// from the flow before router-chosen pins existed (the v0.5.0 default).
 static bool lut_pin_swap_enabled()
 {
     const char *value = std::getenv("AGAMEMNON_LUT_PIN_SWAP");
-    if (value == nullptr || std::string(value) == "0")
-        return false;
-    if (std::string(value) == "1")
+    if (value == nullptr || std::string(value) == "1")
         return true;
-    log_error("agrv2k: AGAMEMNON_LUT_PIN_SWAP must be exactly 0 or 1 when set\n");
+    if (std::string(value) == "0")
+        return false;
+    log_error("agrv2k: AGAMEMNON_LUT_PIN_SWAP must be exactly 0 (off) or 1 (on, the default) when set\n");
     return false;
 }
 

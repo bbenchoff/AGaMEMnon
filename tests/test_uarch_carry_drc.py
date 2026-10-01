@@ -885,7 +885,13 @@ def test_terminal_cout_may_feed_ordinary_logic(tmp_path, monkeypatch, route, see
     exporter = packed["c_fa_3_CARRY_EXPORT"]
     consumer = packed["terminal_carry_flag_LC"]
     assert tail["connections"]["COUT"] == exporter["connections"]["CIN"]
-    assert exporter["connections"]["F"] == consumer["connections"]["I"][:1]
+    # Router-chosen LUT pins (default on) may move the export onto another
+    # physical input of the consumer; AGRV2K_LUT_PIN_PERM[0] names it.
+    perm = consumer["attributes"].get("AGRV2K_LUT_PIN_PERM")
+    if perm is not None:
+        assert route and sorted(perm) == list("0123")
+    physical = int(perm[0]) if perm is not None else 0
+    assert exporter["connections"]["F"] == consumer["connections"]["I"][physical:physical + 1]
     unused_cout = exporter["connections"]["COUT"]
     assert len(unused_cout) == 1
     assert unused_cout != exporter["connections"]["F"]
