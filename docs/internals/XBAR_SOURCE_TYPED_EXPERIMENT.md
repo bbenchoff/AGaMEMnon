@@ -31,7 +31,7 @@ open-tool silicon qualification.
 
 Fresh ordinary-source regbank16 and util20 builds reproduced their raw and
 compressed silicon-tested images with the variable unset; see
-[default reproduction](../qualification/ODD_DEFAULT_REPRODUCTION_20260907.md). This supports the
+[default reproduction](../../qualification/ODD_DEFAULT_REPRODUCTION_20260907.md). This supports the
 bounded default path only. It does not establish arbitrary odd-site
 correctness, universal pair conduction, wider compositions, or broad density
 and timing claims.

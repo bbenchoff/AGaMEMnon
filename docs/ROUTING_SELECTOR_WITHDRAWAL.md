@@ -50,7 +50,7 @@ replay and control tests passed 123 tests; seven graph identity/tamper tests
 also passed. These finite results do not establish arbitrary-design vendor
 parity, general mixed-control qualification, or physical speed improvement.
 Compaction was subsequently promoted with placement preflight and fallback;
-see [ordinary default qualification](DEFAULT_TILE_PACKING.md). Expanded
+see [ordinary default qualification](internals/DEFAULT_TILE_PACKING.md). Expanded
 control sharing remains explicit. No release is created by this change.
 
 ## RMUX92 downward turnback — 2026-09-18

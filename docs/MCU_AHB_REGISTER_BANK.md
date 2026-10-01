@@ -300,7 +300,7 @@ three-upper-byte preservation groups, byte reads, 256 low-half writes, 256
 upper-half preservation cases, halfword reads, and the ID/counter/W1C class
 oracle. The register-window soft UART
 (`2026-08-05-soft-uart-register-window-offline`) is an offline artifact gate
-only; see [MCU_AHB_SOFT_UART.md](MCU_AHB_SOFT_UART.md).
+only; see [MCU_AHB_SOFT_UART.md](internals/MCU_AHB_SOFT_UART.md).
 
 Record `2026-08-11-l48-misaligned-access-fault-boundary` closes the
 misaligned-access question at the MCU boundary. On the wait8 access-semantics

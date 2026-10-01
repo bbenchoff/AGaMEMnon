@@ -253,7 +253,7 @@ A ripple slice is a LUT4 configured with `INIT = 0x96E8` and `D = I[3]` tied
 
 `I[2]` is unused because `pinC` comes from the carry hardware
 (`modeMux = 1`, `CFG_LUTCMUX[2z+1] = 1`). The packer normally supplies `D` from
-a **shared VCC slice**. The bounded [registered local-input profile](CARRY_LOCAL_INPUTS.md)
+a **shared VCC slice**. The bounded [registered local-input profile](internals/CARRY_LOCAL_INPUTS.md)
 instead leaves its D selector unselected, which reads high at those sites.
 Related masks in the same family
 (`0x69D4`, …) appear as folded/inverted variants. **[R]**
@@ -263,8 +263,8 @@ Related masks in the same family
 | Qualified | Detail |
 |---|---|
 | Same-tile short chains | 4-stage and 8-stage chains; **two simultaneous 3-stage** chains |
-| One inter-tile corridor | A **33-site** corridor containing a seed plus **32** arithmetic stages through **X20Y12, X20Y11, X20Y10**, with counter-rate and registered-accumulator witnesses. The former upward/skipping order is withdrawn; see [correction](CARRY_CORRIDOR_CORRECTION.md). |
-| Registered local-input prefixes | Exact 16/24/31-bit accumulator images pass sampled sequence checks at 10 MHz; the full 32-bit image passes through 110 MHz and fails at 120/125 MHz. [Scope and evidence](CARRY_LOCAL_INPUTS.md). |
+| One inter-tile corridor | A **33-site** corridor containing a seed plus **32** arithmetic stages through **X20Y12, X20Y11, X20Y10**, with counter-rate and registered-accumulator witnesses. The former upward/skipping order is withdrawn; see [correction](internals/CARRY_CORRIDOR_CORRECTION.md). |
+| Registered local-input prefixes | Exact 16/24/31-bit accumulator images pass sampled sequence checks at 10 MHz; the full 32-bit image passes through 110 MHz and fails at 120/125 MHz. [Scope and evidence](internals/CARRY_LOCAL_INPUTS.md). |
 
 The same-tile multi-chain placement rule enforced by the packer **[R]** is
 `sum(arithmetic stages) + number of chains <= 9`.

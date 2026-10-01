@@ -1,7 +1,7 @@
 # Shared register-control legality
 
 The following describes the released default boundary. A separate
-[native clock-enable experiment](NATIVE_CLOCK_ENABLE_EXPERIMENT.md) adds
+[native clock-enable experiment](../NATIVE_CLOCK_ENABLE_EXPERIMENT.md) adds
 opt-in `CLOCK_ENABLE_POS` synthesis, packing, routing and emission on this
 branch; it does not change the default asynchronous-control boundary.
 

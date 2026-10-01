@@ -45,7 +45,7 @@ positive exact points without creating a general alternate-function matrix.
 The supporting observations are in
 [hardware qualification](HARDWARE_VALIDATION.md),
 [the UART ROM record](UART_BOOTLOADER.md), and the append-only files under
-[`qualification/`](../qualification/).
+[`qualification/`](../qualification).
 
 ## Rules for firmware and board definitions
 

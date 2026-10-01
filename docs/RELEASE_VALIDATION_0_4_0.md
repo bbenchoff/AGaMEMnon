@@ -122,8 +122,7 @@ The release job requires the wheel and both SDK jobs, archive SHA-256 checks,
 tag/version agreement and an existing version-specific release-notes file.
 Notes link to the exact tagged tree, not mutable main. Failed or merely queued
 jobs do not qualify a release. Main and the tag are not advanced until the
-candidate is reviewed; branch cleanup is separately recorded in
-[the recoverable ref inventory](RELEASE_BRANCH_CLEANUP_0_4_0.md).
+candidate is reviewed.
 
 
 ## Integrated native and input-boundary gate, 2026-09-06
@@ -152,7 +151,7 @@ A fresh full default-emitter audit after the input-boundary change passed
 **58/58 migrated pins** in 220.32 seconds; both manifests remained unchanged.
 It matched 41/58 original pins, consistent with the separately documented
 explicit historical replay requirement. That historical replay was not rerun
-in this checkpoint. Fences remain **74 -> 74**. See [current blockers](BLOCKERS.md).
+in this checkpoint. Fences remain **74 -> 74**.
 
 
 ## Required-route and installed-source integration, 2026-09-06

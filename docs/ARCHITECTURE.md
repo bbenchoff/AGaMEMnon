@@ -42,7 +42,7 @@ flip-flop, clock, IO, MCU-edge, carry, and BRAM cells.
 
 Native builds automatically select eligible dedicated-carry chains within
 bounded physical footprints; `--no-hard-carry` disables that selection.
-See [carry local inputs](CARRY_LOCAL_INPUTS.md) for supported shapes and the
+See [carry local inputs](internals/CARRY_LOCAL_INPUTS.md) for supported shapes and the
 narrower silicon qualification. BRAM inference is accepted only for patterns represented by the
 integrated hard-block model; unsupported semantics must use soft logic or fail.
 

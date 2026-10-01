@@ -48,7 +48,7 @@ both input biases on the external observer and restored the board after
 each run. An independently working 17-bit counter bracketed the initial
 comparison. The source-fresh corrected images passed three alternating
 pairs; image and source identities are recorded in
-[`carry_evidence.jsonl`](../qualification/carry_evidence.jsonl).
+[`carry_evidence.jsonl`](../../qualification/carry_evidence.jsonl).
 
 These are rate witnesses for this footprint, these increments and 10 MHz.
 They do not qualify arbitrary 32-bit arithmetic, every state of the counter,

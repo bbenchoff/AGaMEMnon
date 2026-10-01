@@ -155,5 +155,5 @@ reset instead clears the LFSR and gates the addend. That holds the accumulator
 while reset is asserted and is not equivalent to clearing its value. The
 checker solves its initial state. The corrected 33-site corridor runs
 X20Y12 -> X20Y11 -> X20Y10_SLICE0. Some A pins admit only local own-Q feedback;
-the [local-input packer](CARRY_LOCAL_INPUTS.md) places live addends on B and
+the [local-input packer](internals/CARRY_LOCAL_INPUTS.md) places live addends on B and
 removes the routed D/VCC ingress demand for eligible registered chains.

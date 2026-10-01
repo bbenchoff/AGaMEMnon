@@ -165,7 +165,7 @@ timing qualification or proof of the first clock after host-driven reset release
 See [the evidence record](../qualification/slice_input_mode_evidence.jsonl).
 C-independent LUTs, unused slices, and dedicated carry retain their selections.
 
-An optional [carry SUM/reset fusion](CARRY_RESET_FUSION.md) reduces the same
+An optional [carry SUM/reset fusion](internals/CARRY_RESET_FUSION.md) reduces the same
 LFSR from 44 to 36 slices while retaining 24 registers. Its exact image passes
 two 10 MHz reset/sequence captures with matching controls. It remains disabled
 by default; wider reset/arithmetic shapes and timing preservation are unqualified.
@@ -374,8 +374,8 @@ candidate replaces the isolated result only when its slice/tile counts improve.
 The profiles are never combined. Other clock profiles and combined asynchronous
 controls remain outside this sharing qualification. Use `--no-native-clock-enable`
 for data-logic enables; retained replay profiles preserve their settings.
-See [sharing qualification](LOCAL_CLOCK_SHARING.md) and
-[selection and bounded fallback](CONTROL_SHARING_SELECTION.md).
+See [sharing qualification](internals/LOCAL_CLOCK_SHARING.md) and
+[selection and bounded fallback](internals/CONTROL_SHARING_SELECTION.md).
 This is a main-branch change, not a new release; fences remain 74.
 
 The control/mapping optimization adds automatic comparison of recovered-reset
@@ -397,7 +397,7 @@ silicon contracts 3/3; their noncompact controls pass at 26 and 41 tiles.
 Compaction, impossible-control-group repartition and carry-ingress preflight
 are now ordinary CLI defaults. Fresh default regbank16/addsub16/util20 builds
 pass 3/3 each at 68/6, 151/12 and 434/39, with an uncompacted retry for
-classified placement/routing exhaustion. See [default placement](DEFAULT_TILE_PACKING.md).
+classified placement/routing exhaustion. See [default placement](internals/DEFAULT_TILE_PACKING.md).
 These results supersede the older compact-image
 failures for the repaired source flow, while the original failing images
 remain rejected. See [selector repair and scope](ROUTING_SELECTOR_WITHDRAWAL.md).
@@ -408,7 +408,7 @@ same native binary. The mixed fixture uses 69 slices in 14 tiles versus its
 isolated reference's 69 in 16. The 58 retained images remain byte-identical.
 Mixed/dual options remain explicit pending broader supported admission; reset
 recovery exposes a separate fixed-MCU-input placement restriction. See
-[local clock sharing](LOCAL_CLOCK_SHARING.md). No physical speed improvement
+[local clock sharing](internals/LOCAL_CLOCK_SHARING.md). No physical speed improvement
 or fence closure is claimed.
 
 ## v0.4.0 supported scope — 2026-09-07
@@ -437,8 +437,7 @@ passing. SDK workflow `34097320224` also passed both platform archive tests.
 Downloaded archive checksums and identical embedded-wheel checks passed.
 One hundred obsolete worktrees and 57 remote branches have been retired.
 
-See [current release gates](BLOCKERS.md),
-[default verification](../qualification/ODD_DEFAULT_REPRODUCTION_20260907.md),
+See [default verification](../qualification/ODD_DEFAULT_REPRODUCTION_20260907.md),
 [installed programming](../qualification/INSTALLED_PUBLIC_SRAM_20260906.md), and
 [original versus current retained images](../qualification/RETAINED_IMAGE_VERSIONS.md).
 The dated campaign counts and defect observations below retain their original
@@ -611,7 +610,7 @@ neither is a general correctness certificate.
 | Odd-site admission | Enabled in normal native builds | Source-typed F/Q ownership and endpoint reachability replace blanket parity exclusion. Installed ordinary regbank16/util20 reproduce sampled silicon-passing images. Explicit `AGRV2K_SOURCE_TYPED_XBAR=0` retains legacy admission; arbitrary odd-site compositions are not qualified. |
 | Flip-flops / state | Silicon-qualified exact subsets | Small counters, LFSRs, selected direct-D footprints, and retained exact designs pass. Reset/update and five-region state escapes show that generic state placement is not qualified. |
 | General routing | Partial, fail-closed by selector evidence | Observed route coverage is not all-device coverage. The historical 2026-09-05 ledger has fourteen no-image rows; current compact util20 and addsub16 limitations are described below. |
-| Dedicated carry | Silicon-qualified exact subsets | Same-tile short chains and exact seams; the corrected X20Y12->Y11->Y10 corridor has counter-rate witnesses at 10 MHz and [registered accumulator witnesses](CARRY_LOCAL_INPUTS.md): 16/24/31-bit images pass three trials each at 10 MHz; the 32-bit image passes three trials at 110 MHz and fails at 120/125 MHz. The packer supports fixed-root 9–32-stage feedback prefixes, with narrower silicon qualification. The old upward/skipping topology is withdrawn. Other columns, placements, arbitrary wide arithmetic and vendor timing parity remain open. See [carry corridor correction](CARRY_CORRIDOR_CORRECTION.md). |
+| Dedicated carry | Silicon-qualified exact subsets | Same-tile short chains and exact seams; the corrected X20Y12->Y11->Y10 corridor has counter-rate witnesses at 10 MHz and [registered accumulator witnesses](internals/CARRY_LOCAL_INPUTS.md): 16/24/31-bit images pass three trials each at 10 MHz; the 32-bit image passes three trials at 110 MHz and fails at 120/125 MHz. The packer supports fixed-root 9–32-stage feedback prefixes, with narrower silicon qualification. The old upward/skipping topology is withdrawn. Other columns, placements, arbitrary wide arithmetic and vendor timing parity remain open. See [carry corridor correction](internals/CARRY_CORRIDOR_CORRECTION.md). |
 | External AHB slave | Silicon-qualified exact subsets | Full HRDATA corridor recovery, exact constant endpoints, retained byte/16-bit banks, local-interrupt commands, and one reviewed public32 map. Its composer reproduces that immutable reviewed checkpoint; this does not qualify a fresh candidate. Generic banks, wider fresh state, higher/full-window decode, misaligned/signed access, broad burst behavior, hard reset, alternate bus clocks, arbitrary placement, and AHB master/DMA remain open. |
 | Fabric local interrupts | Silicon-qualified exact subset | One exact four-cause command composition delivers local causes 16â€“19 with mask/ack/set and synchronous reset behavior. Generic pending banks, hard reset, alternate clocks, and asynchronous sources remain open. |
 | Physical outputs | Silicon-qualified exact L48 subsets | Exact top-edge/left-edge routes and current campaign outputs on PIN_12/PIN_16. This does not qualify arbitrary routes, electrical modes, bidirectionality, or other packages. |

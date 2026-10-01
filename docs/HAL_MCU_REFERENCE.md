@@ -24,7 +24,7 @@ one.
 
 | Label | Meaning |
 |---|---|
-| **SILICON-QUALIFIED** | Observed working on the L48 bench through an electrically observable oracle, with a record in [`qualification/`](../qualification/) or the dated evidence cited inline. This is a *small* set. |
+| **SILICON-QUALIFIED** | Observed working on the L48 bench through an electrically observable oracle, with a record in [`qualification/`](../qualification) or the dated evidence cited inline. This is a *small* set. |
 | **REGISTER-MAP DERIVED** | Taken from published or extracted register semantics and implemented as a clean polling driver. **Never exercised on silicon.** This is *most* of the HAL. |
 | **RE-INFERRED / UNPROVEN** | Reverse-engineered, partially observed, or a known negative (something that did *not* work). Includes explicit failures. |
 

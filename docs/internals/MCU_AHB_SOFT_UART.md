@@ -13,7 +13,7 @@ The default divisor is 87 clocks per bit, fixed at synthesis time. That is
 ~115200 baud **only if the bus clock is exactly 10 MHz**, which is an
 unverified inference: the qualified measurement is one bus clock per MTIME tick,
 and MTIME itself later measured 14.08 MHz rather than the assumed nominal
-10 MHz (see [MCU_CLOCKS.md](MCU_CLOCKS.md#external-ahb-bus-clock)). Treat 87
+10 MHz (see [MCU_CLOCKS.md](../MCU_CLOCKS.md#external-ahb-bus-clock)). Treat 87
 clocks per bit as the real specification and the resulting baud as unknown until
 the bus clock is measured directly.
 

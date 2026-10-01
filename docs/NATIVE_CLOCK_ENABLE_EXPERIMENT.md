@@ -32,7 +32,7 @@ cluster-placement hook patch. Existing v0.4.0 release binaries are unchanged.
 
 The initial supported composition isolated native-enabled FFs on line 0.
 Ordinary builds now also compare separately qualified mixed and dual profiles
-on the MCU bus clock; see [sharing scope](LOCAL_CLOCK_SHARING.md). Combined
+on the MCU bus clock; see [sharing scope](internals/LOCAL_CLOCK_SHARING.md). Combined
 asynchronous controls and other clock profiles remain outside that scope. Ordinary source builds use a native-enable
 minimum group threshold of 8, LUT-to-multiple-FF broadcast preparation, and
 native local-QIN preparation. These are placement/synthesis choices, not a
@@ -129,7 +129,7 @@ This does not establish a hardware prohibition on mixed tiles. At that historica
 path conservatively excluded ordinary and differently controlled FFs from
 a native-enable tile, in both placement and emission checks. Combinational LUTs
 remain allowed. That restriction was subsequently replaced for the qualified compositions
-described in [local clock sharing](LOCAL_CLOCK_SHARING.md).
+described in [local clock sharing](internals/LOCAL_CLOCK_SHARING.md).
 
 The same source builds with that restriction: native data occupies X17Y10
 slices 0 through 7, with all ordinary FFs outside the tile. Image

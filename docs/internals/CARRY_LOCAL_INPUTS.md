@@ -32,7 +32,7 @@ the final image (384 bits for a full 32-stage chain).
 
 ## Qualification witness
 
-[`accumulator32_lfsr.v`](../qualification/accumulator32_lfsr.v) adds a 32-bit
+[`accumulator32_lfsr.v`](../../qualification/accumulator32_lfsr.v) adds a 32-bit
 LFSR value into a 32-bit accumulator every clock. A divided output samples
 the accumulator's high bit. Reset clears the LFSR and output divider; the
 accumulator retains its initial state, which the checker solves before
@@ -62,7 +62,7 @@ then produces the expected 305–306 Hz in three fresh loads. This checks a
 constant-increment counter, not every possible B-feedback design.
 
 Exact build identities, positive results and timing failures are recorded in
-[`carry_evidence.jsonl`](../qualification/carry_evidence.jsonl).
+[`carry_evidence.jsonl`](../../qualification/carry_evidence.jsonl).
 
 ## Narrower variable-addend witnesses
 
@@ -77,9 +77,9 @@ each at 10 MHz, with zero model mismatches:
 
 | Source | Accumulator width | Decoded samples across three trials |
 |---|---:|---:|
-| [`accumulator16.v`](../qualification/accumulator16.v) | 16 | 1,462 |
-| [`accumulator24.v`](../qualification/accumulator24.v) | 24 | 1,445 |
-| [`accumulator31.v`](../qualification/accumulator31.v) | 31 | 1,450 |
+| [`accumulator16.v`](../../qualification/accumulator16.v) | 16 | 1,462 |
+| [`accumulator24.v`](../../qualification/accumulator24.v) | 24 | 1,445 |
+| [`accumulator31.v`](../../qualification/accumulator31.v) | 31 | 1,450 |
 
 Use the same CLI command and L48 PCF as above, substituting the source file.
 All use the full 32-bit LFSR and 4096-clock output divider. The width-aware

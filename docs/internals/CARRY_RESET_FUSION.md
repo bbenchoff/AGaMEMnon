@@ -37,10 +37,10 @@ slices instead of 44, retaining 24 registers and capturing eight carry SUMs
 in their arithmetic slices. At 10 MHz its exact image passes two reset and
 sequence captures with zero model mismatches and matching vendor controls
 before and after. The ordinary 44-slice image passes the same contract.
-See [carry evidence](../qualification/carry_evidence.jsonl).
+See [carry evidence](../../qualification/carry_evidence.jsonl).
 
 This witness requires the ordinary-slice input-selection correction described
-in [STATUS](STATUS.md#ordinary-slice-input-selection--2026-09-18). Earlier
+in [STATUS](../STATUS.md#ordinary-slice-input-selection--2026-09-18). Earlier
 images with either packing strategy stalled because of stale carry-input
 selection on separate LFSR state slices.
 
