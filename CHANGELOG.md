@@ -7,6 +7,14 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+- routing: router-chosen LUT input pins are now on by default. router2 picks which
+  A-D input of its slice each swappable LUT signal enters and the cell's INIT is
+  permuted to match (the freeze rules of 0.5.0 are unchanged). Freshly routed images
+  of most designs change; qualified images replayed from their routed checkpoints, and
+  the four qualified BRAM source builds, are unchanged.
+  Set `AGAMEMNON_LUT_PIN_SWAP=0` to get the 0.5.0 default flow back, byte for byte;
+  `1` or unset turns it on, and any other value is an error.
+
 ## [0.5.0] - 2026-09-30
 
 - routing (opt-in, off by default): `AGAMEMNON_LUT_PIN_SWAP=1` lets router2 choose which

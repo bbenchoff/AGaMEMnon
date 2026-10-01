@@ -47,7 +47,8 @@ failures; installed wheels pass on Linux, Windows and macOS; the SDK archives bu
 - **Opt-in router-chosen LUT inputs** (`AGAMEMNON_LUT_PIN_SWAP=1`). The router may land
   a signal on any eligible input of a LUT and the truth table is permuted to match, as
   the vendor router does, with the vendor's freeze rules for feedback, register-bypass
-  and carry inputs. Off, output is byte-identical to before.
+  and carry inputs. Off, output is byte-identical to before. (After v0.5.0 this became
+  the default; `AGAMEMNON_LUT_PIN_SWAP=0` turns it off. See the changelog.)
 - Earlier 0.5 changes (memory lowering, asynchronous clear, route retries, the PLL ratio
   model, BRAM source profiles, SDK packaging) are listed in the [changelog](../CHANGELOG.md).
 

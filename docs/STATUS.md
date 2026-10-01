@@ -29,9 +29,12 @@ Refusals that are containment rather than support:
 - x1 single-port BRAM writes without `PORTA_OUTREG`.
 - Each place-and-route attempt stops after 300 s; router2 has no iteration limit.
 
-Router-chosen LUT input pins (`AGAMEMNON_LUT_PIN_SWAP=1`) are opt-in: 38 of 38 designs
-passed on the board with it on (38 of 38 off), but it changes most images and has less board history
-than the default.
+Router-chosen LUT input pins were opt-in in v0.5.0: 38 of 38 designs passed on the board
+with them on (38 of 38 off). After v0.5.0 they are the default (unreleased). Qualified images
+replayed from routed checkpoints and the qualified BRAM source builds do not change; freshly
+routed default images do, and the corpus and holdouts need their board requalification with
+the new default before the next release claims them.
+`AGAMEMNON_LUT_PIN_SWAP=0` restores the v0.5.0 default flow byte for byte.
 
 ## Routing graph made true by silicon witness — 2026-09-19
 
